@@ -24,10 +24,12 @@ describe('the MCP server', () => {
   it('lists every command of the registry as a tool, with its input schema', async () => {
     const client = await connected(harness());
     const { tools } = await client.listTools();
-    expect(tools.length).toBe(commands().length - 1);
+    // Every command but the server itself and the completion of the shells.
+    expect(tools.length).toBe(commands().length - 2);
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_theme_prompt', 'breakrocks_agent_login']));
     expect(names).not.toContain('breakrocks_mcp');
+    expect(names).not.toContain('breakrocks_completion');
     const create = tools.find((t) => t.name === 'breakrocks_agents_create')!;
     expect(create.inputSchema).toMatchObject({ type: 'object', required: ['name'], properties: { name: { type: 'string' }, interactions: { type: 'array' } } });
     expect(tools.find((t) => t.name === 'breakrocks_agents_delete')!.inputSchema.properties).toHaveProperty('yes');

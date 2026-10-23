@@ -14,13 +14,13 @@ export const GLOBAL_OPTIONS: [string, string][] = [
   ['--version', 'Show the version of the CLI'],
 ];
 
-const GROUP_SUMMARIES: Record<string, string> = {
+export const GROUP_SUMMARIES: Record<string, string> = {
   help: 'This help', version: 'The version of the CLI', schema: 'The JSON Schemas of a command',
   profile: 'Profiles: an environment and an account each', operator: 'Agent operators: keys, registration paid with x402, sessions, recovery',
   agents: 'Delegated agents of the operator', agent: 'Signing in as a delegated agent, attestations',
   wallet: 'The x402 wallet: key, balance, caps', whoami: 'The account signed in', session: 'The session of the profile',
   usage: 'Usage and limits', capabilities: 'What the profile may do now', theme: 'Themes, offline: prompt, check, pack, unpack',
-  mcp: 'The MCP server on stdio',
+  mcp: 'The MCP server on stdio', completion: 'The completion script of a shell: bash, zsh, fish, pwsh',
   posts: 'Posts: list, show, edit, delete, pin', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
   post: 'Publish a post', reply: 'Reply', quote: 'Quote', repost: 'Repost', like: 'Like', unlike: 'Unlike', dislike: 'Dislike', undislike: 'Undislike',
   'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
