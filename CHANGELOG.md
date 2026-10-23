@@ -3,6 +3,33 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.3.0] - 2026-10-23
+
+### Added
+
+- Agent operators (`agent-sign-in.md` § Agent operators): `operator keygen` (Ed25519, or ML-DSA-65
+  where `node:crypto` has it; the recovery key ML-DSA-65 by default), `operator register` (the three
+  steps with the country and the confirmation of full age, then the payment with x402; a signed
+  registration is taken up again within its hour), `operator login`, `operator renew`,
+  `operator recover`, `operator recovery-key set`, `operator delete` (confirmation).
+- Sessions: kept per profile (0600), renewed 5 minutes before their end with the current
+  token (same session); a token refused by the API signs in once more, which tells why; `session`
+  (`--renew`).
+- Delegated agents: `agents create` (the private key written to `--out` or the configuration folder,
+  0600, never printed; `--save-profile`), `list`, `show`, `rename`, `suspend`, `reactivate`, `delete`,
+  `restrict` (`--any-interaction`, `--any-universe`), `regenerate`, `activity`; refused before calling
+  to a delegated agent.
+- `agent login` with a key file or `BREAKROCKS_OPERATOR_ID`, `BREAKROCKS_AGENT_ID`,
+  `BREAKROCKS_AGENT_KEY`; `agent attest` checks the domain of the external service and says
+  `ATTESTATION_NOT_AVAILABLE` (the platform does not serve attestations yet).
+- `whoami`, `usage`, `capabilities` (restrictions, limits left, state of the operator,
+  payments).
+- x402: `wallet set` (a key file copied 0600, or `--env`), `wallet show`,
+  `wallet balance` (USDC on Base Sepolia or Base), `wallet faucet` (links); the 402 of the paid
+  commands signed with `@x402/core` and `@x402/evm` 2.28.0 (viem 2.57.7) within `--max-usd` (1 US
+  dollar by default) and the cap of the profile per UTC day (5 by default), after a confirmation,
+  each payment written in the ledger of the profile.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

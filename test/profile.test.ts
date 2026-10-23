@@ -50,11 +50,28 @@ describe('profiles', () => {
     const config = JSON.parse(readFileSync(file, 'utf8'));
     config.profiles.atlas.kind = 'operator';
     (await import('node:fs')).writeFileSync(file, JSON.stringify(config));
-    expect(await h.run('--env', 'prod', 'profile', 'show', '--json')).toBe(2);
+    expect(await h.run('--env', 'prod', 'wallet', 'faucet', '--json')).toBe(2);
     expect(last<{ error: { code: string } }>(h).error.code).toBe('ENV_MISMATCH');
-    expect(await h.run('profile', 'show', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ env: 'dev', kind: 'operator' });
-    expect(await h.run('--env', 'staging', '--profile', 'fresh', 'profile', 'show', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ name: 'fresh', env: 'staging' });
+    expect(await h.run('wallet', 'faucet', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ network: 'eip155:84532', networkName: 'Base Sepolia' });
+    expect(await h.run('--env', 'prod', '--profile', 'fresh', 'wallet', 'faucet', '--json')).toBe(1);
+    expect(last<{ error: { code: string } }>(h).error.code).toBe('FAUCET_NOT_IN_PRODUCTION');
+  });
+});
+
+describe('the wallet', () => {
+  it('is copied in the configuration folder (0600), never printed; --env reads BREAKROCKS_WALLET_KEY', async () => {
+    const key = `0x${'33'.repeat(32)}`;
+    const h = harness({ env: { BREAKROCKS_WALLET_KEY: key } });
+    const file = join(h.dir, 'w.key');
+    (await import('node:fs')).writeFileSync(file, key);
+    expect(await h.run('--env', 'dev', 'wallet', 'set', '--key', file, '--json')).toBe(0);
+    const set = last<{ address: string; maxUsdPerDay: number }>(h);
+    expect(set.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    expect(set.maxUsdPerDay).toBe(5);
+    expect(h.all()).not.toContain('33'.repeat(32));
+    expect(await h.run('--env', 'dev', '--profile', 'e', 'wallet', 'set', '--env', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ source: 'env', address: set.address });
+    if (POSIX) expect(statSync(join(h.dir, 'config', 'keys', 'default', 'wallet.key')).mode & 0o777).toBe(0o600);
   });
 });

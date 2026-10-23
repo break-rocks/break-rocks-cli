@@ -18,7 +18,7 @@ export const tempDir = (label = 'breakrocks-test-') => mkdtempSync(join(tmpdir()
 export type Harness = ReturnType<typeof capture> & { io: Io; dir: string; clock: { now: number }; slept: number[]; run: (...argv: string[]) => Promise<number> };
 
 /** An Io on a new configuration folder, without network unless [fetch] is given, at a clock the test moves. */
-export function harness(options: { fetch?: typeof fetch; env?: Record<string, string>; interactive?: boolean; answers?: string[]; cwd?: string } = {}): Harness {
+export function harness(options: { fetch?: typeof fetch; env?: Record<string, string>; interactive?: boolean; answers?: string[]; payer?: Io['payer']; cwd?: string } = {}): Harness {
   const c = capture();
   const dir = tempDir();
   const clock = { now: Date.parse('2026-10-23T10:00:00.000Z') };
@@ -29,6 +29,7 @@ export function harness(options: { fetch?: typeof fetch; env?: Record<string, st
     fetch: options.fetch ?? (async () => { throw new Error('no network in tests'); }),
     interactive: options.interactive ?? false, ask: async () => answers.shift() ?? '',
     now: () => clock.now, sleep: async (ms) => { slept.push(ms); clock.now += ms; },
+    ...(options.payer ? { payer: options.payer } : {}),
   };
   return { ...c, io, dir, clock, slept, run: (...argv: string[]) => run(argv, io) };
 }

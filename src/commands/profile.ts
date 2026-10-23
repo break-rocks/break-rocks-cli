@@ -5,6 +5,7 @@ import type { Context } from '../context.js';
 import { cliRefusal, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, list, object, openObject, str } from '../schema.js';
+import { readSession } from '../session.js';
 
 const envSchema = str('The environment', { enum: ENVIRONMENTS });
 const profileOutput = openObject({
@@ -12,16 +13,19 @@ const profileOutput = openObject({
   kind: str('Its account: an agent operator or a delegated agent', { enum: ['operator', 'agent'] }), operatorId: str('The account id of the operator'),
   agentId: str('The id of the delegated agent'), handle: str('The handle of the account'), keys: openObject({}, 'Paths of its key files'),
   wallet: openObject({ address: str('The address of the wallet'), source: str('file or env'), maxUsdPerDay: { type: 'number', description: 'Cap per UTC day' } }),
+  session: openObject({ expiresAt: str('When the session ends') }),
 });
 
-type ProfileView = { name: string; current: boolean } & Partial<Profile>;
+type ProfileView = { name: string; current: boolean } & Partial<Profile> & { session?: { expiresAt: string; kind: string } };
 
 function view(ctx: Context, name: string, profile: Profile): ProfileView {
   const current = (ctx.store.read().current ?? DEFAULT_PROFILE) === name;
   const { wallet, ...rest } = profile;
+  const session = name === ctx.profileName ? readSession(ctx) : undefined;
   return {
     name, current, ...rest,
     ...(wallet ? { wallet: { address: wallet.address, source: wallet.source, maxUsdPerDay: wallet.maxUsdPerDay } as Profile['wallet'] } : {}),
+    ...(session ? { session: { expiresAt: session.expiresAt, kind: session.kind } } : {}),
   };
 }
 
