@@ -1,0 +1,57 @@
+# Dependabot configuration.
+#
+# Project rule (2026-10-20): a dependency or a version bump must be at least 7 days old before it
+# enters the repository, because compromised releases are usually yanked within a few days.
+# `cooldown.default-days: 7` makes Dependabot wait 7 days after a release before opening a
+# version-update PR (by hand: `npm install --before=<today - 7 days>`, as package-lock.json was made).
+#
+# Exception: security fixes. Dependabot security updates (driven by GitHub advisories, not by this
+# file) ignore the cooldown, so urgent fixes are not delayed. Minor and patch bumps are grouped to
+# limit PR noise; major bumps stay in separate PRs.
+#
+# Merging: .github/workflows/dependabot-auto-merge.yml turns on GitHub's auto-merge for minor and
+# patch bumps and for GitHub Actions bumps, merged once the CI required on main is green; other
+# major bumps stay open for an evaluation (README § Dependabot).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    ignore:
+      # The types of Node follow the runtime the CLI targets (Node 24): their major moves with it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 (the native compiler) is outside the range typescript-eslint supports (< 6.1).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

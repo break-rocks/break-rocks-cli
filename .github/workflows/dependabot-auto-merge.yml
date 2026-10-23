@@ -1,0 +1,126 @@
+name: Dependabot auto-merge
+
+# What happens to a pull request of Dependabot (README § Dependabot):
+# - a minor or patch update, in any ecosystem, and any update of a GitHub Action: GitHub's
+#   auto-merge (squash) is turned on, and GitHub merges once the checks that main requires are
+#   green, never before;
+# - a major update, or a minor one under 0.x (0.34 -> 0.35 may break, as npm's ^ reads it): left
+#   open with a comment, to be evaluated separately.
+# Releases younger than 7 days are kept out by the cooldown of .github/dependabot.yml, not here.
+#
+# Nothing is merged while main requires no status check (a ruleset with "Require status checks to
+# pass"): without one, GitHub would merge at once, before the CI has run.
+#
+# Token: DEPENDABOT_MERGE_TOKEN, a fine-grained personal access token on the repositories of the
+# organization (Contents, Pull requests and Workflows: read and write), an organization secret for
+# Dependabot (a run started by Dependabot sees the Dependabot secrets only). Its merges start the
+# workflows of main, and it may merge a change of .github/workflows. Without it, GITHUB_TOKEN merges
+# the npm, pub and docker updates, and the updates of GitHub Actions are left open with a note
+# (GitHub refuses a change of .github/workflows from GITHUB_TOKEN).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dependabot:
+    # Opened and last updated by Dependabot, into the default branch: a commit pushed by a person on
+    # a Dependabot branch is merged by that person.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # the merge, when GITHUB_TOKEN is the fallback
+      pull-requests: write # the auto-merge and the comments
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Merge, or leave open for evaluation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MERGE_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+
+          # A comment of github-actions[bot], written once per kind (a hidden marker).
+          comment_once() {
+            local marker="<!-- dependabot-auto-merge:$1 -->" seen
+            seen="$(GH_TOKEN="$GITHUB_TOKEN" gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              --jq "[.[] | select(.body | contains(\"$marker\"))] | length" | awk '{ n += $1 } END { print n + 0 }')"
+            if [ "$seen" = 0 ]; then
+              printf '%s\n%s\n' "$marker" "$2" | GH_TOKEN="$GITHUB_TOKEN" gh pr comment "$PR_URL" --body-file -
+            fi
+          }
+          summary() { echo "$1" | tee -a "$GITHUB_STEP_SUMMARY"; }
+
+          # The highest change of the pull request (3 major, 2 minor, 1 patch): the update type given
+          # by Dependabot, a minor update under 0.x (a patch under 0.0.x) counted as major, an
+          # unknown type as major.
+          rank="$(jq -r '
+            [ .[] | (.newVersion // "" | ltrimstr("v")) as $to | (.updateType // "") as $type
+              | if $type == "version-update:semver-minor" then (if ($to | startswith("0.")) then 3 else 2 end)
+                elif $type == "version-update:semver-patch" then (if ($to | startswith("0.0.")) then 3 else 1 end)
+                else 3 end ]
+            | max // 3' <<<"$UPDATES")"
+          case "$rank" in
+            1 | 2 | 3) ;;
+            *) echo "::error::No Dependabot metadata for this pull request: nothing done."; exit 1 ;;
+          esac
+
+          if [ "$ECOSYSTEM" != github_actions ] && [ "$rank" = 3 ]; then
+            comment_once major "**Major update: left open for evaluation.**
+
+          Minor and patch updates, and the updates of GitHub Actions, are merged automatically once the CI is green (README § Dependabot). A major update, or a minor one under 0.x, may break the API, the runtime or the tooling: it is evaluated separately.
+
+          - To take it: read the release notes, adapt the code if needed, wait for the CI, then merge.
+          - If the upgrade is planned separately (a runtime, a compiler, a migration): comment \`@dependabot ignore this major version\`."
+            summary "Major update (or a minor one under 0.x): left open for evaluation."
+            exit 0
+          fi
+
+          required="$(GH_TOKEN="$GITHUB_TOKEN" gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE_REF" \
+            --jq '[.[] | select(.type == "required_status_checks")] | length')"
+          if [ "$required" = 0 ]; then
+            comment_once no-required-check "**Not merged automatically: \`$BASE_REF\` requires no status check.**
+
+          The auto-merge waits for the checks that \`$BASE_REF\` requires; with none, GitHub would merge at once, before any CI. Once a CI runs on pull requests and a ruleset requires it (README § Dependabot), comment \`@dependabot rebase\`."
+            summary "No required status check on $BASE_REF: not merged."
+            exit 0
+          fi
+
+          if [ -n "$MERGE_TOKEN" ]; then
+            export GH_TOKEN="$MERGE_TOKEN"
+          elif [ "$ECOSYSTEM" = github_actions ]; then
+            comment_once needs-merge-token "**Not merged automatically: the secret \`DEPENDABOT_MERGE_TOKEN\` is missing.**
+
+          This update changes \`.github/workflows\`, which \`GITHUB_TOKEN\` may not merge. Once the organization secret is set for Dependabot (README § Dependabot), comment \`@dependabot rebase\`; or merge by hand once the CI is green."
+            summary "Update of a GitHub Action without DEPENDABOT_MERGE_TOKEN: not merged."
+            exit 0
+          else
+            export GH_TOKEN="$GITHUB_TOKEN"
+          fi
+
+          if [ "$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')" = true ]; then
+            summary "Auto-merge already on."
+          else
+            gh pr merge --auto --squash "$PR_URL"
+            summary "Auto-merge (squash) on: GitHub merges once the checks that $BASE_REF requires are green."
+          fi

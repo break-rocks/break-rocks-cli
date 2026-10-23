@@ -1,0 +1,36 @@
+name: CI
+
+# Lint, types, unit tests and the build, on every push to main and every pull request. No AWS
+# credentials, no network: the CLI is tested against fakes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: The executable answers
+        run: |
+          test "$(node bin/breakrocks.js --version)" = "$(node -p "require('./package.json').version")"
+          node bin/breakrocks.js help --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.commands.length) process.exit(1)"
