@@ -5,6 +5,9 @@ d'ensemble, commandes et portée (D-91) : [README.md](README.md).
 
 ## Règles
 
+- **Contrat compact** : `src/api/schema.generated.ts` est régénéré par `npm run gen:schema` à chaque
+  montée de `specs/common` (jamais édité à la main) ; une commande qui est une opération de l'API passe
+  par `apiCommand` (`src/api/command.ts`).
 - **Le contrat fait foi** : `specs/common` (sous-module `break-rocks-specs`) : `contracts/agent-sign-in.md`
   pour les opérateurs et agents délégués, `contracts/schema.graphql` pour l'API. **Ne jamais écrire
   ni commiter dans `specs/common`** : une spec commune se change par PR sur `break-rocks-specs`.

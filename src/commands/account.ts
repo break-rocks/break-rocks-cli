@@ -1,4 +1,5 @@
 // whoami, usage (C-08) and capabilities (C-29): who the profile is, what it used, what it may do.
+import { selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { CliError } from '../errors.js';
 import type { Command } from '../registry.js';
@@ -68,14 +69,28 @@ type Capabilities = {
   limits: { minute: ReturnType<typeof remaining>; hour: ReturnType<typeof remaining>; quota: ReturnType<typeof remaining>; tier: string | null };
   allowance?: Allowance;
   payments: { wallet: boolean; address?: string; network: string; maxUsdPerDay: number; spentToday: string };
+  universe?: { name: string; [k: string]: unknown };
   notes: string[];
 };
 
-export const capabilities: Command<Record<string, never>, Capabilities> = {
+/** What the API tells the reader of a universe: its role, its residence, why it may not join (the moderation and the governance follow the role). */
+async function inUniverse(ctx: Context, universe: string): Promise<Capabilities['universe']> {
+  const out: { name: string; [k: string]: unknown } = { name: universe };
+  try {
+    const u = (await api<{ universe: Record<string, unknown> | null }>(ctx, 'query($n: String!) { universe(name: $n) { name exists private myRole myReaderRole joinMode joinRefusal canJoinAt conditionsAccepted conditionsVersion residentCount memberCount } }', { n: universe })).universe;
+    Object.assign(out, u ?? { exists: false });
+  } catch (error) { out.error = error instanceof CliError ? error.code : String(error); }
+  try {
+    out.residence = (await api<{ myResidence: unknown }>(ctx, `query($u: String!) { myResidence(universe: $u) ${selection('Residence', 1)} }`, { u: universe })).myResidence;
+  } catch (error) { out.residence = { error: error instanceof CliError ? error.code : String(error) }; }
+  return out;
+}
+
+export const capabilities: Command<{ universe?: string }, Capabilities> = {
   name: 'capabilities', summary: 'What the profile may do now: its restrictions, its limits left, the state of its operator',
   description: 'For an AI agent before it tries (C-29). The restrictions of a delegated agent are not served to the agent by the API (delegatedAgents is refused to it): they are said unknown, and a refusal tells them (DELEGATED_AGENT_NOT_ALLOWED, DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED).',
-  examples: ['breakrocks capabilities --json'],
-  input: object({}),
+  examples: ['breakrocks capabilities --json', 'breakrocks capabilities --universe %test-village-sport --json'],
+  input: object({ universe: str('Also what the API tells in this universe: the role, the residence, the reason a join is refused') }),
   output: openObject({
     actor: str('operator or delegated-agent'), profile: str('The profile'), env: str('Environment'), account: meSchema,
     operator: openObject({ id: str('The operator'), state: str('active or suspended (paid period ended: read and renew only)', { enum: ['active', 'suspended'] }), paidUntil: { type: ['string', 'null'] }, recoveryKeyRequired: bool('A new recovery key must be declared first') }),
@@ -84,9 +99,10 @@ export const capabilities: Command<Record<string, never>, Capabilities> = {
     limits: openObject({ minute: windowSchema, hour: windowSchema, quota: windowSchema, tier: { type: ['string', 'null'] } }),
     allowance: openObject({ allowance: int('Delegated agents allowed'), operated: int('Operated'), createdLast24Hours: int('Created in 24 hours') }),
     payments: openObject({ wallet: bool('A wallet is set'), address: str('Its address'), network: str('The network of the environment'), maxUsdPerDay: { type: 'number' }, spentToday: str('Signed today, USDC') }),
+    universe: openObject({ name: str('The universe'), myRole: { type: ['string', 'null'], description: 'The role of the reader (moderator, leadership…)' }, myReaderRole: { type: ['string', 'null'] }, joinRefusal: { type: ['string', 'null'], description: 'Why the reader may not join' }, residence: openObject({}, 'The residence of the reader (myResidence): canVote, voteRequirement…') }),
     notes: list('What else to know'),
   }),
-  run: async (ctx) => {
+  run: async (ctx, { universe }) => {
     const { session, at } = await ensureSession(ctx);
     const actor = actorOf(ctx);
     const notes: string[] = [];
@@ -116,6 +132,7 @@ export const capabilities: Command<Record<string, never>, Capabilities> = {
       restrictions: actor === 'operator' ? { known: true, interactions: null, universes: null } : { known: false, reason: 'The API serves no restriction to the delegated agent itself; its operator reads them (agents show)' },
       limits, ...(allowance ? { allowance } : {}),
       payments: { wallet: !!profile.wallet, ...(profile.wallet ? { address: profile.wallet.address } : {}), network: network.id, maxUsdPerDay: profile.wallet?.maxUsdPerDay ?? DEFAULT_MAX_USD_PER_DAY, spentToday: formatUsdc(spentToday(ctx)) },
+      ...(universe ? { universe: await inUniverse(ctx, universe) } : {}),
       notes,
     };
   },

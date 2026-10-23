@@ -93,18 +93,18 @@ export async function signIn(ctx: Context, at: Endpoints, credentials: Credentia
 export async function ensureSession(ctx: Context, options: { renew?: boolean; fresh?: boolean } = {}): Promise<{ session: Session; at: Endpoints }> {
   const profile = ctx.profile();
   const credentials = credentialsOf(ctx, profile);
-  const at = await endpoints(ctx, { ...profile, operatorId: profile.operatorId ?? credentials?.operatorId });
   const current = readSession(ctx);
   const usable = current && (!credentials || sameActor(current, credentials)) ? current : undefined;
   const left = usable ? Date.parse(usable.expiresAt) - ctx.now() : -1;
   const force = options.renew || options.fresh;
-  if (usable && !force && left > RENEW_BEFORE_MS) return { session: usable, at };
-  if (!credentials) {
-    if (usable && left > 0 && !force) return { session: usable, at };
+  if (!credentials && !(usable && left > 0 && !force)) {
     throw networkError('SIGN_IN_REQUIRED', profile.kind
       ? `The session of the profile "${ctx.profileName}" ended and its key is not here: sign in again`
       : `The profile "${ctx.profileName}" has no account: breakrocks operator register, or breakrocks agent login`, { profile: ctx.profileName });
   }
+  const at = await endpoints(ctx, { ...profile, operatorId: profile.operatorId ?? credentials?.operatorId });
+  if (usable && ((!force && left > RENEW_BEFORE_MS) || !credentials)) return { session: usable, at };
+  if (!credentials) throw new Error('unreachable');
   return { session: await signIn(ctx, at, credentials, options.fresh ? undefined : usable), at };
 }
 

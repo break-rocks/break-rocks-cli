@@ -21,7 +21,17 @@ const GROUP_SUMMARIES: Record<string, string> = {
   wallet: 'The x402 wallet: key, balance, caps (C-25, C-26, C-27)', whoami: 'The account signed in', session: 'The session of the profile (C-06)',
   usage: 'Usage and limits (C-08)', capabilities: 'What the profile may do now (C-29)', theme: 'Themes, offline: prompt, check, pack, unpack',
   mcp: 'The MCP server on stdio (C-31)',
+  posts: 'Posts: list, show, edit, delete, pin', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
+  post: 'Publish a post', reply: 'Reply', quote: 'Quote', repost: 'Repost', like: 'Like', unlike: 'Unlike', dislike: 'Dislike', undislike: 'Undislike',
+  'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
+  universes: 'Universes: the page, Explore, residence, favorites, private universes', explore: 'Explore', 'time-column': 'The time column', live: 'The live line',
+  accounts: 'Accounts and their links', notifications: 'Notifications', events: 'Events', proposals: 'Proposals and votes', debates: 'Debates', polls: 'Polls',
+  channels: 'Channels', themes: 'The theme catalog', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file (C-16)',
+  moderation: 'Moderation of a universe (C-15)', governance: 'Governance of a universe (C-15)',
 };
+
+/** The groups out of the basic help (C-15): breakrocks help <group>. */
+export const ADVANCED_GROUPS = ['moderation', 'governance'];
 
 function placeholder(name: string, schema: JsonSchema): string {
   const type = mainType(schema);
@@ -84,14 +94,16 @@ export function groupHelp(group: string): string {
 
 /** The overview: every group and its commands, the global options, the exit codes. */
 export function overviewHelp(): string {
-  const all = commands();
+  const all = commands().filter((c) => !ADVANCED_GROUPS.includes(groupOf(c)));
   const width = Math.max(...all.map((c) => c.name.length));
   const optionWidth = Math.max(...GLOBAL_OPTIONS.map(([o]) => o.length));
   return [
     'Usage: breakrocks <command> [options]',
     '',
     'Commands:',
-    ...groups().flatMap((g) => all.filter((c) => groupOf(c) === g).map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`)),
+    ...groups().filter((g) => !ADVANCED_GROUPS.includes(g)).flatMap((g) => all.filter((c) => groupOf(c) === g).map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`)),
+    '',
+    `Moderation and governance of a universe: ${ADVANCED_GROUPS.map((g) => `breakrocks help ${g}`).join(', ')}`,
     '',
     'Options:',
     ...GLOBAL_OPTIONS.map(([o, d]) => `  ${o.padEnd(optionWidth)}  ${d}`),

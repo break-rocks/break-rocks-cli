@@ -69,7 +69,7 @@ describe('theme check', () => {
     expect(r.ok).toBe(false);
     expect(codes(r)).toEqual(expect.arrayContaining(['THEME_SURFACE_UNKNOWN', 'THEME_TYPEFACE_NOT_APPROVED', 'THEME_SCRIMS_COMPUTED', 'THEME_GRADIENT_INVALID', 'THEME_STROKE_INVALID', 'THEME_EXTERNAL_RESOURCE', 'THEME_FORMAT_INVALID']));
   });
-  it('refuses a missing file, more than 8 images, a banner that is not 3:1, an image that is no JPEG/PNG/WebP', async () => {
+  it('refuses a missing file, more than 8 images, an image that is no JPEG/PNG/WebP; warns of a banner that is not 3:1', async () => {
     const doc = theme() as Record<string, any>;
     doc.imageSlots.timeColumn = { day: 'time-column-day.jpg', night: 'tc-night.jpg' };
     doc.imageSlots.channelHeader = { day: 'ch.jpg', night: 'ch-night.jpg' };
@@ -80,6 +80,7 @@ describe('theme check', () => {
     expect(await h.run('theme', 'check', file, '--json')).toBe(1);
     const r = last<Report>(h);
     expect(codes(r)).toEqual(expect.arrayContaining(['THEME_IMAGES_LIMIT', 'IMAGE_FILE_MISSING', 'THEME_BANNER_SIZE', 'THEME_IMAGE_TYPE']));
+    expect(r.problems.find((p) => p.code === 'THEME_BANNER_SIZE')!.severity).toBe('warning');
   });
   it('tells the colors the platform would raise: a warning with the color kept, an error with --strict', async () => {
     const doc = theme() as Record<string, any>;

@@ -63,9 +63,12 @@ jobs:
           node bin/breakrocks.js --env dev operator keygen --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.fingerprint || JSON.stringify(j).includes('PRIVATE KEY')) process.exit(1)"
           node bin/breakrocks.js nope && exit 1 || test $? -eq 2
       - name: The MCP server on stdio
+        shell: bash
         env:
           BREAKROCKS_CONFIG_DIR: ${{ runner.temp }}/breakrocks-config
-        run: node test/smoke/mcp-stdio.mjs
+        run: |
+          node test/smoke/mcp-stdio.mjs
+          node test/smoke/mcp-stdio.mjs breakrocks_posts_list '{"address":"%test-village-sport","limit":2}' --expect-error SIGN_IN_REQUIRED -- --env dev
 
   check:
     needs: test
