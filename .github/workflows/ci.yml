@@ -55,6 +55,7 @@ jobs:
         run: |
           node test/smoke/mcp-stdio.mjs
           node test/smoke/mcp-stdio.mjs breakrocks_posts_list '{"address":"%test-village-sport","limit":2}' --expect-error SIGN_IN_REQUIRED -- --env dev
+          node test/smoke/mcp-stdio.mjs breakrocks_inbox '{"unread":true}' --expect-error SIGN_IN_REQUIRED -- --env dev
 
   check:
     needs: test

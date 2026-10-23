@@ -19,8 +19,8 @@ import { api } from '../session.js';
 const POST = selection('Post', 1);
 const REPLY_POLICIES = ['everyone', 'following', 'mentioned', 'nobody'];
 
-type ComposeInput = { text?: string; file?: string; image?: string[]; alt?: string[]; video?: string; link?: string; requestId?: string; dryRun?: boolean };
-const composeProps = {
+export type ComposeInput = { text?: string; file?: string; image?: string[]; alt?: string[]; video?: string; link?: string; requestId?: string; dryRun?: boolean };
+export const composeProps = {
   text: str('The text (tags and mentions in it: #sport, @alice); "-" reads stdin'),
   file: str('Read the text from this file ("-": stdin)'),
   image: list('An image file (4 at most; repeat --image)', { type: 'string' }, { maxItems: MAX_POST_IMAGES }),
@@ -43,10 +43,10 @@ async function textOf(ctx: Context, input: ComposeInput): Promise<string> {
   return input.text ?? '';
 }
 
-type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; requestId: string };
+export type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; requestId: string };
 
 /** Everything checked before anything is sent (POST_EMPTY, POST_TOO_MANY_IMAGES, POST_IMAGES_AND_CLIP, the media). */
-async function plan(ctx: Context, input: ComposeInput, requireText = false): Promise<Plan> {
+export async function plan(ctx: Context, input: ComposeInput, requireText = false): Promise<Plan> {
   const text = checkText(await textOf(ctx, input));
   const images = (input.image ?? []).map((path, i) => checkImage(ctx, path, input.alt?.[i]));
   if ((input.alt?.length ?? 0) > images.length) throw usageError('INVALID_INPUT', 'More --alt than --image');
@@ -57,21 +57,21 @@ async function plan(ctx: Context, input: ComposeInput, requireText = false): Pro
   return { text, images, ...(video ? { video } : {}), ...(input.link ? { link: input.link } : {}), requestId: input.requestId ?? randomUUID() };
 }
 
-const dryRunOf = (p: Plan, extra: Record<string, unknown>) => ({
+export const dryRunOf = (p: Plan, extra: Record<string, unknown>) => ({
   dryRun: true, ...extra, text: p.text, requestId: p.requestId,
   images: p.images.map((i) => ({ file: i.name, type: i.type, bytes: i.bytes, width: i.width, height: i.height, alt: i.alt ?? null })),
   ...(p.video ? { video: { file: p.video.name, type: p.video.type, bytes: p.video.bytes } } : {}), ...(p.link ? { link: p.link } : {}),
 });
 
 /** The media of a plan sent: the arguments images and clip of the mutation. */
-async function sendMedia(ctx: Context, p: Plan): Promise<Record<string, unknown>> {
+export async function sendMedia(ctx: Context, p: Plan): Promise<Record<string, unknown>> {
   const images = [];
   for (const image of p.images) images.push({ id: await uploadImage(ctx, image), ...(image.alt ? { alt: image.alt } : {}) });
   const clip = p.video ? await uploadVideo(ctx, p.video) : undefined;
   return { ...(images.length ? { images } : {}), ...(clip ? { clip } : {}) };
 }
 
-const wait = (p: Plan) => (p.video ? { stepMs: 5000, maxMs: 10 * 60_000 } : { stepMs: 2000, maxMs: 2 * 60_000 });
+export const wait = (p: Plan) => (p.video ? { stepMs: 5000, maxMs: 10 * 60_000 } : { stepMs: 2000, maxMs: 2 * 60_000 });
 const composeOutput = outputSchema('Post', 1);
 
 export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; announcement?: boolean }, unknown> = {

@@ -112,10 +112,10 @@ export async function ensureSession(ctx: Context, options: { renew?: boolean; fr
  * A GraphQL request with the session of the profile; a token refused (Unauthorized) signs in once
  * more and tries again, and the sign-in tells why when it is refused.
  */
-export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}): Promise<T> {
+export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   const { session, at } = await ensureSession(ctx);
   try {
-    return await graphql<T>(ctx, at.api, session.token, query, variables);
+    return await graphql<T>(ctx, at.api, session.token, query, variables, false, !!options.partial);
   } catch (error) {
     if (!isUnauthorized(error)) throw error;
     let fresh: Session;
@@ -125,7 +125,7 @@ export async function api<T = Record<string, unknown>>(ctx: Context, query: stri
       if (signInError instanceof CliError && signInError.code === 'SIGN_IN_REQUIRED') throw new CliError('SESSION_EXPIRED', 'The session was refused and cannot be opened again here: sign in again', EXIT.NETWORK, {}, 'platform');
       throw signInError;
     }
-    return graphql<T>(ctx, at.api, fresh.token, query, variables);
+    return graphql<T>(ctx, at.api, fresh.token, query, variables, false, !!options.partial);
   }
 }
 

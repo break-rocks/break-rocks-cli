@@ -3,6 +3,30 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.6.0] - 2026-10-23
+
+### Added
+
+- Messages: `inbox [--unread] [--watch]`, `dm <account> <text>|--file|-` with images
+  or a clip (as a post's; its id a UUIDv7), `dm read [--since] [--all] [--watch]`,
+  `dm delete [--for-me]`, `dm ephemeral 24h|7d|off`; `groups create` (the invitations refused told:
+  `GROUP_INVITATIONS_REFUSED`), `groups list|show|send|read|invite|leave|members|admins|admin-add|
+  admin-remove|ephemeral|invitations|accept|decline`; `connections request|accept|decline|remove|
+  list|requests|state`; `messaging settings show|set`.
+- Real time for `--watch`: the WebSocket of the AppSync Event API of
+  the cell (Node's WebSocket, no dependency), `/users/<id>` or the channels of `watchLive` (its
+  lease renewed), a read at each event that matters, reconnection then the reading again of 0.5.0,
+  told once. `--realtime auto|on|off`: by default only when the contract lets the account connect
+  (not yet delegated agents and operators: they read again).
+- The single executables (prepared): `npm run build:sea` (esbuild bundle, Node SEA, postject;
+  ad hoc signature on macOS) and `.github/workflows/release.yml` (five targets on a tag `v*`, with
+  their SHA-256; by hand without a release). No tag yet.
+
+### Changed
+
+- A GraphQL answer with data and errors is kept where the contract says so (createGroupChat).
+- The notice that the real time is not used is written to stderr with `--json` too.
+
 ## [0.5.0] - 2026-10-23
 
 ### Added

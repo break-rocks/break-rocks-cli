@@ -11,7 +11,15 @@ import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
-import { WATCH_PROPERTIES, watchItems, type WatchInput } from '../watch.js';
+import { WATCH_PROPERTIES, watchItems, type LiveSource, type WatchInput } from '../watch.js';
+
+/** The Event API channels of a reading, from watchLive (its lease: 10 minutes, renewed by --watch). */
+export const liveOf = (ctx: Context, address: string | null, types: string[]): LiveSource => ({
+  channels: async () => ((await api<{ watchLive: { channels: { channel: string }[] } | null }>(ctx, 'mutation($a: String) { watchLive(address: $a) { channels { channel shard } until } }', { a: address })).watchLive?.channels ?? []).map((c) => c.channel),
+  matches: (e) => types.includes(e.type),
+});
+/** The channel of the account: /users/<account id>. */
+export const accountChannel = (types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({ channels: async (id) => [`/users/${id}`], matches: (e) => types.includes(e.type) && match(e) });
 
 type Post = { id: string; createdAt: string; kind: string; language?: string | null; clip?: unknown; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
 type Page<T> = { items: T[]; next: string | null; [k: string]: unknown };
@@ -74,7 +82,7 @@ export const postsList: Command<ListInput, unknown> = {
   output: postsOutput, args: { positionals: ['address'] },
   run: async (ctx, input) => {
     const read = async (after: string | null) => (await api<{ posts: Page<Post> }>(ctx, `query($a: String!, $after: String, $f: PostsFilter, $l: Int) { posts(address: $a, after: $after, filter: $f, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address, after, f: input.filter ?? null, l: input.limit ?? null })).posts;
-    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id);
+    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id, liveOf(ctx, input.address, ['posts.new']));
     return readPosts(ctx, read, input);
   },
   text: (r) => renderPosts(r),
@@ -121,7 +129,7 @@ export const feed: Command<FeedInput, unknown> = {
     const read = input.clips
       ? async (after: string | null) => (await api<{ clipFeed: Page<Post> }>(ctx, `query($a: String, $after: String, $l: Int) { clipFeed(address: $a, after: $after, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address ?? null, after, l: input.limit ?? null })).clipFeed
       : async (after: string | null) => (await api<{ timeline: Page<Post> }>(ctx, `query($after: String) { timeline(after: $after) ${PAGE_OF_POSTS} }`, { after })).timeline;
-    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id);
+    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id, input.clips ? liveOf(ctx, input.address ?? null, ['posts.new']) : liveOf(ctx, null, ['timeline.new']));
     return readPosts(ctx, read, input);
   },
   text: (r) => ((r as { count?: number }).count !== undefined ? `${(r as { count: number }).count} new post(s)` : renderPosts(r)),
@@ -260,7 +268,7 @@ export const notifications: Command<{ unread?: boolean; markRead?: boolean; afte
   output: openObject({ items: list('Notifications', outputSchema('Notification', 1)), next: { type: ['string', 'null'] }, unread: int('Unread'), marked: int('Marked as read') }),
   run: async (ctx, input) => {
     const read = async (after: string | null) => (await api<{ notifications: Page<Notification> & { unread: number } }>(ctx, `query($after: String) { notifications(after: $after) ${selection('NotificationPage', 2)} }`, { after })).notifications;
-    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items.filter((n) => !input.unread || !n.read), (n) => `${n.id}@${n.updatedAt}`);
+    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items.filter((n) => !input.unread || !n.read), (n) => `${n.id}@${n.updatedAt}`, accountChannel(['notification']));
     const items: Notification[] = [];
     let next: string | null = input.after ?? null, unread = 0;
     for (let page = 0; page < (input.all ? input.max ?? 10 : 1); page++) {

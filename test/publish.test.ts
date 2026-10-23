@@ -179,6 +179,36 @@ describe('theme publish', () => {
   });
 });
 
+describe('messages', () => {
+  it('sends a direct message to an @handle with its image and a UUIDv7 as its id', async () => {
+    const { h, calls, uploads } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), requestImageUpload: upload, sendDirectMessage: (v) => ({ id: v.id, text: v.text }) });
+    writeFileSync(join(h.dir, 'a.png'), png(100, 100));
+    expect(await h.run('dm', '@bob', 'Bonjour', '--image', join(h.dir, 'a.png'), '--json')).toBe(0);
+    const sent = calls.find((c) => c.field === 'sendDirectMessage')!.variables;
+    expect(sent).toMatchObject({ accountId: 'eu-bob', text: 'Bonjour', images: [{ id: 'up-1' }] });
+    expect(String(sent.id)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(uploads.length).toBe(1);
+  });
+  it('creates a group chat and tells the invitations refused', async () => {
+    const { h, calls } = scripted({ accountByHandle: (v) => ({ id: `eu-${v.h}` }) });
+    // createGroupChat answers its data and the error GROUP_INVITATIONS_REFUSED.
+    h.io.fetch = (async (_url: string, init: RequestInit) => {
+      const { query, variables } = JSON.parse(String(init.body));
+      calls.push({ field: query.includes('accountByHandle') ? 'accountByHandle' : 'createGroupChat', variables, query });
+      if (query.includes('accountByHandle')) return Response.json({ data: { accountByHandle: { id: `eu-${variables.h}` } } });
+      return Response.json({ data: { createGroupChat: { id: 'g1', name: 'relais', memberCount: 1 } }, errors: [{ errorType: 'GROUP_INVITATIONS_REFUSED', message: 'x', errorInfo: { refused: [{ accountId: 'eu-bob', code: 'NOT_CONNECTED' }] } }] });
+    }) as typeof fetch;
+    expect(await h.run('groups', 'create', 'relais', '@alice', '@bob', '--json')).toBe(0);
+    expect(last(h)).toEqual({ group: { id: 'g1', name: 'relais', memberCount: 1 }, refused: [{ accountId: 'eu-bob', code: 'NOT_CONNECTED' }] });
+    expect(calls.find((c) => c.field === 'createGroupChat')!.variables.i).toEqual(['eu-alice', 'eu-bob']);
+  });
+  it('sets an ephemeral conversation by its duration', async () => {
+    const { h, calls } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), setConversationEphemeral: () => true });
+    expect(await h.run('dm', 'ephemeral', '@bob', '24h', '--json')).toBe(0);
+    expect(calls.find((c) => c.field === 'setConversationEphemeral')!.variables).toEqual({ a: 'eu-bob', d: 'HOURS_24' });
+  });
+});
+
 describe('the help', () => {
   it('keeps moderation and governance out of the basic help', async () => {
     const h = harness();

@@ -10,6 +10,7 @@ import { profileAdd, profileList, profileRemove, profileShow, profileUse } from 
 import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack } from './theme.js';
 import { walletBalance, walletFaucet, walletSet, walletShow } from './wallet.js';
 import { batch } from './batch.js';
+import * as msg from './messaging.js';
 import { governanceCommands, moderationCommands } from './moderation.js';
 import * as publish from './publish.js';
 import * as read from './read.js';
@@ -35,6 +36,10 @@ register(
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesSupport, publish.debatesClose,
   read.pollsList, publish.pollsShow, publish.pollsCreate, publish.pollsPick,
   read.channelsList, publish.channelsCreate, publish.channelsJoin, publish.channelsLeave, publish.channelsSend, publish.channelsRead,
+  msg.inbox, msg.dm, msg.dmRead, msg.dmDelete, msg.dmEphemeral,
+  msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
+  msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,
+  msg.messagingShow, msg.messagingSet,
   themesList, themesShow,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themeTry, themeUndoTry, themePersonalSet, themePersonalClear, themeExport, themeShots, themeCopy, themeDelete,

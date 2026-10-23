@@ -86,7 +86,7 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
-  post: { text: 'x', in: '%x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
+  post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
 };
 
 describe('every command', () => {
