@@ -1,0 +1,48 @@
+name: CI
+
+# Lint, types, unit tests and the build, on every push to main and every pull request. No AWS
+# credentials, no network: the CLI is tested against fakes. The common specs (break-rocks-specs,
+# private) are checked out when SUBMODULES_TOKEN is set, for the contract checks of the tests.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # specs/common (break-rocks-specs) is private: SUBMODULES_TOKEN is a fine-grained token with
+      # read access (Contents: read) to it. Without the secret, the contract checks are skipped.
+      HAS_SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Common specs (the contract checks of the tests)
+        if: env.HAS_SUBMODULES_TOKEN == 'true'
+        env:
+          SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SUBMODULES_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git submodule update --init --depth 1 specs/common
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: The executable answers
+        run: |
+          test "$(node bin/breakrocks.js --version)" = "$(node -p "require('./package.json').version")"
+          node bin/breakrocks.js help --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.commands.length) process.exit(1)"
