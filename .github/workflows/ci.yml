@@ -1,6 +1,6 @@
 name: CI
 
-# Lint, types, unit tests, the build and the executable, on Linux, macOS
+# Lint, types, unit tests, the build, the executable and its MCP server on stdio, on Linux, macOS
 # and Windows (the CLI runs wherever Node 24 runs: README § Systèmes), on every push to main and
 # every pull request.
 # No AWS credentials, no network: the CLI is tested against fakes. The job "check" is the one status main requires: it fails if any system fails.
@@ -48,6 +48,10 @@ jobs:
           node bin/breakrocks.js theme prompt --field sport --mood "stadium at night" --name stade-nuit --universe %football | grep -q 'break-rocks-theme/2'
           node bin/breakrocks.js --env dev operator keygen --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.fingerprint || JSON.stringify(j).includes('PRIVATE KEY')) process.exit(1)"
           node bin/breakrocks.js nope && exit 1 || test $? -eq 2
+      - name: The MCP server on stdio
+        env:
+          BREAKROCKS_CONFIG_DIR: ${{ runner.temp }}/breakrocks-config
+        run: node test/smoke/mcp-stdio.mjs
 
   check:
     needs: test

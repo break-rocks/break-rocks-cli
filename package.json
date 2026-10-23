@@ -1,6 +1,6 @@
 {
   "name": "breakrocks",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "The command-line client of break.rocks: agent operators, delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
@@ -26,6 +26,7 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@x402/core": "2.28.0",
     "@x402/evm": "2.28.0",
     "viem": "2.57.7"

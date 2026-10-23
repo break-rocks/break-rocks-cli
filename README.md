@@ -2,8 +2,8 @@
 
 Le client en ligne de commande de break.rocks : `breakrocks`. Un exécutable Node 24 en TypeScript,
 pensé pour un terminal **et** pour un agent IA : chaque commande répond en texte, ou en JSON avec
-`--json`. Portée décidée le 2026-10-23 ; ce dépôt couvre aujourd'hui les
-commandes de base (v0.3.0) ; le serveur MCP suit.
+`--json`, et toutes sont aussi des outils MCP (`breakrocks mcp`). Portée décidée le 2026-10-23 ; ce dépôt couvre aujourd'hui les
+commandes de base et le serveur MCP (v0.4.0).
 
 ## Installation
 
@@ -22,7 +22,7 @@ En développement : `npm start -- help`. Vérifications : `npm run check` (lint,
 
 macOS, Linux et Windows (exigence de l'utilisateur, 2026-10-23) : le CLI tourne partout où Node 24
 tourne, sans module natif ni appel à un shell ; la CI l'exécute sur les trois systèmes à chaque push
-(tests et exécutable). Chemins par `node:path` et `os.homedir()`, fichiers privés
+(tests, exécutable, serveur MCP sur stdio). Chemins par `node:path` et `os.homedir()`, fichiers privés
 en 0600 sur POSIX ; sous Windows, le dossier `%APPDATA%` de l'utilisateur est protégé par ses ACL par
 défaut (le mode POSIX n'y a pas de sens). ML-DSA-65 dépend du `node:crypto` du système (Node 24.7 et
 suivants) : sans lui, le CLI le dit (`ALGORITHM_NOT_SUPPORTED`) et Ed25519 reste disponible.
@@ -117,6 +117,7 @@ Chaque commande a son aide (`breakrocks <commande> --help`) et ses schémas JSON
 | `theme pack` | le ZIP de l'import de l'atelier (hors ligne) | `breakrocks theme pack theme.json --out stade-nuit.zip` |
 | `theme unpack` | ouvre un ZIP de thème (hors ligne) | `breakrocks theme unpack stade-nuit.zip --out stade-nuit/` |
 | `theme typefaces` | les polices approuvées embarquées ; `--online` compare avec `approvedTypefaces` | `breakrocks theme typefaces --online` |
+| `mcp` | le serveur MCP sur stdio | `breakrocks --profile herald mcp` |
 
 ### Parcours d'un opérateur (dev)
 
@@ -148,6 +149,31 @@ sa clé (défi signé avec `Authorization: Bearer <jeton>` : même `sessionId`).
 l'API (`Unauthorized`) déclenche une nouvelle connexion, qui dit pourquoi
 (`DELEGATED_AGENT_SUSPENDED`, `OPERATOR_SUSPENDED`…). Le jeton n'est jamais affiché.
 
+## MCP
+
+`breakrocks mcp` démarre un serveur MCP sur stdio (`@modelcontextprotocol/sdk`) :
+
+- **outils** : chaque commande du registre, `breakrocks_<groupe>_<action>` (`breakrocks_whoami`,
+  `breakrocks_agents_create`, `breakrocks_operator_recovery_key_set`…), avec le schéma d'entrée de
+  `breakrocks schema` ; la réponse est le `--json` de la commande, un refus `{ "error": … }` marqué
+  `isError` ;
+- **ressources** : `breakrocks://whoami`, `breakrocks://capabilities`, `breakrocks://profiles` ;
+- **prompt** : `theme-prompt` (le prompt de thème paramétré) ;
+- le profil courant, ou `--profile` / `--env` donnés à `breakrocks mcp` ; un outil qui demande une
+  confirmation (suppression, paiement) est refusé sans `"yes": true` dans son entrée ; rien n'est
+  jamais demandé sur stdin ; un agent se connecte par `breakrocks_agent_login` et les variables BREAKROCKS_*.
+
+Le brancher (une ligne par client) :
+
+| Client | Ligne |
+|---|---|
+| Claude Code | `claude mcp add breakrocks -e BREAKROCKS_PROFILE=herald -- npx -y breakrocks mcp` |
+| Codex | `codex mcp add breakrocks --env BREAKROCKS_PROFILE=herald -- npx -y breakrocks mcp` |
+| `claude_desktop_config.json` | `"mcpServers": { "breakrocks": { "command": "npx", "args": ["-y", "breakrocks", "mcp"], "env": { "BREAKROCKS_PROFILE": "herald" } } }` |
+
+Avant la publication npm, remplacer `npx -y breakrocks` par `node /chemin/vers/break-rocks-cli/bin/breakrocks.js`.
+Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [arguments JSON] [-- options]`.
+
 ## Organisation
 
 - `src/cli.ts` : options globales, choix de la commande, sortie ; `src/registry.ts` : le registre ;
@@ -158,14 +184,15 @@ l'API (`Unauthorized`) déclenche une nouvelle connexion, qui dit pourquoi
   `src/transport.ts` (GraphQL, hôte des agents, 429), `src/keys.ts` (Ed25519, ML-DSA-65),
   `src/session.ts` (sessions, renouvellement), `src/x402.ts` (portefeuille, paiements, plafonds).
 - `src/theme/` : vérification (portage du calcul du backend de la plateforme), prompt,
-  ZIP (`node:zlib`), polices approuvées embarquées.
-- `test/` : `vitest`, sans réseau (une fausse plateforme qui vérifie les signatures).
+  ZIP (`node:zlib`), polices approuvées embarquées ; `src/mcp/server.ts` : le serveur MCP.
+- `test/` : `vitest`, sans réseau (une fausse plateforme qui vérifie les signatures, un client MCP en
+  mémoire) ; `test/smoke/mcp-stdio.mjs` : le serveur de l'exécutable construit, en CI.
 
 ## Dépendances d'exécution
 
 Décidées (au moins 7 jours, `npm install --before=<aujourd'hui − 7 jours>`) :
-`@x402/core` et `@x402/evm` 2.28.0 (2026-09-29), `viem` 2.57.7 (2026-10-14), et ce
-qu'elles exigent. Chargées à la demande : les
+`@x402/core` et `@x402/evm` 2.28.0 (2026-09-29), `viem` 2.57.7 (2026-10-14),
+`@modelcontextprotocol/sdk` 1.32.1 (2026-10-05), et ce qu'elles exigent. Chargées à la demande : les
 commandes hors ligne n'en chargent aucune.
 
 ## Dette technique

@@ -4,6 +4,7 @@ import { capabilities, usage, whoami } from './account.js';
 import { agentAttest, agentLogin } from './agent.js';
 import { agentsActivity, agentsCreate, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
 import { help, schema, version } from './core.js';
+import { mcpCommand } from './mcp.js';
 import { operatorDelete, operatorKeygen, operatorLogin, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew, sessionCommand } from './operator.js';
 import { profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
 import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack } from './theme.js';
@@ -18,5 +19,6 @@ register(
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
+  mcpCommand,
 );
 

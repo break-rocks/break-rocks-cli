@@ -48,7 +48,7 @@ describe('the command line', () => {
     const c = capture();
     expect(await main(['help', '--json'], c.out)).toBe(0);
     const names = (c.values[0] as { commands: { name: string }[] }).commands.map((x) => x.name);
-    expect(names).toEqual(expect.arrayContaining(['help', 'version', 'schema', 'profile add', 'operator register', 'agents create', 'agent login', 'wallet set', 'whoami', 'capabilities', 'theme check']));
+    expect(names).toEqual(expect.arrayContaining(['help', 'version', 'schema', 'profile add', 'operator register', 'agents create', 'agent login', 'wallet set', 'whoami', 'capabilities', 'theme check', 'mcp']));
   });
   it('keeps the fields asked (--fields) and writes only the identifier (--quiet)', async () => {
     const h = harness();
