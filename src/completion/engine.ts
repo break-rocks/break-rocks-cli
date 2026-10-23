@@ -1,8 +1,9 @@
-// The completion of the command line, independent of the CLI it serves: a model (the commands, their
-// options and positionals, each value with its kind), the tree of its words, and what to propose for
-// the words typed so far. `<program> __complete <words…>` answers with it, and the scripts of the
-// shells (scripts.ts) carry the same model and the same walk, asking `__complete` only for the
-// dynamic values (read from local files, never from the network).
+// The completion of the command line, independent of the CLI it serves (the same file in
+// break-rocks-cli and break-rocks-backoffice-cli): a model (the commands, their options and
+// positionals, each value with its kind), the tree of its words, and what to propose for the words
+// typed so far. `<program> __complete <words…>` answers with it, and the scripts of the shells
+// (scripts.ts) carry the same model and the same walk, asking `__complete` only for the dynamic
+// values (read from local files, never from the network).
 
 /** What a value is completed with. */
 export type Kind =
