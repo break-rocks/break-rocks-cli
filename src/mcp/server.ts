@@ -35,7 +35,7 @@ export const commandOfTool = (name: string): AnyCommand | undefined => commands(
 export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'>, command: AnyCommand, args: Record<string, unknown>) {
   const { yes, ...input } = args;
   if (yes !== undefined && !command.interactive) return failure(usageError('INVALID_INPUT', `input.yes: is not an option of ${command.name}`));
-  const ctx = new Context({ ...io, interactive: false }, { ...NO_FLAGS, ...base, json: true, yes: yes === true });
+  const ctx = new Context({ ...io, interactive: false, readStdin: undefined, collectWatch: true }, { ...NO_FLAGS, ...base, json: true, yes: yes === true });
   try {
     const result = await execute(ctx, command, input);
     const exit = command.exitCode?.(result) ?? 0;

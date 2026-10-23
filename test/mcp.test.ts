@@ -32,6 +32,25 @@ describe('the MCP server', () => {
     expect(create.inputSchema).toMatchObject({ type: 'object', required: ['name'], properties: { name: { type: 'string' }, interactions: { type: 'array' } } });
     expect(tools.find((t) => t.name === 'breakrocks_agents_delete')!.inputSchema.properties).toHaveProperty('yes');
   });
+  it('gives each tool a complete input schema: every property typed and described, the required ones known', async () => {
+    const client = await connected(harness());
+    const { tools } = await client.listTools();
+    const incomplete: string[] = [];
+    for (const t of tools) {
+      const props = (t.inputSchema.properties ?? {}) as Record<string, { type?: unknown; anyOf?: unknown; enum?: unknown; description?: string }>;
+      for (const [name, p] of Object.entries(props)) if (!(p.type || p.anyOf || p.enum) || !p.description) incomplete.push(`${t.name}.${name}`);
+      for (const r of (t.inputSchema.required ?? []) as string[]) if (!props[r]) incomplete.push(`${t.name} requires ${r}`);
+      if (!t.description) incomplete.push(`${t.name}: no description`);
+    }
+    expect(incomplete).toEqual([]);
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['breakrocks_posts_list', 'breakrocks_post', 'breakrocks_theme_publish', 'breakrocks_batch', 'breakrocks_moderation_ban', 'breakrocks_layouts_apply']));
+  });
+  it('watches only for a bounded duration', async () => {
+    const client = await connected(harness());
+    const r = await client.callTool({ name: 'breakrocks_feed', arguments: { watch: true } });
+    expect(r.isError).toBe(true);
+    expect(textOf(r).error).toMatchObject({ code: 'INVALID_INPUT', message: expect.stringContaining('--duration') });
+  });
   it('answers a call with the JSON of the command', async () => {
     const client = await connected(harness());
     const r = await client.callTool({ name: 'breakrocks_theme_prompt', arguments: { field: 'sport', mood: 'stadium at night', name: 'stade-nuit', universe: '%football' } });

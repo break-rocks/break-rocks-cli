@@ -15,6 +15,10 @@ export type Io = {
   ask: (question: string) => Promise<string>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
+  /** The text piped on stdin ("-" as a text or a file); absent in the MCP server, whose stdin is the protocol. */
+  readStdin?: () => Promise<string>;
+  /** --watch gives back the new items in its answer instead of writing them (the MCP server). */
+  collectWatch?: boolean;
   /** The x402 payer (tests give a fake; by default the wallet of the profile signs with @x402/evm). */
   payer?: Payer;
 };

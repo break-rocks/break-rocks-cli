@@ -234,7 +234,7 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
     if (wordmark && ratio > WORDMARK_MAX_RATIO) error('THEME_WORDMARK_RATIO', path, `The wordmark is ${ratio.toFixed(1)}:1: at most 6:1`);
     const isBanner = ref.place === 'pageHeader' || ref.place === 'banner';
     if (isBanner && (Math.abs(ratio - 3) > 0.06 || info.width < BANNER_MIN.width || info.height < BANNER_MIN.height)) {
-      error('THEME_BANNER_SIZE', path, `The banner is ${info.width} × ${info.height}: ratio 3:1, at least 1500 × 500`);
+      warn('THEME_BANNER_SIZE', path, `The banner is ${info.width} × ${info.height}: the slot expects 3:1, at least 1500 × 500`);
     }
     const expected = SLOT_SIZES[ref.place === 'background' ? 'page' : ref.place === 'texture' ? 'cardTexture' : ref.place];
     if (!isBanner && expected && ratio && Math.abs(ratio - expected.ratio) / expected.ratio > 0.1) warn('IMAGE_RATIO_UNUSUAL', path, `${info.width} × ${info.height}: this slot expects ${expected.label}`);

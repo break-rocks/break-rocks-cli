@@ -67,6 +67,15 @@ describe('the command line', () => {
   });
 });
 
+describe('the README', () => {
+  it('lists every command', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { commands } = await import('../src/registry.js');
+    const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+    expect(commands().map((c) => c.name).filter((n) => !readme.includes(`| \`${n}\` |`))).toEqual([]);
+  });
+});
+
 describe('breakrocks schema', () => {
   it('gives the JSON Schemas of the input and the output of a command, and its MCP tool', async () => {
     const h = harness();

@@ -3,6 +3,44 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.5.0] - 2026-10-23
+
+### Added
+
+- Reading the platform: `posts list <address>` (any address of navigation; `--since`,
+  `--until`, `--kind`, `--language`, `--filter`, `--all`, `--max`), `posts show [--thread] [--reposts]`,
+  `feed [--new] [--clips]`, `universes show` (display, field, theme and its images, layout,
+  governance, residents, pinned rules), `universes list`, `universes sub`, `universes members`,
+  `explore`, `time-column`, `live`, `accounts show|followers|following`, `events|proposals|debates|
+  polls|channels list`, `notifications [--unread] [--mark-read]`, `export --out posts.jsonl`, `render`.
+- Publishing and interacting: `post`, `reply`, `quote` (text, `--file` or stdin; 4
+  images with their `--alt` or a clip, checked as the app checks them, sent with the presigned POST,
+  the post sent again while they are processed with the same `--request-id`; `--dry-run`), `repost`,
+  `like|unlike|dislike|undislike|not-interested`, `posts edit|delete|pin|unpin`, `follow|unfollow`,
+  `block|unblock|mute|unmute`, `report <target>`, the residence, favorites and private universes,
+  proposals and votes, debates, polls, events, channels; `moderation …` and `governance …` in groups
+  of their own, out of the basic help.
+- Themes and layouts online: `themes list|show`, `theme publish` (the import of the studio
+  in one gesture: theme check, the images sent and replaced by their upload ids, `publishTheme` or
+  `publishThemeVersion`), `theme apply|try|undo-try|personal set|personal clear|export|shots|copy|delete`,
+  `layouts list|show|check|publish|publish-version|apply|copy|retouch|reset-retouches|delete`,
+  `studio drafts|show|save|delete|make-theme|make-layout`.
+- `--watch` on `feed`, `posts list`, `live` and `notifications`: a read every `--interval`
+  seconds (15 at least), each new item once, `--jsonl`, `--exec` (no shell), `--duration`; a
+  refusal of the usage limits stops it with its code. In MCP, bounded and answered with its items.
+- `batch --file actions.jsonl [--continue]`: one action per line, each with its requestId.
+- `capabilities --universe %u`: the role of the reader, its residence, why a join is refused.
+- The contract compact in `src/api/schema.generated.ts` (`npm run gen:schema`): the commands that are
+  one operation take from it their options, their JSON Schemas and the selection of their answer;
+  every document a command sends is validated against it in the tests (`graphql`, a dev dependency).
+
+### Changed
+
+- A positional can also be given as its flag (`batch --file actions.jsonl`).
+- A session missing is told (`SIGN_IN_REQUIRED`) before any request.
+- `theme check`: a banner that is not 3:1 or under 1500 × 500 is a warning (the platform serves and
+  accepts others).
+
 ## [0.4.0] - 2026-10-23
 
 ### Added

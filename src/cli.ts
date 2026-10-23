@@ -55,6 +55,7 @@ export function defaultIo(out: Output = terminal): Io {
       try { return await rl.question(question); } finally { rl.close(); }
     },
     now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    readStdin: async () => { const chunks: Buffer[] = []; for await (const c of process.stdin) chunks.push(c as Buffer); return Buffer.concat(chunks).toString('utf8'); },
   };
 }
 

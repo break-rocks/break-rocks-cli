@@ -114,6 +114,9 @@ export type ArgSpec = { positionals?: readonly string[]; aliases?: Readonly<Reco
 
 function coerce(schema: JsonSchema, raw: string, flag: string): unknown {
   const type = mainType(schema);
+  if (type === 'object') {
+    try { return JSON.parse(raw); } catch { throw usageError('INVALID_INPUT', `${flag}: JSON expected`); }
+  }
   if (type === 'integer' || type === 'number') {
     const n = Number(raw);
     if (raw.trim() === '' || !Number.isFinite(n)) throw usageError('INVALID_INPUT', `${flag}: "${raw}" is not a number`);
@@ -140,7 +143,7 @@ export function parseCommandLine(schema: ObjectSchema, spec: ArgSpec, tokens: re
   const propertyOf = (flag: string) => {
     if (spec.aliases?.[flag]) return spec.aliases[flag];
     const name = camel(flag);
-    return Object.hasOwn(props, name) && !(spec.positionals ?? []).includes(name) ? name : undefined;
+    return Object.hasOwn(props, name) ? name : undefined;
   };
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
@@ -163,13 +166,18 @@ export function parseCommandLine(schema: ObjectSchema, spec: ArgSpec, tokens: re
     if (negated) throw usageError('UNKNOWN_OPTION', `Unknown option --${flag}`, { option: `--${flag}` });
     const raw = inline ?? tokens[++i];
     if (raw === undefined) throw usageError('MISSING_VALUE', `--${flag} needs a value`, { option: `--${flag}` });
-    if (type === 'array') {
+    if (type === 'array' && raw.trim().startsWith('[')) {
+      let values: unknown;
+      try { values = JSON.parse(raw); } catch { throw usageError('INVALID_INPUT', `--${flag}: JSON expected`); }
+      input[name] = [...((input[name] as unknown[]) ?? []), ...(Array.isArray(values) ? values : [values])];
+    } else if (type === 'array') {
       const items = sub.items ?? { type: 'string' };
       const values = raw.split(',').map((v) => v.trim()).filter((v) => v !== '').map((v) => coerce(items, v, `--${flag}`));
       input[name] = [...((input[name] as unknown[]) ?? []), ...values];
     } else input[name] = coerce(sub, raw, `--${flag}`);
   }
-  const names = spec.positionals ?? [];
+  // The positionals fill the properties not given as flags, in order.
+  const names = (spec.positionals ?? []).filter((n) => input[n] === undefined);
   for (let i = 0; i < names.length && positionals.length; i++) {
     const name = names[i];
     const sub = props[name];
