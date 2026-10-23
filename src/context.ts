@@ -3,6 +3,7 @@
 import { ConfigStore, DEFAULT_PROFILE, configDir, type Environment, type Profile } from './config.js';
 import { CliError, EXIT, usageError } from './errors.js';
 import type { Output } from './output.js';
+import type { Payer } from './payment-types.js';
 
 export type Io = {
   out: Output;
@@ -14,6 +15,8 @@ export type Io = {
   ask: (question: string) => Promise<string>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
+  /** The x402 payer (tests give a fake; by default the wallet of the profile signs with @x402/evm). */
+  payer?: Payer;
 };
 
 export type GlobalFlags = {

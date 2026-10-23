@@ -1,7 +1,7 @@
 // The title typefaces approved by the social platform (contracts/themes.md § Typography; the query
 // approvedTypefaces), shipped with the CLI so that `theme prompt` and `theme check` work offline: a
 // copy of the backend's list (break-rocks-backend amplify/themes/typefaces.ts), kept in step by a
-// test when the backend's checkout is beside this one.
+// test when the backend's checkout is beside this one, and by `theme typefaces --online`.
 
 export type TypefaceCategory = 'DISPLAY' | 'NEON' | 'PIXEL' | 'SERIF' | 'SCRIPT' | 'MONO' | 'SANS';
 export type Typeface = { name: string; category: TypefaceCategory; scripts: string[]; license: 'OFL-1.1' | 'Apache-2.0' };

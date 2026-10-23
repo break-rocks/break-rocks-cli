@@ -60,6 +60,7 @@ jobs:
           node bin/breakrocks.js help --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.commands.length) process.exit(1)"
           node bin/breakrocks.js schema all --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.every((c)=>c.input.type==='object')) process.exit(1)"
           node bin/breakrocks.js theme prompt --field sport --mood "stadium at night" --name stade-nuit --universe %football | grep -q 'break-rocks-theme/2'
+          node bin/breakrocks.js --env dev operator keygen --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.fingerprint || JSON.stringify(j).includes('PRIVATE KEY')) process.exit(1)"
           node bin/breakrocks.js nope && exit 1 || test $? -eq 2
 
   check:

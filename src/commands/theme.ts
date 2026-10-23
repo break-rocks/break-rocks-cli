@@ -1,9 +1,11 @@
-// theme prompt, check, pack, unpack, typefaces (CLI-PROPOSITIONS § 7, C-21 to C-23): offline.
+// theme prompt, check, pack, unpack, typefaces (CLI-PROPOSITIONS § 7, C-21 to C-23): offline, but
+// `theme typefaces --online` (approvedTypefaces).
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { cliRefusal, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
+import { api } from '../session.js';
 import { FIELDS, checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, type CheckReport } from '../theme/check.js';
 import { LANGUAGES, themePrompt, type PromptResult } from '../theme/prompt.js';
 import { APPROVED_TYPEFACES } from '../theme/typefaces.js';
@@ -142,14 +144,19 @@ export const themeUnpack: Command<{ archive: string; out?: string; force?: boole
   quiet: (r) => r.out,
 };
 
-type TypefacesResult = { source: 'shipped'; typefaces: { name: string; category: string; scripts: string[]; license: string }[] };
+type TypefacesResult = { source: 'shipped' | 'platform'; typefaces: { name: string; category: string; scripts: string[]; license: string }[]; onlyShipped?: string[]; onlyPlatform?: string[] };
 
-export const themeTypefaces: Command<Record<string, never>, TypefacesResult> = {
-  name: 'theme typefaces', summary: 'List the approved typefaces shipped with the CLI',
-  examples: ['breakrocks theme typefaces', 'breakrocks theme typefaces --json --fields name,category'],
-  input: object({}),
-  output: openObject({ source: str('shipped'), typefaces: list('The typefaces', openObject({ name: str('Name'), category: str('Category'), scripts: list('Scripts'), license: str('License') })) }),
-  offline: true,
-  run: () => ({ source: 'shipped', typefaces: APPROVED_TYPEFACES.map((f) => ({ ...f })) }),
-  text: (r) => r.typefaces.map((f) => `${f.name.padEnd(20)} ${f.category.padEnd(8)} ${f.scripts.join(', ')}`).join('\n'),
+export const themeTypefaces: Command<{ online?: boolean }, TypefacesResult> = {
+  name: 'theme typefaces', summary: 'List the approved typefaces (shipped; --online: approvedTypefaces, compared)',
+  examples: ['breakrocks theme typefaces', 'breakrocks theme typefaces --online --json'],
+  input: object({ online: bool('Read approvedTypefaces from the API (a session) and compare it with the shipped list') }),
+  output: openObject({ source: str('shipped or platform'), typefaces: list('The typefaces', openObject({ name: str('Name'), category: str('Category'), scripts: list('Scripts'), license: str('License') })), onlyShipped: list('Shipped, not approved by the platform'), onlyPlatform: list('Approved by the platform, not shipped: update the CLI') }),
+  run: async (ctx, { online }) => {
+    if (!online) return { source: 'shipped', typefaces: APPROVED_TYPEFACES.map((f) => ({ ...f })) };
+    const data = await api<{ approvedTypefaces: { name: string; category: string; scripts: string[]; license: string }[] }>(ctx, '{ approvedTypefaces { name category scripts license } }');
+    const platform = new Set(data.approvedTypefaces.map((f) => f.name));
+    const shipped = new Set(APPROVED_TYPEFACES.map((f) => f.name));
+    return { source: 'platform', typefaces: data.approvedTypefaces, onlyShipped: [...shipped].filter((n) => !platform.has(n)), onlyPlatform: [...platform].filter((n) => !shipped.has(n)) };
+  },
+  text: (r) => [...r.typefaces.map((f) => `${f.name.padEnd(20)} ${f.category.padEnd(8)} ${f.scripts.join(', ')}`), ...(r.onlyShipped ? [`only shipped: ${r.onlyShipped.join(', ') || '-'}`, `only on the platform: ${r.onlyPlatform!.join(', ') || '-'}`] : [])].join('\n'),
 };

@@ -48,13 +48,13 @@ describe('the registry', () => {
     expect(new Set(names).size).toBe(names.length);
     for (const n of names) expect(n).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
     expect(toolName('operator recovery-key set')).toBe('breakrocks_operator_recovery_key_set');
-    const del = findCommand(['profile', 'remove'])!.command;
+    const del = findCommand(['agents', 'delete'])!.command;
     expect(toolInputSchema(del).properties.yes).toBeTruthy();
-    expect(toolInputSchema(findCommand(['profile', 'list'])!.command).properties.yes).toBeUndefined();
+    expect(toolInputSchema(findCommand(['agents', 'list'])!.command).properties.yes).toBeUndefined();
   });
   it('finds a command by its first words, the longest name first', () => {
-    expect(findCommand(['theme', 'check', 'x.json', 'a.png'])).toMatchObject({ command: { name: 'theme check' }, rest: ['x.json', 'a.png'] });
-    expect(findCommand(['profile', 'add', 'atlas'])).toMatchObject({ command: { name: 'profile add' }, rest: ['atlas'] });
-    expect(findCommand(['theme'])).toBeUndefined();
+    expect(findCommand(['operator', 'recovery-key', 'set', 'x'])).toMatchObject({ command: { name: 'operator recovery-key set' }, rest: ['x'] });
+    expect(findCommand(['agents', 'create', 'herald'])).toMatchObject({ command: { name: 'agents create' }, rest: ['herald'] });
+    expect(findCommand(['agents'])).toBeUndefined();
   });
 });

@@ -22,9 +22,9 @@ d'ensemble, commandes et portée (D-91) : [README.md](README.md).
   qui ne peut pas marcher sur un système le dit et échoue proprement. La CI tourne sur les trois.
 - **Pas de réseau dans les tests** : fausses sorties et faux transports ; les parcours réels se
   vérifient sur dev à la main et se rapportent.
-- **Dépendances** : aucune d'exécution au palier 1 ; celles décidées avec D-91 (`@x402/core`,
-  `@x402/evm`, `viem`, `@modelcontextprotocol/sdk`) viennent avec les paliers suivants ; toute autre
-  sur décision de l'utilisateur ; toute version a au moins 7 jours (`.github/dependabot.yml`, `npm install --before=…`).
+- **Dépendances** : d'exécution, celles décidées avec D-91 seulement (`@x402/core`, `@x402/evm`,
+  `viem`, chargées à la demande ; `@modelcontextprotocol/sdk` avec le serveur MCP) ; toute autre sur décision de
+  l'utilisateur ; toute version a au moins 7 jours (`.github/dependabot.yml`, `npm install --before=…`).
 - **Commits** : messages en anglais, au nom de l'utilisateur, sans trailer ; `CHANGELOG.md` à jour
   (Keep a Changelog) ; version dans `package.json`.
 - Une solution provisoire se marque `TEMPORARY (technical debt, …)` et se liste dans le README.
