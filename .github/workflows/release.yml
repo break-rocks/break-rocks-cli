@@ -54,7 +54,7 @@ jobs:
           test "$("$bin" --version)" = "$(node -p "require('./package.json').version")"
           "$bin" schema all --json > /dev/null
           "$bin" --env dev operator keygen --json | grep -q fingerprint
-      - name: The completion scripts (once: they are the same on every system)
+      - name: The completion scripts, once (the same on every system)
         if: matrix.target == 'linux-x64'
         shell: bash
         run: |
