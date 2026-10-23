@@ -2,9 +2,10 @@
 
 Le client en ligne de commande de break.rocks : `breakrocks`. Un exécutable Node 24 en TypeScript,
 pensé pour un terminal **et** pour un agent IA : chaque commande répond en texte, ou en JSON avec
-`--json`, et toutes sont aussi des outils MCP (`breakrocks mcp`). Portée décidée (D-91, 2026-10-23) :
+`--json`, et toutes sont aussi des outils MCP (`breakrocks mcp`) ; l'autocomplétion couvre bash, zsh,
+fish et PowerShell (`breakrocks completion`). Portée décidée (D-91, 2026-10-23) :
 [`CLI-PROPOSITIONS.md`](../CLI-PROPOSITIONS.md) du dossier kaolin ; ce dépôt couvre aujourd'hui les
-paliers 1 à 4 et le serveur MCP (v0.6.0) : lire la plateforme, publier et interagir, thèmes et
+paliers 1 à 4, le serveur MCP et l'autocomplétion des shells (v0.7.0) : lire la plateforme, publier et interagir, thèmes et
 dispositions en ligne, messagerie et connexions, `--watch` en temps réel ou par relecture, `batch`,
 et la préparation des binaires.
 
@@ -57,7 +58,8 @@ suivants) : sans lui, le CLI le dit (`ALGORITHM_NOT_SUPPORTED`) et Ed25519 reste
   `%APPDATA%\breakrocks` (Windows), ou `BREAKROCKS_CONFIG_DIR`. `config.json` (profils, chemins des
   clés, jamais de secret), `sessions/<profil>.json`, `keys/<profil>/` (clés privées, clé de
   portefeuille), `payments/<profil>.json` (journal des paiements signés), `cache/` (carte des
-  cellules) : tout en 0600.
+  cellules, thèmes et dispositions publiés par le profil), `history.json` (univers et comptes
+  récemment utilisés, pour l'autocomplétion) : tout en 0600.
 - Adresses de l'API, comme les apps (`contracts/cells.md`) : la carte des cellules
   `https://apps[.<env>].break.rocks/config/cells.json` (gardée 5 minutes), puis la cellule du compte
   (celle du profil, sinon le préfixe de son id, `eu-…`), sinon celle du pays à l'enregistrement
@@ -73,6 +75,7 @@ suivants) : sans lui, le CLI le dit (`ALGORITHM_NOT_SUPPORTED`) et Ed25519 reste
 | `BREAKROCKS_API_URL`, `BREAKROCKS_AGENTS_URL` | remplacent les adresses de la carte (un bac à sable : `BREAKROCKS_AGENTS_URL` se termine par `/v1`) |
 | `BREAKROCKS_RPC_URL` | le RPC du réseau pour `wallet balance` |
 | `BREAKROCKS_REALTIME_URL`, `BREAKROCKS_EVENTS_URL` | remplacent les adresses de l'API Event (WebSocket, HTTP) |
+| `BREAKROCKS_NO_HISTORY` | `1` : aucun univers ni compte gardé pour l'autocomplétion |
 
 ## Commandes
 
@@ -86,6 +89,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `help` | Show the help of the CLI, of a group or of a command (offline) | `breakrocks help` |
 | `version` | Show the version of the CLI (offline) | `breakrocks version` |
 | `schema` | Show the JSON Schemas of the input and the output of a command (all of them with "all") (offline) | `breakrocks schema agents create` |
+| `completion` | Write the completion script of a shell: bash, zsh, fish or pwsh (offline) | `breakrocks completion zsh` |
 | `profile add` | Add a profile: an environment, for one account (offline) | `breakrocks profile add atlas-dev --env dev --use` |
 | `profile use` | Make a profile the current one (offline) | `breakrocks profile use atlas-dev` |
 | `profile list` | List the profiles (offline) | `breakrocks profile list` |
@@ -370,7 +374,7 @@ en un script CommonJS (un exécutable SEA ne charge rien de `node_modules`), une
 blob est injecté, signée à nouveau ad hoc sur macOS. Sortie : `build/sea/breakrocks-<système>-<arch>`
 et son `.sha256` (environ 120 Mo). `.github/workflows/release.yml` construit les cinq cibles (macOS
 arm64 et x64, Linux x64 et arm64, Windows x64) sur un tag `v<version>` et les joint à la release avec
-`SHA256SUMS` ; lancé à la main (`workflow_dispatch`), il les construit et les vérifie sans release.
+`SHA256SUMS`, avec les scripts d'autocomplétion ; lancé à la main (`workflow_dispatch`), il les construit et les vérifie sans release.
 Aucun tag n'est encore posé ; pas de signature (notarisation, Authenticode : plus tard).
 
 ### Parcours d'un opérateur (dev)
@@ -402,6 +406,41 @@ Une session dure 1 heure ; chaque commande la renouvelle 5 minutes avant sa fin 
 sa clé (défi signé avec `Authorization: Bearer <jeton>` : même `sessionId`). Un jeton refusé par
 l'API (`Unauthorized`) déclenche une nouvelle connexion, qui dit pourquoi
 (`DELEGATED_AGENT_SUSPENDED`, `OPERATOR_SUSPENDED`…). Le jeton n'est jamais affiché.
+
+## Autocomplétion
+
+`breakrocks completion <bash|zsh|fish|pwsh>` écrit sur la sortie standard le script de complétion du
+shell, généré depuis le registre de la version installée, donc à jour par construction : groupes,
+commandes et sous-commandes, options et leurs valeurs (une énumération propose ses valeurs, un fichier
+ou un dossier complète les chemins, un booléen rien), arguments positionnels. `breakrocks completion
+--install` montre la ligne à ajouter, pour un shell ou pour les quatre, et n'écrit rien.
+
+| Shell | Installation |
+|---|---|
+| bash | `breakrocks completion bash > ~/.local/share/bash-completion/completions/breakrocks` (avec bash-completion ; sans lui, `eval "$(breakrocks completion bash)"` dans `~/.bashrc`) |
+| zsh | `eval "$(breakrocks completion zsh)"` dans `~/.zshrc` (ou le script nommé `_breakrocks` dans un dossier de `$fpath`) |
+| fish | `breakrocks completion fish > ~/.config/fish/completions/breakrocks.fish` |
+| PowerShell 7.3+ | `breakrocks completion pwsh \| Out-String \| Invoke-Expression` dans `$PROFILE` |
+
+Les mêmes scripts, déjà générés, sont joints à chaque release (`breakrocks.bash`, `breakrocks.zsh`,
+`breakrocks.fish`, `breakrocks.ps1`, dans `SHA256SUMS`) et au paquet npm (`completions/`, écrit par
+`npm run gen:completions` au `prepack`). Un fichier installé est à régénérer après une mise à jour ;
+la ligne `eval` le régénère à chaque shell.
+
+Valeurs dynamiques : le script les demande à `breakrocks __complete <mots…>` (caché de l'aide ; une
+valeur par ligne, `:files` ou `:dirs` en dernier quand des chemins complètent le mot), qui lit le
+dossier de configuration et **n'appelle jamais le réseau** :
+
+- les profils (`--profile`, `profile use|show|remove`) ;
+- les univers et les comptes récemment utilisés (`%…`, `@…`) : `history.json`, les 100 derniers,
+  écrit après une commande réussie avec les adresses de ses options d'univers et de compte, jamais
+  un texte ni le contenu d'un message ; `BREAKROCKS_NO_HISTORY=1` n'en garde aucun ;
+- les thèmes et dispositions publiés par le profil (`%univers/nom`) : `cache/published-<profil>.json`,
+  tenu par `theme publish|copy|delete` et `layouts publish|publish-version|copy|delete` ;
+- les domaines (`--field`) : les dix domaines du contrat.
+
+Les scripts complètent la forme `--option valeur` ; `--option=valeur` l'est par `__complete`
+seulement.
 
 ## MCP
 
@@ -442,6 +481,9 @@ Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [argument
   `src/commands/read.ts`, `publish.ts`, `themes-online.ts`, `moderation.ts`, `batch.ts`.
 - `src/theme/` : vérification (portage de `backend/amplify/themes/surfaces.ts` et `model.ts`), prompt,
   ZIP (`node:zlib`), polices approuvées embarquées ; `src/mcp/server.ts` : le serveur MCP.
+- `src/completion/` : l'autocomplétion, `engine.ts` (le modèle, l'arbre des mots, `__complete`) et
+  `scripts.ts` (les quatre shells), indépendants du CLI ; `model.ts` (le modèle tiré du registre,
+  les valeurs dynamiques) et `history.ts` (historique et cache locaux).
 - `test/` : `vitest`, sans réseau (une fausse plateforme qui vérifie les signatures, un client MCP en
   mémoire) ; `test/smoke/mcp-stdio.mjs` : le serveur de l'exécutable construit, en CI.
 - `specs/common` : sous-module `break-rocks-specs` ; jamais modifié ici.

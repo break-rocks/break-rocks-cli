@@ -1,6 +1,8 @@
 // The command line: the global options taken out, the command found in the registry, its options
 // parsed from its input schema, its answer written in text or JSON, the exit code.
 import { createInterface } from 'node:readline/promises';
+import { runComplete } from './commands/completion.js';
+import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
 import { EXIT, asCliError, usageError, type CliError } from './errors.js';
@@ -82,6 +84,7 @@ export function writeError(out: Output, json: boolean, error: CliError): number 
 
 /** Runs the CLI with [argv] (without node and the script) and answers its exit code. */
 export async function run(argv: readonly string[], io: Io): Promise<number> {
+  if (argv[0] === '__complete') return runComplete(argv.slice(1), io);
   let json = argv.includes('--json');
   try {
     const { flags, tokens } = parseGlobals(argv);
@@ -104,7 +107,9 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const rest = tokens.slice(command.name.split(' ').length);
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
     const result = await execute(ctx, command, input);
-    return writeAnswer(ctx, command, result);
+    const exit = writeAnswer(ctx, command, result);
+    if (exit === EXIT.OK) rememberUse(ctx, command, input, result);
+    return exit;
   } catch (error) {
     return writeError(io.out, json, asCliError(error));
   }

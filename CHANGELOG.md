@@ -4,6 +4,28 @@ All notable changes of break-rocks-cli. The format follows [Keep a Changelog](ht
 the contract is break-rocks-specs (`specs/common`: `contracts/agent-sign-in.md`, `contracts/payments.md`,
 `contracts/schema.graphql`, `contracts/themes.md`). The scope is decided (D-91, 2026-10-23).
 
+## [0.7.0] - 2026-10-23
+
+### Added
+
+- Shell completion (D-98): `completion bash|zsh|fish|pwsh` writes the completion script of the shell,
+  generated from the registry (groups, commands, subcommands, options and positionals; an
+  enumeration completes its values, a file or a folder the paths, a boolean nothing);
+  `completion --install` shows the line to add, writing nothing. The release attaches the static
+  scripts (`breakrocks.bash`, `.zsh`, `.fish`, `.ps1`, in `SHA256SUMS`) and the npm package carries
+  them in `completions/` (`npm run gen:completions`, run by `prepack`).
+- `__complete <words…>` (hidden from the help): what to propose for the last word, the dynamic values
+  for the scripts: the profiles, the universes and accounts used lately (`history.json` of the
+  configuration folder, the last 100 addresses, never a text; `BREAKROCKS_NO_HISTORY=1` keeps none),
+  the themes and layouts the profile published (`cache/published-<profile>.json`), the fields. No
+  network during a completion.
+
+### Changed
+
+- A command that succeeded leaves the universes and accounts of its options in the history of the
+  completion; `profile remove` also removes the cache of the themes the profile published.
+- The MCP server is unchanged: `completion` is not a tool.
+
 ## [0.6.0] - 2026-10-23
 
 ### Added

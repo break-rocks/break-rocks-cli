@@ -97,6 +97,7 @@ export class ConfigStore {
     if (config.current === name) delete config.current;
     this.write(config);
     rmSync(this.sessionFile(name), { force: true });
+    rmSync(this.cacheFile(`published-${name}.json`), { force: true });
   }
   setCurrent(name: string): void { const config = this.read(); config.current = name; this.write(config); }
 
