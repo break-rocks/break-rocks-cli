@@ -20,6 +20,14 @@ Ce que le CLI devrait couvrir, dans l'ordre :
 
 Aucune de ces commandes n'existe encore : seul le squelette (`help`, `version`) est là.
 
+## Systèmes
+
+Le CLI est utilisable sur **macOS, Linux et Windows** (exigence de l'utilisateur, 2026-10-23) : il
+tourne partout où Node 24 tourne, sans module natif ; la CI l'exécute sur les trois systèmes à chaque
+push. Chemins par `node:path` et `os.homedir()`, aucun appel à un shell, fins de ligne du système,
+droits des fichiers de clés en 0600 sur POSIX et par les ACL de l'utilisateur sur Windows. La
+distribution (npm, binaires par système) est à trancher (D-91).
+
 ## Utilisation
 
 ```sh

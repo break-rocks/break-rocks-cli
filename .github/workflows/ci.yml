@@ -1,8 +1,10 @@
 name: CI
 
-# Lint, types, unit tests and the build, on every push to main and every pull request. No AWS
-# credentials, no network: the CLI is tested against fakes. The common specs (break-rocks-specs,
-# private) are checked out when SUBMODULES_TOKEN is set, for the contract checks of the tests.
+# Lint, types, unit tests, the build and the executable, on Linux, macOS and Windows (the CLI
+# runs wherever Node 24 runs: README § Systèmes), on every push to main and every pull request.
+# No AWS credentials, no network: the CLI is tested against fakes. The common specs
+# (break-rocks-specs, private) are checked out when SUBMODULES_TOKEN is set, for the contract
+# checks of the tests. The job "check" is the one status main requires: it fails if any system fails.
 
 on:
   push:
@@ -17,8 +19,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     env:
       # specs/common (break-rocks-specs) is private: SUBMODULES_TOKEN is a fine-grained token with
@@ -28,6 +35,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Common specs (the contract checks of the tests)
         if: env.HAS_SUBMODULES_TOKEN == 'true'
+        shell: bash
         env:
           SUBMODULES_TOKEN: ${{ secrets.SUBMODULES_TOKEN }}
         run: |
@@ -43,6 +51,17 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: The executable answers
+        shell: bash
         run: |
           test "$(node bin/breakrocks.js --version)" = "$(node -p "require('./package.json').version")"
           node bin/breakrocks.js help --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.commands.length) process.exit(1)"
+          node bin/breakrocks.js nope && exit 1 || test $? -eq 2
+
+  check:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every system passed
+        run: test "${{ needs.test.result }}" = "success"

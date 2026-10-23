@@ -12,7 +12,11 @@ dépendance d'exécution. Vue d'ensemble et portée : [README.md](README.md).
   avec `--json` ; tout passe par `src/output.ts` (`no-console` ailleurs). Codes de sortie : 0 fait,
   1 refus de la plateforme (erreur de domaine, rapportée avec son code), 2 usage.
 - **Aucun secret écrit en clair** dans la sortie, les journaux ou les tests ; les clés privées
-  restent sur l'appareil, dans le dossier de configuration de l'utilisateur, en 0600.
+  restent sur l'appareil, dans le dossier de configuration de l'utilisateur (0600 sur POSIX, ACL de l'utilisateur sur Windows).
+- **Portable** : macOS, Linux et Windows (exigence de l'utilisateur, 2026-10-23). Aucun module
+  natif, aucun appel à un shell ni à un binaire du système, chemins par `node:path` et
+  `os.homedir()`, aucune hypothèse sur `/`, les droits POSIX ou les fins de ligne ; une commande
+  qui ne peut pas marcher sur un système le dit et échoue proprement. La CI tourne sur les trois.
 - **Pas de réseau dans les tests** : fausses sorties et faux transports ; les parcours réels se
   vérifient sur dev à la main et se rapportent.
 - **Dépendances** : aucune d'exécution sans décision de l'utilisateur ; toute version a au moins
