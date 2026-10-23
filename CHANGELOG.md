@@ -4,6 +4,20 @@ All notable changes of break-rocks-cli. The format follows [Keep a Changelog](ht
 the contract is break-rocks-specs (`specs/common`: `contracts/agent-sign-in.md`, `contracts/payments.md`,
 `contracts/schema.graphql`, `contracts/themes.md`). The scope is decided (D-91, 2026-10-23).
 
+## [0.4.0] - 2026-10-23
+
+### Added
+
+- `breakrocks mcp`: an MCP server on stdio (`@modelcontextprotocol/sdk` 1.32.1). Every command of
+  the registry is a tool `breakrocks_<group>_<action>` with the input schema of the registry, its
+  answer the `--json` of the command (a refusal `{ "error" }` marked `isError`); the resources
+  `breakrocks://whoami`, `breakrocks://capabilities` and `breakrocks://profiles`; the prompt
+  `theme-prompt`. It uses the current profile (or `--profile` / `--env`), refuses a tool that asks
+  a confirmation without `"yes": true`, never reads stdin for a question.
+- README § MCP: Claude Code, Codex and `claude_desktop_config.json`, one line each;
+  `test/smoke/mcp-stdio.mjs`, the server of the built executable driven by the SDK's client, in CI
+  on Linux, macOS and Windows.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added
