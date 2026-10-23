@@ -26,4 +26,4 @@ console.log(result.content[0].text);
 await client.close();
 const code = result.isError ? JSON.parse(result.content[0].text).error?.code : undefined;
 if (expected ? code !== expected : result.isError) process.exitCode = 1;
-if (!tools.some((t) => t.name === 'breakrocks_whoami') || !tools.some((t) => t.name === 'breakrocks_posts_list')) process.exitCode = 1;
+if (!tools.some((t) => t.name === 'breakrocks_whoami') || !tools.some((t) => t.name === 'breakrocks_posts_list') || !tools.some((t) => t.name === 'breakrocks_dm')) process.exitCode = 1;

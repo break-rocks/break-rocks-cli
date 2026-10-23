@@ -1,0 +1,82 @@
+name: Release
+
+# The single executables of the CLI (C-02; README § Binaires): on a tag v<version> (the version of
+# package.json), each target builds its executable with Node SEA (npm run build:sea), checks that it
+# answers --version, and the release of the tag gets every executable and its SHA-256. Run by hand
+# (workflow_dispatch), it builds and checks the five targets and keeps them as artifacts, without a
+# release. No signature yet (macOS notarization, Windows Authenticode: later, C-02).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: darwin-arm64, runner: macos-14 }
+          - { target: darwin-x64, runner: macos-15-intel }
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+          - { target: windows-x64, runner: windows-latest }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: The tag is the version of package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - run: npm run build:sea
+      - name: The executable answers
+        shell: bash
+        env:
+          BREAKROCKS_CONFIG_DIR: ${{ runner.temp }}/breakrocks-config
+        run: |
+          bin="$(ls build/sea/breakrocks-* | grep -v '\.sha256$' | grep -v '\.cjs$' | head -1)"
+          test "$("$bin" --version)" = "$(node -p "require('./package.json').version")"
+          "$bin" schema all --json > /dev/null
+          "$bin" --env dev operator keygen --json | grep -q fingerprint
+      - uses: actions/upload-artifact@v7
+        with:
+          name: breakrocks-${{ matrix.target }}
+          path: |
+            build/sea/breakrocks-*
+            !build/sea/breakrocks.cjs
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: The release of the tag, with the executables and their SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          cat breakrocks-*.sha256 > SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "breakrocks $GITHUB_REF_NAME" --generate-notes breakrocks-* SHA256SUMS

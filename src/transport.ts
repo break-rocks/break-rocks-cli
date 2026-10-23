@@ -82,7 +82,7 @@ export const isUnauthorized = (error: unknown) => error instanceof CliError && e
  * error (`errorType`, contracts/errors.md, with its errorInfo). A token refused (HTTP 401, or
  * Unauthorized) is the code "Unauthorized".
  */
-export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false): Promise<T> {
+export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false): Promise<T> {
   const res = await request(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token }, body: JSON.stringify({ query, variables }) });
   const body = await bodyOf(res) as { data?: T; errors?: GraphqlError[] };
   const first = body.errors?.[0];
@@ -90,6 +90,8 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
     throw platformRefusal('Unauthorized', first?.message ?? 'The token is refused', { status: res.status });
   }
   if (res.status >= 500 && !first) throw networkError('SERVER_ERROR', `The API answered ${res.status}`, { status: res.status }, 'platform');
+  // An answer with its data and errors (createGroupChat and GROUP_INVITATIONS_REFUSED): both, when asked.
+  if (first && partial && body.data && Object.values(body.data as object).some((v) => v != null)) return { ...(body.data as object), _errors: body.errors } as T;
   if (first) {
     const code = first.errorType ?? 'GRAPHQL_ERROR';
     const info = (first.errorInfo ?? undefined) as { retryAt?: string } | undefined;
@@ -98,7 +100,7 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
       if (Number.isFinite(wait) && wait <= MAX_RETRY_SECONDS) {
         ctx.progress(`Rate limited: trying again in ${Math.max(0, wait)} s`);
         await ctx.io.sleep(Math.max(0, wait) * 1000);
-        return graphql<T>(ctx, url, token, query, variables, true);
+        return graphql<T>(ctx, url, token, query, variables, true, partial);
       }
     }
     throw platformRefusal(code, first.message ?? code, { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });

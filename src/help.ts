@@ -27,6 +27,7 @@ const GROUP_SUMMARIES: Record<string, string> = {
   universes: 'Universes: the page, Explore, residence, favorites, private universes', explore: 'Explore', 'time-column': 'The time column', live: 'The live line',
   accounts: 'Accounts and their links', notifications: 'Notifications', events: 'Events', proposals: 'Proposals and votes', debates: 'Debates', polls: 'Polls',
   channels: 'Channels', themes: 'The theme catalog', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file (C-16)',
+  inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',
   moderation: 'Moderation of a universe (C-15)', governance: 'Governance of a universe (C-15)',
 };
 

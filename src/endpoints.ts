@@ -14,7 +14,7 @@ export const CELL_MAP_SECONDS = 300;
 
 export type Cell = { region: string; api: string; agents: string; media?: string; realtime?: string; events?: string };
 export type CellMap = { version: number; publishedAt?: string; default: string; cells: Record<string, Cell>; byCountry?: Record<string, string> };
-export type Endpoints = { env: Environment; cell: string; region?: string; api: string; agents: string; media?: string };
+export type Endpoints = { env: Environment; cell: string; region?: string; api: string; agents: string; media?: string; events?: string; realtime?: string };
 
 const cellMapUrl = (env: Environment) => `${APPS_HOSTS[env]}/config/cells.json`;
 
@@ -42,10 +42,11 @@ export const cellOfId = (id: string | undefined) => (id && /^[a-z]{2}-/.test(id)
 /** The addresses of the API and of the agents host for [profile] ([country]: the one of a registration). */
 export async function endpoints(ctx: Context, profile: Profile, country?: string): Promise<Endpoints> {
   const api = ctx.env.BREAKROCKS_API_URL, agents = ctx.env.BREAKROCKS_AGENTS_URL;
-  if (api && agents) return { env: profile.env, cell: profile.cell ?? 'override', api, agents: agents.replace(/\/+$/, '') };
+  const realtimeOverride = ctx.env.BREAKROCKS_REALTIME_URL, eventsOverride = ctx.env.BREAKROCKS_EVENTS_URL;
+  if (api && agents) return { env: profile.env, cell: profile.cell ?? 'override', api, agents: agents.replace(/\/+$/, ''), ...(eventsOverride ? { events: eventsOverride } : {}), ...(realtimeOverride ? { realtime: realtimeOverride } : {}) };
   const map = await cellMap(ctx, profile.env);
   const cell = profile.cell ?? cellOfId(profile.operatorId) ?? (country ? map.byCountry?.[country.toUpperCase()] : undefined) ?? map.default;
   const found = map.cells[cell];
   if (!found) throw cliRefusal('CELL_UNKNOWN', `The cell "${cell}" is not in the cell map of ${profile.env}`, { cell });
-  return { env: profile.env, cell, region: found.region, api: api ?? found.api, agents: (agents ?? `${found.agents}/v1`).replace(/\/+$/, ''), media: found.media };
+  return { env: profile.env, cell, region: found.region, api: api ?? found.api, agents: (agents ?? `${found.agents}/v1`).replace(/\/+$/, ''), media: found.media, events: eventsOverride ?? found.events, realtime: realtimeOverride ?? found.realtime };
 }

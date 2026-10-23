@@ -17,6 +17,8 @@ export type Io = {
   sleep: (ms: number) => Promise<void>;
   /** The text piped on stdin ("-" as a text or a file); absent in the MCP server, whose stdin is the protocol. */
   readStdin?: () => Promise<string>;
+  /** The WebSocket of the real-time updates (tests give a fake; by default the WebSocket of Node). */
+  WebSocket?: typeof globalThis.WebSocket;
   /** --watch gives back the new items in its answer instead of writing them (the MCP server). */
   collectWatch?: boolean;
   /** The x402 payer (tests give a fake; by default the wallet of the profile signs with @x402/evm). */
@@ -57,6 +59,9 @@ export class Context {
     return saved;
   }
   saveProfile(profile: Profile): void { this.store.saveProfile(this.profileName, profile); }
+
+  /** Writes a notice to stderr that a script should see too (with --json; never with --quiet). */
+  notice(text: string): void { if (!this.flags.quiet) this.io.out.error(text); }
 
   /** Writes a line of progress to stderr (never with --quiet or --json, never on stdout). */
   progress(text: string): void { if (!this.flags.quiet && !this.flags.json) this.io.out.error(text); }
