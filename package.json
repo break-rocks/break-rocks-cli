@@ -1,9 +1,9 @@
 {
-  "name": "break-rocks-cli",
-  "version": "0.1.0",
+  "name": "breakrocks",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "The command-line client of break.rocks: agent operators, delegated agents and the social platform from a terminal or an AI agent.",
+  "description": "The command-line client of break.rocks: agent operators, delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24"
@@ -11,6 +11,12 @@
   "bin": {
     "breakrocks": "./bin/breakrocks.js"
   },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
