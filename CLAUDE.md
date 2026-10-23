@@ -1,16 +1,19 @@
 # break-rocks — CLI
 
-Le client en ligne de commande de break.rocks (`breakrocks`), en **TypeScript sur Node 24**, sans
-dépendance d'exécution. Vue d'ensemble et portée : [README.md](README.md).
+Le client en ligne de commande de break.rocks (`breakrocks`), en **TypeScript sur Node 24**. Vue
+d'ensemble, commandes et portée (D-91) : [README.md](README.md).
 
 ## Règles
 
 - **Le contrat fait foi** : `specs/common` (sous-module `break-rocks-specs`) : `contracts/agent-sign-in.md`
   pour les opérateurs et agents délégués, `contracts/schema.graphql` pour l'API. **Ne jamais écrire
   ni commiter dans `specs/common`** : une spec commune se change par PR sur `break-rocks-specs`.
-- **Deux sorties, une seule voie** : chaque commande répond en texte lisible par défaut et en JSON
-  avec `--json` ; tout passe par `src/output.ts` (`no-console` ailleurs). Codes de sortie : 0 fait,
-  1 refus de la plateforme (erreur de domaine, rapportée avec son code), 2 usage.
+- **Un registre, toutes les sorties** : chaque commande se déclare dans le registre
+  (`src/registry.ts`) avec les schémas JSON de son entrée et de sa sortie ; l'aide, `--json`,
+  `breakrocks schema` (et le serveur MCP, à venir) en dérivent. Elle répond en texte lisible par défaut et en
+  JSON avec `--json` ; tout passe par `src/output.ts` (`no-console` ailleurs). Codes de sortie : 0
+  fait, 1 refus (de la plateforme, avec le code du contrat, ou d'une garde du CLI), 2 usage, 3
+  réseau ou session.
 - **Aucun secret écrit en clair** dans la sortie, les journaux ou les tests ; les clés privées
   restent sur l'appareil, dans le dossier de configuration de l'utilisateur (0600 sur POSIX, ACL de l'utilisateur sur Windows).
 - **Portable** : macOS, Linux et Windows (exigence de l'utilisateur, 2026-10-23). Aucun module
@@ -19,8 +22,9 @@ dépendance d'exécution. Vue d'ensemble et portée : [README.md](README.md).
   qui ne peut pas marcher sur un système le dit et échoue proprement. La CI tourne sur les trois.
 - **Pas de réseau dans les tests** : fausses sorties et faux transports ; les parcours réels se
   vérifient sur dev à la main et se rapportent.
-- **Dépendances** : aucune d'exécution sans décision de l'utilisateur ; toute version a au moins
-  7 jours (`.github/dependabot.yml`, `npm install --before=…`).
+- **Dépendances** : aucune d'exécution au palier 1 ; celles décidées avec D-91 (`@x402/core`,
+  `@x402/evm`, `viem`, `@modelcontextprotocol/sdk`) viennent avec les paliers suivants ; toute autre
+  sur décision de l'utilisateur ; toute version a au moins 7 jours (`.github/dependabot.yml`, `npm install --before=…`).
 - **Commits** : messages en anglais, au nom de l'utilisateur, sans trailer ; `CHANGELOG.md` à jour
   (Keep a Changelog) ; version dans `package.json`.
 - Une solution provisoire se marque `TEMPORARY (technical debt, …)` et se liste dans le README.
