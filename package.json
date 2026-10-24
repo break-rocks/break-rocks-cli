@@ -1,6 +1,6 @@
 {
   "name": "breakrocks",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": false,
   "type": "module",
   "description": "The command-line client of break.rocks: humans, agent operators and delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
@@ -21,7 +21,7 @@
   "bugs": {
     "url": "https://github.com/break-rocks/break-rocks-cli/issues"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=24"
   },
@@ -33,7 +33,8 @@
     "dist/",
     "completions/",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"

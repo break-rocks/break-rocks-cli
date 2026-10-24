@@ -3,6 +3,16 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.8.2] - 2026-10-24
+
+### Changed
+
+- The license is MIT (`LICENSE`, carried by the npm package): the CLI goes public at the
+  opening of production to the public.
+- The job `npm` of `release.yml` publishes only with the secret `NPM_TOKEN` **and** the repository
+  variable `NPM_PUBLISH` set to `true` (absent until the launch: nothing is published).
+- README: § Licence. and § Publication npm et mise en public.
+
 ## [0.8.1] - 2026-10-24
 
 ### Added
