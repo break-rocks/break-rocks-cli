@@ -22,7 +22,7 @@ describe('the local server of login --browser', () => {
       expect(other.status).toBe(403);
       expect(other.headers.get('access-control-allow-origin')).toBeNull();
       expect((await fetch(`http://127.0.0.1:${server.port}/`, { headers: { origin: ORIGIN } })).status).toBe(404);
-      expect((await fetch(`http://127.0.0.1:${server.port}/callback`, { headers: { origin: ORIGIN } })).status).toBe(405);
+      expect((await fetch(`http://127.0.0.1:${server.port}/callback`, { method: 'PUT', headers: { origin: ORIGIN } })).status).toBe(405);
     } finally { server.close(); }
   });
   it('takes one code with the right state and stops listening; a wrong state is refused and the wait goes on', async () => {
@@ -36,6 +36,16 @@ describe('the local server of login --browser', () => {
     expect(ok.headers.get('access-control-allow-origin')).toBe(ORIGIN);
     await expect(server.result).resolves.toEqual({ code: 'c'.repeat(20), username: 'u-1', cell: 'eu' });
     await expect(post(server.port, { state, code: 'd'.repeat(20) })).rejects.toThrow();
+  });
+  it('takes the code by a navigation too, and sends the browser back to the page of the outcome', async () => {
+    const { state } = loginSecrets();
+    const server = await callbackServer({ origin: ORIGIN, state, timeoutMs: 5000 });
+    const go = (query: Record<string, string>) => fetch(`http://127.0.0.1:${server.port}/callback?${new URLSearchParams(query)}`, { redirect: 'manual' });
+    const wrong = await go({ state: 'x'.repeat(43), code: 'c'.repeat(20) });
+    expect([wrong.status, wrong.headers.get('location')]).toEqual([303, 'https://dev.break.rocks/cli/login?outcome=refused']);
+    const ok = await go({ state, code: 'c'.repeat(20), username: 'u-1', cell: 'eu' });
+    expect([ok.status, ok.headers.get('location'), ok.headers.get('referrer-policy')]).toEqual([303, 'https://dev.break.rocks/cli/login?outcome=done', 'no-referrer']);
+    await expect(server.result).resolves.toEqual({ code: 'c'.repeat(20), username: 'u-1', cell: 'eu' });
   });
   it('gives up after its time: BROWSER_LOGIN_TIMEOUT (exit 3)', async () => {
     const server = await callbackServer({ origin: ORIGIN, state: 's', timeoutMs: 50 });
