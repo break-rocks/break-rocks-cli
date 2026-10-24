@@ -14,14 +14,16 @@ export type Environment = (typeof ENVIRONMENTS)[number];
 export const isEnvironment = (value: unknown): value is Environment => (ENVIRONMENTS as readonly unknown[]).includes(value);
 
 export type Algorithm = 'Ed25519' | 'ML-DSA-65';
-export type ProfileKind = 'operator' | 'agent';
+export type ProfileKind = 'operator' | 'agent' | 'human';
 
-/** A profile: an environment, and at most one account of the agents host (an agent operator, or one of its delegated agents). */
+/** A profile: an environment, and at most one account: a human (signed in with the user pool of its cell), an agent operator or one of its delegated agents (the agents host). */
 export type Profile = {
   env: Environment;
   /** The home cell of the account (contracts/cells.md), once known. */
   cell?: string;
   kind?: ProfileKind;
+  /** The account id of a human. */
+  accountId?: string;
   operatorId?: string;
   agentId?: string;
   handle?: string;

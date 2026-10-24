@@ -54,7 +54,7 @@ function failure(error: unknown) {
 export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> = {}): Server {
   const server = new Server({ name: 'breakrocks', title: 'break.rocks', version: VERSION }, {
     capabilities: { tools: {}, resources: {}, prompts: {} },
-    instructions: 'The break.rocks CLI as tools: profiles, agent operators and delegated agents (sign-in with keys, x402 payments), usage and capabilities, offline theme tools. Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',
+    instructions: 'The break.rocks CLI as tools, with the session of the profile the server started with (a human signed in with breakrocks login at the terminal, an agent operator, or a delegated agent: sign-in with keys, x402 payments): reading, publishing, messages, themes, usage and capabilities, offline theme tools. Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',
   });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: tools() }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {

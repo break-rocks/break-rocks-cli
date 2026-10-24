@@ -5,9 +5,11 @@ import { agentAttest, agentLogin } from './agent.js';
 import { agentsActivity, agentsCreate, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
 import { completion } from './completion.js';
 import { help, schema, version } from './core.js';
+import { login, logout } from './login.js';
 import { mcpCommand } from './mcp.js';
 import { operatorDelete, operatorKeygen, operatorLogin, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew, sessionCommand } from './operator.js';
 import { profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
+import { update } from './update.js';
 import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack } from './theme.js';
 import { walletBalance, walletFaucet, walletSet, walletShow } from './wallet.js';
 import { batch } from './batch.js';
@@ -18,8 +20,9 @@ import * as read from './read.js';
 import { layoutCommands, studioCommands, themeApply, themeCopy, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themeTry, themeUndoTry, themesList, themesShow } from './themes-online.js';
 
 register(
-  help, version, schema, completion,
+  help, version, schema, completion, update,
   profileAdd, profileUse, profileList, profileShow, profileRemove,
+  login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity,
   agentLogin, agentAttest,

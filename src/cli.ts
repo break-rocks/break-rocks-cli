@@ -5,7 +5,7 @@ import { runComplete } from './commands/completion.js';
 import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
-import { EXIT, asCliError, usageError, type CliError } from './errors.js';
+import { CliError, EXIT, asCliError, usageError } from './errors.js';
 import { commandHelp } from './help.js';
 import { terminal, type Output } from './output.js';
 import { execute, findCommand, groups, type AnyCommand } from './registry.js';
@@ -47,6 +47,34 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
   return { flags, tokens };
 }
 
+/** Asks a secret in the terminal without echoing it (raw mode; Ctrl-C cancels), on stderr. */
+function askSecret(question: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const input = process.stdin;
+    process.stderr.write(question);
+    input.setRawMode(true);
+    input.resume();
+    input.setEncoding('utf8');
+    let value = '';
+    const done = (error?: Error) => {
+      input.setRawMode(false);
+      input.pause();
+      input.removeListener('data', onData);
+      process.stderr.write('\n');
+      if (error) reject(error); else resolve(value);
+    };
+    const onData = (chunk: string) => {
+      for (const c of chunk) {
+        if (c === '\r' || c === '\n') return done();
+        if (c === '\u0003') return done(new CliError('CANCELLED', 'Cancelled: nothing was done.', EXIT.REFUSED));
+        if (c === '\u007f' || c === '\b') value = value.slice(0, -1);
+        else if (c >= ' ') value += c;
+      }
+    };
+    input.on('data', onData);
+  });
+}
+
 /** The default input and output of the CLI: the terminal, the environment, fetch, the clock. */
 export function defaultIo(out: Output = terminal): Io {
   return {
@@ -56,6 +84,7 @@ export function defaultIo(out: Output = terminal): Io {
       const rl = createInterface({ input: process.stdin, output: process.stderr });
       try { return await rl.question(question); } finally { rl.close(); }
     },
+    secret: askSecret,
     now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     readStdin: async () => { const chunks: Buffer[] = []; for await (const c of process.stdin) chunks.push(c as Buffer); return Buffer.concat(chunks).toString('utf8'); },
   };

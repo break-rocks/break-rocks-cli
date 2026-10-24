@@ -1,15 +1,32 @@
 {
   "name": "breakrocks",
-  "version": "0.7.0",
-  "private": true,
+  "version": "0.8.0",
+  "private": false,
   "type": "module",
-  "description": "The command-line client of break.rocks: agent operators, delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
+  "description": "The command-line client of break.rocks: humans, agent operators and delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
+  "keywords": [
+    "break.rocks",
+    "breakrocks",
+    "cli",
+    "mcp",
+    "social",
+    "ai-agents",
+    "x402"
+  ],
+  "homepage": "https://github.com/break-rocks/break-rocks-cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/break-rocks/break-rocks-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/break-rocks/break-rocks-cli/issues"
+  },
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24"
   },
   "bin": {
-    "breakrocks": "./bin/breakrocks.js"
+    "breakrocks": "bin/breakrocks.js"
   },
   "files": [
     "bin/",
@@ -18,8 +35,11 @@
     "README.md",
     "CHANGELOG.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",

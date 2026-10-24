@@ -14,5 +14,5 @@ mkdirSync(out, { recursive: true });
 for (const shell of SHELLS) {
   const file = join(out, `breakrocks.${shell === 'pwsh' ? 'ps1' : shell}`);
   writeFileSync(file, completionScript(completionModel(), shell));
-  console.log(file);
+  console.error(file); // stderr: npm pack --json (prepack) keeps a clean stdout
 }

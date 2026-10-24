@@ -24,12 +24,13 @@ describe('the MCP server', () => {
   it('lists every command of the registry as a tool, with its input schema', async () => {
     const client = await connected(harness());
     const { tools } = await client.listTools();
-    // Every command but the server itself and the completion of the shells.
-    expect(tools.length).toBe(commands().length - 2);
+    // Every command but the server itself, the completion of the shells, the update of the CLI, the
+    // sign-in and sign-out of a human, and the change of the current profile (D-103).
+    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'login', 'logout', 'mcp', 'profile use', 'update']);
+    expect(tools.length).toBe(commands().length - 6);
     const names = tools.map((t) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_theme_prompt', 'breakrocks_agent_login']));
-    expect(names).not.toContain('breakrocks_mcp');
-    expect(names).not.toContain('breakrocks_completion');
+    expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_theme_prompt', 'breakrocks_agent_login', 'breakrocks_profile_list']));
+    for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_profile_use', 'breakrocks_update']) expect(names).not.toContain(name);
     const create = tools.find((t) => t.name === 'breakrocks_agents_create')!;
     expect(create.inputSchema).toMatchObject({ type: 'object', required: ['name'], properties: { name: { type: 'string' }, interactions: { type: 'array' } } });
     expect(tools.find((t) => t.name === 'breakrocks_agents_delete')!.inputSchema.properties).toHaveProperty('yes');

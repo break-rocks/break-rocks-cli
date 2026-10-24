@@ -4,6 +4,56 @@ All notable changes of break-rocks-cli. The format follows [Keep a Changelog](ht
 the contract is break-rocks-specs (`specs/common`: `contracts/agent-sign-in.md`, `contracts/payments.md`,
 `contracts/schema.graphql`, `contracts/themes.md`). The scope is decided (D-91, 2026-10-23).
 
+## [0.8.0] - 2026-10-24
+
+### Added
+
+- `login` (C-04, palier 5): the one sign-in of a profile. A human signs in with its email address
+  and its password, with Cognito's SRP (`USER_SRP_AUTH`, the password never leaves the device;
+  `src/srp.ts`, a copy of breakrocks-bo's), and the code of its authenticator app when the account
+  has one (`--code`, or asked); `--password-stdin` for scripts; the cell of the account from the
+  directory (`POST /v1/cell`, as the apps on a new device) or `--cell`, the user pool from the cell
+  map (`auth`). The profile becomes `kind: human` (its account id, handle and cell); the session
+  (access, id and refresh tokens, 0600, never printed) lasts 7 days from the sign-in, its tokens
+  renewed 5 minutes before they end or when the API refuses one; a refresh refused ends it
+  (`SESSION_EXPIRED`, exit 3). The refusals keep the name of Cognito's exception
+  (`NotAuthorizedException`, `UserNotConfirmedException`, `CodeMismatchException`…) with the reason
+  of the specs; a first sign-in that must set a password or an authenticator app is made in the app
+  (`FIRST_SIGN_IN_IN_APP`). On a profile of an agent operator or a delegated agent, `login` signs in
+  with its key, as `operator login` and `agent login`.
+- `login --browser`: the local server on 127.0.0.1 (CORS on `/callback` only, for the origin of the
+  web app of the environment, the private network preflight, the state compared in constant time,
+  one code, 5 minutes), the page address with the S256 challenge of a verifier, the opening of the
+  browser (`--no-open`); the exchange of the code stays behind `CodeExchange` and answers
+  `NOT_AVAILABLE_YET` until the API has the operation (the proposal is in the README).
+- `logout [--everywhere]`: a human's refresh token revoked (`RevokeToken`) and the session forgotten;
+  `--everywhere` ends every session of the account (`signOutEverywhere`); an agent account forgets
+  its session (the agents host has no sign-out).
+- `update [--check] [--tag]` (C-03): the latest release on GitHub, the executable of the system and
+  its `.sha256` downloaded and checked, the single executable replaced in place (on Windows the
+  running one set aside as `.old`); installed by npm, it says `npm i -g breakrocks@latest`; `GH_TOKEN`
+  reads the releases of the private repository.
+- The installers in one line (C-03): `install.sh` (macOS, Linux: the system and the processor, the
+  SHA-256 checked, `~/.local/bin`, never `sudo`, the PATH and the completion told) and `install.ps1`
+  (Windows: `%LOCALAPPDATA%\breakrocks\bin`, the PATH of the user), joined to each release and to
+  `SHA256SUMS` by `release.yml`, tested against a fake server of the releases.
+- The npm publication, prepared (C-01): `package.json` public (`private: false`, `repository`,
+  `homepage`, `bugs`, `keywords`, `publishConfig`), `npm pack --dry-run` checked by the CI; the job
+  `npm` of `release.yml` publishes only when the secret `NPM_TOKEN` exists. `license` stays
+  `UNLICENSED` until the user decides.
+
+### Changed
+
+- `whoami` of a human: its account (legal space, minimum age checked), its subscription
+  (`mySubscription`) and its residences (`myPresences`); `usage`, `capabilities` (no operator, no
+  delegated agent, no x402 wallet) and `session` (`signInAgainBy`) know a human; `--watch` connects in
+  real time with the id token of a human, to `/users/<account id>`.
+- The MCP server has no tool for `login`, `logout`, `update` nor `profile use` (D-103 (c): the server
+  acts with the profile it started with), besides `mcp` and `completion`.
+- `npm run build` empties `dist/` first; `gen:completions` writes its paths to stderr (a clean
+  `npm pack --json`).
+- The common specs at v49.1.1 (no change of `schema.graphql`).
+
 ## [0.7.0] - 2026-10-23
 
 ### Added

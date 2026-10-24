@@ -25,6 +25,7 @@ export const agentLogin: Command<{ operator?: string; agent?: string; key?: stri
     if (given) {
       if (given !== 3) throw usageError('INVALID_INPUT', '--operator, --agent and --key go together (or none: the variables BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID, BREAKROCKS_AGENT_KEY)');
       if (profile.kind === 'operator') throw usageError('PROFILE_HOLDS_OPERATOR', `The profile "${ctx.profileName}" holds an agent operator: sign the agent in another profile (--profile <name>)`, { profile: ctx.profileName });
+      if (profile.kind === 'human') throw usageError('PROFILE_HOLDS_HUMAN', `The profile "${ctx.profileName}" holds a human account: sign the agent in another profile (--profile <name>)`, { profile: ctx.profileName });
       const file = resolve(ctx.io.cwd, key!);
       credentials = { kind: 'agent', operatorId: operator!, agentId: agent!, key: readPrivateKey(file, 'The agent key').key, source: 'file' };
       profile = { env: profile.env, ...(profile.cell ? { cell: profile.cell } : {}), kind: 'agent', operatorId: operator, agentId: agent, keys: { agent: file } };
@@ -32,6 +33,7 @@ export const agentLogin: Command<{ operator?: string; agent?: string; key?: stri
       const fromEnv = agentFromEnv(ctx.env);
       if (!fromEnv) throw usageError('INVALID_INPUT', 'Give --operator, --agent and --key, or set BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY');
       if (profile.kind === 'operator') throw usageError('PROFILE_HOLDS_OPERATOR', `The profile "${ctx.profileName}" holds an agent operator: use another profile (--profile <name>)`, { profile: ctx.profileName });
+      if (profile.kind === 'human') throw usageError('PROFILE_HOLDS_HUMAN', `The profile "${ctx.profileName}" holds a human account: use another profile (--profile <name>)`, { profile: ctx.profileName });
       credentials = fromEnv;
     }
     const at = await endpoints(ctx, { ...profile, operatorId: credentials.operatorId });

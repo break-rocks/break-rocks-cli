@@ -3,6 +3,7 @@
 import { ConfigStore, DEFAULT_PROFILE, configDir, type Environment, type Profile } from './config.js';
 import { CliError, EXIT, usageError } from './errors.js';
 import type { Output } from './output.js';
+import type { CodeExchange } from './browser-login.js';
 import type { Payer } from './payment-types.js';
 
 export type Io = {
@@ -13,6 +14,14 @@ export type Io = {
   /** Whether a person can answer a question (stdin and stderr are terminals); never in the MCP server. */
   interactive: boolean;
   ask: (question: string) => Promise<string>;
+  /** Asks a secret (a password) without echoing it; absent where nobody can answer. */
+  secret?: (question: string) => Promise<string>;
+  /** Opens a web address in the browser of the person (login --browser); false when it could not. */
+  openUrl?: (url: string) => Promise<boolean>;
+  /** How login --browser exchanges the code of the web app for a session (tests give a fake; by default not served yet). */
+  codeExchange?: CodeExchange;
+  /** The executable that runs (update: tests give a file; by default the single executable, or the npm package). */
+  executable?: { path: string; kind: 'binary' | 'npm' | 'source' };
   now: () => number;
   sleep: (ms: number) => Promise<void>;
   /** The text piped on stdin ("-" as a text or a file); absent in the MCP server, whose stdin is the protocol. */
