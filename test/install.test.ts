@@ -80,6 +80,8 @@ describe.runIf(posix)('install.sh', () => {
 describe('install.ps1', () => {
   it('installs the executable of Windows, its SHA-256 checked (where PowerShell is)', async () => {
     const pwsh = (await has('pwsh', ['-NoProfile', '-Command', 'exit 0'])) ? 'pwsh' : process.platform === 'win32' && (await has('powershell', ['-NoProfile', '-Command', 'exit 0'])) ? 'powershell' : undefined;
+    // The CI of Windows has PowerShell: the installer is tested there for sure.
+    if (process.env.CI && process.platform === 'win32') expect(pwsh).toBeDefined();
     if (!pwsh) return;
     const dir = join(tempDir(), 'bin');
     sumFor = (d) => createHash('sha256').update(d).digest('hex');

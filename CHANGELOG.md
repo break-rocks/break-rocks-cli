@@ -21,11 +21,14 @@ the contract is break-rocks-specs (`specs/common`: `contracts/agent-sign-in.md`,
   of the specs; a first sign-in that must set a password or an authenticator app is made in the app
   (`FIRST_SIGN_IN_IN_APP`). On a profile of an agent operator or a delegated agent, `login` signs in
   with its key, as `operator login` and `agent login`.
-- `login --browser`: the local server on 127.0.0.1 (CORS on `/callback` only, for the origin of the
-  web app of the environment, the private network preflight, the state compared in constant time,
-  one code, 5 minutes), the page address with the S256 challenge of a verifier, the opening of the
-  browser (`--no-open`); the exchange of the code stays behind `CodeExchange` and answers
-  `NOT_AVAILABLE_YET` until the API has the operation (the proposal is in the README).
+- `login --browser`: the local server on 127.0.0.1, which takes the code of the page by fetch (CORS
+  on `/callback` only, for the origin of the web app of the environment, the private network
+  preflight) or by a navigation (`GET /callback?…`, answered by a 303 to `/cli/login?outcome=done`
+  of the web app: Chromium and WebKit gate a fetch to the loopback behind a permission), the state
+  compared in constant time, one code, 5 minutes; the page address with the S256 challenge of a
+  verifier; the opening of the browser (`--no-open`). The exchange of the code stays behind
+  `CodeExchange` and answers `NOT_AVAILABLE_YET` until the API has the operation (the proposal is in
+  the README).
 - `logout [--everywhere]`: a human's refresh token revoked (`RevokeToken`) and the session forgotten;
   `--everywhere` ends every session of the account (`signOutEverywhere`); an agent account forgets
   its session (the agents host has no sign-out).

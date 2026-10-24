@@ -509,9 +509,10 @@ Secrets Manager et passé par un tube, jamais affiché) : `login` (SRP, cellule 
 
 ### Connexion par le navigateur (`login --browser`, à venir)
 
-Le parcours est construit, l'échange final attend le contrat : **`login --browser` répond
-aujourd'hui `NOT_AVAILABLE_YET`** avec la raison (l'API n'a pas d'opération qui donne au CLI une
-session contre le code de la web app), sans rien ouvrir.
+Le parcours est construit des deux côtés (ce dépôt, et la page `/cli/login` de la web app 0.49.2,
+break-rocks-front-react f5fe9dc, sur `main`, pas encore déployée), l'échange final attend le
+contrat : **`login --browser` répond aujourd'hui `NOT_AVAILABLE_YET`** avec la raison (l'API n'a pas
+d'opération qui donne au CLI une session contre le code de la web app), sans rien ouvrir.
 
 1. Le CLI tire un `state` et un `verifier` (32 octets aléatoires chacun) et calcule
    `challenge = base64url(SHA-256(verifier))` (S256, comme PKCE) ; il écoute sur
@@ -519,12 +520,24 @@ session contre le code de la web app), sans rien ouvrir.
    `https://<web app de l'env>/cli/login?port=<port>&state=<state>&challenge=<challenge>`
    (dev `dev.break.rocks`, staging `staging.break.rocks`, prod `beta.break.rocks` jusqu'au lancement),
    ou écrit l'adresse à copier (`--no-open`).
-2. La page (web app, route `/cli/login`) demande à la personne connectée de confirmer « connecter la
-   ligne de commande sur cet ordinateur », obtient de l'API un code à usage unique, puis l'envoie par
-   `fetch` à `http://127.0.0.1:<port>/callback` : `{ state, code, username, cell }` — jamais un jeton.
-3. Le serveur local n'accepte que l'origine de la web app de l'environnement (CORS ouvert sur
-   `/callback` seulement, préflight avec `Access-Control-Allow-Private-Network`), compare le `state` en
-   temps constant, prend un seul code, puis cesse d'écouter ; sans confirmation en 5 minutes
+2. La page (web app, route `/cli/login`, 20 langues) demande à la personne connectée de confirmer
+   « connecter la ligne de commande sur cet ordinateur », obtient de l'API un code à usage unique,
+   puis le remet au CLI — jamais un jeton — de l'une de deux façons :
+   - par `fetch` (`POST http://127.0.0.1:<port>/callback`, `{ state, code, username, cell }`) quand
+     le navigateur a déjà permis l'accès au réseau local à la page ;
+   - sinon par une **navigation** vers `http://127.0.0.1:<port>/callback?state=…&code=…&username=…&cell=…`,
+     à laquelle le CLI répond par une redirection 303 vers `<web app>/cli/login?outcome=done`
+     (ou `refused`), où la page dit le résultat. Vérifié le 2026-10-24 avec Playwright : Chromium 156
+     et WebKit 27 bloquent un `fetch` d'une page publique en https vers `127.0.0.1` tant que la
+     personne n'a pas accordé l'accès au réseau local (Local Network Access : une invite dans Chrome,
+     un refus dans WebKit), mais laissent passer la navigation, sans invite ; Firefox n'a pas pu être
+     lancé sur la machine de vérification. Le `code` passe alors par l'historique du navigateur :
+     c'est sans risque parce qu'il ne sert qu'une fois, 5 minutes, et seulement avec le `verifier`
+     resté dans le CLI (S256).
+3. Le serveur local n'accepte un `fetch` que de l'origine de la web app de l'environnement (CORS
+   ouvert sur `/callback` seulement, préflight avec `Access-Control-Allow-Private-Network`) ; la
+   navigation, qui n'a pas d'`Origin`, est prouvée par le `state`, comparé en temps constant dans les
+   deux cas. Il prend un seul code, puis cesse d'écouter ; sans confirmation en 5 minutes
    (`--timeout`) : `BROWSER_LOGIN_TIMEOUT` (exit 3).
 4. Le CLI échange le code et son `verifier` contre les jetons du pool (interface `CodeExchange`,
    `src/browser-login.ts`), puis tout se passe comme après un `login` par mot de passe.
