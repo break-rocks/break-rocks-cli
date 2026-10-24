@@ -87,6 +87,8 @@ function sample(s: JsonSchema, name: string): unknown {
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
   post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
+  'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
+  'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x~a'] },
 };
 
 describe('every command', () => {
@@ -127,7 +129,7 @@ describe('every command', () => {
     const invalid = sent.filter((s) => s.errors.length).map((s) => `${s.command}: ${s.errors[0]}`);
     expect(invalid).toEqual([]);
     expect(ran).toBeGreaterThan(150);
-    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish']);
+    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

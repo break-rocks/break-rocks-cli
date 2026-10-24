@@ -24,7 +24,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   posts: 'Posts: list, show, edit, delete, pin', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
   post: 'Publish a post', reply: 'Reply', quote: 'Quote', repost: 'Repost', like: 'Like', unlike: 'Unlike', dislike: 'Dislike', undislike: 'Undislike',
   'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
-  universes: 'Universes: the page, Explore, residence, favorites, private universes', explore: 'Explore', 'time-column': 'The time column', live: 'The live line',
+  universes: 'Universes: the page, Explore, residence, favorites, private universes, the universe territory, the pages', explore: 'Explore, and the universes of an area of the map', places: 'The places search', map: 'The cartography: the shapes of the boundaries', 'time-column': 'The time column', live: 'The live line',
   accounts: 'Accounts and their links', notifications: 'Notifications', events: 'Events', proposals: 'Proposals and votes', debates: 'Debates', polls: 'Polls',
   channels: 'Channels', themes: 'The theme catalog', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file (C-16)',
   inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',

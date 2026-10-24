@@ -9,7 +9,9 @@ paliers 1 à 5 (v0.8.1), le serveur MCP et l'autocomplétion des shells : lire l
 interagir, thèmes et dispositions en ligne, messagerie et connexions, `--watch` en temps réel ou par
 relecture, `batch`, la connexion d'un humain (`login`, `logout`), les binaires, l'installeur en une
 ligne, `update` et la publication npm préparée ; `login --browser` est en service depuis 0.8.1
-(la page `/cli/login` de la web app, specs v49.7.0).
+(la page `/cli/login` de la web app, specs v49.7.0) ; depuis 0.9.0, le territoire d'univers, la carte
+(lieux, univers d'une zone, formes des frontières), les pages d'un univers et la page Gouvernance
+(specs v49.13.2).
 
 ## Installation
 
@@ -120,6 +122,7 @@ c'est facultatif (`--no-open`), un échec n'arrête rien et l'adresse est toujou
 | `BREAKROCKS_NO_HISTORY` | `1` : aucun univers ni compte gardé pour l'autocomplétion |
 | `BREAKROCKS_DIRECTORY_URL` | remplace l'annuaire de l'environnement (`https://directory[.<env>].break.rocks`, la cellule d'un courriel) |
 | `BREAKROCKS_WEB_URL` | remplace la web app de l'environnement (`login --browser`) |
+| `BREAKROCKS_MAP_URL` | remplace la cartographie de l'environnement (`https://map[.<env>].break.rocks` : `catalog.json`, les formes des frontières) |
 | `BREAKROCKS_RELEASES_URL`, `GH_TOKEN` / `GITHUB_TOKEN` | `update` : l'API des releases (un miroir, un test), un jeton qui lit le dépôt tant qu'il est privé |
 
 ## Commandes
@@ -195,7 +198,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `mute` | Mute an account | `breakrocks mute @alice` |
 | `unmute` | Unmute an account | `breakrocks unmute @alice` |
 | `report` | Report a post, a message, a group, a theme, a layout or a banner (report*) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
-| `universes show` | The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules | `breakrocks universes show %test-village-multisport` |
+| `universes show` | The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support | `breakrocks universes show %test-village-multisport` |
 | `universes list` | Explore the universes: by field, by language, recent, active, new, close to a level, mine | `breakrocks universes list --field SPORT` |
 | `universes sub` | The sub-universes of a universe (--map: their map) | `breakrocks universes sub %france` |
 | `universes members` | The members of a universe | `breakrocks universes members %club --all` |
@@ -210,7 +213,25 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `universes conditions show` | The conditions of a universe (a version) | `breakrocks universes conditions show %club` |
 | `universes conditions set` | Set the conditions of a private universe | `breakrocks universes conditions set %club "Respect et bonne humeur"` |
 | `universes conditions accept` | Accept the conditions of a universe | `breakrocks universes conditions accept %club --conditions-version 2` |
+| `universes territory get` | The universe territory of a universe: a boundary or a circle (Universe.territory) | `breakrocks universes territory get %paris` |
+| `universes territory set` | Set the universe territory of a universe: a boundary, or a circle around a place (setUniverseTerritory) | `breakrocks universes territory set %paris --boundary R7444` |
+| `universes territory remove` | Remove the universe territory of a universe (setUniverseTerritory remove; the leadership) | `breakrocks universes territory remove %paris` |
+| `universes territory report` | Report the universe territory of a universe to the platform team (reportUniverseTerritory) | `breakrocks universes territory report %paris --reason MISLEADING` |
+| `universes pages` | The pages of a universe, in the order of its main menu (Universe.pages, pagesVersion) | `breakrocks universes pages %paris` |
+| `universes page get` | A page of a universe; --document its document as served (pageOfUniverse) | `breakrocks universes page get %paris market` |
+| `universes page publish` | Publish a custom page from a JSON file: a new page, or the next version of one (publishUniversePage) | `breakrocks universes page publish %paris --file market.json` |
+| `universes page check` | Check a custom page against the registry of a universe, without publishing it (checkLayout) | `breakrocks universes page check %paris --file market.json` |
+| `universes page hide` | Hide a page from the main menu (agenda, members, a custom page; setUniversePageHidden) | `breakrocks universes page hide %paris agenda` |
+| `universes page show` | Show a hidden page in the main menu again | `breakrocks universes page show %paris agenda` |
+| `universes page move` | Move a custom page in the main menu (before another, or last; moveUniversePage) | `breakrocks universes page move %paris market --before quiz` |
+| `universes page delete` | Delete a custom page, its versions and its free blocks (deleteUniversePage) (confirmation: `--yes`) | `breakrocks universes page delete %paris market --yes` |
+| `universes pages export` | Export the pages of a universe: the document break-rocks-layout/3 (exportUniversePages) | `breakrocks universes pages export %paris --out paris-pages.json` |
+| `universes pages import` | Import a document break-rocks-layout/3: one studio draft per page (importUniversePages) | `breakrocks universes pages import %paris --file paris-pages.json` |
+| `universes page report` | Report a custom page or one of its free blocks (reportUniversePage) | `breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES` |
 | `explore` | Explore: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow | `breakrocks explore` |
+| `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (universesInArea) | `breakrocks explore area --boundary R7444` |
+| `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
+| `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
 | `time-column` | The time column of a universe: events, polls, debates, votes, projects | `breakrocks time-column %france` |
 | `live` | The live line of a universe (--watch: each change as it comes) | `breakrocks live %france` |
 | `accounts show` | The profile of an account (by @handle or id) | `breakrocks accounts show @alice` |
@@ -303,6 +324,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `studio delete` | Delete a draft of the studio (confirmation: `--yes`) | `breakrocks studio delete <id> --yes` |
 | `studio make-theme` | Publish a theme draft and make it the theme of its universe (or file the proposal) | `breakrocks studio make-theme <draft id>` |
 | `studio make-layout` | Publish a layout draft and make it the layout of its universe (or file the proposal) | `breakrocks studio make-layout <draft id>` |
+| `studio make-page` | Publish a page draft as the custom page of its universe (makeUniversePage) | `breakrocks studio make-page <draft id>` |
 | `batch` | Run the actions of a JSON lines file, one per line, each with its requestId (C-16) | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio: every command as a tool, for Claude Code, Codex, an agent (offline) | `breakrocks mcp` |
 
@@ -338,10 +360,70 @@ Modération et gouvernance (C-15 : hors de l'aide de base, `breakrocks help mode
 | `governance transfer` | Transfer a universe to an account (irreversible once accepted) (confirmation: `--yes`) | `breakrocks governance transfer %club @alice --yes` |
 | `governance field` | Set the field of a universe | `breakrocks governance field %paris PLACES` |
 | `governance display` | Set the display name of a universe | `breakrocks governance display %paris "Paris"` |
-| `governance territory` | Set (or --remove) the territory of a universe | `breakrocks governance territory %paris --kind city --name Paris` |
+| `governance territory` | Set (or --remove) the territory of a universe (the arguments as built; universes territory set is the plain form) | `breakrocks governance territory %paris --kind city --name Paris` |
 | `governance my-vote` | My votes in a universe (held, lent, received) | `breakrocks governance my-vote %paris` |
 | `governance lend-votes` | Lend my votes to an account | `breakrocks governance lend-votes %paris @alice` |
 | `governance withdraw-votes` | Take back the votes lent | `breakrocks governance withdraw-votes %paris` |
+| `governance proposals` | The proposals of a universe by status and kind, as the governance page groups them | `breakrocks governance proposals %paris --status WAITING_SUPPORT` |
+| `governance record` | The governance history of the governance page: proposals adopted or annulled, platform measures, changes of leadership (governanceRecord) | `breakrocks governance record %paris` |
+| `governance duties` | My jury duties (My duties), in every universe or in one (myJuryDuties) | `breakrocks governance duties` |
+| `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
+| `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
+| `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev` |
+
+### Territoire, carte, pages d'un univers et page Gouvernance (0.9.0, specs v49.13.2)
+
+- **Territoire d'univers** (`map.md` § The universe territory, as built) : `universes territory get`
+  (`Universe.territory`), `set` (`setUniverseTerritory(territory)`, la direction seulement, sinon
+  `UNIVERSE_GOVERNED`), `remove`, `report` (`reportUniverseTerritory` : `MISLEADING`,
+  `PLATFORM_RULES`, `ILLEGAL`). Une frontière par l'id de son lieu (`--boundary R7444`, l'`id` d'un
+  `PlaceMatch`) : son nom et son genre sont lus dans sa forme (sinon l'id seul part) ; un cercle par
+  `--circle <lat>,<lon> --radius <m> --name <lieu>` : le rayon parmi les huit (150, 250, 500 m, 1,
+  2,5, 5, 10, 25 km ; `2.5km` accepté), le nom du lieu du centre obligatoire (il devient public).
+  Sans direction : `proposals file --kind TERRITORY --boundary …|--circle … --radius … --territory-name …|--no-territory`.
+- **Carte** : `places search <texte> --bounds <s>,<o>,<n>,<e>` (`places`, avec `universes` de chaque
+  lieu ; `MAP_SERVICE_STARTING` : la recherche se réveille, réessayer après `retryAfterSeconds`) ;
+  `explore area --cells <h3,…>` ou `--boundary <id>` (`universesInArea`, 1 à 19 mailles de
+  résolution 5). **Le CLI n'a pas de bibliothèque H3** (aucune dépendance nouvelle) : pas de
+  `--bbox` ; `--boundary` prend les mailles de la forme (refusé quand elle est compactée en mailles
+  plus grossières ou en compte plus de 19). `map boundary <id> [--geojson]` lit le catalogue de la
+  cartographie de l'environnement (`catalog.json` → `boundaries.url`, gardé une heure dans `cache/`)
+  sans session : nom, niveau, bbox, mailles, adresse de la forme ; `--geojson` la Feature entière ; un
+  404 est `BOUNDARY_SHAPE_NOT_FOUND` (exit 1 : les apps retombent sur le point).
+- **Pages d'un univers** (`layouts.md` § The pages of a universe, as built 66ba2a2) : `universes pages`
+  (le menu, `pagesVersion`), `universes page get <u> <nom> [--document]`, `publish --file`, `check
+  --file`, `hide|show`, `move [--before]`, `delete` (confirmation), `report [--block]`, `universes
+  pages export [--out]`, `universes pages import --file` (des brouillons du studio, publiés par
+  `studio make-page <id>`). Le fichier est une entrée de `pages[]` ou un document
+  `break-rocks-layout/3` (`--name` quand il en a plusieurs). Les refus de publication sont dits en
+  clair, leur code gardé (`PAGE_VERSION_CONFLICT`, `PAGE_NAME_TAKEN`, `PAGES_LIMIT` et
+  `CANVAS_ITEMS_LIMIT` avec la limite du back office `errorInfo.limit`…). **`page check` est en
+  ligne** (`checkLayout` avec `{ format: "break-rocks-layout/3", pages: [page] }`) : la bibliothèque
+  partagée du design (`design/lib/layout`) n'est ni copiée ni montée dans ce dépôt ; exit 1 quand un
+  refus est rendu.
+- **Page Gouvernance** (`living-universes.md` § The governance page) : `governance proposals
+  [--status] [--kind]`, `governance record` (`governanceRecord`, `--all`), `governance duties
+  [--universe]` (`myJuryDuties`), `governance pinned` et `governance pin <u> <canal…>|--none`
+  (`pinnedChannels`, `setPinnedChannels` : univers privés), `governance layout` (`appliedLayout(page:
+  GOVERNANCE)`) ; `universes show` dit le territoire, les pages et `proposalsWaitingSupport`.
+- **MCP** : chaque commande est un outil (`breakrocks_universes_territory_set`,
+  `breakrocks_universes_page_publish`, `breakrocks_explore_area`, `breakrocks_map_boundary`,
+  `breakrocks_governance_pin`…), sa description dit quand lire le territoire, comment proposer et les
+  limites. Pas de `--watch` : le contrat temps réel n'a aucun événement du territoire, des pages ni de
+  la gouvernance.
+
+Vérifié sur dev le 2026-10-24 (0.9.0, compte humain e2e `@Wheatley`, backend 54fafc5) : `map boundary
+R7444` (Paris, niveau 8, 3 mailles) et `R1` (`BOUNDARY_SHAPE_NOT_FOUND`) ; `places search Paris`
+(`R71525`, `R7444`) ; `explore area --boundary R7444` (2 univers, leur cercle) ; `%cli7-e2e` créé par
+un premier post : `territory set` y répond `UNIVERSE_GOVERNED` et `proposals file --kind TERRITORY`
+`VOTE_JOINED_TOO_RECENTLY` (un jour de présence) ; dans `%w9-qxcec` (direction : le compte) : cercle
+« Parc des Princes » 1 km posé de nouveau à l'identique et lu, proposition `TERRITORY` `R7444`
+déposée (`01a16da8-add9-720c-bdd8-43dbe2e137e9`, ouverte au vote jusqu'au 31/10 : pas de retrait une
+fois le vote ouvert, `PROPOSAL_VOTE_OPEN`), `territory report` (`REPORT_OWN_CONTENT`), page `cli7`
+vérifiée, publiée depuis un JSON minimal (v1, puis v2), `PAGE_VERSION_CONFLICT` sur une v1,
+exportée, importée (un brouillon `PAGE`), `agenda` cachée puis remontrée, `about` refusée
+(`PAGE_NOT_HIDEABLE`), `governance proposals --kind TERRITORY`, `record`, `duties`, `layout`,
+`pinned` ; l'outil MCP `breakrocks_universes_territory_get` par `test/smoke/mcp-stdio.mjs`.
 
 ### Lire et publier (C-09 à C-17)
 

@@ -15,6 +15,7 @@ import { MAX_POST_IMAGES, checkImage, checkText, checkVideo, uploadImage, upload
 import type { Command } from '../registry.js';
 import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
+import { BOUNDARY_ID, territoryChoice } from './geo.js';
 
 const POST = selection('Post', 1);
 const REPLY_POLICIES = ['everyone', 'following', 'mentioned', 'nobody'];
@@ -152,7 +153,24 @@ export const conditionsShow = apiCommand({ name: 'universes conditions show', su
 export const conditionsAccept = apiCommand({ name: 'universes conditions accept', summary: 'Accept the conditions of a universe', kind: 'mutation', op: 'acceptUniverseConditions', positionals: ['universe'], descriptions: { ...u, conditionsVersion: 'The version accepted' }, examples: ['breakrocks universes conditions accept %club --conditions-version 2'] });
 export const universesMembers = apiCommand({ name: 'universes members', summary: 'The members of a universe', kind: 'query', op: 'universeMembers', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes members %club --all'] });
 
-export const proposalsFile = apiCommand({ name: 'proposals file', summary: 'File a proposal in a universe (fileProposal)', kind: 'mutation', op: 'fileProposal', positionals: ['universe'], descriptions: { ...u, kind: 'The kind of proposal', title: 'Its title', text: 'Its text', accountId: 'The account it concerns: @handle or its id' }, examples: ['breakrocks proposals file %paris --kind ACTION --title "Un banc de plus" --text "Place du marché"', 'breakrocks proposals file %paris --kind THEME --title "Un thème" --theme %paris/stade-nuit'] });
+export const proposalsFile = apiCommand({
+  name: 'proposals file', summary: 'File a proposal in a universe (fileProposal)', kind: 'mutation', op: 'fileProposal', positionals: ['universe'],
+  description: 'A proposal of kind TERRITORY sets a universe territory: --boundary <id> (its name read from its shape), or --circle <lat>,<lon> --radius <m> --territory-name <place>, or --no-territory to propose none; at any governance level, with or without leadership (the support, then the majority of the votes cast). Read the current one first: breakrocks universes territory get.',
+  descriptions: { ...u, kind: 'The kind of proposal', title: 'Its title', text: 'Its text', accountId: 'The account it concerns: @handle or its id', territory: 'A universe territory as TerritoryChoiceInput JSON (or --boundary, --circle)', removeTerritory: 'Propose no universe territory (as --no-territory)' },
+  extra: {
+    boundary: str('Kind TERRITORY: a boundary, the id of its place (R7444)', { pattern: BOUNDARY_ID }), circle: str('Kind TERRITORY: a circle, its center <lat>,<lon>'),
+    radius: str('Kind TERRITORY: the radius of the circle (150 to 25000 metres, 2.5km…)'), territoryName: str('Kind TERRITORY: the place at the center of the circle (made public), or the name of the boundary', { maxLength: 100 }),
+    noTerritory: bool('Kind TERRITORY: propose no universe territory'),
+  },
+  prepare: async (i, ctx) => {
+    const { boundary, circle, radius, territoryName, noTerritory, ...rest } = i as Record<string, unknown> & { boundary?: string; circle?: string; radius?: string; territoryName?: string; noTerritory?: boolean };
+    if ((boundary || circle) && (noTerritory || rest.territory !== undefined)) throw usageError('INVALID_INPUT', '--boundary or --circle, --territory, or --no-territory: one of them');
+    if (boundary || circle) rest.territory = await territoryChoice(ctx, { boundary, circle, radius, name: territoryName });
+    if (noTerritory) rest.removeTerritory = true;
+    return rest;
+  },
+  examples: ['breakrocks proposals file %paris --kind ACTION --title "Un banc de plus" --text "Place du marché"', 'breakrocks proposals file %paris --kind THEME --title "Un thème" --theme %paris/stade-nuit', 'breakrocks proposals file %paris --kind TERRITORY --title "La ville de Paris" --boundary R7444', 'breakrocks proposals file %marche --kind TERRITORY --title "Le quartier" --circle 48.8566,2.3522 --radius 1km --territory-name "Place du marché"'],
+});
 export const proposalsShow = apiCommand({ name: 'proposals show', summary: 'A proposal', kind: 'query', op: 'proposal', positionals: ['id'], examples: ['breakrocks proposals show <id>'] });
 export const proposalsSupport = apiCommand({ name: 'proposals support', summary: 'Support a proposal', kind: 'mutation', op: 'supportProposal', positionals: ['id'], examples: ['breakrocks proposals support <id>'] });
 export const proposalsVote: Command<{ id: string; choice?: 'for' | 'against'; candidate?: string }, unknown> = {
