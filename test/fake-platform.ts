@@ -174,6 +174,11 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
     if (q.includes('delegatedAgents')) return json(200, { data: { delegatedAgents: [...agents.values()].filter((a) => a.operatorId === op.id).map(agentView) } });
     const data: Record<string, unknown> = {};
     if (/\bme\b/.test(q)) data.me = { id: op.id, kind: 'operator', handle: op.handle, displayName: op.handle, organizationName: null, legalSpace: 'fra', paidTier: null, paidUntil: op.paidUntil, fullAgeConfirmedAt: '2026-10-23' };
+    // A delegated agent reads its own restrictions (agent-sign-in.md, specs v49.3.0); null for anyone else.
+    if (/\bme\b/.test(q) && q.includes('delegatedAgent')) {
+      const self = s.kind === 'agent' ? agents.get(s.agentId!) : undefined;
+      data.me = { ...(data.me as object), delegatedAgent: self ? { id: self.id, name: self.name, interactions: self.interactions, universes: self.universes } : null };
+    }
     if (q.includes('myUsage')) {
       const w = (used: number, limit: number) => ({ used, limit, resetAt: new Date(options.now() + 60_000).toISOString() });
       data.myUsage = { minute: w(1, 600), hour: w(5, 6000), quota: s.kind === 'agent' ? w(5, 30000) : null, tier: s.kind === 'agent' ? 'X1' : null, byCategory: [{ category: 'OTHER', hour: 5, quota: s.kind === 'agent' ? 5 : null }] };

@@ -34,6 +34,9 @@ export function fakeCell(options: PoolOptions) {
   const access = new Map<string, number>();
   const refresh = new Map<string, { revoked: boolean }>();
   const state = { refusedOnce: false, signedOutEverywhere: false, directory: [] as string[] };
+  // The command-line sign-in codes of createCliSignInCode (contracts/accounts.md): one use, 5 minutes, bound to a challenge, 3 wrong answers.
+  const codes = new Map<string, { challenge: string; used: boolean; wrong: number; expires: number }>();
+  const issueCode = (challenge: string) => { const code = randomBytes(32).toString('base64url'); codes.set(code, { challenge, used: false, wrong: 0, expires: options.now() + 300_000 }); return code; };
   let pending: { A: bigint; b: bigint; B: bigint; secretBlock: string } | undefined;
   const origin = randomUUID();
 
@@ -56,6 +59,10 @@ export function fakeCell(options: PoolOptions) {
         if (!r || r.revoked) return refuse('NotAuthorizedException', 'Refresh Token has been revoked');
         return json(200, issue(false));
       }
+      if (body.AuthFlow === 'CUSTOM_AUTH') {
+        if (body.AuthParameters.USERNAME !== userId) return refuse('NotAuthorizedException', 'Incorrect username or password.');
+        return json(200, { ChallengeName: 'CUSTOM_CHALLENGE', Session: 'custom-session', ChallengeParameters: { kind: 'CLI_SIGN_IN_CODE', USERNAME: userId } });
+      }
       expect(body.AuthFlow).toBe('USER_SRP_AUTH');
       if (String(body.AuthParameters.USERNAME).toLowerCase() !== email) return refuse('NotAuthorizedException', 'Incorrect username or password.');
       if (options.confirmed === false) return refuse('UserNotConfirmedException', 'User is not confirmed.');
@@ -77,6 +84,15 @@ export function fakeCell(options: PoolOptions) {
         }
         if (options.challenge) return json(200, { ChallengeName: options.challenge, Session: 'next-session', ChallengeParameters: {} });
         if (options.totp) return json(200, { ChallengeName: 'SOFTWARE_TOKEN_MFA', Session: 'mfa-session', ChallengeParameters: {} });
+        return json(200, issue(true));
+      }
+      if (body.ChallengeName === 'CUSTOM_CHALLENGE') {
+        expect(body).toMatchObject({ Session: 'custom-session', ChallengeResponses: { USERNAME: userId } });
+        const [code, verifier] = String(body.ChallengeResponses.ANSWER).split('.');
+        const entry = codes.get(code);
+        const fits = entry && !entry.used && entry.wrong < 3 && entry.expires > options.now() && createHash('sha256').update(verifier ?? '').digest('base64url') === entry.challenge;
+        if (!fits) { if (entry) entry.wrong++; return refuse('NotAuthorizedException', 'Incorrect username or password.'); }
+        entry.used = true;
         return json(200, issue(true));
       }
       expect(body).toMatchObject({ ChallengeName: 'SOFTWARE_TOKEN_MFA', Session: 'mfa-session', ChallengeResponses: { USERNAME: userId } });
@@ -124,5 +140,5 @@ export function fakeCell(options: PoolOptions) {
     if (url.host === 'api.test') return api(body, headers.authorization ?? '');
     throw new TypeError(`fetch failed: ${url.host}`);
   };
-  return { fetch, calls, graphql, refresh, access, state, email, password, accountId, handle, userId };
+  return { fetch, calls, graphql, refresh, access, state, email, password, accountId, handle, userId, issueCode, codes };
 }

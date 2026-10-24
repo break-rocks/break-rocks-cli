@@ -118,7 +118,7 @@ async function inUniverse(ctx: Context, universe: string): Promise<Capabilities[
 
 export const capabilities: Command<{ universe?: string }, Capabilities> = {
   name: 'capabilities', summary: 'What the profile may do now: its restrictions, its limits left, the state of its operator',
-  description: 'For an AI agent before it tries (C-29). The restrictions of a delegated agent are not served to the agent by the API (delegatedAgents is refused to it): they are said unknown, and a refusal tells them (DELEGATED_AGENT_NOT_ALLOWED, DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED).',
+  description: 'For an AI agent before it tries (C-29). A delegated agent reads its own restrictions (me.delegatedAgent, specs v49.3.0: null for none, an empty list for none allowed); where the API does not serve them, they are said unknown, and a refusal tells them (DELEGATED_AGENT_NOT_ALLOWED, DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED).',
   examples: ['breakrocks capabilities --json', 'breakrocks capabilities --universe %test-village-sport --json'],
   input: object({ universe: str('Also what the API tells in this universe: the role, the residence, the reason a join is refused') }),
   output: openObject({
@@ -157,6 +157,14 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
       const { myUsage } = await api<{ myUsage: Usage }>(ctx, USAGE);
       limits = { minute: remaining(myUsage.minute), hour: remaining(myUsage.hour), quota: remaining(myUsage.quota), tier: myUsage.tier };
     }
+    // A delegated agent: its own restrictions (me.delegatedAgent), unknown where the API does not serve them.
+    let restrictions: Capabilities['restrictions'] = actor === 'operator' ? { known: true, interactions: null, universes: null } : { known: false, reason: 'The API served no restriction to the delegated agent (me.delegatedAgent); its operator reads them (agents show)' };
+    if (actor === 'delegated-agent' && me) {
+      try {
+        const own = (await api<{ me: { delegatedAgent: { interactions: string[] | null; universes: string[] | null } | null } | null }>(ctx, '{ me { delegatedAgent { id name interactions universes } } }')).me?.delegatedAgent;
+        if (own) restrictions = { known: true, interactions: own.interactions, universes: own.universes };
+      } catch { /* told unknown */ }
+    }
     let allowance: Allowance | undefined;
     if (actor === 'operator' && me) allowance = (await api<{ delegatedAgentAllowance: Allowance | null }>(ctx, '{ delegatedAgentAllowance { allowance operated createdLast24Hours } }')).delegatedAgentAllowance ?? undefined;
     const paidUntil = me?.paidUntil ?? null;
@@ -170,7 +178,7 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
       account: me ? { id: me.id, handle: me.handle, kind: me.kind } : { id: session.operatorId ?? '', handle: '', kind: 'operator' },
       operator: { id: session.operatorId ?? '', state: suspended ? 'suspended' : 'active', paidUntil, recoveryKeyRequired },
       canManageAgents: actor === 'operator' && !suspended && !recoveryKeyRequired,
-      restrictions: actor === 'operator' ? { known: true, interactions: null, universes: null } : { known: false, reason: 'The API serves no restriction to the delegated agent itself; its operator reads them (agents show)' },
+      restrictions,
       limits, ...(allowance ? { allowance } : {}),
       payments: { wallet: !!profile.wallet, ...(profile.wallet ? { address: profile.wallet.address } : {}), network: network.id, maxUsdPerDay: profile.wallet?.maxUsdPerDay ?? DEFAULT_MAX_USD_PER_DAY, spentToday: formatUsdc(spentToday(ctx)) },
       ...(universe ? { universe: await inUniverse(ctx, universe) } : {}),

@@ -182,15 +182,47 @@ describe('logout of an agent account', () => {
 });
 
 describe('login --browser', () => {
-  it('is not available yet: NOT_AVAILABLE_YET with the reason, nothing opened', async () => {
-    const { h } = signedOut();
-    let opened = 0;
-    h.io.openUrl = async () => { opened++; return true; };
-    expect(await h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE_YET', source: 'cli', reason: expect.stringContaining('the API has no operation') } });
-    expect(opened).toBe(0);
+  /** What the web app does once the person confirmed: a code of the API for the challenge, given to the CLI by fetch from its origin. */
+  const page = (cell: ReturnType<typeof fakeCell>, options: { reuse?: string[]; username?: boolean } = {}) => async (address: string) => {
+    const url = new URL(address);
+    expect(url.origin).toBe('https://dev.break.rocks');
+    expect(url.pathname).toBe('/cli/login');
+    const code = options.reuse?.[0] ?? cell.issueCode(url.searchParams.get('challenge')!);
+    options.reuse?.splice(0, 1, code);
+    const answer = await globalThis.fetch(`http://127.0.0.1:${url.searchParams.get('port')}/callback`, { method: 'POST', headers: { origin: 'https://dev.break.rocks', 'content-type': 'application/json' }, body: JSON.stringify({ state: url.searchParams.get('state'), code, ...(options.username === false ? {} : { username: cell.userId }), cell: 'eu' }) });
+    expect(answer.status).toBe(204);
+    return true;
+  };
+  it('opens the page, receives the code of the web app, and exchanges it with its verifier (CUSTOM_AUTH)', async () => {
+    const { h, cell } = signedOut();
+    h.io.openUrl = page(cell);
+    expect(await h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ kind: 'human', accountId: cell.accountId, cell: 'eu', session: { signInAgainBy: '2026-10-30T10:00:00.000Z' } });
+    expect(cell.calls.map((c) => [c.action, c.body.AuthFlow ?? c.body.ChallengeName])).toEqual([['InitiateAuth', 'CUSTOM_AUTH'], ['RespondToAuthChallenge', 'CUSTOM_CHALLENGE']]);
+    const [code, verifier] = String(cell.calls[1].body.ChallengeResponses.ANSWER).split('.');
+    expect(cell.codes.get(code)).toMatchObject({ used: true });
+    expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(h.errors.join('\n')).toContain('https://dev.break.rocks/cli/login?port=');
+    // The code, the verifier and the tokens are never printed.
+    expect(h.all()).not.toContain(code);
+    expect(h.all()).not.toContain(verifier);
+    expect(JSON.parse(readFileSync(sessionFile(h), 'utf8'))).toMatchObject({ kind: 'human', refreshToken: expect.stringMatching(/^refresh-/) });
+    expect(await h.run('whoami', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ actor: 'human', account: { handle: 'carol' } });
   });
-  it('with an exchange: opens the page, receives the code from the web app, and signs in', async () => {
+  it('refuses a code used once, and a code given without its username', async () => {
+    const { h, cell } = signedOut();
+    const reuse: string[] = [];
+    h.io.openUrl = page(cell, { reuse });
+    expect(await h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(0);
+    expect(await h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NotAuthorizedException', source: 'platform', message: expect.stringContaining('run breakrocks login --browser again') } });
+    const other = signedOut();
+    other.h.io.openUrl = page(other.cell, { username: false });
+    expect(await other.h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(1);
+    expect(last(other.h)).toMatchObject({ error: { code: 'USERNAME_MISSING', source: 'cli' } });
+  });
+  it('can use another exchange (a test)', async () => {
     const { h, cell } = signedOut();
     let seen: { code: string; username?: string; verifier: string } | undefined;
     const exchange: CodeExchange = {
@@ -205,19 +237,9 @@ describe('login --browser', () => {
       },
     };
     h.io.codeExchange = exchange;
-    h.io.openUrl = async (address) => {
-      const url = new URL(address);
-      expect(url.origin).toBe('https://dev.break.rocks');
-      expect(url.pathname).toBe('/cli/login');
-      // What the page does once the person confirmed: the code to the CLI, by fetch, from its origin.
-      const answer = await globalThis.fetch(`http://127.0.0.1:${url.searchParams.get('port')}/callback`, { method: 'POST', headers: { origin: 'https://dev.break.rocks', 'content-type': 'application/json' }, body: JSON.stringify({ state: url.searchParams.get('state'), code: 'code-of-the-web-app-0001', username: cell.userId, cell: 'eu' }) });
-      expect(answer.status).toBe(204);
-      return true;
-    };
+    h.io.openUrl = page(cell);
     expect(await h.run('--env', 'dev', 'login', '--browser', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ kind: 'human', accountId: cell.accountId, cell: 'eu' });
-    expect(seen).toMatchObject({ code: 'code-of-the-web-app-0001', username: cell.userId, verifier: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) });
-    expect(h.errors.join('\n')).toContain('https://dev.break.rocks/cli/login?port=');
+    expect(seen).toMatchObject({ username: cell.userId, verifier: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) });
     expect(JSON.parse(readFileSync(sessionFile(h), 'utf8'))).toMatchObject({ refreshToken: 'refresh-browser' });
   });
 });

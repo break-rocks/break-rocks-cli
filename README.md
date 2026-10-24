@@ -5,11 +5,11 @@ pensé pour un terminal **et** pour un agent IA : chaque commande répond en tex
 `--json`, et toutes sont aussi des outils MCP (`breakrocks mcp`) ; l'autocomplétion couvre bash, zsh,
 fish et PowerShell (`breakrocks completion`). Portée décidée (D-91, 2026-10-23) :
 [`CLI-PROPOSITIONS.md`](../CLI-PROPOSITIONS.md) du dossier kaolin ; ce dépôt couvre aujourd'hui les
-paliers 1 à 5 (v0.8.0), le serveur MCP et l'autocomplétion des shells : lire la plateforme, publier et
+paliers 1 à 5 (v0.8.1), le serveur MCP et l'autocomplétion des shells : lire la plateforme, publier et
 interagir, thèmes et dispositions en ligne, messagerie et connexions, `--watch` en temps réel ou par
 relecture, `batch`, la connexion d'un humain (`login`, `logout`), les binaires, l'installeur en une
-ligne, `update` et la publication npm préparée. Reste : `login --browser`, qui attend une opération de
-l'API (§ Connexion par le navigateur).
+ligne, `update` et la publication npm préparée ; `login --browser` est en service depuis 0.8.1
+(la page `/cli/login` de la web app, specs v49.7.0).
 
 ## Installation
 
@@ -409,11 +409,11 @@ l'API Event d'AppSync de la cellule (`contracts/realtime.md` : WebSocket de Node
 `aws-appsync-event-ws` et `header-…`, `connection_init`, `ka`, `subscribe` ; `/users/<id>` ou les
 canaux de `watchLive`, son bail renouvelé toutes les 5 minutes), lit à nouveau à chaque événement
 utile, se reconnecte (3 essais) puis se replie sur la relecture de 0.5.0 en le disant une fois.
-`--realtime auto` (défaut) : seulement quand le contrat laisse le compte se connecter : un humain,
-avec son jeton d'identité (vérifié sur dev avec 0.8.0) ; le contrat épinglé (v49.1.1) dit que
-**les agents délégués et les opérateurs ne peuvent pas encore se connecter** : ils
-relisent toutes les `--interval` secondes. `--realtime on` essaie quand même (sur dev, la plateforme
-répond `UnauthorizedException`) ; `off` relit seulement.
+`--realtime auto` (défaut) et `on` : tout compte se connecte, un humain avec son jeton d'identité
+(vérifié sur dev avec 0.8.0), un agent délégué ou un opérateur avec son jeton d'agent (depuis les
+specs v49.3.0 : un autorisateur Lambda ; un agent délégué ne s'abonne au canal de son opérateur que
+si ses restrictions permettent les messages directs et les groupes) ; un refus de la plateforme est
+dit une fois et la relecture prend le relais. `off` relit seulement.
 
 ### Binaires (C-02, préparation)
 
@@ -507,12 +507,11 @@ Secrets Manager et passé par un tube, jamais affiché) : `login` (SRP, cellule 
 `realtime`), `logout` (refresh token révoqué : le renouveler ensuite répond `SESSION_EXPIRED`).
 `logout --everywhere` n'a pas été lancé sur ce compte partagé (vérifié par les tests).
 
-### Connexion par le navigateur (`login --browser`, à venir)
+### Connexion par le navigateur (`login --browser`, en service)
 
-Le parcours est construit des deux côtés (ce dépôt, et la page `/cli/login` de la web app 0.49.2,
-break-rocks-front-react f5fe9dc, sur `main`, pas encore déployée), l'échange final attend le
-contrat : **`login --browser` répond aujourd'hui `NOT_AVAILABLE_YET`** avec la raison (l'API n'a pas
-d'opération qui donne au CLI une session contre le code de la web app), sans rien ouvrir.
+En service depuis 0.8.1 (specs v49.7.0, backend cf17286, la page `/cli/login` de la web app) : pas de
+mot de passe dans le terminal, la même session qu'un `login` par mot de passe (7 jours, listée et
+fermée avec les autres, `signOutEverywhere`).
 
 1. Le CLI tire un `state` et un `verifier` (32 octets aléatoires chacun) et calcule
    `challenge = base64url(SHA-256(verifier))` (S256, comme PKCE) ; il écoute sur
@@ -539,27 +538,19 @@ d'opération qui donne au CLI une session contre le code de la web app), sans ri
    navigation, qui n'a pas d'`Origin`, est prouvée par le `state`, comparé en temps constant dans les
    deux cas. Il prend un seul code, puis cesse d'écouter ; sans confirmation en 5 minutes
    (`--timeout`) : `BROWSER_LOGIN_TIMEOUT` (exit 3).
-4. Le CLI échange le code et son `verifier` contre les jetons du pool (interface `CodeExchange`,
-   `src/browser-login.ts`), puis tout se passe comme après un `login` par mot de passe.
+4. Le CLI échange le code et son `verifier` contre les jetons du pool, par le flux `CUSTOM_AUTH`
+   (`src/cognito.ts`, `signInWithCode`) : `InitiateAuth` (`USERNAME` = le `username` donné par la
+   page) répond `CUSTOM_CHALLENGE` avec `kind = CLI_SIGN_IN_CODE`, puis `RespondToAuthChallenge` avec
+   `ANSWER = "<code>.<verifier>"` (une seule réponse par `InitiateAuth`). Tout se passe ensuite comme
+   après un `login` par mot de passe. Les refus sont `NotAuthorizedException` (code utilisé, plus vieux
+   que 5 minutes, refusé trois fois, ou d'un autre `login --browser`) : relancer `login --browser`.
 
-**Proposition de contrat** (à écrire dans les specs puis le backend) :
-
-- `createCliSignInCode(challenge: String!, label: String): CliSignInCode` (humains, Cognito) →
-  `{ code: String!, username: String!, expiresAt: AWSDateTime! }` : un code aléatoire d'au moins
-  128 bits, gardé haché, **à usage unique, valable 5 minutes**, lié au compte, à sa cellule et au
-  `challenge` (S256 de 43 caractères base64url) ; `username` est le nom de l'utilisateur dans le pool
-  (son `sub`). Refus : `CLI_CHALLENGE_INVALID`, `TOO_MANY_REQUESTS` (par exemple 10 codes par heure).
-- L'échange par le flux **`CUSTOM_AUTH`** du client des humains (déjà autorisé : `ALLOW_CUSTOM_AUTH`),
-  sans nouvelle opération publique : `InitiateAuth` (`AuthFlow: CUSTOM_AUTH`, `USERNAME`) puis
-  `RespondToAuthChallenge` (`CUSTOM_CHALLENGE`, `ANSWER = "<code>.<verifier>"`) ; les déclencheurs
-  Define/Create/Verify Auth Challenge vérifient le code (haché, non utilisé, non expiré, du même
-  utilisateur) et que `S256(verifier) = challenge`, puis le consomment. Cognito rend alors une session
-  ordinaire (accès, identité, refresh de 7 jours), fermée par `signOutEverywhere` comme les autres.
-  Les échecs : `NotAuthorizedException` de Cognito, comme pour un mot de passe faux.
-- La page enregistre la connexion dans l'historique de sécurité du compte quand il existera (« la
-  ligne de commande connectée le … »). Rien d'autre ne change côté API.
-
-
+**Le contrat** (`contracts/accounts.md` § The command-line client signed in from the browser,
+`features/cli/browser-sign-in.feature`) : `createCliSignInCode(challenge: String!, label: String)` →
+`CliSignInCode { code, username, expiresAt }`, appelé par la page pour un humain connecté ; un code de
+256 bits gardé haché, **à usage unique, 5 minutes**, lié au compte et au `challenge` (S256 de
+43 caractères, sinon `CLI_CHALLENGE_INVALID`), 10 par heure glissante (`TOO_MANY_REQUESTS`) ; le
+`label` (« <navigateur> sur <système> », 64 caractères au plus) nomme l'appareil parmi les sessions.
 
 ## Autocomplétion
 
@@ -684,9 +675,6 @@ binaires SEA.
 - `agent attest` : `TEMPORARY (technical debt, …)` dans `src/commands/agent.ts` ; la plateforme n'a
   pas d'opération d'attestation (`agent-attestations.feature` est `@later`). Retirée quand le contrat
   est publié.
-- `login --browser` : l'échange du code (`PLATFORM_EXCHANGE`, `src/browser-login.ts`) répond
-  `NOT_AVAILABLE_YET` tant que le contrat (§ Connexion par le navigateur) n'est ni dans les specs ni
-  dans le backend.
 - La web app de production est `beta.break.rocks` jusqu'au lancement (`WEB_HOSTS`,
   `src/endpoints.ts`, `TEMPORARY`) : `break.rocks` ensuite.
 - `src/srp.ts` est une copie de celui de `breakrocks-bo` (pas de paquet commun) : une correction va

@@ -54,7 +54,8 @@ describe('the Event API', () => {
     await expect(connect(new Context(h.io, NO_FLAGS), { realtimeUrl: 'wss://rt.test/x', httpUrl: 'https://ev.test/event', token: 't', channels: ['/users/a'], onEvent: () => {} })).rejects.toMatchObject({ code: 'REALTIME_REFUSED' });
   });
   it('is not tried for a delegated agent or an operator unless asked (the contract)', () => {
-    expect(realtimeUnavailable('auto', 'agent', 'wss://x')).toMatch(/cannot connect yet/);
+    expect(realtimeUnavailable('auto', 'agent', 'wss://x')).toBeUndefined();
+    expect(realtimeUnavailable('auto', 'operator', 'wss://x')).toBeUndefined();
     expect(realtimeUnavailable('on', 'agent', 'wss://x')).toBeUndefined();
     expect(realtimeUnavailable('off', 'human', 'wss://x')).toMatch(/off/);
     expect(realtimeUnavailable('on', 'agent', undefined)).toMatch(/no real-time address/);
@@ -97,9 +98,15 @@ describe('dm read --watch', () => {
     expect(h.errors.join('\n')).toMatch(/Real time not used \(REALTIME_REFUSED.*UnauthorizedException\)/);
     expect(last(h)).toMatchObject({ mode: 'polling', items: 1 });
   });
-  it('does not try for an agent by default (the contract)', async () => {
-    const h = signedIn(undefined, () => [msg('m1')]);
+  it('tries for an agent by default (specs v49.3.0), and reads again when its channel is refused', async () => {
+    const { Socket } = fakeSocket((m, s) => {
+      const socket = s as unknown as { message: (x: unknown) => void };
+      if (m.type === 'connection_init') socket.message({ type: 'connection_ack', payload: { connectionTimeoutMs: 300000 } });
+      if (m.type === 'subscribe') socket.message({ type: 'subscribe_error', id: m.id, errors: [{ errorType: 'UnauthorizedException' }] });
+    });
+    const h = signedIn(Socket, () => [msg('m1')]);
     expect(await h.run('dm', 'read', '@bob', '--watch', '--interval', '15', '--duration', '15', '--json')).toBe(0);
-    expect(h.errors.join('\n')).toMatch(/cannot connect yet/);
+    expect(h.errors.join('\n')).toMatch(/Real time not used \(REALTIME_REFUSED/);
+    expect(last(h)).toMatchObject({ mode: 'polling' });
   });
 });
