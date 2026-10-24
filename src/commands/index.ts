@@ -14,7 +14,9 @@ import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack 
 import { walletBalance, walletFaucet, walletSet, walletShow } from './wallet.js';
 import { batch } from './batch.js';
 import * as msg from './messaging.js';
-import { governanceCommands, moderationCommands } from './moderation.js';
+import * as geo from './geo.js';
+import { governanceCommands, governancePin, governancePinned, moderationCommands } from './moderation.js';
+import * as pages from './pages.js';
 import * as publish from './publish.js';
 import * as read from './read.js';
 import { layoutCommands, studioCommands, themeApply, themeCopy, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themeTry, themeUndoTry, themesList, themesShow } from './themes-online.js';
@@ -34,7 +36,9 @@ register(
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
   read.universesShow, read.universesList, read.universesSub, publish.universesMembers, publish.universesJoin, publish.universesLeave, publish.universesAskToJoin,
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept,
-  read.explore, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
+  geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
+  pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
+  read.explore, geo.exploreArea, geo.placesSearch, geo.mapBoundary, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesSupport, publish.debatesClose,
@@ -47,9 +51,9 @@ register(
   themesList, themesShow,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themeTry, themeUndoTry, themePersonalSet, themePersonalClear, themeExport, themeShots, themeCopy, themeDelete,
-  ...layoutCommands, ...studioCommands,
+  ...layoutCommands, ...studioCommands, pages.studioMakePage,
   batch,
-  ...moderationCommands, ...governanceCommands,
+  ...moderationCommands, ...governanceCommands, governancePinned, governancePin,
   mcpCommand,
 );
 

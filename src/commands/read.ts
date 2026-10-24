@@ -11,6 +11,7 @@ import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
+import { describeTerritory } from './geo.js';
 import { WATCH_PROPERTIES, watchItems, type LiveSource, type WatchInput } from '../watch.js';
 
 /** The Event API channels of a reading, from watchLive (its lease: 10 minutes, renewed by --watch). */
@@ -135,16 +136,19 @@ export const feed: Command<FeedInput, unknown> = {
   text: (r) => ((r as { count?: number }).count !== undefined ? `${(r as { count: number }).count} new post(s)` : renderPosts(r)),
 };
 
+/** The page of a universe: its fields down to 2, its pages without their documents (universes page get --document reads one). */
+const UNIVERSE = selection('Universe', 2).replace(`pages ${selection('PageOfUniverse', 1)}`, 'pages { kind name order hidden removed version url }');
+
 type UniverseShow = { universe: Record<string, unknown>; theme?: unknown; governance?: unknown; members?: unknown };
 
 export const universesShow: Command<{ universe: string; members?: boolean }, UniverseShow> = {
-  name: 'universes show', summary: 'The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules',
+  name: 'universes show', summary: 'The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support',
   examples: ['breakrocks universes show %test-village-multisport', 'breakrocks universes show %france --members --json'],
   input: object({ universe: str('The universe (%name)'), members: bool('Its members (universeMembers, first page)') }, ['universe']),
   output: openObject({ universe: outputSchema('Universe', 2), theme: outputSchema('Theme', 2), governance: outputSchema('UniverseGovernance', 1), members: outputSchema('UniverseMemberPage', 1) }),
   args: { positionals: ['universe'] },
   run: async (ctx, { universe, members }) => {
-    const data = await api<{ universe: Record<string, unknown> & { themeRef?: { universe: string; name: string } } }>(ctx, `query($n: String!) { universe(name: $n) ${selection('Universe', 2)} }`, { n: universe });
+    const data = await api<{ universe: Record<string, unknown> & { themeRef?: { universe: string; name: string } } }>(ctx, `query($n: String!) { universe(name: $n) ${UNIVERSE} }`, { n: universe });
     if (!data.universe) throw usageError('UNIVERSE_NOT_FOUND', `No universe ${universe}`, { universe });
     const out: UniverseShow = { universe: data.universe };
     const ref = data.universe.themeRef;
@@ -162,6 +166,9 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
     return [`${u.name}${u.private ? ' (private)' : ''}`, `field: ${u.field ?? '-'}   residents: ${u.residentCount ?? '-'}   members: ${u.memberCount ?? '-'}`,
       `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : u.theme}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
       ...slots, `layout: ${u.layoutRef?.name ?? u.defaultLayout ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
+      `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,
+      `proposals waiting for support: ${u.proposalsWaitingSupport ?? '-'}`,
+      `pages: ${((u.pages ?? []) as { name: string; hidden?: boolean }[]).map((p) => `${p.name}${p.hidden ? ' (hidden)' : ''}`).join(', ') || '-'}`,
       `governance: ${JSON.stringify(r.governance)}`].join('\n');
   },
 };

@@ -3,6 +3,43 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.9.0] - 2026-10-24
+
+### Added
+
+- The universe territory: `universes territory get`,
+  `set` (a boundary by the id of its place, its name and kind read from its shape; or a circle,
+  `--circle <lat>,<lon> --radius <m> --name <place>`, the radius among the eight), `remove` and
+  `report` (`reportUniverseTerritory`: `MISLEADING`, `PLATFORM_RULES`, `ILLEGAL`);
+  `proposals file --kind TERRITORY` takes `--boundary`, `--circle`, `--radius`, `--territory-name`
+  and `--no-territory` (`fileProposal(territory, removeTerritory)`).
+- The map: `places search <text> --bounds` (`places`, the universes that hold each place),
+  `explore area --cells <h3,…> | --boundary <id>` (`universesInArea`, 1 to 19 map cells of
+  resolution 5; no `--bbox`: the CLI has no H3 library), `map boundary <id> [--geojson]` (the shape
+  read from the catalogue of the cartography of the environment, `catalog.json` → `boundaries.url`,
+  kept an hour; `BOUNDARY_SHAPE_NOT_FOUND` on a 404; `BREAKROCKS_MAP_URL` replaces the host).
+- The pages of a universe: `universes pages`, `universes page get [--document]`,
+  `publish --file`, `check --file` (online, `checkLayout` with a document `break-rocks-layout/3` of
+  that page: the shared library of the design is not shipped here), `hide`, `show`, `move`,
+  `delete`, `report [--block]`, `universes pages export [--out]`, `universes pages import --file`,
+  and `studio make-page <draft id>`; the refusals of a publication told plainly, their code kept
+  (`PAGE_VERSION_CONFLICT`, `PAGE_NAME_TAKEN`, `PAGES_LIMIT` and `CANVAS_ITEMS_LIMIT` with
+  `errorInfo.limit`…).
+- The governance page: `governance proposals [--status] [--kind]`, `governance record`
+  (`governanceRecord`), `governance duties [--universe]` (`myJuryDuties`), `governance pinned`,
+  `governance pin <universe> <channel…> | --none` (`setPinnedChannels`), `governance layout`
+  (`appliedLayout(page: GOVERNANCE)`).
+- Each new command is an MCP tool, with what an agent needs in its description (when to read the
+  territory, how to propose, the limits). No `--watch`: the real-time contract has no event of
+  these.
+
+### Changed
+
+- `universes show` tells the universe territory, the pages (without their documents) and
+  `proposalsWaitingSupport`.
+- The contract regenerated; `governance territory` stays, with the
+  arguments as built (`universes territory set` is the plain form).
+
 ## [0.8.2] - 2026-10-24
 
 ### Changed

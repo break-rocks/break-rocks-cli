@@ -2,6 +2,11 @@
 // help (breakrocks help moderation, breakrocks help governance). A delegated agent does not
 // moderate (DELEGATED_AGENT_NOT_ALLOWED): the platform says so.
 import { apiCommand } from '../api/command.js';
+import { outputSchema, selection } from '../api/graphql.js';
+import { usageError } from '../errors.js';
+import type { Command } from '../registry.js';
+import { bool, list, object, openObject, str } from '../schema.js';
+import { api } from '../session.js';
 
 const u = { universe: 'The universe (%name)', in: 'The universe (%name)', account: 'The account: @handle or its id' };
 const acc = { accountId: 'account', universe: 'in' };
@@ -38,8 +43,51 @@ export const governanceCommands = [
   apiCommand({ name: 'governance transfer', summary: 'Transfer a universe to an account (irreversible once accepted)', kind: 'mutation', op: 'transferUniverse', positionals: ['universe', 'accountId'], rename: { accountId: 'account' }, descriptions: u, confirm: (i) => `Transfer ${i.universe} to ${i.account}?`, examples: ['breakrocks governance transfer %club @alice --yes'] }),
   apiCommand({ name: 'governance field', summary: 'Set the field of a universe', kind: 'mutation', op: 'setUniverseField', positionals: ['universe', 'field'], descriptions: u, depth: 1, examples: ['breakrocks governance field %paris PLACES'] }),
   apiCommand({ name: 'governance display', summary: 'Set the display name of a universe', kind: 'mutation', op: 'setUniverseDisplay', positionals: ['universe', 'display'], descriptions: u, examples: ['breakrocks governance display %paris "Paris"'] }),
-  apiCommand({ name: 'governance territory', summary: 'Set (or --remove) the territory of a universe', kind: 'mutation', op: 'setUniverseTerritory', positionals: ['universe'], descriptions: u, depth: 1, examples: ['breakrocks governance territory %paris --kind city --name Paris'] }),
+  apiCommand({ name: 'governance territory', summary: 'Set (or --remove) the territory of a universe (the arguments as built; universes territory set is the plain form)', kind: 'mutation', op: 'setUniverseTerritory', positionals: ['universe'], descriptions: u, depth: 1, examples: ['breakrocks governance territory %paris --kind city --name Paris'] }),
   apiCommand({ name: 'governance my-vote', summary: 'My votes in a universe (held, lent, received)', kind: 'query', op: 'myVote', positionals: ['universe'], descriptions: u, examples: ['breakrocks governance my-vote %paris'] }),
   apiCommand({ name: 'governance lend-votes', summary: 'Lend my votes to an account', kind: 'mutation', op: 'lendVotes', positionals: ['universe', 'accountId'], rename: { accountId: 'account' }, descriptions: u, examples: ['breakrocks governance lend-votes %paris @alice'] }),
   apiCommand({ name: 'governance withdraw-votes', summary: 'Take back the votes lent', kind: 'mutation', op: 'withdrawVotes', positionals: ['universe'], descriptions: u, examples: ['breakrocks governance withdraw-votes %paris'] }),
+  // The governance page (as built).
+  apiCommand({ name: 'governance proposals', summary: 'The proposals of a universe by status and kind, as the governance page groups them', kind: 'query', op: 'proposals', positionals: ['universe'],
+    description: 'WAITING_SUPPORT (waiting for support: supportProposal), OPEN and COUNTING (in vote), ADOPTED, REJECTED, WITHDRAWN, ANNULLED, CANCELLED. Read by everyone in a public universe.',
+    descriptions: { ...u, status: 'Only this status (ProposalStatus)', kind: 'Only this kind (ProposalKind)' }, examples: ['breakrocks governance proposals %paris --status WAITING_SUPPORT', 'breakrocks governance proposals %paris --kind TERRITORY --all'] }),
+  apiCommand({ name: 'governance record', summary: 'The governance history of the governance page: proposals adopted or annulled, platform measures, changes of leadership (governanceRecord)', kind: 'query', op: 'governanceRecord', positionals: ['universe'],
+    description: 'The most recent first; the first page holds the last 90 days, --all the older ones. A platform measure names what was removed (TERRITORY, THEME, LAYOUT, BANNER, PAGE, BLOCK), never an account. [] for a private universe.',
+    descriptions: u, depth: 3, examples: ['breakrocks governance record %paris', 'breakrocks governance record %paris --all --json'] }),
+  apiCommand({ name: 'governance duties', summary: 'My jury duties (My duties), in every universe or in one (myJuryDuties)', kind: 'query', op: 'myJuryDuties',
+    description: 'Those waiting for an answer or a juror vote are what the live button of My duties counts. Never another account\'s.',
+    descriptions: { universe: 'Only the duties of this universe (%name)' }, examples: ['breakrocks governance duties', 'breakrocks governance duties --universe %paris'] }),
+  apiCommand({ name: 'governance layout', summary: 'The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE)', kind: 'query', op: 'appliedLayout', positionals: ['universe'],
+    fixed: { page: 'GOVERNANCE' }, hide: ['switcher'], descriptions: { ...u, device: 'The device it applies to (phone, tablet, desktop)' }, examples: ['breakrocks governance layout %paris --json'] }),
 ];
+
+type Pinned = { universe: string; private: boolean; pinnedChannels: unknown[] };
+const CHANNEL = selection('Channel', 1);
+const pinnedText = (r: Pinned) => (r.pinnedChannels.length ? (r.pinnedChannels as { address: string; unread?: number; joined?: boolean }[]).map((c, i) => `${i + 1}. ${c.address}${c.joined && c.unread ? `  ${c.unread} unread` : ''}`).join('\n') : `${r.universe}: no pinned channel`);
+const pinnedOutput = openObject({ universe: str('The universe'), private: { type: 'boolean', description: 'A private universe (the only ones with pinned channels)' }, pinnedChannels: list('The pinned channels, in their order', outputSchema('Channel', 1)) });
+
+export const governancePinned: Command<{ universe: string }, Pinned> = {
+  name: 'governance pinned', summary: 'The pinned channels of a private universe, in their order (Universe.pinnedChannels)',
+  description: 'At most 5; [] for a public universe and for a non-member.', examples: ['breakrocks governance pinned %team-fra.'],
+  input: object({ universe: str('The universe (%name)') }, ['universe']), output: pinnedOutput, args: { positionals: ['universe'] },
+  run: async (ctx, { universe }) => {
+    const r = (await api<{ universe: { name: string; private: boolean; pinnedChannels: unknown[] } | null }>(ctx, `query($n: String!) { universe(name: $n) { name private pinnedChannels ${CHANNEL} } }`, { n: universe })).universe;
+    if (!r) throw usageError('UNIVERSE_NOT_FOUND', `No universe ${universe}`, { universe });
+    return { universe: r.name, private: r.private, pinnedChannels: r.pinnedChannels };
+  },
+  text: pinnedText,
+};
+
+export const governancePin: Command<{ universe: string; channels?: string[]; none?: boolean }, Pinned> = {
+  name: 'governance pin', summary: 'Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all)',
+  description: 'The owner and the admins (CHANNEL_MANAGERS_ONLY); at most 5 (PINNED_CHANNELS_LIMIT), channels of that private universe at any of its levels, not archived, each once. A public universe: PRIVATE_UNIVERSE_NOT_FOUND.',
+  examples: ['breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev', 'breakrocks governance pin %team-fra. --none'],
+  input: object({ universe: str('The universe (%name)'), channels: list('The channels, in their order (%universe~name)', { type: 'string' }, { maxItems: 5 }), none: bool('Unpin every channel') }, ['universe']),
+  output: pinnedOutput, args: { positionals: ['universe', 'channels'] },
+  run: async (ctx, { universe, channels, none }) => {
+    if (!!channels?.length === !!none) throw usageError('INVALID_INPUT', 'The channels to pin, or --none');
+    const r = (await api<{ setPinnedChannels: { name: string; private: boolean; pinnedChannels: unknown[] } }>(ctx, `mutation($u: String!, $c: [String!]!) { setPinnedChannels(universe: $u, channels: $c) { name private pinnedChannels ${CHANNEL} } }`, { u: universe, c: none ? [] : channels })).setPinnedChannels;
+    return { universe: r?.name ?? universe, private: r?.private ?? true, pinnedChannels: r?.pinnedChannels ?? [] };
+  },
+  text: pinnedText,
+};
