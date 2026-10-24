@@ -72,6 +72,11 @@ jobs:
           test "$(node bin/breakrocks.js __complete posts list --k)" = "--kind"
           node bin/breakrocks.js completion pwsh | grep -q 'Register-ArgumentCompleter'
           if [ "$RUNNER_OS" != Windows ]; then bash -n completions/breakrocks.bash; fi
+      - name: The npm package (what npm publish would send)
+        shell: bash
+        run: |
+          npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
+          node -e "const [p]=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const f=p.files.map((x)=>x.path); for (const need of ['bin/breakrocks.js','dist/index.js','dist/cli.js','completions/breakrocks.bash','README.md']) if (!f.includes(need)) { console.error('missing', need); process.exit(1); } const bad=f.filter((x)=>/^(src|test|scripts|specs)\//.test(x)); if (bad.length) { console.error('unexpected', bad); process.exit(1); } console.log(p.name, p.version, f.length, 'files', p.size, 'bytes')" "$RUNNER_TEMP/pack.json"
       - name: The MCP server on stdio
         shell: bash
         env:
