@@ -617,22 +617,34 @@ Le brancher (une ligne par client) :
 Avant la publication npm, remplacer `npx -y breakrocks` par le chemin de l'exécutable installé
 (`~/.local/bin/breakrocks mcp`) ou `node /chemin/vers/break-rocks-cli/bin/breakrocks.js`.
 
-## Publication npm (C-01)
+## Publication npm (C-01) et mise en public
 
-Prête, pas faite : c'est un geste de l'utilisateur.
+Décidé (D-108) : le CLI sera public, sous licence MIT, **à l'ouverture de la production au grand
+public** ; d'ici là, le dépôt reste privé et rien ne part sur npm.
 
-1. Licence : `package.json` dit `UNLICENSED` (tous droits réservés) ; *Reco* : MIT si le paquet est
-   public (un `LICENSE` à ajouter alors, et `"license": "MIT"`).
-2. Créer un compte npm (ou une organisation) qui réserve `breakrocks`, puis un jeton d'automatisation,
-   et le poser : `gh secret set NPM_TOKEN --repo break-rocks/break-rocks-cli`.
-3. Poser le tag de la version (`v0.8.0`) : `release.yml` construit les exécutables, crée la release
-   (exécutables, `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), puis le job
-   `npm` publie (`npm publish --access public`, `prepack` construit `dist/` et les scripts) ; sans
-   `NPM_TOKEN`, il le dit et ne publie rien.
+1. Le jeton : un compte npm (ou une organisation) qui réserve `breakrocks`, puis un jeton
+   d'automatisation, posé par l'utilisateur (A-30) : `gh secret set NPM_TOKEN --repo break-rocks/break-rocks-cli`.
+2. Le job `npm` de `release.yml` ne publie que si **deux** conditions sont réunies : le secret
+   `NPM_TOKEN` **et** la variable de dépôt `NPM_PUBLISH` égale à `true`. Elle est absente aujourd'hui :
+   même avec le secret, un tag ne publie rien (le job le dit).
+3. Au lancement : remplacer le sous-module des specs par une copie du schéma (§ Licence), rendre le
+   dépôt public, poser `gh variable set NPM_PUBLISH --repo break-rocks/break-rocks-cli --body true`,
+   puis le tag de la version : `release.yml` construit les exécutables, crée la release (exécutables,
+   `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), puis publie le paquet
+   (`npm publish --access public` ; `prepack` construit `dist/` et les scripts).
 
 Ensuite : `npx breakrocks help`, `npm i -g breakrocks`, `claude mcp add breakrocks -- npx -y breakrocks mcp`.
 La provenance npm (`--provenance`) demande un dépôt public : à ajouter le jour où il l'est.
 Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [arguments JSON] [-- options]`.
+
+## Licence
+
+MIT (`LICENSE`, © 2026 Rachid BERKANE ; D-108), portée dans le paquet npm. Le dépôt reste privé
+jusqu'à l'ouverture de la production au grand public (§ Publication npm). Le sous-module
+`specs/common` pointe sur `break-rocks-specs` (privé) par une adresse relative, sans jeton
+(`.gitmodules` vérifié) ; **avant la mise en public**, il sera remplacé par une copie du schéma
+(`contracts/schema.graphql`, et ce que lisent les tests), pour qu'un clone public se construise
+sans accès aux specs. Pas encore fait.
 
 ## Organisation
 

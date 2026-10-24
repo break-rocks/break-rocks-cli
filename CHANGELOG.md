@@ -4,6 +4,17 @@ All notable changes of break-rocks-cli. The format follows [Keep a Changelog](ht
 the contract is break-rocks-specs (`specs/common`: `contracts/agent-sign-in.md`, `contracts/payments.md`,
 `contracts/schema.graphql`, `contracts/themes.md`). The scope is decided (D-91, 2026-10-23).
 
+## [0.8.2] - 2026-10-24
+
+### Changed
+
+- The license is MIT (`LICENSE`, carried by the npm package; D-108): the CLI goes public at the
+  opening of production to the public.
+- The job `npm` of `release.yml` publishes only with the secret `NPM_TOKEN` **and** the repository
+  variable `NPM_PUBLISH` set to `true` (absent until the launch: nothing is published).
+- README: § Licence (the submodule of the specs to be replaced by a copy of the schema before the
+  repository goes public) and § Publication npm et mise en public.
+
 ## [0.8.1] - 2026-10-24
 
 ### Added
