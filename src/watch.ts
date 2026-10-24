@@ -9,7 +9,7 @@ import type { Context } from './context.js';
 import { CliError, usageError } from './errors.js';
 import { connect, realtimeUnavailable, type Connection, type RealtimeEvent, type RealtimeMode } from './realtime.js';
 import { renderText } from './render.js';
-import { ensureSession } from './session.js';
+import { accountOf, ensureSession } from './session.js';
 import type { JsonSchema } from './schema.js';
 
 export const MIN_INTERVAL = 15;
@@ -110,12 +110,12 @@ export async function watchItems<T>(ctx: Context, input: WatchInput, read: () =>
     let accountId = '';
     const open = async () => {
       const { session, at } = await ensureSession(ctx);
-      accountId = session.operatorId;
+      accountId = accountOf(session);
       const why = realtimeUnavailable(input.realtime ?? 'auto', session.kind, at.realtime);
       if (why) return why;
       channels = await live!.channels(accountId);
       if (!channels.length) return 'nothing to subscribe to for this reading';
-      connection = await connect(ctx, { realtimeUrl: at.realtime!, httpUrl: at.events ?? at.api, token: session.token, channels, onEvent: (e) => { if (live!.matches(e)) { events++; woken = true; } } });
+      connection = await connect(ctx, { realtimeUrl: at.realtime!, httpUrl: at.events ?? at.api, token: session.idToken ?? session.token, channels, onEvent: (e) => { if (live!.matches(e)) { events++; woken = true; } } });
       lost = false;
       void connection.closed.then((reason) => { if (connection) { lost = true; ctx.progress(`Real time lost (${reason})`); } });
       return undefined;

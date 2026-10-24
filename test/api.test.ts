@@ -107,7 +107,7 @@ describe('every command', () => {
     });
     const ctx = new Context(h.io, { ...NO_FLAGS, yes: true, env: 'dev' });
     saveSession(ctx, { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
-    const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agent login', 'session']);
+    const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agent login', 'session', 'login', 'logout', 'update']);
     let ran = 0;
     for (const c of commands()) {
       if (skipped.has(c.name)) continue;
@@ -116,6 +116,14 @@ describe('every command', () => {
       try { await execute(ctx, c, input); } catch { /* local checks (files, inputs) may stop a command */ }
       ran++;
     }
+    // A human: its own whoami, capabilities and logout --everywhere (signOutEverywhere).
+    ctx.saveProfile({ env: 'dev', kind: 'human', accountId: 'eu-human' });
+    saveSession(ctx, { kind: 'human', token: 't', idToken: 'i', refreshToken: 'r', pool: { userPoolId: 'eu-west-1_x', clientId: 'c', region: 'eu-west-1' }, accountId: 'eu-human', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', signInAgainBy: '2099-01-01T00:00:00.000Z' });
+    for (const [name, input] of [['whoami', {}], ['capabilities', { universe: '%paris' }], ['usage', {}], ['logout', { everywhere: true }]] as const) {
+      current = `${name} (human)`;
+      await execute(ctx, commands().find((c) => c.name === name)!, input);
+    }
+    expect(sent.filter((s) => s.command.endsWith('(human)')).map((s) => s.doc)).toEqual(expect.arrayContaining([expect.stringContaining('mySubscription'), expect.stringContaining('signOutEverywhere')]));
     const invalid = sent.filter((s) => s.errors.length).map((s) => `${s.command}: ${s.errors[0]}`);
     expect(invalid).toEqual([]);
     expect(ran).toBeGreaterThan(150);

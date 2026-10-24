@@ -1,34 +1,67 @@
-// Sessions of agent operators and delegated agents: an
-// auth challenge signed with the private key, a session of 1 hour kept in the configuration folder
-// (sessions/<profile>.json, 0600), renewed when it ends within 5 minutes by signing a new
-// challenge with the current token in Authorization: Bearer (same sessionId). A delegated agent
-// signs in with its key file, or with BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and
+// Sessions. Agent operators and
+// delegated agents: an auth challenge signed with the private key, a session of 1 hour kept in the
+// configuration folder (sessions/<profile>.json, 0600), renewed when it ends within 5 minutes
+// by signing a new challenge with the current token in Authorization: Bearer (same sessionId). A
+// delegated agent signs in with its key file, or with BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and
 // BREAKROCKS_AGENT_KEY (never printed, never stored). A token refused by the API (Unauthorized)
 // signs in once more: the agents host tells why (DELEGATED_AGENT_SUSPENDED, OPERATOR_SUSPENDED…).
+// Humans: the tokens of the user pool of their cell (breakrocks login), the access token for the API,
+// the id token for the real time, the refresh token (7 days from the sign-in) renewing both when they
+// end within 5 minutes; all three in the same private file, never printed.
 import type { KeyObject } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import type { Context } from './context.js';
 import type { Profile } from './config.js';
 import { readJson, writePrivate } from './config.js';
 import { endpoints, type Endpoints } from './endpoints.js';
-import { CliError, EXIT, cliRefusal, networkError } from './errors.js';
+import { CliError, EXIT, cliRefusal, networkError, usageError } from './errors.js';
+import { claimsOf, refreshTokens, type CognitoTokens, type UserPool } from './cognito.js';
 import { privateKeyFrom, readPrivateKey, signChallenge } from './keys.js';
 import { agentsPost, expectOk, graphql, isUnauthorized } from './transport.js';
 
 /** A session is renewed when it ends within 5 minutes. */
 export const RENEW_BEFORE_MS = 5 * 60 * 1000;
 
+/** A human's session lasts 7 days from the sign-in (the refresh token of the app client; Cognito renews nothing). */
+export const HUMAN_SESSION_DAYS = 7;
+
 export type Session = {
-  kind: 'operator' | 'agent';
+  kind: 'operator' | 'agent' | 'human';
+  /** The token of the API: the session token of the agents host, or the access token of a human. */
   token: string;
   sessionId: string;
+  /** When the token ends (1 hour). */
   expiresAt: string;
-  operatorId: string;
+  operatorId?: string;
   agentId?: string;
   recoveryKeyRequired?: boolean;
   /** Where the agent's key came from: its file or the environment (agents only). */
   keySource?: 'file' | 'env';
+  /** A human: its account id, its id token (the real time), its refresh token, its user pool, when the session must be opened again. */
+  accountId?: string;
+  idToken?: string;
+  refreshToken?: string;
+  pool?: UserPool;
+  signedInAt?: string;
+  signInAgainBy?: string;
 };
+
+/** The account a session acts as: the human's, else the operator's (a delegated agent acts as its operator). */
+export const accountOf = (s: Session) => s.accountId ?? s.operatorId ?? '';
+
+/** The session of a human from the tokens of its user pool ([previous]: the session renewed, its refresh token and its dates kept). */
+export function humanSession(tokens: CognitoTokens, pool: UserPool, accountId: string, now: number, previous?: Session): Session {
+  const access = claimsOf(tokens.accessToken);
+  const refreshToken = tokens.refreshToken ?? previous?.refreshToken;
+  if (!refreshToken) throw new Error('A human session without a refresh token');
+  const signedInAt = previous?.signedInAt ?? new Date(now).toISOString();
+  return {
+    kind: 'human', token: tokens.accessToken, idToken: tokens.idToken, refreshToken, pool, accountId,
+    sessionId: String(access.origin_jti ?? previous?.sessionId ?? access.jti ?? ''),
+    expiresAt: new Date(access.exp ? access.exp * 1000 : now + tokens.expiresIn * 1000).toISOString(),
+    signedInAt, signInAgainBy: previous?.signInAgainBy ?? new Date(Date.parse(signedInAt) + HUMAN_SESSION_DAYS * 86400_000).toISOString(),
+  };
+}
 
 /** What signs in the profile: the operator's key, or a delegated agent's (its file, or the BREAKROCKS_* variables). */
 export type Credentials =
@@ -60,7 +93,7 @@ export const readSession = (ctx: Context): Session | undefined => readJson<Sessi
 export const saveSession = (ctx: Context, session: Session) => writePrivate(ctx.store.sessionFile(ctx.profileName), `${JSON.stringify(session, null, 2)}\n`);
 export const forgetSession = (ctx: Context) => rmSync(ctx.store.sessionFile(ctx.profileName), { force: true });
 
-const sameActor = (s: Session, c: Credentials) => s.kind === c.kind && s.operatorId === c.operatorId && (c.kind === 'operator' || s.agentId === c.agentId);
+const sameActor = (s: Session, c: Credentials) => s.kind !== 'human' && s.kind === c.kind && s.operatorId === c.operatorId && (c.kind === 'operator' || s.agentId === c.agentId);
 
 /** Signs in with [credentials] (a new session, or the renewal of [current]); the session saved. */
 export async function signIn(ctx: Context, at: Endpoints, credentials: Credentials, current?: Session): Promise<Session> {
@@ -92,6 +125,11 @@ export async function signIn(ctx: Context, at: Endpoints, credentials: Credentia
  */
 export async function ensureSession(ctx: Context, options: { renew?: boolean; fresh?: boolean } = {}): Promise<{ session: Session; at: Endpoints }> {
   const profile = ctx.profile();
+  if (profile.kind === 'human') {
+    // The BREAKROCKS_* variables would sign a delegated agent into the session file of a human: refused.
+    if (agentFromEnv(ctx.env)) throw usageError('PROFILE_HOLDS_HUMAN', `BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set, but the profile "${ctx.profileName}" holds a human account: use another profile (--profile <name>)`, { profile: ctx.profileName });
+    return ensureHumanSession(ctx, profile, options);
+  }
   const credentials = credentialsOf(ctx, profile);
   const current = readSession(ctx);
   const usable = current && (!credentials || sameActor(current, credentials)) ? current : undefined;
@@ -100,12 +138,36 @@ export async function ensureSession(ctx: Context, options: { renew?: boolean; fr
   if (!credentials && !(usable && left > 0 && !force)) {
     throw networkError('SIGN_IN_REQUIRED', profile.kind
       ? `The session of the profile "${ctx.profileName}" ended and its key is not here: sign in again`
-      : `The profile "${ctx.profileName}" has no account: breakrocks operator register, or breakrocks agent login`, { profile: ctx.profileName });
+      : `The profile "${ctx.profileName}" has no account: breakrocks login, breakrocks operator register, or breakrocks agent login`, { profile: ctx.profileName });
   }
   const at = await endpoints(ctx, { ...profile, operatorId: profile.operatorId ?? credentials?.operatorId });
   if (usable && ((!force && left > RENEW_BEFORE_MS) || !credentials)) return { session: usable, at };
   if (!credentials) throw new Error('unreachable');
   return { session: await signIn(ctx, at, credentials, options.fresh ? undefined : usable), at };
+}
+
+/**
+ * The session of a human profile: kept while its access token ends in more than 5 minutes; renewed
+ * with its refresh token otherwise (or now: [renew], [fresh]). Without a session: SIGN_IN_REQUIRED;
+ * a refresh token refused (7 days passed, signed out everywhere, the password changed): the session
+ * is forgotten, SESSION_EXPIRED (exit 3).
+ */
+async function ensureHumanSession(ctx: Context, profile: Profile, options: { renew?: boolean; fresh?: boolean }): Promise<{ session: Session; at: Endpoints }> {
+  const current = readSession(ctx);
+  if (!current || current.kind !== 'human' || !current.refreshToken || !current.pool || current.accountId !== profile.accountId) {
+    throw networkError('SIGN_IN_REQUIRED', `The profile "${ctx.profileName}" is not signed in: breakrocks login`, { profile: ctx.profileName });
+  }
+  const at = await endpoints(ctx, profile);
+  const left = Date.parse(current.expiresAt) - ctx.now();
+  if (!options.renew && !options.fresh && left > RENEW_BEFORE_MS) return { session: current, at };
+  let tokens: CognitoTokens;
+  try { tokens = await refreshTokens(ctx, current.pool, current.refreshToken); } catch (error) {
+    if (error instanceof CliError && error.code === 'SESSION_EXPIRED') forgetSession(ctx);
+    throw error;
+  }
+  const session = humanSession(tokens, current.pool, current.accountId!, ctx.now(), current);
+  saveSession(ctx, session);
+  return { session, at };
 }
 
 /**

@@ -48,6 +48,7 @@ export const operatorKeygen: Command<{ algorithm?: Algorithm; recoveryAlgorithm?
   offline: true,
   run: (ctx, { algorithm = 'Ed25519', recoveryAlgorithm, recoveryOut, force }) => {
     const profile = ctx.profile();
+    if (profile.kind === 'human') throw cliRefusal('KEYS_IN_USE', `The profile "${ctx.profileName}" holds the human account ${profile.accountId}: make the keys of an operator in another profile (--profile <name>)`, { accountId: profile.accountId });
     if (profile.kind) throw cliRefusal('KEYS_IN_USE', `The profile "${ctx.profileName}" holds the account ${profile.operatorId}: new keys go through operator recover or operator recovery-key set`, { operatorId: profile.operatorId });
     if (profile.registration) throw cliRefusal('REGISTRATION_PENDING', `A registration is being paid with these keys (${profile.registration.id}): finish it with operator register`, { registrationId: profile.registration.id });
     const dir = ctx.store.keysDir(ctx.profileName);
@@ -82,7 +83,7 @@ export const operatorRegister: Command<{ country: string; fullAge?: boolean; mon
   interactive: true,
   run: async (ctx, { country, fullAge, months = 1, agents = 1, maxUsd }) => {
     let profile = ctx.profile();
-    if (profile.kind) throw cliRefusal('ALREADY_REGISTERED', `The profile "${ctx.profileName}" holds the account ${profile.operatorId ?? profile.agentId}`, { operatorId: profile.operatorId });
+    if (profile.kind) throw cliRefusal('ALREADY_REGISTERED', `The profile "${ctx.profileName}" holds the account ${profile.operatorId ?? profile.agentId ?? profile.accountId}`, { operatorId: profile.operatorId });
     const { operator, recovery } = operatorKeys(ctx, profile);
     if (!recovery || !existsSync(recovery)) throw usageError('KEY_MISSING', 'The recovery key is missing: breakrocks operator keygen --force');
     const main = readPrivateKey(operator, 'The operator key'), rec = readPrivateKey(recovery, 'The recovery key');
@@ -136,7 +137,7 @@ export const operatorLogin: Command<Record<string, never>, { operatorId: string;
     if (profile.kind !== 'operator' || !profile.operatorId) throw usageError('NOT_AN_OPERATOR_PROFILE', `The profile "${ctx.profileName}" holds no agent operator: operator register first`);
     const at = await endpoints(ctx, profile);
     const session = await signIn(ctx, at, credentialsOf(ctx, profile)!);
-    return { operatorId: session.operatorId, session: publicSession(session) };
+    return { operatorId: session.operatorId!, session: publicSession(session) };
   },
   quiet: (r) => r.session.sessionId,
 };
@@ -244,24 +245,27 @@ export const operatorDelete: Command<Record<string, never>, { operatorId: string
   quiet: (r) => r.operatorId,
 };
 
-type SessionResult = { profile: string; signedIn: boolean; kind?: string; operatorId?: string; agentId?: string; sessionId?: string; expiresAt?: string; expiresInSeconds?: number; renewsAt?: string; recoveryKeyRequired?: boolean; keySource?: string; canRenew: boolean };
+type SessionResult = { profile: string; signedIn: boolean; kind?: string; accountId?: string; operatorId?: string; agentId?: string; sessionId?: string; expiresAt?: string; expiresInSeconds?: number; renewsAt?: string; signInAgainBy?: string; recoveryKeyRequired?: boolean; keySource?: string; canRenew: boolean };
 
 export const sessionCommand: Command<{ renew?: boolean }, SessionResult> = {
   name: 'session', summary: 'Show the session of the profile and when it ends (--renew: renew it now)',
-  description: 'A session lasts 1 hour; every command renews it 5 minutes before its end when the profile holds its key. Never shows the token.',
+  description: 'The token of a session lasts 1 hour; every command renews it 5 minutes before its end, with the key of an operator or an agent, with the refresh token of a human, whose session lasts 7 days from the sign-in (signInAgainBy). Never shows a token.',
   examples: ['breakrocks session', 'breakrocks session --renew --json'],
   input: object({ renew: bool('Renew the session now') }),
-  output: openObject({ profile: str('The profile'), signedIn: bool('A session is open'), kind: str('operator or agent'), operatorId: str('Operator'), agentId: str('Delegated agent'), sessionId: str('The session'), expiresAt: str('When it ends'), expiresInSeconds: int('Seconds left'), renewsAt: str('When it is renewed'), canRenew: bool('The key is here to renew it') }),
+  output: openObject({ profile: str('The profile'), signedIn: bool('A session is open'), kind: str('human, operator or agent'), accountId: str('The account of a human'), operatorId: str('Operator'), agentId: str('Delegated agent'), sessionId: str('The session'), expiresAt: str('When its token ends'), expiresInSeconds: int('Seconds left'), renewsAt: str('When it is renewed'), signInAgainBy: str('A human: when the session ends, 7 days after the sign-in'), canRenew: bool('The key, or the refresh token of a human, is here to renew it') }),
   run: async (ctx, { renew }) => {
     const profile = ctx.profile();
     let canRenew = false;
     try { canRenew = !!credentialsOf(ctx, profile); } catch { canRenew = false; }
     const session = renew ? (await ensureSession(ctx, { renew: true })).session : readSession(ctx);
-    if (!session || Date.parse(session.expiresAt) <= ctx.now()) return { profile: ctx.profileName, signedIn: false, canRenew, ...(session ? { expiresAt: session.expiresAt } : {}) };
-    const left = Date.parse(session.expiresAt) - ctx.now();
+    const human = session?.kind === 'human';
+    if (human) canRenew = !!session.refreshToken && Date.parse(session.signInAgainBy ?? '') > ctx.now();
+    if (!session || (human ? !canRenew : Date.parse(session.expiresAt) <= ctx.now())) return { profile: ctx.profileName, signedIn: false, canRenew, ...(session ? { expiresAt: session.expiresAt } : {}) };
+    const left = Math.max(0, Date.parse(session.expiresAt) - ctx.now());
     return {
-      profile: ctx.profileName, signedIn: true, kind: session.kind, operatorId: session.operatorId, ...(session.agentId ? { agentId: session.agentId } : {}),
+      profile: ctx.profileName, signedIn: true, kind: session.kind, ...(session.accountId ? { accountId: session.accountId } : {}), ...(session.operatorId ? { operatorId: session.operatorId } : {}), ...(session.agentId ? { agentId: session.agentId } : {}),
       sessionId: session.sessionId, expiresAt: session.expiresAt, expiresInSeconds: Math.floor(left / 1000), renewsAt: new Date(Date.parse(session.expiresAt) - RENEW_BEFORE_MS).toISOString(),
+      ...(session.signInAgainBy ? { signInAgainBy: session.signInAgainBy } : {}),
       ...(session.recoveryKeyRequired ? { recoveryKeyRequired: true } : {}), ...(session.keySource ? { keySource: session.keySource } : {}), canRenew,
     };
   },
