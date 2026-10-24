@@ -102,6 +102,33 @@ export async function signInWithPassword(ctx: Context, pool: UserPool, email: st
   return tokensOf(answer.AuthenticationResult);
 }
 
+/** What people read for the refusals of the exchange of a command-line sign-in code. */
+const CODE_REASONS: Record<string, string> = {
+  ...REASONS,
+  NotAuthorizedException: 'The sign-in code of the browser is not valid (used, older than 5 minutes, refused three times, or for another login --browser): run breakrocks login --browser again',
+};
+
+/**
+ * Signs in with a command-line sign-in code of the web app:
+ * CUSTOM_AUTH for [username], whose challenge must be
+ * CLI_SIGN_IN_CODE, answered once with "<code>.<verifier>" (a wrong answer ends the attempt; three
+ * invalidate the code). Every refusal is NotAuthorizedException.
+ */
+export async function signInWithCode(ctx: Context, pool: UserPool, username: string, code: string, verifier: string): Promise<CognitoTokens> {
+  const ClientId = pool.clientId;
+  const first = await call<Answer>(ctx, pool, 'InitiateAuth', { AuthFlow: 'CUSTOM_AUTH', ClientId, AuthParameters: { USERNAME: username } }, CODE_REASONS);
+  if (first.AuthenticationResult) return tokensOf(first.AuthenticationResult);
+  if (first.ChallengeName !== 'CUSTOM_CHALLENGE' || first.ChallengeParameters?.kind !== 'CLI_SIGN_IN_CODE') {
+    throw cliRefusal('UNSUPPORTED_CHALLENGE', `The user pool asks for ${first.ChallengeName ?? 'an unknown step'}${first.ChallengeParameters?.kind ? ` (${first.ChallengeParameters.kind})` : ''} instead of a command-line sign-in code`, { challenge: first.ChallengeName ?? null });
+  }
+  const answer = await call<Answer>(ctx, pool, 'RespondToAuthChallenge', {
+    ChallengeName: 'CUSTOM_CHALLENGE', ClientId, Session: first.Session,
+    ChallengeResponses: { USERNAME: first.ChallengeParameters?.USERNAME ?? username, ANSWER: `${code}.${verifier}` },
+  }, CODE_REASONS);
+  if (!answer.AuthenticationResult) throw cliRefusal('UNSUPPORTED_CHALLENGE', `The user pool asks for ${answer.ChallengeName ?? 'another step'} after the sign-in code`, { challenge: answer.ChallengeName ?? null });
+  return tokensOf(answer.AuthenticationResult);
+}
+
 /** New access and id tokens from the refresh token; a refresh token expired or revoked ends the session (SESSION_EXPIRED, exit 3). */
 export async function refreshTokens(ctx: Context, pool: UserPool, refreshToken: string): Promise<CognitoTokens> {
   try {

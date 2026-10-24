@@ -7,13 +7,12 @@
 // WebKit ask a permission for a fetch to the loopback from a public page). The CLI then exchanges
 // the code, with its verifier, for a session of the user pool.
 //
-// The exchange is not served by the API yet (no operation in schema/schema.graphql): it stays
-// behind CodeExchange, and the command answers NOT_AVAILABLE_YET with the reason until the contract
-// exists (the proposal is in the README § Connexion par le navigateur).
+// The exchange: the code of the web app (createCliSignInCode, one use, 5 minutes, bound to the account
+// and to the challenge) answers the CUSTOM_AUTH challenge of the user pool with its verifier.
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import type { CognitoTokens, UserPool } from './cognito.js';
+import { signInWithCode, type CognitoTokens, type UserPool } from './cognito.js';
 import type { Context } from './context.js';
 import { CliError, EXIT, cliRefusal } from './errors.js';
 
@@ -25,10 +24,13 @@ export type CodeExchange =
   | { available: false; reason: string }
   | { available: true; exchange: (ctx: Context, input: { pool: UserPool; code: string; username?: string; verifier: string }) => Promise<CognitoTokens> };
 
-/** The exchange of the platform: not served yet. */
+/** The exchange of the platform: the CUSTOM_AUTH flow of the user pool, the username the page gave (USERNAME_MISSING without it). */
 export const PLATFORM_EXCHANGE: CodeExchange = {
-  available: false,
-  reason: 'the API has no operation yet to give the CLI a session for the code of the web app (schema/schema.graphql); sign in with breakrocks login (email and password) meanwhile',
+  available: true,
+  exchange: async (ctx, { pool, code, username, verifier }) => {
+    if (!username) throw cliRefusal('USERNAME_MISSING', 'The web app gave the code without the username of the account: run breakrocks login --browser again');
+    return signInWithCode(ctx, pool, username, code, verifier);
+  },
 };
 
 export const CALLBACK_PATH = '/callback';

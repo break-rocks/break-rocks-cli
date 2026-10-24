@@ -2,7 +2,7 @@
 // profile. A human signs in with its email address and its password (SRP: the password never
 // leaves the device), and the code of its authenticator app when it has one, in the user pool of
 // its cell (the directory gives the cell of the email, as the apps do); --browser lets the web app
-// give the CLI a code instead (src/browser-login.ts, not served by the API yet). A profile that
+// give the CLI a one-time code instead (src/browser-login.ts, the CUSTOM_AUTH flow). A profile that
 // holds an agent operator or a delegated agent signs in with its key, as operator login and agent
 // login do. logout closes the session of this device (the refresh token of a human revoked), or,
 // --everywhere, every session of a human (signOutEverywhere).
@@ -109,7 +109,7 @@ async function browserLogin(ctx: Context, profile: Profile, i: LoginInput): Prom
 
 export const login: Command<LoginInput, LoginResult> = {
   name: 'login', summary: 'Sign in: a human with its email address and password (or --browser); an operator or a delegated agent with its key',
-  description: 'A human: the email address (--email, or asked), the password (asked without echo, or --password-stdin: its first line), the code of the authenticator app when the account has one (--code, or asked); the cell of the account from the directory, as the apps (--cell to choose). The session lasts 7 days from the sign-in, its tokens renewed on their own; all three kept in the configuration folder (0600), never printed. A first sign-in, the minimum age and the terms of use are done in the app. --browser: the web app gives the CLI a code instead of the password (not served by the API yet: NOT_AVAILABLE_YET). A profile of an agent operator or a delegated agent (or the variables BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID, BREAKROCKS_AGENT_KEY) signs in with its key, as operator login and agent login. Not an MCP tool.',
+  description: 'A human: the email address (--email, or asked), the password (asked without echo, or --password-stdin: its first line), the code of the authenticator app when the account has one (--code, or asked); the cell of the account from the directory, as the apps (--cell to choose). The session lasts 7 days from the sign-in, its tokens renewed on their own; all three kept in the configuration folder (0600), never printed. A first sign-in, the minimum age and the terms of use are done in the app. --browser: the web app (/cli/login) gives the CLI a one-time code of 5 minutes instead of the password, never a token; the session is the same. A profile of an agent operator or a delegated agent (or the variables BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID, BREAKROCKS_AGENT_KEY) signs in with its key, as operator login and agent login. Not an MCP tool.',
   examples: ['breakrocks --env dev login', 'printf "%s\\n" "$PASSWORD" | breakrocks --profile me-dev --env dev login --email me@example.com --password-stdin', 'breakrocks login --browser'],
   input: object({
     email: str('The email address of the human account'),

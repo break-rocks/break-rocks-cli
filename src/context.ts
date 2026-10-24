@@ -18,7 +18,7 @@ export type Io = {
   secret?: (question: string) => Promise<string>;
   /** Opens a web address in the browser of the person (login --browser); false when it could not. */
   openUrl?: (url: string) => Promise<boolean>;
-  /** How login --browser exchanges the code of the web app for a session (tests give a fake; by default not served yet). */
+  /** How login --browser exchanges the code of the web app for a session (tests give a fake; by default the CUSTOM_AUTH flow of the user pool). */
   codeExchange?: CodeExchange;
   /** The executable that runs (update: tests give a file; by default the single executable, or the npm package). */
   executable?: { path: string; kind: 'binary' | 'npm' | 'source' };

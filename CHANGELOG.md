@@ -3,6 +3,25 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.8.1] - 2026-10-24
+
+### Added
+
+- `login --browser` in service: the code of the web app
+  (`createCliSignInCode`, one use, 5 minutes, bound to the account and to the challenge) is exchanged
+  with its verifier through the `CUSTOM_AUTH` flow of the user pool (`CUSTOM_CHALLENGE` of kind
+  `CLI_SIGN_IN_CODE`, `ANSWER = "<code>.<verifier>"`); a refused code answers `NotAuthorizedException`
+  (run `login --browser` again), a code without the username of the account `USERNAME_MISSING`. The
+  session is the one of a password sign-in.
+
+### Changed
+
+- `--watch` tries the real time for a delegated agent and an agent operator too (`--realtime auto`):
+  the Event API takes their Agent JWT ; a refusal is told once and the reading
+  goes on.
+- `capabilities` of a delegated agent reads its own restrictions (`me.delegatedAgent`).
+- The contract regenerated.
+
 ## [0.8.0] - 2026-10-24
 
 ### Added

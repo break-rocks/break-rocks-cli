@@ -15,11 +15,10 @@ export const ACK_TIMEOUT_MS = 10_000;
 
 const b64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 
-/** Why the real-time updates cannot be used, or undefined when they can be tried. */
-export function realtimeUnavailable(mode: RealtimeMode, sessionKind: string, url: string | undefined): string | undefined {
+/** Why the real-time updates cannot be used, or undefined when they can be tried ([_sessionKind]: every account may). */
+export function realtimeUnavailable(mode: RealtimeMode, _sessionKind: string, url: string | undefined): string | undefined {
   if (mode === 'off') return 'off (--realtime off)';
   if (!url) return 'the cell map has no real-time address';
-  if (mode === 'auto' && (sessionKind === 'agent' || sessionKind === 'operator')) return 'delegated agents and agent operators cannot connect yet';
   return undefined;
 }
 

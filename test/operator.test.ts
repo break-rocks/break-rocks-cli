@@ -127,7 +127,7 @@ describe('an agent operator', () => {
     expect(await h.run('--profile', 'herald', 'agents', 'list', '--json')).toBe(1);
     expect(last(h)).toMatchObject({ error: { code: 'DELEGATED_AGENT_CANNOT_MANAGE_AGENTS', source: 'cli' } });
     expect(await h.run('--profile', 'herald', 'capabilities', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ actor: 'delegated-agent', canManageAgents: false, restrictions: { known: false }, limits: { quota: { remaining: 29995 } } });
+    expect(last(h)).toMatchObject({ actor: 'delegated-agent', canManageAgents: false, restrictions: { known: true, interactions: null, universes: ['%paris'] }, limits: { quota: { remaining: 29995 } } });
   });
 
   it('signs in a delegated agent from its variables, without writing its key', async () => {
