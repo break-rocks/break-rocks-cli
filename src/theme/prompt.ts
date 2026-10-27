@@ -103,7 +103,7 @@ function skeleton(f: Filled, sameKeys: string, descriptionPlaceholder: string, a
     gradient: ['#…', '#…'], motionAccents: true, shape: { radius: 'soft', stroke: 'regular' },
     imageSlots: {
       page: { day: 'page-day.jpg', night: 'page-night.jpg' }, pageHeader: { day: 'page-header-day.jpg', night: 'page-header-night.jpg' },
-      timeColumn: { day: 'time-column-day.jpg', night: 'time-column-night.jpg' }, channelHeader: { day: 'channel-header-day.jpg' }, cardTexture: { day: 'card-texture-day.jpg' },
+      timeColumn: { day: 'time-column-day.jpg', night: 'time-column-night.jpg' }, channelHeader: { day: 'channel-header-day.jpg' },
     },
     images: { wordmark: null, pattern: null }, stickers: [],
   }, null, 2);
@@ -142,7 +142,7 @@ social organisé en univers (communautés gouvernées par leurs résidents), uti
 atténuée et jour, sur ordinateur, tablette et téléphone. Deux livrables :
 
 1. un fichier \`theme.json\` au format \`break-rocks-theme/2\` ;
-2. les **8 images** du thème, nommées exactement comme le JSON les référence.
+2. les **7 images** du thème, nommées exactement comme le JSON les référence.
 
 ## Ce que je veux
 
@@ -223,7 +223,9 @@ désaturé, sans surexposition.
 | \`page-header-night.jpg\`, \`page-header-day.jpg\` | bannière d'univers | 2 400 × 800 px (3:1) | un panorama de la scène |
 | \`time-column-night.jpg\`, \`time-column-day.jpg\` | derrière la colonne du temps | 1 200 × 1 600 px (3:4) | un détail vertical très calme |
 | \`channel-header-day.jpg\` | tête des channels et des débats | 2 400 × 800 px (3:1) | un lieu de rencontre ou de conversation |
-| \`card-texture-day.jpg\` | derrière les cartes de post, répétée | 1 024 × 1 024 px, **raccordable** | une matière discrète, contraste très faible |
+
+**Ne fournis pas de texture de cartes** : les cartes sont transparentes et laissent voir l'image de
+la page à travers leur opacité.
 
 JPEG (qualité 85) ou WebP, sRGB, **5 Mo au plus** chacune, sans métadonnées de localisation. Si tu ne
 peux pas produire une image, mets l'emplacement à \`null\` plutôt que de référencer un fichier absent.
@@ -270,7 +272,7 @@ network organized in universes (communities governed by their residents), used b
 and day, on desktop, tablet and phone. Two deliverables:
 
 1. a file \`theme.json\` in the format \`break-rocks-theme/2\`;
-2. the **8 images** of the theme, named exactly as the JSON references them.
+2. the **7 images** of the theme, named exactly as the JSON references them.
 
 ## What I want
 
@@ -348,7 +350,9 @@ areas over at least 60 % of the image. **Night**: dark, soft contrasts, a few li
 | \`page-header-night.jpg\`, \`page-header-day.jpg\` | universe banner | 2,400 × 800 px (3:1) | a panorama of the scene |
 | \`time-column-night.jpg\`, \`time-column-day.jpg\` | behind the time column | 1,200 × 1,600 px (3:4) | a very calm vertical detail |
 | \`channel-header-day.jpg\` | the head of the channels and the debates | 2,400 × 800 px (3:1) | a place of meeting or conversation |
-| \`card-texture-day.jpg\` | behind the post cards, repeated | 1,024 × 1,024 px, **seamless** | a discreet material, very low contrast |
+
+**Do not provide a card texture**: the cards are transparent and show the image of the page through
+their opacity.
 
 JPEG (quality 85) or WebP, sRGB, **5 MB at most** each, without location metadata. If you cannot make
 an image, set its slot to \`null\` rather than reference a missing file.

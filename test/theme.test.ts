@@ -55,6 +55,15 @@ describe('theme check', () => {
     expect(r).toMatchObject({ ok: true, errors: 0, format: 'break-rocks-theme/2', name: 'stade-nuit' });
     expect(r.images.map((i) => [i.place, i.width])).toEqual([['page', 2160], ['page', 2160], ['pageHeader', 2160], ['cardTexture', 1024]]);
   });
+  it('does not warn of a theme without cardTexture (the cards are transparent by default)', async () => {
+    const doc = theme() as { imageSlots: Record<string, unknown> };
+    delete doc.imageSlots.cardTexture;
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    const r = last<Report>(h);
+    expect(r.warnings).toBe(0);
+    expect(r.problems.filter((p) => /cardTexture|texture/i.test(p.path))).toEqual([]);
+  });
   it('refuses, exit 1, with the codes of the platform', async () => {
     const doc = theme() as Record<string, any>;
     doc.variants.night.surfaces.nope = { text: '#FFFFFF' };
@@ -247,7 +256,11 @@ describe('theme prompt', () => {
     expect(json.collection).toBe('SPORT');
     expect(json.variants.night.surfaces.quoteCard.opacity).toBe(80);
     expect(json.variants.night.surfaces.badge).toMatchObject({ secondaryText: '#…', opacity: 100 });
-    expect(Object.keys(json.imageSlots).length).toBe(5);
+    expect(Object.keys(json.imageSlots)).toEqual(['page', 'pageHeader', 'timeColumn', 'channelHeader']);
+    expect(prompt).not.toContain('card-texture');
+    expect(prompt).toContain('the **7 images** of the theme');
+    expect(prompt).toContain('Do not provide a card texture');
+    expect(themePrompt({ mood: 'ciel', name: 'abc', universal: true, language: 'fr' }).prompt).toContain('les **7 images** du thème');
   });
   it('writes the prompt of a universal theme: no field, the palette and the typeface of Socle, %root', async () => {
     const r = themePrompt({ mood: 'an open sky', name: 'universel-ciel', universal: true, language: 'fr' });

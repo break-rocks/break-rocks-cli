@@ -392,14 +392,13 @@ Modération et gouvernance (hors de l'aide de base, `breakrocks help moderation`
   montre chaque couleur et chaque opacité corrigées avec la valeur gardée (`corrected`).
   `theme export` retire aussi `textScrims`.
 - **`theme prompt`** suit le cahier des charges des prompts de thème (opacités et repères, voile de
-  texte, `focusBar` et `rail`, `secondaryText` des boutons et du badge, `quoteCard` 80, les 8 images) ;
+  texte, `focusBar` et `rail`, `secondaryText` des boutons et du badge, `quoteCard` 80, les 7 images, pas de texture de cartes) ;
   `--universal` écrit le prompt d'un thème universel (sans domaine, palette et police de Socle,
   `%root` par défaut).
 - **`theme personal set --post-transparency OPAQUE|THEME|MORE|LIQUID`** ; **`studio try`**,
   **`studio end-try`**, **`studio preview`**, **`studio end-preview`** (essai d'un brouillon de thème
   sur son univers, aperçu pour soi) ; `universes show` montre l'essai en cours et son propre aperçu ;
-  `studio drafts` et `studio show` montrent `served`. Servis par l'API avant le contrat publié :
-  `src/api/ahead.ts` (dette technique ci-dessous).
+  `studio drafts` et `studio show` montrent `served`.
 
 ### Territoire, carte, pages d'un univers et page Gouvernance (0.9.0)
 
@@ -797,11 +796,6 @@ binaires SEA.
   `src/endpoints.ts`, `TEMPORARY`) : `break.rocks` ensuite.
 - `src/srp.ts` est une copie de celui de `the back-office CLI` (pas de paquet commun) : une correction va
   dans les deux.
-- `src/api/ahead.ts` (`TEMPORARY`) : ce que l'API de dev sert avant le contrat publié :
-  `PostTransparency`, `setPersonalTheme(postTransparency)`, les essais et aperçus de thème
-  (`startUniverseThemeTrial`…, `Universe.themeTrial`, `Universe.myDraftPreview`), `StudioDraft.served`.
-  Fusionné au contrat généré ; `test/api.test.ts` échoue dès que `schema.graphql` porte l'un d'eux :
-  le retirer alors.
 
 ## Dependabot
 

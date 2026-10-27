@@ -3,6 +3,21 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.10.1] - 2026-10-27
+
+### Changed
+
+- The contract regenerated (`npm run gen:schema`): it now carries the theme
+  trials and previews, `PostTransparency`, `setPersonalTheme(postTransparency)`, `StudioDraft.served`
+  and `DELEGATED_AGENTS_DEACTIVATED`; `src/api/ahead.ts` (what the API served ahead of the contract)
+  is removed, with its test and its technical debt.
+- `theme prompt` (and `--universal`) follows the current specifications of the theme prompts: 7
+  images, no `cardTexture` (the prompt tells the AI not to provide a card texture: the cards are
+  transparent), the post cards 30 to 60, `quoteCard` 80, the secondary text of the buttons and the
+  badge.
+- `theme check` does not warn of a theme without `cardTexture` (the default now); a `cardTexture`
+  slot stays accepted.
+
 ## [0.10.0] - 2026-10-27
 
 ### Added
