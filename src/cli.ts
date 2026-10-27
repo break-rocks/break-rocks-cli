@@ -31,7 +31,8 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--quiet': case '-q': flags.quiet = true; break;
       case '--yes': case '-y': flags.yes = true; break;
       case '--help': case '-h': flags.help = true; break;
-      case '--version': flags.version = true; break;
+      // --version after a command is its own option (theme publish --version), before one the version of the CLI.
+      case '--version': if (tokens.some((x) => !x.startsWith('-'))) tokens.push(t); else flags.version = true; break;
       case '--fields': flags.fields = value().split(',').map((f) => f.trim()).filter(Boolean); break;
       case '--profile': flags.profile = value(); break;
       case '--env': {
