@@ -2,11 +2,15 @@
 // platform checks them at publication, plus what the studio checks at the
 // import (each image named by the JSON matched with a file). The contrast is raised by the platform,
 // not refused: each color it would raise is a warning with the color it would keep (an error with
-// --strict). The report is JSON for hooks.
+// --strict). The surface opacities, the default surface opacity and the text backdrop
+// are checked, and the opacities and the text scrims the platform would compute are shown
+// (opacity.ts); an opacity below 100 given to a button or the badge is a warning (raised to 100).
+// The report is JSON for hooks.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { IMAGE_SLOTS, PALETTE_KEYS, SURFACE_KEYS, SURFACE_PARTS, raisePalette, raiseSurfaces, type Correction, type Palette, type Surfaces, type Variant } from './contrast.js';
 import { imageInfo } from './images.js';
+import { CONTROL_SURFACES, TEXT_BACKDROPS, planOpacities, slotsOf, type OpacityPlan } from './opacity.js';
 import { approvedTypeface } from './typefaces.js';
 import { isSystemFile } from './zip.js';
 
@@ -21,17 +25,21 @@ export const BANNER_MIN = { width: 1500, height: 500 };
 export const FIELDS = ['CULTURE', 'ENTERTAINMENT', 'EVERYDAY_LIFE', 'GAMES', 'PLACES', 'POLITICS', 'SCIENCE', 'SPORT', 'TECH', 'WORK'] as const;
 const RADII = ['round', 'soft', 'sharp'];
 const STROKES = ['thin', 'regular', 'bold'];
-const TOP_KEYS = new Set(['format', 'universe', 'name', 'description', 'creator', 'copiedFrom', 'collection', 'version', 'variants', 'surfaceRadius', 'typography', 'gradient', 'motionAccents', 'shape', 'images', 'imageSlots', 'stickers', 'scrims', 'screenshots', 'density', 'motion', 'sounds']);
+const TOP_KEYS = new Set(['format', 'universe', 'name', 'description', 'creator', 'copiedFrom', 'collection', 'version', 'variants', 'surfaceRadius', 'typography', 'gradient', 'motionAccents', 'shape', 'images', 'imageSlots', 'stickers', 'scrims', 'screenshots', 'density', 'motion', 'sounds', 'surfaceOpacity', 'textBackdrop', 'textScrims']);
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const UPLOAD_ID = /^(?![A-Za-z][A-Za-z0-9+.-]*:)[^\s/\\]{1,128}$/;
-/** The ratio and the size the prompt asks for each image slot (the theme prompt of the platform): a warning when far from it. */
+/** The ratio and the size the prompt asks for each image slot (the theme prompt, `theme prompt`): a warning when far from it. */
 export const SLOT_SIZES: Partial<Record<string, { ratio: number; label: string }>> = {
-  page: { ratio: 4 / 3, label: '4:3, 2160 × 1620' }, pageHeader: { ratio: 3, label: '3:1, at least 1500 × 500' },
-  timeColumn: { ratio: 3 / 4, label: '3:4, 1080 × 1440' }, cardTexture: { ratio: 1, label: 'square, 1024 × 1024, seamless' },
+  page: { ratio: 4 / 3, label: '4:3, 2400 × 1800' }, pageHeader: { ratio: 3, label: '3:1, at least 1500 × 500' },
+  timeColumn: { ratio: 3 / 4, label: '3:4, 1200 × 1600' }, channelHeader: { ratio: 3, label: '3:1, 2400 × 800' }, cardTexture: { ratio: 1, label: 'square, 1024 × 1024, seamless' },
 };
+/** The text of THEME_SCRIMS_COMPUTED. */
+export const SCRIMS_COMPUTED = 'The scrims and the text scrims of a theme are computed by the social platform';
+/** Whether a surface opacity is valid: an integer from 0 to 100 (THEME_OPACITY_INVALID). */
+export const validOpacity = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100;
 
 export type Severity = 'error' | 'warning';
-export type Problem = { code: string; severity: Severity; path: string; message: string; suggested?: string; ratio?: number; required?: number };
+export type Problem = { code: string; severity: Severity; path: string; message: string; suggested?: string; ratio?: number; required?: number; opacity?: number };
 export type ImageRef = { place: string; variant?: 'day' | 'night'; ref: string };
 export type ImageReport = ImageRef & { file?: string; type?: string; width?: number; height?: number; bytes?: number };
 export type CheckReport = {
@@ -39,6 +47,8 @@ export type CheckReport = {
   errors: number; warnings: number; problems: Problem[]; images: ImageReport[]; unusedFiles: string[]; strict: boolean;
   /** Every color the platform would raise, those the theme derives from its palette included (only the ones it gives are warnings). */
   raised: Correction[];
+  /** The surface opacities, the text scrims and the opacities raised, as the platform would compute them (images read as black and white offline). */
+  opacity?: OpacityPlan;
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -93,12 +103,13 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   const error = (code: string, path: string, message: string, extra?: Partial<Problem>) => add('error', code, path, message, extra);
   const warn = (code: string, path: string, message: string, extra?: Partial<Problem>) => add('warning', code, path, message, extra);
   const raised: Correction[] = [];
+  let opacity: OpacityPlan | undefined;
   const report = (format: string, doc?: Record<string, unknown>, images: ImageReport[] = [], unused: string[] = []): CheckReport => {
     const finalProblems = strict ? problems.map((p) => ({ ...p, severity: 'error' as const })) : problems;
     const errors = finalProblems.filter((p) => p.severity === 'error').length;
     return {
       ok: errors === 0, file, format, ...(typeof doc?.name === 'string' ? { name: doc.name } : {}), ...(typeof doc?.universe === 'string' ? { universe: doc.universe } : {}),
-      errors, warnings: finalProblems.length - errors, problems: finalProblems, images, unusedFiles: unused, strict, raised,
+      errors, warnings: finalProblems.length - errors, problems: finalProblems, images, unusedFiles: unused, strict, raised, ...(opacity ? { opacity } : {}),
     };
   };
 
@@ -115,7 +126,12 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   const bytes = new TextEncoder().encode(JSON.stringify(doc)).length;
   if (bytes > THEME_MAX_BYTES) error('THEME_TOO_LARGE', '$', `The document is ${bytes} bytes: at most 64 KB without its images`);
   for (const key of Object.keys(doc)) if (!TOP_KEYS.has(key)) error('THEME_FORMAT_INVALID', key, `"${key}" is not a key of a theme`);
-  if (doc.scrims != null) error('THEME_SCRIMS_COMPUTED', 'scrims', 'The scrims are computed by the platform: remove "scrims"');
+  if (doc.scrims != null) error('THEME_SCRIMS_COMPUTED', 'scrims', `${SCRIMS_COMPUTED}: remove "scrims"`);
+  if (doc.textScrims != null) error('THEME_SCRIMS_COMPUTED', 'textScrims', `${SCRIMS_COMPUTED}: remove "textScrims"`);
+  // The default surface opacity and the text backdrop, of the format 2.
+  if (doc.surfaceOpacity != null && !validOpacity(doc.surfaceOpacity)) error('THEME_OPACITY_INVALID', 'surfaceOpacity', 'The opacity of a theme surface is an integer from 0 to 100 percent');
+  if (doc.textBackdrop != null && !(TEXT_BACKDROPS as readonly unknown[]).includes(doc.textBackdrop)) error('THEME_TEXT_BACKDROP_INVALID', 'textBackdrop', 'The text backdrop of a theme is block or surface');
+  if (!v2) for (const key of ['surfaceOpacity', 'textBackdrop']) if (doc[key] != null) error('THEME_FORMAT_INVALID', key, `"${key}" is of the format "${FORMAT_2}"`);
   if (Array.isArray(doc.screenshots) && doc.screenshots.length) error('THEME_SCREENSHOTS_GENERATED', 'screenshots', 'The screenshots are generated by the platform: remove "screenshots"');
   for (const key of ['creator', 'version', 'copiedFrom']) if (doc[key] != null) warn('THEME_KEY_SET_BY_PLATFORM', key, `"${key}" is set by the platform: it is ignored or replaced at publication`);
   for (const key of ['density', 'motion', 'sounds']) if (doc[key] != null) warn('THEME_PERSONAL_SETTING', key, `"${key}" is a setting of a personal theme only`);
@@ -150,13 +166,23 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
         if (!(SURFACE_KEYS as readonly string[]).includes(key)) { error('THEME_SURFACE_UNKNOWN', path, `"${key}" is not a theme surface`); continue; }
         if (colors == null) continue;
         if (!isObject(colors)) { error('THEME_FORMAT_INVALID', path, 'A theme surface has its colors as an object'); continue; }
-        const part: Record<string, string> = {};
+        const part: Record<string, string | number> = {};
         for (const [name, value] of Object.entries(colors)) {
-          if (!(SURFACE_PARTS as readonly string[]).includes(name)) { error('THEME_FORMAT_INVALID', `${path}.${name}`, `A theme surface has ${SURFACE_PARTS.join(', ')}`); continue; }
+          // Its surface opacity: an integer percent; a button or the badge kept at 100.
+          if (name === 'opacity') {
+            if (value == null) continue;
+            if (!validOpacity(value)) { error('THEME_OPACITY_INVALID', `${path}.opacity`, 'The opacity of a theme surface is an integer from 0 to 100 percent'); continue; }
+            part.opacity = value as number;
+            if ((value as number) < 100 && CONTROL_SURFACES.includes(key as never)) {
+              warn('THEME_OPACITY_RAISED', `${path}.opacity`, `A ${key === 'badge' ? 'badge' : 'button'} is drawn at 100: the platform would raise ${value as number} to 100`, { opacity: 100 });
+            }
+            continue;
+          }
+          if (!(SURFACE_PARTS as readonly string[]).includes(name)) { error('THEME_FORMAT_INVALID', `${path}.${name}`, `A theme surface has ${SURFACE_PARTS.join(', ')}, opacity`); continue; }
           if (typeof value !== 'string' || !HEX.test(value)) { error('THEME_PALETTE_INVALID', `${path}.${name}`, 'A color of a theme surface is #RRGGBB'); continue; }
           part[name] = value.toUpperCase();
         }
-        own[key as keyof Surfaces] = part;
+        own[key as keyof Surfaces] = part as Surfaces[keyof Surfaces];
       }
       surfaces[variant] = own;
     }
@@ -245,9 +271,12 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   // 6. The contrast, as the platform raises it: a warning for each color the theme gives (a palette
   // color, a part of a theme surface it sets); the colors it derives are raised silently (listed in "raised").
   if (palettes.night && palettes.day) {
+    const kept = {} as Record<Variant, { palette: Palette; surfaces: Surfaces }>;
     for (const variant of ['night', 'day'] as const) {
       const palette = raisePalette(palettes[variant]!, variant);
-      raised.push(...palette.corrections, ...raiseSurfaces(palette.palette, surfaces[variant] ?? {}, variant).corrections);
+      const raisedSurfaces = raiseSurfaces(palette.palette, surfaces[variant] ?? {}, variant);
+      raised.push(...palette.corrections, ...raisedSurfaces.corrections);
+      kept[variant] = { palette: palette.palette, surfaces: raisedSurfaces.surfaces };
     }
     const given = (path: string) => {
       const [variant, kind, key, part] = path.split('.');
@@ -256,6 +285,16 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
     };
     for (const c of raised.filter((r) => given(r.path))) {
       warn('THEME_CONTRAST', c.path.replace(/^(night|day)\./, 'variants.$1.'), `${c.given} reaches ${c.ratio}:1 where ${c.required}:1 is required: the platform would raise it to ${c.raised}`, { suggested: c.raised, ratio: c.ratio, required: c.required });
+    }
+    // 7. The opacities, on the colors kept: the text scrims, or with a whole-surface
+    // backdrop the surface opacities raised (a warning for one the theme gives).
+    if (!problems.some((p) => p.code === 'THEME_OPACITY_INVALID' || p.code === 'THEME_TEXT_BACKDROP_INVALID')) {
+      const images = isObject(doc.images) ? doc.images : {};
+      const imageSlots = v2 ? slotsOf(doc.imageSlots) : slotsOf({ page: images.background, pageHeader: images.banner, cardTexture: images.texture });
+      opacity = planOpacities({ variants: kept, surfaceOpacity: doc.surfaceOpacity as number | undefined, textBackdrop: doc.textBackdrop as string | undefined, imageSlots });
+      for (const r of opacity.raised.filter((x) => x.told)) {
+        warn('THEME_OPACITY_RAISED', `variants.${r.variant}.surfaces.${r.surface}.opacity`, `With a whole-surface backdrop, ${r.from} is too transparent for the text over what lies under it: the platform would raise it to ${r.to}`, { opacity: r.to });
+      }
     }
   }
   return report(String(format), doc, images, unused);

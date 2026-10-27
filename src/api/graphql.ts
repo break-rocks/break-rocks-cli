@@ -4,8 +4,13 @@
 // request with the arguments given, and the JSON Schemas of the inputs and the outputs of the
 // commands, for --json, `breakrocks schema` and the MCP tools.
 import type { JsonSchema } from '../schema.js';
-import { SCHEMA } from './schema.generated.js';
-import type { SdlField } from './sdl.js';
+import { withAhead } from './ahead.js';
+import { SCHEMA as GENERATED } from './schema.generated.js';
+import type { Sdl, SdlField } from './sdl.js';
+
+/** The contract, with what the API serves ahead of it (ahead.ts, TEMPORARY). */
+export const CONTRACT: Sdl = withAhead(GENERATED);
+const SCHEMA = CONTRACT;
 
 export type TypeRef = { name: string; list: boolean; nonNull: boolean; itemNonNull: boolean };
 

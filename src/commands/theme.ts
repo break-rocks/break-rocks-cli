@@ -7,6 +7,8 @@ import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
 import { FIELDS, checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, type CheckReport } from '../theme/check.js';
+import { SURFACE_KEYS } from '../theme/contrast.js';
+import { TEXT_STYLES, type OpacityPlan } from '../theme/opacity.js';
 import { LANGUAGES, themePrompt, type PromptResult } from '../theme/prompt.js';
 import { APPROVED_TYPEFACES } from '../theme/typefaces.js';
 import { isSystemFile, readZip, writeZip, zipEntryBytes } from '../theme/zip.js';
@@ -26,20 +28,21 @@ function imageFiles(cwd: string, paths: readonly string[] = []): string[] {
   });
 }
 
-export const themePromptCommand: Command<{ field: string; mood: string; name: string; universe: string; description?: string; fonts?: string[]; language?: 'en' | 'fr' }, PromptResult> = {
+export const themePromptCommand: Command<{ field?: string; mood: string; name: string; universe?: string; description?: string; fonts?: string[]; language?: 'en' | 'fr'; universal?: boolean }, PromptResult> = {
   name: 'theme prompt', summary: 'Write the prompt that asks an AI for a theme (theme.json and its images)',
-  description: 'The prompt of the theme prompt of the platform filled: the field, the mood, the name, the universe, the approved typefaces and the sizes of the images. Give it to an AI that writes text and images; then theme check, theme pack, and the import of the studio.',
-  examples: ['breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football', 'breakrocks theme prompt --field culture --mood "musée aux murs blancs" --name musee-blanc --universe %paris --fonts "Playfair Display,IBM Plex Mono" --language fr'],
+  description: 'The theme prompt of the platform filled: the field, the mood, the name, the universe, the approved typefaces, the theme surfaces and their opacities (0 to 100, the guides: page 0–30, identity bar, navigation and rail 0–40, post cards 30–60, quote card 80, buttons and badge 100), the text backdrop, the secondary text of the buttons and the badge, and the sizes of the 8 images. --universal: the prompt of a universal theme (no field, the palette and the typeface of Socle, its own rules; the universe %root by default). Give it to an AI that writes text and images; then theme check and theme publish (or theme pack and the import of the studio).',
+  examples: ['breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football', 'breakrocks theme prompt --field culture --mood "musée aux murs blancs" --name musee-blanc --universe %paris --fonts "Playfair Display,IBM Plex Mono" --language fr', 'breakrocks theme prompt --universal --mood "an open sky above a low horizon" --name universel-ciel --language fr'],
   input: object({
-    field: str(`The field: ${FIELDS.join(', ')} (or its word: sport, politique…)`),
-    mood: str('The mood, in a few words', { minLength: 1, maxLength: 500 }),
+    field: str(`The field: ${FIELDS.join(', ')} (or its word: sport, politique…); none with --universal`),
+    mood: str('The mood, in a few words (with --universal: the scene and the identity)', { minLength: 1, maxLength: 500 }),
     name: str('The name of the theme (2 to 64 letters, digits, "-", "_", "."; a letter first)'),
-    universe: str('The universe it will be published in (%name)', { pattern: '^%\\S+$' }),
+    universe: str('The universe it will be published in (%name; %root by default with --universal)', { pattern: '^%\\S+$' }),
     description: str('Its description (160 characters at most)', { maxLength: 160 }),
-    fonts: list('The title typeface, then the accent one, from the approved list', { type: 'string' }, { maxItems: 2 }),
+    fonts: list('The title typeface, then the accent one, from the approved list (Montserrat with --universal)', { type: 'string' }, { maxItems: 2 }),
     language: str('The language of the prompt', { enum: LANGUAGES, default: 'en' }),
-  }, ['field', 'mood', 'name', 'universe']),
-  output: openObject({ prompt: str('The prompt'), language: str('Its language'), field: str('The field'), name: str('The theme name'), universe: str('The universe'), fonts: list('The typefaces asked') }),
+    universal: bool('The prompt of a universal theme: no field, the palette and the typeface of Socle'),
+  }, ['mood', 'name']),
+  output: openObject({ prompt: str('The prompt'), language: str('Its language'), field: str('The field (null with --universal)'), name: str('The theme name'), universe: str('The universe'), fonts: list('The typefaces asked'), universal: bool('A universal theme') }),
   offline: true,
   run: (_ctx, input) => themePrompt(input),
   text: (r) => r.prompt,
@@ -47,7 +50,7 @@ export const themePromptCommand: Command<{ field: string; mood: string; name: st
 
 export const themeCheck: Command<{ file: string; images?: string[]; strict?: boolean }, CheckReport> = {
   name: 'theme check', summary: 'Check a theme and its images as the platform does at publication (offline)',
-  description: 'Format 2 (or 1), size, name, palettes and theme surfaces, typefaces (approved list), gradient, shape, image slots, at most 8 images of at most 5 MB, the banner expected 3:1 and at least 1500 × 500 (a warning: the platform does not refuse it), the wordmark PNG/WebP at most 1 MB and 6:1; the contrast AA (4.5:1 text, 3:1 large text and controls) in the night, dim and day modes, each color the platform would raise told with the color it would keep. Without image files, the images beside the JSON. Exit 1 when it finds an error (warnings too with --strict): usable as a hook.',
+  description: 'Format 2 (or 1), size, name, palettes and theme surfaces, typefaces (approved list), gradient, shape, image slots, at most 8 images of at most 5 MB, the banner expected 3:1 and at least 1500 × 500 (a warning: the platform does not refuse it), the wordmark PNG/WebP at most 1 MB and 6:1; the contrast AA (4.5:1 text, 3:1 large text and controls) in the night, dim and day modes, each color the platform would raise told with the color it would keep. The opacities: "opacity" of each theme surface and "surfaceOpacity" integers from 0 to 100 (THEME_OPACITY_INVALID), "textBackdrop" block or surface (THEME_TEXT_BACKDROP_INVALID), "scrims" and "textScrims" refused (THEME_SCRIMS_COMPUTED); an opacity below 100 given to primaryButton, secondaryButton or badge is a warning (raised to 100), and the surface opacity of each theme surface, the text scrims (text backdrops) or the opacities raised (a whole-surface backdrop) are computed as the platform does, the images read as black and white (offline, their tones are unknown). Without image files, the images beside the JSON. Exit 1 when it finds an error (warnings too with --strict): usable as a hook.',
   examples: ['breakrocks theme check theme.json', 'breakrocks theme check theme.json images/ --json', 'breakrocks theme check theme.json page-day.jpg page-night.jpg --strict'],
   input: object({ file: str('The theme document (JSON)'), images: list('Its image files, or folders of images'), strict: bool('Count the warnings (contrast raised, unusual sizes) as errors') }, ['file']),
   output: openObject({
@@ -55,6 +58,12 @@ export const themeCheck: Command<{ file: string; images?: string[]; strict?: boo
     problems: list('Each problem', openObject({ code: str('Its code (a platform code, or the CLI\'s)'), severity: str('error or warning', { enum: ['error', 'warning'] }), path: str('Where, in the document'), message: str('What'), suggested: str('The color the platform would keep') })),
     images: list('Each image named', openObject({ place: str('Its slot'), variant: str('day or night'), ref: str('Its reference'), file: str('Its file'), type: str('Its type'), width: int('Width'), height: int('Height'), bytes: int('Size') })),
     unusedFiles: list('Image files that no reference names'),
+    raised: list('Every color the platform would raise', openObject({ path: str('Where'), given: str('The color given'), raised: str('The color kept') })),
+    opacity: openObject({
+      textBackdrop: str('block (text backdrops) or surface (whole-surface backdrop)'), opacities: openObject({}, 'The surface opacity of each theme surface by variant (percent), as it would be published'),
+      textScrims: openObject({}, 'The text scrims: by theme surface below 100, text style (body, secondary, large, control) and display mode (night, dim, day), from 0 to 1'),
+      raised: list('The surface opacities raised (whole-surface backdrop)'), floors: list('The opacities of the buttons and the badge raised to 100'),
+    }, 'The opacities as the platform would compute them'),
   }),
   args: { positionals: ['file', 'images'] }, offline: true,
   run: (ctx, { file, images, strict }) => {
@@ -66,8 +75,20 @@ export const themeCheck: Command<{ file: string; images?: string[]; strict?: boo
     `${r.file}: ${r.format}${r.name ? `, "${r.name}"` : ''}: ${r.ok ? 'OK' : 'refused'} (${r.errors} error(s), ${r.warnings} warning(s))`,
     ...r.problems.map((p) => `  ${p.severity === 'error' ? 'error  ' : 'warning'} ${p.code}  ${p.path}: ${p.message}`),
     ...r.images.filter((i) => i.file).map((i) => `  image   ${i.place}${i.variant ? `.${i.variant}` : ''}: ${basename(i.file!)} ${i.type ?? '?'} ${i.width ?? '?'}×${i.height ?? '?'} ${i.bytes} bytes`),
+    ...(r.opacity ? opacityLines(r.opacity) : []),
   ].join('\n'),
 };
+
+/** The opacities of a check, in a few lines: the surfaces below 100 by variant, then the text scrims (percent, night/dim/day). */
+export function opacityLines(plan: OpacityPlan): string[] {
+  const below = (variant: 'night' | 'day') => SURFACE_KEYS.filter((k) => plan.opacities[variant][k] < 100).map((k) => `${k} ${plan.opacities[variant][k]}`).join(', ') || 'all opaque';
+  const pct = (n: number) => String(Math.round(n * 100));
+  return [
+    `  opacity ${plan.textBackdrop === 'surface' ? 'whole-surface backdrop' : 'text backdrops'}; night: ${below('night')}; day: ${below('day')}`,
+    ...Object.entries(plan.textScrims).map(([key, styles]) => `  scrim   ${key}: ${TEXT_STYLES.map((s) => `${s} ${pct(styles[s].night)}/${pct(styles[s].dim)}/${pct(styles[s].day)}`).join(', ')} (% night/dim/day)`),
+    ...plan.raised.map((x) => `  raised  ${x.variant}.${x.surface}.opacity ${x.from} → ${x.to}`),
+  ];
+}
 
 type PackResult = { out: string; bytes: number; entries: { path: string; bytes: number }[]; missing: string[] };
 

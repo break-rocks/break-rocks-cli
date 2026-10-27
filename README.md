@@ -9,8 +9,9 @@ interagir, thèmes et dispositions en ligne, messagerie et connexions, `--watch`
 relecture, `batch`, la connexion d'un humain (`login`, `logout`), les binaires, l'installeur en une
 ligne, `update` et la publication npm préparée ; `login --browser` est en service depuis 0.8.1
 (la page `/cli/login` de la web app) ; depuis 0.9.0, le territoire d'univers, la carte
-(lieux, univers d'une zone, formes des frontières), les pages d'un univers et la page Gouvernance.
-
+(lieux, univers d'une zone, formes des frontières), les pages d'un univers et la page Gouvernance;
+depuis 0.10.0, la transparence des thèmes (opacités, voiles de texte), le prompt
+d'un thème universel, la transparence des posts, les essais et aperçus de thème.
 
 ## Installation
 
@@ -197,7 +198,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `mute` | Mute an account | `breakrocks mute @alice` |
 | `unmute` | Unmute an account | `breakrocks unmute @alice` |
 | `report` | Report a post, a message, a group, a theme, a layout or a banner (report*) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
-| `universes show` | The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support | `breakrocks universes show %test-village-multisport` |
+| `universes show` | The page of a universe: display, field, theme and its origin, theme trial, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support | `breakrocks universes show %test-village-multisport` |
 | `universes list` | Explore the universes: by field, by language, recent, active, new, close to a level, mine | `breakrocks universes list --field SPORT` |
 | `universes sub` | The sub-universes of a universe (--map: their map) | `breakrocks universes sub %france` |
 | `universes members` | The members of a universe | `breakrocks universes members %club --all` |
@@ -301,7 +302,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `theme apply` | Make a theme the theme of a universe (setUniverseProfile; the leadership, the owner, the admins) | `breakrocks theme apply %paris/stade-nuit --to %paris` |
 | `theme try` | Try a theme as the personal theme for 24 hours | `breakrocks theme try %paris/stade-nuit` |
 | `theme undo-try` | Stop trying a theme: the former one comes back | `breakrocks theme undo-try` |
-| `theme personal set` | Set the personal theme (and its settings: accent, density, motion…) | `breakrocks theme personal set %paris/stade-nuit` |
+| `theme personal set` | Set the personal theme (and its settings: accent, density, motion, post transparency…) | `breakrocks theme personal set %paris/stade-nuit` |
 | `theme personal clear` | Back to Socle as the personal theme | `breakrocks theme personal clear` |
 | `theme export` | Export a theme: its JSON and its images served (the largest width), or a ZIP (--zip) | `breakrocks theme export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `theme shots` | Download the screenshots of a theme (3 screens night and day, the page of a universe at 3 breakpoints) | `breakrocks theme shots %paris/stade-nuit --out shots/` |
@@ -322,6 +323,10 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `studio save` | Save a draft (a theme or a layout) in the studio | `breakrocks studio save @theme.json --kind THEME --universe %paris` |
 | `studio delete` | Delete a draft of the studio (confirmation: `--yes`) | `breakrocks studio delete <id> --yes` |
 | `studio make-theme` | Publish a theme draft and make it the theme of its universe (or file the proposal) | `breakrocks studio make-theme <draft id>` |
+| `studio try` | Try a theme draft as the theme of its universe for 24 hours, for every reader (startUniverseThemeTrial) | `breakrocks studio try <draft id>` |
+| `studio end-try` | End the universe theme trial of a universe: its theme comes back (endUniverseThemeTrial) | `breakrocks studio end-try %paris` |
+| `studio preview` | Preview a theme draft on its universe for oneself, for 24 hours (startDraftPreview) | `breakrocks studio preview <draft id>` |
+| `studio end-preview` | End one's draft preview on a universe (endDraftPreview) | `breakrocks studio end-preview %paris` |
 | `studio make-layout` | Publish a layout draft and make it the layout of its universe (or file the proposal) | `breakrocks studio make-layout <draft id>` |
 | `studio make-page` | Publish a page draft as the custom page of its universe (makeUniversePage) | `breakrocks studio make-page <draft id>` |
 | `batch` | Run the actions of a JSON lines file, one per line, each with its requestId | `breakrocks batch --file actions.jsonl` |
@@ -369,6 +374,32 @@ Modération et gouvernance (hors de l'aide de base, `breakrocks help moderation`
 | `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev` |
+
+### Transparence des thèmes, essais et aperçus (0.10.0)
+
+- **`theme check`** accepte `opacity` (entier de 0 à 100) par surface et par variante,
+  `surfaceOpacity`, `textBackdrop` (`block` ou `surface`) et la surface `block` ; refuse `scrims` et
+  `textScrims` (`THEME_SCRIMS_COMPUTED`), une opacité non entière ou hors bornes
+  (`THEME_OPACITY_INVALID`), un autre voile (`THEME_TEXT_BACKDROP_INVALID`). Il signale
+  (`THEME_OPACITY_RAISED`, avertissement) une opacité < 100 donnée à `primaryButton`,
+  `secondaryButton` ou `badge` (relevée à 100) et, avec `textBackdrop: surface`, une opacité donnée
+  que la plateforme relèverait ; il calcule comme la plateforme (portage de
+  `src/theme/opacity.ts`) l'opacité de chaque surface, les voiles
+  de texte (`textScrims`, par style et par mode) ou les opacités relevées, et les montre (`opacity`
+  en JSON). Hors ligne, les tons des images sont inconnus : elles sont lues en noir et blanc, comme la
+  plateforme lit une image non analysée ; la plateforme lit les tons des images envoyées.
+- **`theme publish`** envoie les opacités telles quelles, retire `scrims` et `textScrims` (dit) et
+  montre chaque couleur et chaque opacité corrigées avec la valeur gardée (`corrected`).
+  `theme export` retire aussi `textScrims`.
+- **`theme prompt`** suit le cahier des charges des prompts de thème (opacités et repères, voile de
+  texte, `focusBar` et `rail`, `secondaryText` des boutons et du badge, `quoteCard` 80, les 8 images) ;
+  `--universal` écrit le prompt d'un thème universel (sans domaine, palette et police de Socle,
+  `%root` par défaut).
+- **`theme personal set --post-transparency OPAQUE|THEME|MORE|LIQUID`** ; **`studio try`**,
+  **`studio end-try`**, **`studio preview`**, **`studio end-preview`** (essai d'un brouillon de thème
+  sur son univers, aperçu pour soi) ; `universes show` montre l'essai en cours et son propre aperçu ;
+  `studio drafts` et `studio show` montrent `served`. Servis par l'API avant le contrat publié :
+  `src/api/ahead.ts` (dette technique ci-dessous).
 
 ### Territoire, carte, pages d'un univers et page Gouvernance (0.9.0)
 
@@ -766,6 +797,11 @@ binaires SEA.
   `src/endpoints.ts`, `TEMPORARY`) : `break.rocks` ensuite.
 - `src/srp.ts` est une copie de celui de `the back-office CLI` (pas de paquet commun) : une correction va
   dans les deux.
+- `src/api/ahead.ts` (`TEMPORARY`) : ce que l'API de dev sert avant le contrat publié :
+  `PostTransparency`, `setPersonalTheme(postTransparency)`, les essais et aperçus de thème
+  (`startUniverseThemeTrial`…, `Universe.themeTrial`, `Universe.myDraftPreview`), `StudioDraft.served`.
+  Fusionné au contrat généré ; `test/api.test.ts` échoue dès que `schema.graphql` porte l'un d'eux :
+  le retirer alors.
 
 ## Dependabot
 

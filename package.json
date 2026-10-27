@@ -1,6 +1,6 @@
 {
   "name": "breakrocks",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": false,
   "type": "module",
   "description": "The command-line client of break.rocks: humans, agent operators and delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",

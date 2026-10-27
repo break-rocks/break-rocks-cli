@@ -3,6 +3,47 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.10.0] - 2026-10-27
+
+### Added
+
+- The transparency of the themes: `theme check` accepts `opacity` (an
+  integer from 0 to 100) on each theme surface of each variant, `surfaceOpacity`, `textBackdrop`
+  (`block` or `surface`) and the theme surface `block`; it refuses `textScrims` and `scrims`
+  (`THEME_SCRIMS_COMPUTED`), an opacity that is not an integer from 0 to 100
+  (`THEME_OPACITY_INVALID`), another text backdrop (`THEME_TEXT_BACKDROP_INVALID`), and these keys in
+  the format 1. It warns (`THEME_OPACITY_RAISED`) of an opacity below 100 given to `primaryButton`,
+  `secondaryButton` or `badge` (raised to 100) and of an opacity raised with a whole-surface backdrop,
+  and shows the surface opacity of each theme surface, the text scrims or the opacities raised, as
+  the platform computes them (`src/theme/opacity.ts`, a port of the backend's `opacity.ts`, checked
+  against it by a test; offline, the images are read as black and white).
+- `theme prompt --universal`: the prompt of a universal theme (no field, the palette and the
+  typeface of Socle, `%root` by default, its own rules); the MCP prompt `theme-prompt` takes
+  `universal`.
+- `theme personal set --post-transparency OPAQUE|THEME|MORE|LIQUID`.
+- `studio try`, `studio end-try`, `studio preview`, `studio end-preview` (the universe theme
+  trials and the draft previews); `universes show` tells the trial under way and one's preview;
+  `studio drafts` and `studio show` answer `served`.
+
+### Changed
+
+- `theme prompt` follows the current specifications of the theme prompts: the opacities and their
+  guides (the post cards 30 to 60, the quote card 80, the buttons and the badge 100), the text
+  backdrop, `focusBar` and `rail`, the secondary text of the buttons and the badge, the 8 images and
+  their sizes; `--field` is required unless `--universal`.
+- `theme publish` removes `scrims` and `textScrims` (told), keeps the opacities, and tells each color
+  and each surface opacity the platform corrected with the value kept (`corrected`); `theme export`
+  removes `textScrims` too.
+- The contract regenerated (`npm run gen:schema`).
+- What the API serves ahead of the published contract (the post transparency, the trials and the
+  previews, `StudioDraft.served`) is declared in `src/api/ahead.ts` (TEMPORARY), merged with the
+  contract; a test fails once the contract carries it.
+
+### Fixed
+
+- `--version` after a command is the option of that command (`theme publish --version` published
+  a new theme instead of a new version); before a command it stays the version of the CLI.
+
 ## [0.9.0] - 2026-10-24
 
 ### Added

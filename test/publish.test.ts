@@ -169,6 +169,23 @@ describe('theme publish', () => {
     expect(sent.universe).toBeUndefined();
     expect(last(h)).toMatchObject({ uploads: [{ ref: 'time-column-day.png', id: 'up-1' }, { ref: 'card-texture-day.png', id: 'up-2' }] });
   });
+  it('keeps the opacities, removes the scrims and the text scrims, and tells what the platform corrected with the value kept', async () => {
+    const served = { night: { palette: { text: '#F2F4F8' }, surfaces: { badge: { opacity: 100 }, postCard: { secondaryText: '#B0B4BA' } } } };
+    const { h, calls } = scripted({ requestImageUpload: upload, publishThemeVersion: (v) => ({ universe: v.u, name: v.n, version: 2, corrected: ['night.text', 'night.surfaces.badge.opacity', 'night.surfaces.postCard.secondaryText'], document: JSON.stringify({ variants: served }) }) });
+    const dir = join(h.dir, 't'); mkdirSync(dir);
+    const transparent = { ...doc, surfaceOpacity: 85, textBackdrop: 'block', textScrims: { postCard: {} }, scrims: { page: {} }, variants: { ...doc.variants, night: { ...doc.variants.night, surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } };
+    writeFileSync(join(dir, 'theme.json'), JSON.stringify(transparent));
+    writeFileSync(join(dir, 'time-column-day.png'), png(1080, 1440));
+    writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
+    expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version', '--json')).toBe(0);
+    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishThemeVersion')!.variables.t));
+    expect(sent).toMatchObject({ surfaceOpacity: 85, textBackdrop: 'block', variants: { night: { surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } });
+    expect(sent.textScrims).toBeUndefined();
+    expect(sent.scrims).toBeUndefined();
+    expect(last(h)).toMatchObject({ removed: ['scrims', 'textScrims'], corrected: [{ path: 'night.text', value: '#F2F4F8' }, { path: 'night.surfaces.badge.opacity', value: 100 }, { path: 'night.surfaces.postCard.secondaryText', value: '#B0B4BA' }] });
+    expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version')).toBe(0);
+    expect(h.all()).toMatch(/corrected night\.surfaces\.badge\.opacity: 100/);
+  });
   it('names each file missing, before anything is sent', async () => {
     const { h, calls } = scripted({});
     const dir = join(h.dir, 't'); mkdirSync(dir);
@@ -176,6 +193,27 @@ describe('theme publish', () => {
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(1);
     expect(last(h)).toMatchObject({ error: { code: 'IMAGE_FILE_MISSING', missing: ['imageSlots.timeColumn.day', 'imageSlots.cardTexture.day'] } });
     expect(calls).toEqual([]);
+  });
+});
+
+describe('theme trials, draft previews and the post transparency', () => {
+  it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(postTransparency)', async () => {
+    const { h, calls } = scripted({
+      startUniverseThemeTrial: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, startedAt: '2026-10-27T10:00:00.000Z', endsAt: '2026-10-28T10:00:00.000Z', startedBy: { id: 'eu-1', handle: 'alice', displayName: 'Alice' } }),
+      endUniverseThemeTrial: () => true, startDraftPreview: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, endsAt: '2026-10-28T10:00:00.000Z' }), endDraftPreview: () => true,
+      setPersonalTheme: (v) => ({ postTransparency: v.postTransparency }),
+    });
+    expect(await h.run('studio', 'try', 'd-1')).toBe(0);
+    expect(h.all()).toMatch(/%paris: trial of the draft d-1 \(v1\) until 2026-10-28T10:00:00.000Z/);
+    expect(calls.at(-1)!.query).not.toContain('document');
+    expect(await h.run('studio', 'end-try', '%paris', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ universe: '%paris' });
+    expect(await h.run('studio', 'preview', 'd-1', '--json')).toBe(0);
+    expect(await h.run('studio', 'end-preview', '%paris', '--json')).toBe(0);
+    expect(calls.map((c) => c.field)).toEqual(['startUniverseThemeTrial', 'endUniverseThemeTrial', 'startDraftPreview', 'endDraftPreview']);
+    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'LIQUID', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ postTransparency: 'LIQUID' });
+    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'CLEAR', '--json')).toBe(2);
   });
 });
 

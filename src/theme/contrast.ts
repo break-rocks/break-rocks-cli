@@ -2,7 +2,8 @@
 // WCAG 2.1, 4.5:1 for text and 3:1 for large text and controls, the
 // palette then each theme surface, in the night, dim and day display modes, each control against
 // each theme surface that may hold it. A port of the computation of the platform
-// backend (raisePalette), so that `theme check` tells offline what the platform would change.
+// backend (raisePalette), so that `theme check` tells offline what the platform would change; the
+// surface "block" included. The opacities: opacity.ts.
 
 export type Variant = 'night' | 'day';
 export const PALETTE_KEYS = ['background', 'surface', 'text', 'primary', 'accent', 'link'] as const;
@@ -10,24 +11,26 @@ export type PaletteKey = (typeof PALETTE_KEYS)[number];
 export type Palette = Record<PaletteKey, string>;
 export const SURFACE_KEYS = [
   'page', 'pageHeader', 'widget', 'postCard', 'repostCard', 'quoteCard', 'replyCard', 'timeColumnCard', 'headRow', 'liveLine',
-  'channelHeader', 'channelBubble', 'rail', 'focusBar', 'primaryButton', 'secondaryButton', 'link', 'badge', 'divider',
+  'channelHeader', 'channelBubble', 'rail', 'focusBar', 'primaryButton', 'secondaryButton', 'link', 'badge', 'divider', 'block',
 ] as const;
 export type SurfaceKey = (typeof SURFACE_KEYS)[number];
 export const SURFACE_PARTS = ['background', 'text', 'secondaryText', 'border'] as const;
 export type SurfacePart = (typeof SURFACE_PARTS)[number];
-export type Surfaces = Partial<Record<SurfaceKey, Partial<Record<SurfacePart, string>>>>;
+/** A theme surface as a theme gives it: its colors and its surface opacity (an integer from 0 to 100, opacity.ts). */
+export type SurfaceStyle = Partial<Record<SurfacePart, string>> & { opacity?: number };
+export type Surfaces = Partial<Record<SurfaceKey, SurfaceStyle>>;
 export const IMAGE_SLOTS = ['page', 'pageHeader', 'timeColumn', 'channelHeader', 'cardTexture'] as const;
 export type ImageSlot = (typeof IMAGE_SLOTS)[number];
 
 export const AA_TEXT = 4.5;
 export const AA_LARGE = 3;
 
-const CARRIERS: SurfaceKey[] = ['widget', 'postCard', 'repostCard', 'quoteCard', 'replyCard', 'timeColumnCard', 'headRow', 'liveLine', 'channelHeader', 'channelBubble', 'pageHeader'];
+const CARRIERS: SurfaceKey[] = ['widget', 'postCard', 'repostCard', 'quoteCard', 'replyCard', 'timeColumnCard', 'headRow', 'liveLine', 'channelHeader', 'channelBubble', 'pageHeader', 'block'];
 export const HOLDERS: Partial<Record<SurfaceKey, SurfaceKey[]>> = {
   primaryButton: CARRIERS, secondaryButton: CARRIERS, link: CARRIERS, badge: CARRIERS, divider: CARRIERS,
   quoteCard: ['postCard', 'replyCard', 'channelBubble'],
   postCard: ['widget', 'page'], repostCard: ['widget', 'page'], replyCard: ['widget', 'page'], timeColumnCard: ['widget', 'page'],
-  headRow: ['page'], liveLine: ['page'], pageHeader: ['page'], widget: ['page'], rail: ['page'], focusBar: ['page'],
+  headRow: ['page'], liveLine: ['page'], pageHeader: ['page'], widget: ['page'], rail: ['page'], focusBar: ['page'], block: ['page'],
 };
 
 const channel = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
@@ -58,6 +61,7 @@ export const DIM_LIFT = 0.04;
 export const dimOf = (hex: string) => mixHex(hex, '#FFFFFF', DIM_LIFT);
 
 export type Resolved = Record<SurfaceKey, Required<Record<SurfacePart, string>>>;
+export type Mode = 'night' | 'dim' | 'day';
 
 /** Every theme surface of a variant with its four colors: the theme's, else from the palette. */
 export function resolveSurfaces(palette: Palette, surfaces: Surfaces = {}): Resolved {
@@ -70,7 +74,7 @@ export function resolveSurfaces(palette: Palette, surfaces: Surfaces = {}): Reso
     out[key] = { background, text, secondaryText: own.secondaryText ?? mixHex(text, background, 0.3), border: own.border ?? base.border ?? mixHex(background, palette.text, 0.12) };
   };
   make('page', { background: palette.background });
-  for (const key of ['pageHeader', 'widget', 'postCard', 'timeColumnCard', 'liveLine', 'channelHeader', 'channelBubble', 'rail', 'focusBar'] as const) make(key, { background: palette.surface });
+  for (const key of ['pageHeader', 'widget', 'postCard', 'timeColumnCard', 'liveLine', 'channelHeader', 'channelBubble', 'rail', 'focusBar', 'block'] as const) make(key, { background: palette.surface });
   for (const key of ['repostCard', 'quoteCard', 'replyCard', 'headRow'] as const) make(key, { background: out.postCard.background, text: out.postCard.text, border: out.postCard.border });
   make('primaryButton', { background: palette.primary, text: pick(surfaces.primaryButton?.background ?? palette.primary, palette.background, palette.text) });
   make('secondaryButton', { background: palette.surface, border: palette.primary });

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { imageInfo } from '../src/theme/images.js';
+import { checkTheme } from '../src/theme/check.js';
 import { themePrompt, fieldOf } from '../src/theme/prompt.js';
 import { APPROVED_TYPEFACES } from '../src/theme/typefaces.js';
 import { readZip, writeZip, zipEntryBytes } from '../src/theme/zip.js';
@@ -107,6 +108,73 @@ describe('theme check', () => {
   });
 });
 
+describe('theme check: opacities and text backdrops', () => {
+  const transparent = () => {
+    const doc = theme() as Record<string, any>;
+    doc.surfaceOpacity = 85;
+    doc.textBackdrop = 'block';
+    doc.variants.night.surfaces = { page: { opacity: 10 }, focusBar: { opacity: 20 }, postCard: { background: '#1A0F2E', text: '#F2F4F7', opacity: 45 }, quoteCard: { opacity: 80 }, block: { opacity: 60 } };
+    doc.variants.day.surfaces = { page: { opacity: 5 }, postCard: { opacity: 50 } };
+    return doc;
+  };
+  it('accepts the surface opacities, the default one, the text backdrop, and shows the text scrims', async () => {
+    const { h, file } = folder(transparent());
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    const r = last<Report & { opacity: { textBackdrop: string; opacities: Record<string, Record<string, number>>; textScrims: Record<string, Record<string, Record<string, number>>> } }>(h);
+    expect(r.ok).toBe(true);
+    expect(r.opacity.textBackdrop).toBe('block');
+    expect(r.opacity.opacities.night).toMatchObject({ page: 10, focusBar: 20, postCard: 45, quoteCard: 80, widget: 85, primaryButton: 100, badge: 100 });
+    expect(r.opacity.opacities.day).toMatchObject({ page: 5, postCard: 50, focusBar: 85 });
+    expect(Object.keys(r.opacity.textScrims.postCard)).toEqual(['body', 'secondary', 'large', 'control']);
+    expect(Object.keys(r.opacity.textScrims.postCard.body)).toEqual(['night', 'dim', 'day']);
+    expect(r.opacity.textScrims.primaryButton).toBeUndefined();
+    expect(await h.run('theme', 'check', file)).toBe(0);
+    expect(h.all()).toMatch(/opacity text backdrops; night: page 10, .*focusBar 20/);
+    expect(h.all()).toMatch(/scrim {3}postCard: body \d+\/\d+\/\d+/);
+  });
+  it('refuses text scrims, an opacity outside 0 to 100 or not an integer, a text backdrop other than block or surface', async () => {
+    const doc = transparent();
+    doc.textScrims = { postCard: {} };
+    doc.variants.night.surfaces.postCard.opacity = 120;
+    doc.variants.day.surfaces.page.opacity = 12.5;
+    doc.surfaceOpacity = -1;
+    doc.textBackdrop = 'blur';
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
+    const r = last<Report>(h);
+    const at = (code: string) => r.problems.filter((p) => p.code === code).map((p) => p.path);
+    expect(at('THEME_SCRIMS_COMPUTED')).toEqual(['textScrims']);
+    expect(r.problems.find((p) => p.code === 'THEME_SCRIMS_COMPUTED')!.path).toBe('textScrims');
+    expect(JSON.stringify(r.problems)).toContain('The scrims and the text scrims of a theme are computed by the social platform');
+    expect(at('THEME_OPACITY_INVALID')).toEqual(['surfaceOpacity', 'variants.night.surfaces.postCard.opacity', 'variants.day.surfaces.page.opacity']);
+    expect(at('THEME_TEXT_BACKDROP_INVALID')).toEqual(['textBackdrop']);
+  });
+  it('warns of a button or a badge below 100 (raised to 100) and of an opacity raised with a whole-surface backdrop', async () => {
+    const doc = transparent();
+    doc.variants.night.surfaces.badge = { opacity: 50 };
+    doc.variants.day.surfaces.primaryButton = { opacity: 0 };
+    doc.textBackdrop = 'surface';
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    const r = last<Report & { opacity: { textScrims: object; raised: { variant: string; surface: string; from: number; to: number }[]; floors: unknown[] } }>(h);
+    const raised = r.problems.filter((p) => p.code === 'THEME_OPACITY_RAISED');
+    expect(raised.map((p) => p.path)).toEqual(expect.arrayContaining(['variants.night.surfaces.badge.opacity', 'variants.day.surfaces.primaryButton.opacity', 'variants.night.surfaces.page.opacity']));
+    expect(raised.every((p) => p.severity === 'warning')).toBe(true);
+    expect(r.opacity.textScrims).toEqual({});
+    expect(r.opacity.raised.find((x) => x.variant === 'night' && x.surface === 'page')!.to).toBeGreaterThan(10);
+    expect(r.opacity.floors).toEqual([{ variant: 'night', surface: 'badge', from: 50 }, { variant: 'day', surface: 'primaryButton', from: 0 }]);
+    expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
+  });
+  it('refuses the opacities in the format 1', async () => {
+    const doc = theme() as Record<string, any>;
+    delete doc.format; delete doc.imageSlots; delete doc.surfaceRadius; delete doc.typography.accent; delete doc.variants.night.surfaces;
+    doc.surfaceOpacity = 80;
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
+    expect(last<Report>(h).problems.filter((p) => p.code === 'THEME_FORMAT_INVALID').map((p) => p.path)).toContain('surfaceOpacity');
+  });
+});
+
 describe('theme pack and unpack', () => {
   it('pack the JSON and its images, read back byte for byte; refuse what is missing', async () => {
     const { h, dir, file } = folder();
@@ -169,6 +237,30 @@ describe('theme prompt', () => {
     expect(await h.run('theme', 'prompt', '--field', 'sport', '--mood', 'x', '--name', 'abc', '--universe', '%x', '--fonts', 'Arial', '--json')).toBe(2);
     expect(last<{ error: { code: string } }>(h).error.code).toBe('THEME_TYPEFACE_NOT_APPROVED');
     expect(await h.run('theme', 'prompt', '--field', 'tech', '--mood', 'terminal', '--name', 'term', '--universe', '%dev')).toBe(0);
+    expect(await h.run('theme', 'prompt', '--mood', 'x', '--name', 'abc', '--universe', '%x', '--json')).toBe(2);
+    expect(await h.run('theme', 'prompt', '--field', 'tech', '--mood', 'x', '--name', 'abc', '--json')).toBe(2);
+  });
+  it('asks for the opacities, the text backdrop and the secondary text of the buttons and the badge', () => {
+    const { prompt } = themePrompt({ field: 'sport', mood: 'stadium', name: 'stade', universe: '%football' });
+    for (const text of ['"surfaceOpacity": 85', '"textBackdrop": "block"', '"focusBar"', '"rail"', '**30 to 60**', '`quoteCard` **80**', '`textScrims`', '"secondaryText"']) expect(prompt).toContain(text);
+    const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(prompt)![1]);
+    expect(json.collection).toBe('SPORT');
+    expect(json.variants.night.surfaces.quoteCard.opacity).toBe(80);
+    expect(json.variants.night.surfaces.badge).toMatchObject({ secondaryText: '#…', opacity: 100 });
+    expect(Object.keys(json.imageSlots).length).toBe(5);
+  });
+  it('writes the prompt of a universal theme: no field, the palette and the typeface of Socle, %root', async () => {
+    const r = themePrompt({ mood: 'an open sky', name: 'universel-ciel', universal: true, language: 'fr' });
+    expect(r).toMatchObject({ field: null, universe: '%root', fonts: ['Montserrat', 'Montserrat'], universal: true });
+    const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
+    expect(json.collection).toBeUndefined();
+    expect(json.variants.night.palette).toEqual({ background: '#0E1116', surface: '#161B22', text: '#F2F4F7', primary: '#4C8DFF', accent: '#4CC2FF', link: '#7CC4FF' });
+    expect(r.prompt).toContain('Règles propres au thème universel');
+    expect(() => themePrompt({ mood: 'x', name: 'abc', universal: true, field: 'sport' })).toThrow(/no field/);
+    expect(() => themePrompt({ mood: 'x', name: 'abc', universal: true, fonts: ['Orbitron'] })).toThrow(/Montserrat/);
+    const h = harness();
+    expect(await h.run('theme', 'prompt', '--universal', '--mood', 'sky', '--name', 'universel-ciel', '--json')).toBe(0);
+    expect(last<{ universal: boolean; field: null }>(h)).toMatchObject({ universal: true, field: null });
   });
 });
 

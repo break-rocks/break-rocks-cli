@@ -137,12 +137,15 @@ export const feed: Command<FeedInput, unknown> = {
 };
 
 /** The page of a universe: its fields down to 2, its pages without their documents (universes page get --document reads one). */
-const UNIVERSE = selection('Universe', 2).replace(`pages ${selection('PageOfUniverse', 1)}`, 'pages { kind name order hidden removed version url }');
+const UNIVERSE = selection('Universe', 2).replace(`pages ${selection('PageOfUniverse', 1)}`, 'pages { kind name order hidden removed version url }')
+  // The universe theme trial and the draft preview without their documents.
+  .replace(`themeTrial ${selection('UniverseThemeTrial', 1)}`, 'themeTrial { draftId version startedAt endsAt startedBy { id handle } }')
+  .replace(`myDraftPreview ${selection('DraftPreview', 1)}`, 'myDraftPreview { draftId version endsAt }');
 
 type UniverseShow = { universe: Record<string, unknown>; theme?: unknown; governance?: unknown; members?: unknown };
 
 export const universesShow: Command<{ universe: string; members?: boolean }, UniverseShow> = {
-  name: 'universes show', summary: 'The page of a universe: display, field, theme and its origin, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support',
+  name: 'universes show', summary: 'The page of a universe: display, field, theme and its origin, theme trial, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support',
   examples: ['breakrocks universes show %test-village-multisport', 'breakrocks universes show %france --members --json'],
   input: object({ universe: str('The universe (%name)'), members: bool('Its members (universeMembers, first page)') }, ['universe']),
   output: openObject({ universe: outputSchema('Universe', 2), theme: outputSchema('Theme', 2), governance: outputSchema('UniverseGovernance', 1), members: outputSchema('UniverseMemberPage', 1) }),
@@ -165,7 +168,10 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
     const slots = t?.imageSlots ? Object.entries(t.imageSlots).filter(([, v]) => v?.url).map(([k, v]) => `  ${k}: ${v!.url}`) : [];
     return [`${u.name}${u.private ? ' (private)' : ''}`, `field: ${u.field ?? '-'}   residents: ${u.residentCount ?? '-'}   members: ${u.memberCount ?? '-'}`,
       `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : u.theme}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
-      ...slots, `layout: ${u.layoutRef?.name ?? u.defaultLayout ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
+      ...slots,
+      ...(u.themeTrial ? [`theme trial: the draft ${(u.themeTrial as { draftId: string }).draftId} v${(u.themeTrial as { version: number }).version} until ${(u.themeTrial as { endsAt: string }).endsAt}${(u.themeTrial as { startedBy?: { handle: string } }).startedBy ? `, started by @${(u.themeTrial as { startedBy: { handle: string } }).startedBy.handle}` : ''}`] : []),
+      ...(u.myDraftPreview ? [`my draft preview: the draft ${(u.myDraftPreview as { draftId: string }).draftId} v${(u.myDraftPreview as { version: number }).version} until ${(u.myDraftPreview as { endsAt: string }).endsAt}`] : []),
+      `layout: ${u.layoutRef?.name ?? u.defaultLayout ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
       `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,
       `proposals waiting for support: ${u.proposalsWaitingSupport ?? '-'}`,
       `pages: ${((u.pages ?? []) as { name: string; hidden?: boolean }[]).map((p) => `${p.name}${p.hidden ? ' (hidden)' : ''}`).join(', ') || '-'}`,

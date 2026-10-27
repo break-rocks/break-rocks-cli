@@ -71,12 +71,13 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> 
   });
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: [{
-      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt: a theme.json of the format 2 and its images, for a field, a mood, a name and a universe.',
+      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt: a theme.json of the format 2 (its opacities and text backdrop) and its images, for a field (or a universal theme), a mood, a name and a universe.',
       arguments: [
-        { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech', required: true },
+        { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech (none for a universal theme)' },
         { name: 'mood', description: 'The mood, in a few words', required: true },
         { name: 'name', description: 'The name of the theme', required: true },
-        { name: 'universe', description: 'The universe it will be published in (%name)', required: true },
+        { name: 'universe', description: 'The universe it will be published in (%name; %root by default for a universal theme)' },
+        { name: 'universal', description: 'true: the prompt of a universal theme (no field, the palette and the typeface of Socle)' },
         { name: 'fonts', description: 'The title typeface, then the accent one, separated by a comma (approved list)' },
         { name: 'description', description: 'Its description (160 characters at most)' },
         { name: 'language', description: `The language of the prompt: ${LANGUAGES.join(' or ')} (default en)` },
@@ -89,7 +90,7 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> 
     const language = (a.language ?? 'en') as Language;
     if (!LANGUAGES.includes(language)) throw usageError('INVALID_INPUT', `language: ${LANGUAGES.join(' or ')}`);
     try {
-      const { prompt } = themePrompt({ field: a.field ?? '', mood: a.mood ?? '', name: a.name ?? '', universe: a.universe ?? '', description: a.description, fonts: a.fonts ? a.fonts.split(',').map((f) => f.trim()).filter(Boolean) : undefined, language });
+      const { prompt } = themePrompt({ field: a.field || undefined, mood: a.mood ?? '', name: a.name ?? '', universe: a.universe || undefined, universal: a.universal === 'true', description: a.description, fonts: a.fonts ? a.fonts.split(',').map((f) => f.trim()).filter(Boolean) : undefined, language });
       return { description: `A break.rocks theme "${a.name}" for ${a.universe}`, messages: [{ role: 'user' as const, content: { type: 'text' as const, text: prompt } }] };
     } catch (error) {
       const e = asCliError(error);
