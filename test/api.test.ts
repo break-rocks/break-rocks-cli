@@ -5,7 +5,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSchema, execute as run, getNamedType, isEnumType, isListType, isNonNullType, isObjectType, isScalarType, parse, validate, type GraphQLFieldResolver, type GraphQLOutputType, type GraphQLSchema } from 'graphql';
 import { describe, expect, it } from 'vitest';
-import { AHEAD } from '../src/api/ahead.js';
 import { CONTRACT as SCHEMA, documentOf, operation, selection } from '../src/api/graphql.js';
 import { SCHEMA as GENERATED } from '../src/api/schema.generated.js';
 import { Context, NO_FLAGS } from '../src/context.js';
@@ -53,20 +52,6 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl } = await import('../scripts/gen-schema-lib.mjs');
     expect(parseSdl(readFileSync(source, 'utf8'))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-  });
-  it('is ahead only where the contract is not yet (src/api/ahead.ts: remove what the contract now carries)', () => {
-    const carried: string[] = [];
-    for (const [name, t] of Object.entries(AHEAD.types)) {
-      const g = GENERATED.types[name];
-      if (g && !t.f) carried.push(name);
-      for (const f of Object.keys(t.f ?? {})) if (g?.f?.[f]) carried.push(`${name}.${f}`);
-    }
-    for (const kind of ['query', 'mutation'] as const) for (const [name, field] of Object.entries(AHEAD[kind])) {
-      const g = GENERATED[kind][name];
-      if (g && !field[1]) carried.push(name);
-      for (const a of Object.keys(field[1] ?? {})) if (g?.[1]?.[a]) carried.push(`${name}(${a})`);
-    }
-    expect(carried).toEqual([]);
   });
   it('gives each operation a valid document and selection', () => {
     const invalid: string[] = [];
