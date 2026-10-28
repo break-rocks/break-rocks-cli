@@ -11,9 +11,10 @@ import { CliError, cliRefusal, usageError } from '../errors.js';
 import { ALGORITHMS, fingerprint, generateKeys, privateKeyFrom, publicKeyOf, readPrivateKey, signChallenge, supports } from '../keys.js';
 import type { Command } from '../registry.js';
 import { bool, int, num, object, openObject, str } from '../schema.js';
-import { RENEW_BEFORE_MS, credentialsOf, ensureSession, forgetSession, readSession, requireOperator, saveSession, signIn, type Session } from '../session.js';
+import { RENEW_BEFORE_MS, api, credentialsOf, ensureSession, forgetSession, readSession, requireOperator, saveSession, signIn, type Session } from '../session.js';
 import { agentsPost, expectOk } from '../transport.js';
 import { paidPost, type Payment } from '../x402.js';
+import { openCheckout, planText, type OperatorPlan } from './operator-plan.js';
 
 const algorithmSchema = (description: string) => str(description, { enum: ALGORITHMS });
 const paymentSchema = openObject({ usd: str('Amount paid, in USDC'), network: str('CAIP-2 network'), networkName: str('Network'), payTo: str('Recipient'), transaction: str('Transaction hash'), explorer: str('Link to the transaction') });
@@ -66,22 +67,38 @@ export const operatorKeygen: Command<{ algorithm?: Algorithm; recoveryAlgorithm?
   quiet: (r) => r.fingerprint,
 };
 
-type RegisterResult = { operatorId: string; handle?: string; paidUntil?: string; delegatedAgentAllowance?: number; env: string; cell: string; session?: ReturnType<typeof publicSession>; payment?: Payment; alreadyPaid?: boolean; minimum?: unknown };
+type RegisterResult = { operatorId: string; handle?: string; paidUntil?: string; delegatedAgentAllowance?: number; env: string; cell: string; session?: ReturnType<typeof publicSession>; payment?: Payment; alreadyPaid?: boolean; minimum?: unknown; checkout?: { url: string; expiresAt: string; opened: boolean }; plan?: OperatorPlan | null; pending?: boolean; next?: string };
+type RegisterInput = { country: string; fullAge?: boolean; months?: number; agents?: number; maxUsd?: number; plan?: number; interval?: 'MONTH' | 'YEAR'; currency?: string; returnPath?: string; open?: boolean; wait?: boolean };
 
-export const operatorRegister: Command<{ country: string; fullAge?: boolean; months?: number; agents?: number; maxUsd?: number }, RegisterResult> = {
-  name: 'operator register', summary: 'Register the agent operator: its keys, the signed challenge, the payment with x402',
-  description: 'The three steps of the registration: the keys with the country and the confirmation of full age, the auth challenge signed with the private key, then the payment of the plan (whole months, delegated agents) with the x402 wallet of the profile, within --max-usd and the cap of the day, after a confirmation (--yes). The paid registration opens the first session. A registration signed and not paid is taken up again (1 hour).',
-  examples: ['breakrocks --profile atlas-dev --env dev operator register --country FR --full-age --months 1 --agents 1 --yes', 'breakrocks operator register --country US --full-age --months 12 --agents 3 --max-usd 5'],
+/** How often the CLI tries to sign in while the payment of a plan at the registration is not confirmed. */
+export const PLAN_PAYMENT_POLL_MS = 5000;
+
+export const operatorRegister: Command<RegisterInput, RegisterResult> = {
+  name: 'operator register', summary: 'Register the agent operator: its keys, the signed challenge, the payment with x402 or a plan paid by card',
+  description: 'The three steps of the registration: the keys with the country and the confirmation of full age, the auth challenge signed with the private key, then the payment of the plan (whole months, delegated agents) with the x402 wallet of the profile, within --max-usd and the cap of the day, after a confirmation (--yes). The paid registration opens the first session. A registration signed and not paid is taken up again (1 hour). --plan <agents> pays instead with a plan of delegated agents by card (§ Plan at registration: 10, 100, 1,000 or a multiple of 1,000; --interval YEAR: 10 times the monthly price): the payment page opens in the browser (--no-open: its address only) and the CLI waits for the payment, then signs in (--no-wait: it returns at once; operator register --plan again, within the hour, finishes once paid).',
+  examples: ['breakrocks --profile atlas-dev --env dev operator register --country FR --full-age --months 1 --agents 1 --yes', 'breakrocks operator register --country US --full-age --months 12 --agents 3 --max-usd 5', 'breakrocks operator register --country FR --full-age --plan 10', 'breakrocks operator register --country US --full-age --plan 100 --interval YEAR --no-open'],
   input: object({
     country: str('The country of the person who registers (ISO 3166-1 alpha-2)', { pattern: '^[A-Za-z]{2}$' }),
     fullAge: bool('Confirms that the person who registers is of full age (required by the platform)'),
-    months: int('Whole months paid (12: a year, 10% off)', { minimum: 1, maximum: 12, default: 1 }),
-    agents: int('Delegated agents paid for', { minimum: 1, maximum: 100, default: 1 }),
-    maxUsd: num('The most this command may pay, in US dollars', { minimum: 0, default: 1 }),
+    months: int('With x402: whole months paid (12: a year, 10 times the monthly price)', { minimum: 1, maximum: 12, default: 1 }),
+    agents: int('With x402: delegated agents paid for', { minimum: 1, maximum: 100, default: 1 }),
+    maxUsd: num('With x402: the most this command may pay, in US dollars', { minimum: 0, default: 1 }),
+    plan: int('Pay by card a plan of this many delegated agents instead of x402: 10, 100, 1,000 or a multiple of 1,000', { minimum: 1 }),
+    interval: str('With --plan: MONTH (default) or YEAR', { enum: ['MONTH', 'YEAR'] }),
+    currency: str('With --plan: a currency (ISO 4217; default: the first one with a price)', { pattern: '^[A-Za-z]{3}$' }),
+    returnPath: str('With --plan: the path of the web app the payment page returns to (default: the usual one)', { maxLength: 200 }),
+    open: bool('With --plan: open the payment page in the browser (--no-open: write its address only)', { default: true }),
+    wait: bool('With --plan: wait for the payment, then sign in (--no-wait: return at once)', { default: true }),
   }, ['country']),
-  output: openObject({ operatorId: str('The account id'), handle: str('Its generated handle'), paidUntil: str('End of the paid period'), delegatedAgentAllowance: int('Delegated agents allowed'), env: str('Environment'), cell: str('Home cell'), session: sessionSchema, payment: paymentSchema, alreadyPaid: bool('The registration was paid before: signed in') }),
+  output: openObject({
+    operatorId: str('The account id (the id of the registration while it is not paid)'), handle: str('Its generated handle'), paidUntil: str('End of the paid period'), delegatedAgentAllowance: int('Delegated agents allowed'), env: str('Environment'), cell: str('Home cell'), session: sessionSchema, payment: paymentSchema, alreadyPaid: bool('The registration was paid before: signed in'),
+    checkout: openObject({ url: str('The payment page of the plan'), expiresAt: str('When it ends'), opened: bool('Opened in the browser') }), plan: { type: ['object', 'null'], description: 'The plan paid by card (myOperatorPlan)' }, pending: bool('--no-wait: the payment is not confirmed yet'), next: str('What to do next'),
+  }),
   interactive: true,
-  run: async (ctx, { country, fullAge, months = 1, agents = 1, maxUsd }) => {
+  run: async (ctx, input) => {
+    const { country, fullAge, months = 1, agents = 1, maxUsd, plan } = input;
+    if (plan !== undefined && (input.months !== undefined || input.agents !== undefined || input.maxUsd !== undefined)) throw usageError('INVALID_INPUT', '--plan pays by card: --months, --agents and --max-usd are for x402');
+    if (plan === undefined && (input.interval !== undefined || input.currency !== undefined || input.returnPath !== undefined || input.open !== undefined || input.wait !== undefined)) throw usageError('INVALID_INPUT', '--interval, --currency, --return-path, --open and --wait go with --plan');
     let profile = ctx.profile();
     if (profile.kind) throw cliRefusal('ALREADY_REGISTERED', `The profile "${ctx.profileName}" holds the account ${profile.operatorId ?? profile.agentId ?? profile.accountId}`, { operatorId: profile.operatorId });
     const { operator, recovery } = operatorKeys(ctx, profile);
@@ -105,26 +122,65 @@ export const operatorRegister: Command<{ country: string; fullAge?: boolean; mon
       void _;
       ctx.saveProfile({ ...rest, ...extra, kind: 'operator', operatorId, cell: at.cell });
     };
-    let paid;
-    try {
-      paid = await paidPost(ctx, { base: at.agents, path: `/operators/registrations/${registration.id}/payment`, body: { months, delegatedAgents: agents }, maxUsd, what: `the registration of an agent operator (${agents} delegated agent${agents > 1 ? 's' : ''}, ${months} month${months > 1 ? 's' : ''})` });
-    } catch (error) {
+    const pending = registration;
+    /** A refusal of the payment step: a registration paid before signs in, an abandoned one is forgotten. */
+    const refused = async (error: unknown): Promise<RegisterResult> => {
       if (error instanceof CliError && error.code === 'REGISTRATION_ALREADY_PAID') {
-        done(registration.id, {});
+        done(pending.id, {});
         const session = await signIn(ctx, at, credentialsOf(ctx, ctx.profile())!);
-        return { operatorId: registration.id, env: at.env, cell: at.cell, session: publicSession(session), alreadyPaid: true };
+        return { operatorId: pending.id, env: at.env, cell: at.cell, session: publicSession(session), alreadyPaid: true };
       }
       if (error instanceof CliError && error.code === 'REGISTRATION_ABANDONED') { const { registration: _, ...rest } = ctx.profile(); void _; ctx.saveProfile(rest); }
       throw error;
+    };
+    if (plan !== undefined) {
+      let checkout: { url: string; expiresAt: string };
+      try {
+        checkout = expectOk(await agentsPost(ctx, at.agents, `/operators/registrations/${pending.id}/plan`, {
+          delegatedAgents: plan, interval: input.interval ?? 'MONTH', ...(input.currency ? { currency: input.currency.toUpperCase() } : {}), ...(input.returnPath ? { returnPath: input.returnPath } : {}),
+        }), [201]) as { url: string; expiresAt: string };
+      } catch (error) { return refused(error); }
+      ctx.notice(`Pay the plan of ${plan} delegated agents in the browser: ${checkout.url}`);
+      const opened = await openCheckout(ctx, checkout.url, input.open !== false);
+      const page = { ...checkout, opened };
+      if (input.wait === false) return { operatorId: pending.id, env: at.env, cell: at.cell, checkout: page, pending: true, next: `once paid, within the hour: breakrocks operator register --country ${country.toUpperCase()} --full-age --plan ${plan}` };
+      ctx.progress(`Waiting for the payment, until ${checkout.expiresAt} (Ctrl-C to stop; operator register --plan again finishes it once paid)`);
+      const credentials = { kind: 'operator' as const, operatorId: pending.id, key: main.key };
+      let session: Session;
+      for (;;) {
+        try { session = await signIn(ctx, at, credentials); break; } catch (error) { if (!(error instanceof CliError && error.code === 'REGISTRATION_NOT_PAID')) throw error; }
+        if (ctx.now() >= Date.parse(checkout.expiresAt)) throw cliRefusal('PLAN_NOT_PAID', `The payment page ended before the payment was confirmed: the registration ${pending.id} is not paid`, { registrationId: pending.id });
+        await ctx.io.sleep(PLAN_PAYMENT_POLL_MS);
+      }
+      done(pending.id, {});
+      const read = await api<{ me: { handle: string; paidUntil: string | null }; myOperatorPlan: OperatorPlan | null }>(ctx, '{ me { handle paidUntil } myOperatorPlan { automaticRenewal delegatedAgents interval nextDelegatedAgents nextFrom paidUntil payerId provider status } }');
+      ctx.saveProfile({ ...ctx.profile(), handle: read.me.handle });
+      return { operatorId: pending.id, handle: read.me.handle, ...(read.me.paidUntil ? { paidUntil: read.me.paidUntil } : {}), ...(read.myOperatorPlan ? { delegatedAgentAllowance: read.myOperatorPlan.delegatedAgents } : {}), env: at.env, cell: at.cell, session: publicSession(session), checkout: page, plan: read.myOperatorPlan };
     }
+    let paid;
+    try {
+      paid = await paidPost(ctx, { base: at.agents, path: `/operators/registrations/${registration.id}/payment`, body: { months, delegatedAgents: agents }, maxUsd, what: `the registration of an agent operator (${agents} delegated agent${agents > 1 ? 's' : ''}, ${months} month${months > 1 ? 's' : ''})` });
+    } catch (error) { return refused(error); }
     const body = expectOk(paid.answer, [200, 201]) as { operatorId: string; handle: string; paidUntil: string; delegatedAgentAllowance: number; token: string; sessionId: string; expiresAt: string };
     done(body.operatorId, { handle: body.handle });
     const session: Session = { kind: 'operator', token: body.token, sessionId: body.sessionId, expiresAt: body.expiresAt, operatorId: body.operatorId };
     saveSession(ctx, session);
     return { operatorId: body.operatorId, handle: body.handle, paidUntil: body.paidUntil, delegatedAgentAllowance: body.delegatedAgentAllowance, env: at.env, cell: at.cell, session: publicSession(session), ...(paid.payment ? { payment: paid.payment } : {}), ...(minimum ? { minimum } : {}) };
   },
+  text: registerText,
   quiet: (r) => r.operatorId,
 };
+
+function registerText(r: RegisterResult): string {
+  if (r.pending) return `Registration ${r.operatorId} (${r.env}, cell ${r.cell}): pay the plan in the browser: ${r.checkout?.url}\nThe page is open until ${r.checkout?.expiresAt}; then, ${r.next}`;
+  const lines = [`Agent operator ${r.operatorId}${r.handle ? ` (@${r.handle})` : ''} registered on ${r.env} (cell ${r.cell})${r.alreadyPaid ? ': it was paid before, signed in' : ''}`];
+  if (r.paidUntil) lines.push(`  paid until ${r.paidUntil}`);
+  if (r.delegatedAgentAllowance != null) lines.push(`  delegated agents allowed: ${r.delegatedAgentAllowance}`);
+  if (r.payment) lines.push(`  paid ${r.payment.usd} USDC on ${r.payment.networkName ?? r.payment.network}${r.payment.explorer ? `: ${r.payment.explorer}` : ''}`);
+  if (r.plan !== undefined) lines.push(planText(r.plan).replace(/^/gm, '  '));
+  if (r.session) lines.push(`  session until ${r.session.expiresAt}`);
+  return lines.join('\n');
+}
 
 export const operatorLogin: Command<Record<string, never>, { operatorId: string; session: ReturnType<typeof publicSession> }> = {
   name: 'operator login', summary: 'Sign in the agent operator: a challenge signed with its private key',

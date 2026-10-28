@@ -1,6 +1,7 @@
 // A fake of the platform for the tests (no network): the cell map, the agents host
 // (registrations, challenges, sessions, recovery, renewal, deletion; signatures verified with the
-// public keys given) and a small GraphQL API (me, myUsage, the delegated agents, approvedTypefaces).
+// public keys given; a plan paid by card at the registration) and a small GraphQL API (me, myUsage,
+// the delegated agents, approvedTypefaces, the plans of delegated agents paid by card).
 import { createPublicKey, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 
 const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64');
@@ -12,6 +13,10 @@ export const USDC_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 type Challenge = { text: string; purpose: string; subject: Record<string, string> };
 type Operator = { id: string; publicKey: string; recoveryKey: string; paidUntil: string; handle: string; recoveryKeyRequired?: boolean; deleted?: boolean };
 type Agent = { id: string; operatorId: string; name: string; publicKey: string; status: string; interactions: string[] | null; universes: string[] | null; createdAt: string };
+type Plan = { automaticRenewal: boolean; delegatedAgents: number; interval: string; nextDelegatedAgents: number | null; nextFrom: string | null; paidUntil: string; payerId: string; provider: string; status: string };
+/** The prices of the plans (the minor unit: 4000 USD = 40.00 USD), as the catalog of dev holds them. */
+export const PLAN_PRICES = [[10, 4000, 40000], [100, 35000, 350000], [1000, 300000, 3000000]].flatMap(([delegatedAgents, month, year]) => [{ amount: month, currency: 'USD', delegatedAgents, interval: 'MONTH' }, { amount: year, currency: 'USD', delegatedAgents, interval: 'YEAR' }]);
+const planOffered = (n: unknown) => typeof n === 'number' && (n === 10 || n === 100 || (n >= 1000 && n % 1000 === 0));
 type SessionInfo = { kind: 'operator' | 'agent'; operatorId: string; agentId?: string; sessionId: string; exp: number };
 
 export function fakePlatform(options: { now: () => number; price?: string; agentsStatus?: Record<string, string> }) {
@@ -21,6 +26,8 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
   const operators = new Map<string, Operator>();
   const agents = new Map<string, Agent>();
   const sessions = new Map<string, SessionInfo>();
+  const plans = new Map<string, Plan>();
+  const checkouts: { registrationId?: string; operatorId?: string; delegatedAgents: number; interval: string; url: string }[] = [];
   const state = { failNextGraphql401: false, throttleNext: 0, graphqlRateLimitedNext: 0 };
   const amount = options.price ?? '10000';
 
@@ -73,6 +80,7 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
         return json(200, { registration: { id, expiresAt: new Date(options.now() + 3600_000).toISOString(), payUrl: `https://agents.test/v1/operators/registrations/${id}/payment` }, minimum: { months: 1, delegatedAgents: 1, price: '$0.01' } });
       }
       case '/v1/operators/challenges': {
+        if (registrations.get(body.operatorId as string)?.paid === false) return refuse(403, 'REGISTRATION_NOT_PAID');
         const op = operators.get(body.operatorId as string);
         return challenge('operator-session', { operatorId: body.operatorId as string, publicKey: op?.publicKey ?? '' });
       }
@@ -127,6 +135,16 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
         return json(200, { deleted: true, deletedAt: new Date(options.now()).toISOString(), disappearsAt: new Date(options.now()).toISOString() });
       }
     }
+    const planAt = /^\/v1\/operators\/registrations\/([^/]+)\/plan$/.exec(path);
+    if (planAt) {
+      const reg = registrations.get(planAt[1]);
+      if (!reg) return refuse(400, 'INVALID_REQUEST');
+      if (reg.paid) return json(409, { error: { code: 'REGISTRATION_ALREADY_PAID', message: 'paid', operatorId: planAt[1] } });
+      if (!planOffered(body.delegatedAgents)) return refuse(400, 'PLAN_NOT_OFFERED');
+      const url = `https://checkout.test/c/${planAt[1]}`;
+      checkouts.push({ registrationId: planAt[1], delegatedAgents: body.delegatedAgents as number, interval: (body.interval as string) ?? 'MONTH', url });
+      return json(201, { url, expiresAt: new Date(options.now() + 3600_000).toISOString() });
+    }
     const pay = /^\/v1\/operators\/registrations\/([^/]+)\/payment$/.exec(path);
     if (pay) {
       const reg = registrations.get(pay[1]);
@@ -156,6 +174,36 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
     if (op.recoveryKeyRequired) return gqlError('RECOVERY_KEY_REQUIRED');
     const manage = /delegatedAgents|createDelegatedAgent|DelegatedAgent\(|delegatedAgentActivity|delegatedAgentAllowance/.test(q);
     if (manage && s.kind === 'agent') return gqlError('DELEGATED_AGENT_CANNOT_MANAGE_AGENTS');
+    if (/OperatorPlan|operatorPlanOffer/.test(q)) {
+      if (s.kind === 'agent') return gqlError('INSTANT_PAYMENT_NOT_ALLOWED');
+      const plan = plans.get(op.id);
+      if (q.includes('startOperatorPlan')) {
+        if (!planOffered(v.delegatedAgents)) return gqlError('PLAN_NOT_OFFERED');
+        if (plan) return gqlError('SUBSCRIPTION_EXISTS');
+        const url = `https://checkout.test/c/${op.id}-${checkouts.length}`;
+        checkouts.push({ operatorId: op.id, delegatedAgents: v.delegatedAgents as number, interval: (v.interval as string) ?? 'MONTH', url });
+        return json(200, { data: { startOperatorPlan: { url, expiresAt: new Date(options.now() + 1800_000).toISOString() } } });
+      }
+      if (q.includes('changeOperatorPlan')) {
+        if (!plan) return gqlError('SUBSCRIPTION_NOT_FOUND');
+        if (!planOffered(v.delegatedAgents)) return gqlError('PLAN_NOT_OFFERED');
+        const n = v.delegatedAgents as number;
+        if (n > plan.delegatedAgents) Object.assign(plan, { delegatedAgents: n, nextDelegatedAgents: null, nextFrom: null });
+        else Object.assign(plan, { nextDelegatedAgents: n, nextFrom: plan.paidUntil });
+        return json(200, { data: { changeOperatorPlan: plan } });
+      }
+      if (q.includes('setOperatorPlanRenewal')) {
+        if (!plan) return gqlError('SUBSCRIPTION_NOT_FOUND');
+        plan.automaticRenewal = v.enabled === true;
+        return json(200, { data: { setOperatorPlanRenewal: plan } });
+      }
+      const data: Record<string, unknown> = {};
+      if (/\bme\b/.test(q)) data.me = { id: op.id, handle: op.handle, paidUntil: op.paidUntil };
+      if (q.includes('myOperatorPlan')) data.myOperatorPlan = plan ?? null;
+      const currency = (v.currency ?? v.c) as string | undefined, interval = (v.interval ?? v.i) as string | undefined;
+      if (q.includes('operatorPlanOffer')) data.operatorPlanOffer = { prices: PLAN_PRICES.filter((p) => (!currency || p.currency === currency) && (!interval || p.interval === interval)), providers: ['stripe'] };
+      return json(200, { data });
+    }
     if (q.includes('createDelegatedAgent')) {
       const { publicKey, privateKey } = generateKeyPairSync('ed25519');
       const id = randomUUID();
@@ -201,7 +249,21 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
     throw new TypeError(`fetch failed: ${url.host}`);
   };
 
-  return { fetch, calls, operators, agents, sessions, registrations, state };
+  /** The payment of a Checkout page confirmed (as Stripe's webhook would): the account of a registration made, the plan written. */
+  const payCheckout = (url: string) => {
+    const c = checkouts.find((x) => x.url === url);
+    if (!c) throw new Error(`no checkout ${url}`);
+    const until = new Date(options.now() + (c.interval === 'YEAR' ? 365 : 30) * 86400_000).toISOString();
+    let id = c.operatorId;
+    if (c.registrationId) {
+      const reg = registrations.get(c.registrationId)!;
+      reg.paid = true; id = c.registrationId;
+      operators.set(id, { id, publicKey: reg.publicKey, recoveryKey: reg.recoveryKey, paidUntil: until, handle: `user-${id.slice(3, 9)}` });
+    } else operators.get(id!)!.paidUntil = until;
+    plans.set(id!, { automaticRenewal: true, delegatedAgents: c.delegatedAgents, interval: c.interval, nextDelegatedAgents: null, nextFrom: null, paidUntil: until, payerId: id!, provider: 'stripe', status: 'ACTIVE' });
+  };
+
+  return { fetch, calls, operators, agents, sessions, registrations, state, plans, checkouts, payCheckout };
 }
 
 /** A payer that signs nothing: the header the fake platform takes. */

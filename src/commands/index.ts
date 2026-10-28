@@ -8,6 +8,7 @@ import { help, schema, version } from './core.js';
 import { login, logout } from './login.js';
 import { mcpCommand } from './mcp.js';
 import { operatorDelete, operatorKeygen, operatorLogin, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew, sessionCommand } from './operator.js';
+import { operatorPlanChange, operatorPlanOffer, operatorPlanResume, operatorPlanShow, operatorPlanStart, operatorPlanStop } from './operator-plan.js';
 import { profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
 import { update } from './update.js';
 import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack } from './theme.js';
@@ -26,6 +27,7 @@ register(
   profileAdd, profileUse, profileList, profileShow, profileRemove,
   login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
+  operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,
   agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity,
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,

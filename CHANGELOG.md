@@ -3,6 +3,34 @@
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
 the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
 
+## [0.11.0] - 2026-10-28
+
+### Added
+
+- The plans of delegated agents paid by card: `operator plan offer` (`operatorPlanOffer`, the prices read from the API), `operator plan
+  show` (`myOperatorPlan`), `operator plan start <agents>` (`startOperatorPlan`: says the price and,
+  when a period paid with x402 runs, that the plan takes it over at once without refund, then opens
+  the Stripe Checkout page in the browser, `--no-open` to write its address only), `operator plan
+  change <agents>` (`changeOperatorPlan`: a larger plan at once, paid pro rata; a smaller one at the
+  end of the paid period, the delegated agents beyond it deactivated then, the inactive ones first,
+  then the oldest; a confirmation, `--yes`), `operator plan stop` and `operator plan resume`
+  (`setOperatorPlanRenewal`). Beyond 1,000 delegated agents, any number is sent as is: the platform
+  answers (`PLAN_NOT_OFFERED` until it builds the multiples of 1,000).
+- `operator register --plan <agents>` (`--interval`, `--currency`, `--return-path`, `--no-open`,
+  `--no-wait`): the registration paid by a plan by card (`agent-sign-in.md` § Plan at registration,
+  `POST /v1/operators/registrations/{id}/plan`); the CLI opens the payment page, waits for the payment
+  by trying to sign in every 5 seconds (`REGISTRATION_NOT_PAID` meanwhile, `PLAN_NOT_PAID` once the
+  page has ended), then signs in and reads the plan. Running it again within the hour finishes a
+  registration paid meanwhile.
+- `operator register` writes a plain-text summary (the account, the paid period, the payment or the plan).
+
+### Changed
+
+- The contract regenerated (`npm run gen:schema`):
+  the operator plans, the gift codes, `PaidTier.X10`, search and the other additions of v56 to v61.
+  No existing command breaks.
+- `operator register --months 12`: a year costs 10 times the monthly price (was 10% off).
+
 ## [0.10.1] - 2026-10-27
 
 ### Changed

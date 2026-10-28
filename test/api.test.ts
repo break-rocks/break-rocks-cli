@@ -111,11 +111,21 @@ describe('every command', () => {
     saveSession(ctx, { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
     const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agent login', 'session', 'login', 'logout', 'update']);
     let ran = 0;
+    const operatorOnly = (name: string) => name.startsWith('operator plan ');
     for (const c of commands()) {
-      if (skipped.has(c.name)) continue;
+      if (skipped.has(c.name) || operatorOnly(c.name)) continue;
       current = c.name;
       const input = SAMPLES[c.name] ?? Object.fromEntries(Object.entries(c.input.properties).filter(([k]) => (c.input.required ?? []).includes(k)).map(([k, v]) => [k, sample(v, k)]));
       try { await execute(ctx, c, input); } catch { /* local checks (files, inputs) may stop a command */ }
+      ran++;
+    }
+    // An agent operator: its plan paid by card (the profile of an operator only).
+    ctx.saveProfile({ env: 'dev', kind: 'operator', operatorId: 'eu-op' });
+    saveSession(ctx, { kind: 'operator', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op' });
+    for (const c of commands().filter((x) => operatorOnly(x.name))) {
+      current = c.name;
+      const input = Object.fromEntries(Object.entries(c.input.properties).filter(([k]) => (c.input.required ?? []).includes(k)).map(([k, v]) => [k, sample(v, k)]));
+      try { await execute(ctx, c, { ...input, ...(c.name === 'operator plan start' ? { open: false } : {}) }); } catch { /* local checks may stop a command */ }
       ran++;
     }
     // A human: its own whoami, capabilities and logout --everywhere (signOutEverywhere).
