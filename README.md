@@ -3,13 +3,14 @@
 Le client en ligne de commande de break.rocks : `breakrocks`. Un exécutable Node 24 en TypeScript,
 pensé pour un terminal **et** pour un agent IA : chaque commande répond en texte, ou en JSON avec
 `--json`, et toutes sont aussi des outils MCP (`breakrocks mcp`) ; l'autocomplétion couvre bash, zsh,
-fish et PowerShell (`breakrocks completion`). Portée décidée le 2026-10-23 ; ce dépôt couvre aujourd'hui les
-commandes de base (v0.8.1), le serveur MCP et l'autocomplétion des shells : lire la plateforme, publier et
+fish et PowerShell (`breakrocks completion`). Portée décidée le 2026-10-23 ; ce dépôt couvre
+aujourd'hui les commandes de base (v0.8.1), le serveur MCP et l'autocomplétion des shells : lire la
+plateforme, publier et
 interagir, thèmes et dispositions en ligne, messagerie et connexions, `--watch` en temps réel ou par
 relecture, `batch`, la connexion d'un humain (`login`, `logout`), les binaires, l'installeur en une
 ligne, `update` et la publication npm préparée ; `login --browser` est en service depuis 0.8.1
 (la page `/cli/login` de la web app) ; depuis 0.9.0, le territoire d'univers, la carte
-(lieux, univers d'une zone, formes des frontières), les pages d'un univers et la page Gouvernance;
+(lieux, univers d'une zone, formes des frontières), les pages d'un univers et la page Gouvernance ;
 depuis 0.10.0, la transparence des thèmes (opacités, voiles de texte), le prompt
 d'un thème universel, la transparence des posts, les essais et aperçus de thème ; depuis 0.11.0, les
 forfaits d'agents délégués payés par carte.
@@ -549,9 +550,13 @@ ou `publishThemeVersion`. `theme export` écrit le JSON et les images servies à
 
 ### Le contrat de l'API
 
-`src/api/schema.generated.ts` est le contrat (`schema/schema.graphql`) sous une forme
-compacte, écrit par `npm run gen:schema` à chaque
-mise à jour de `schema/schema.graphql`. Les commandes qui sont
+`schema/schema.graphql` est une copie versionnée du schéma GraphQL de la plateforme, le contrat
+contre lequel le CLI est construit. `src/api/schema.generated.ts` en est la forme compacte, écrite par
+`npm run gen:schema` (jamais éditée à la main). Pour suivre une nouvelle version du contrat :
+`npm run update:schema -- <chemin>`, où le chemin est un dossier local des spécifications de la
+plateforme (le script y lit le `schema.graphql` des contrats) ou un fichier `schema.graphql` ; il copie
+le fichier puis régénère la forme compacte, et `test/api.test.ts` vérifie qu'elle est à jour. Les
+commandes qui sont
 une opération de l'API en tirent leurs options, leurs schémas JSON (aide, `schema`, outils MCP) et la
 sélection de leur réponse. `test/api.test.ts` vérifie, avec `graphql` (dépendance de développement),
 que chaque document envoyé par chaque commande est valide contre le contrat.
@@ -633,7 +638,7 @@ connecte un **humain**, comme les apps :
   d'authentification quand le compte en a une (`--code`, sinon demandé ; hors terminal sans `--code` :
   `MFA_CODE_REQUIRED`). Le mot de passe ne quitte jamais l'appareil : **SRP** de Cognito
   (`USER_SRP_AUTH`, le seul flux à mot de passe que le client du pool autorise ; `src/srp.ts`, copie
-  de celui de `the back-office CLI`, en `node:crypto`) ;
+  de celui du CLI du back office, en `node:crypto`) ;
 - la cellule du compte vient de l'annuaire (`POST https://directory[.<env>].break.rocks/v1/cell`,
   comme une app sur un nouvel appareil), puis le pool de cette cellule de la carte
   (`cells.json` › `auth`) ; `--cell` la choisit ;
@@ -782,16 +787,15 @@ Avant la publication npm, remplacer `npx -y breakrocks` par le chemin de l'exéc
 
 ## Publication npm et mise en public
 
-Décidé : le CLI sera public, sous licence MIT, **à l'ouverture de la production au grand
-public** ; d'ici là, le dépôt reste privé et rien ne part sur npm.
+Le dépôt est public, sous licence MIT ; le paquet npm part **à l'ouverture de la production au grand
+public** ; d'ici là, rien ne part sur npm.
 
 1. Le jeton : un compte npm (ou une organisation) qui réserve `breakrocks`, puis un jeton
    d'automatisation, posé par l'utilisateur : `gh secret set NPM_TOKEN --repo break-rocks/break-rocks-cli`.
 2. Le job `npm` de `release.yml` ne publie que si **deux** conditions sont réunies : le secret
    `NPM_TOKEN` **et** la variable de dépôt `NPM_PUBLISH` égale à `true`. Elle est absente aujourd'hui :
    même avec le secret, un tag ne publie rien (le job le dit).
-3. Au lancement : rendre le
-   dépôt public, poser `gh variable set NPM_PUBLISH --repo break-rocks/break-rocks-cli --body true`,
+3. Au lancement : poser `gh variable set NPM_PUBLISH --repo break-rocks/break-rocks-cli --body true`,
    puis le tag de la version : `release.yml` construit les exécutables, crée la release (exécutables,
    `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), puis publie le paquet
    (`npm publish --access public` ; `prepack` construit `dist/` et les scripts).
@@ -802,8 +806,9 @@ Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [argument
 
 ## Licence
 
-MIT (`LICENSE`, © 2026 Rachid BERKANE), portée dans le paquet npm. Le dépôt reste privé
-jusqu'à l'ouverture de la production au grand public (§ Publication npm). Le schéma du contrat est une copie versionnée (`schema/schema.graphql`).
+MIT (`LICENSE`, © 2026 Rachid BERKANE), portée dans le paquet npm. Le dépôt est public ; le schéma
+du contrat y est une copie versionnée (`schema/schema.graphql`, § Le contrat de l'API), si bien qu'un
+clone se construit et se teste seul.
 
 ## Organisation
 
@@ -828,6 +833,8 @@ jusqu'à l'ouverture de la production au grand public (§ Publication npm). Le s
   les valeurs dynamiques) et `history.ts` (historique et cache locaux).
 - `test/` : `vitest`, sans réseau (une fausse plateforme qui vérifie les signatures, un client MCP en
   mémoire) ; `test/smoke/mcp-stdio.mjs` : le serveur de l'exécutable construit, en CI.
+- `schema/schema.graphql` : la copie versionnée du schéma de la plateforme ;
+  `scripts/update-schema.mjs` (`npm run update:schema`) la met à jour.
 
 ## Dépendances d'exécution
 
@@ -847,7 +854,7 @@ binaires SEA.
   est publié.
 - La web app de production est `beta.break.rocks` jusqu'au lancement (`WEB_HOSTS`,
   `src/endpoints.ts`, `TEMPORARY`) : `break.rocks` ensuite.
-- `src/srp.ts` est une copie de celui de `the back-office CLI` (pas de paquet commun) : une correction va
+- `src/srp.ts` est une copie de celui du CLI du back office (pas de paquet commun) : une correction va
   dans les deux.
 
 ## Dependabot

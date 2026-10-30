@@ -1,7 +1,22 @@
 # Changelog
 
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
-the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope is decided (2026-10-23).
+the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope was decided on 2026-10-23.
+
+## [Unreleased]
+
+### Changed
+
+- The schema of the platform is a versioned copy, `schema/schema.graphql`, instead of a submodule:
+  `npm run gen:schema` and the freshness test of `test/api.test.ts` read it, and the CI needs no token.
+  `npm run update:schema -- <path>` copies a new version from a local checkout of the specifications
+  (or a `schema.graphql` file) and regenerates `src/api/schema.generated.ts`.
+
+### Removed
+
+- The references to internal documents (decision numbers, versions and files of the specifications,
+  other repositories) in the code comments, the README, the CHANGELOG and the workflows.
+- The tests that compared the theme computations with a checkout of the backend beside this one.
 
 ## [0.11.0] - 2026-10-28
 

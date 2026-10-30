@@ -1,9 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { imageInfo } from '../src/theme/images.js';
-import { checkTheme } from '../src/theme/check.js';
 import { themePrompt, fieldOf } from '../src/theme/prompt.js';
 import { APPROVED_TYPEFACES } from '../src/theme/typefaces.js';
 import { readZip, writeZip, zipEntryBytes } from '../src/theme/zip.js';
