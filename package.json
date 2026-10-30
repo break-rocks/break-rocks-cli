@@ -47,6 +47,7 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "start": "tsx src/index.ts",
     "gen:schema": "node scripts/gen-schema.mjs",
+    "update:schema": "node scripts/update-schema.mjs",
     "build:sea": "node scripts/build-sea.mjs",
     "gen:completions": "node scripts/gen-completions.mjs",
     "prepack": "npm run build && npm run gen:completions"

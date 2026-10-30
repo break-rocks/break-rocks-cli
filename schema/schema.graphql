@@ -1,0 +1,4461 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Account @aws_cognito_user_pools @aws_iam @aws_lambda {
+  aiDescription: String
+  avatarKey: String
+  bio: String
+  blockedByMe: Boolean
+  country: String
+  delegatedAgent: DelegatedAgentSelf
+  deleted: Boolean
+  disappearsAt: AWSDateTime
+  displayName: String!
+  followedByMe: Boolean
+  followerCount: Int
+  followingCount: Int
+  fullAgeConfirmedAt: AWSDate
+  handle: String!
+  handleSince: AWSDateTime!
+  id: ID!
+  identityVerified: Boolean!
+  kind: AccountKind!
+  legalSpace: String
+  links: [ProfileLink]
+  minimumAgeCheckedAt: AWSDate
+  mutedByMe: Boolean
+  organizationName: String
+  paidTier: PaidTier
+  paidUntil: AWSDateTime
+  personalTheme: PersonalTheme
+}
+
+type AccountDeletion @aws_cognito_user_pools @aws_iam {
+  deletedAt: AWSDateTime!
+  disappearsAt: AWSDateTime!
+}
+
+type AccountDeletionRequest @aws_cognito_user_pools @aws_iam {
+  expiresAt: AWSDateTime!
+}
+
+type AccountDeletionSuccessor @aws_iam {
+  accountId: ID!
+  universe: String!
+}
+
+type AccountPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Account!]!
+  next: String
+}
+
+type AccountRef @aws_cognito_user_pools @aws_iam @aws_lambda {
+  avatarKey: String
+  deleted: Boolean
+  disappearsAt: AWSDateTime
+  displayName: String!
+  handle: String!
+  id: ID!
+  kind: AccountKind!
+}
+
+type AccountRefPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [AccountRef!]!
+  next: String
+}
+
+type AccountToFollow @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  followerCount: Int!
+  gained: Int!
+}
+
+type AccountToFollowPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [AccountToFollow!]!
+  reason: String!
+  updatedAt: AWSDateTime
+}
+
+type ActiveUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  count: Int!
+  description: String
+  field: UniverseField
+  fieldSuggested: Boolean
+  image: PostImage
+  lastPostAt: AWSDateTime
+  residentCount: Int
+  universe: String!
+}
+
+type ActiveUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ActiveUniverse!]!
+  reason: String!
+  updatedAt: AWSDateTime
+}
+
+type Appeal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  decidedAt: AWSDateTime
+  openedAt: AWSDateTime!
+  outcome: AppealOutcome
+  publishName: Boolean!
+  reasons: String
+  reducedToDays: Int
+  status: AppealStatus!
+}
+
+type AppliedLayout @aws_cognito_user_pools @aws_iam @aws_lambda {
+  layout: Layout!
+  of: String
+  ref: LayoutRef!
+  retouched: Boolean!
+  source: AppliedLayoutSource!
+}
+
+type Arrival @aws_cognito_user_pools @aws_iam @aws_lambda {
+  zoneName: String!
+}
+
+type AvatarUpload @aws_cognito_user_pools @aws_iam @aws_lambda {
+  fields: AWSJSON!
+  key: String!
+  url: String!
+}
+
+type BillingDay @aws_cognito_user_pools @aws_iam @aws_lambda {
+  changeableFrom: AWSDateTime
+  day: Int!
+  dayBeforePause: Int
+  month: Int
+  nextDueDate: AWSDateTime!
+  pending: PendingBillingDay
+}
+
+type BillingDayChoice @aws_iam {
+  day: Int!
+  month: Int
+  settleNow: Boolean
+}
+
+type BillingDayOffer @aws_cognito_user_pools @aws_iam @aws_lambda {
+  amount: Int!
+  chargedAt: AWSDateTime
+  currency: String!
+  days: Int!
+  deductedDays: Int!
+  direction: BillingDayDirection!
+  from: AWSDateTime!
+  periodDays: Int!
+  settleNowAvailable: Boolean!
+  to: AWSDateTime!
+}
+
+type Bounds @aws_iam {
+  east: Float!
+  north: Float!
+  south: Float!
+  west: Float!
+}
+
+type Channel @aws_cognito_user_pools @aws_iam @aws_lambda {
+  address: String!
+  agentsForbidden: Boolean!
+  archived: Boolean!
+  archivedAt: AWSDateTime
+  createdAt: AWSDateTime!
+  general: Boolean!
+  id: ID!
+  joined: Boolean!
+  lastMessage: ChannelMessage
+  mentionsMuted: Boolean!
+  moderates: Boolean!
+  moderator: Boolean!
+  muted: Boolean!
+  name: String!
+  retentionDays: Int!
+  slowModeSeconds: Int!
+  universe: String!
+  unread: Int!
+}
+
+type ChannelActivity @aws_cognito_user_pools @aws_iam @aws_lambda {
+  channel: Channel!
+  lastMessages: [ChannelMessage!]!
+  messages: Int!
+}
+
+type ChannelList @aws_cognito_user_pools @aws_iam @aws_lambda {
+  count: Int!
+  items: [Channel!]!
+  membersCreate: Boolean!
+}
+
+type ChannelMessage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  author: AccountRef!
+  authorId: ID!
+  changedAt: AWSDateTime
+  clip: Clip
+  createdAt: AWSDateTime!
+  deleted: Boolean!
+  deletedByModerator: Boolean!
+  display: String!
+  expiresAt: AWSDateTime!
+  id: ID!
+  images: [PostImage!]!
+  language: String
+  link: LinkPreview
+  mentionsChannel: Boolean!
+  respondsTo: ID
+  spans: [TextSpan!]!
+  text: String!
+  via: PostVia
+  voice: Voice
+}
+
+type ChannelMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  channel: Channel!
+  items: [ChannelMessage!]!
+  next: String
+}
+
+type ChannelProposal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  action: ChannelProposalAction!
+  name: String!
+  universe: String!
+}
+
+type ChannelReport @aws_cognito_user_pools @aws_iam @aws_lambda {
+  firstReportAt: AWSDateTime!
+  lastReportAt: AWSDateTime!
+  message: ChannelMessage!
+  messageId: ID!
+  reasons: [ReportReasonCount!]!
+  reportCount: Int!
+}
+
+type ChannelReportPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ChannelReport!]!
+  next: String
+}
+
+type ChannelWatch @aws_cognito_user_pools @aws_iam @aws_lambda {
+  channels: [LiveChannel!]!
+  until: AWSDateTime!
+}
+
+type ChannelWritingBan @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  by: AccountRef!
+  until: AWSDateTime!
+}
+
+type CheckoutStart @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accessFrom: AWSDateTime
+  expiresAt: AWSDateTime!
+  url: String!
+}
+
+type CliSignInCode @aws_cognito_user_pools @aws_iam {
+  code: String!
+  expiresAt: AWSDateTime!
+  username: String!
+}
+
+type Clip @aws_cognito_user_pools @aws_iam @aws_lambda {
+  durationMs: Int!
+  height: Int!
+  id: ID!
+  orientation: ClipOrientation!
+  posterUrl: String!
+  url: String!
+  width: Int!
+}
+
+type ClipFeedItem @aws_cognito_user_pools @aws_iam @aws_lambda {
+  post: Post!
+  recommendation: Recommendation
+  stage: ClipFeedStage!
+}
+
+type ClipFeedItemPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ClipFeedItem!]!
+  next: String
+}
+
+type ClipFeedSequencePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  endCardBefore: Boolean!
+  items: [ClipFeedItem!]!
+  next: String
+}
+
+type ClipPlay @aws_iam {
+  completed: Boolean!
+  playedMs: Int!
+  postId: ID!
+}
+
+type ConnectionRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  createdAt: AWSDateTime!
+  declinedOpenly: Boolean!
+  declinedReason: String
+  expiresAt: AWSDateTime!
+  messages: [RequestMessage!]!
+  mutedByMe: Boolean!
+  status: ConnectionRequestStatus!
+}
+
+type ConnectionRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ConnectionRequest!]!
+  next: String
+}
+
+type ConnectionState @aws_cognito_user_pools @aws_iam @aws_lambda {
+  blockedByMe: Boolean!
+  canInvite: Boolean!
+  canRequest: Boolean!
+  canWriteAtOnce: Boolean!
+  connected: Boolean!
+  declinedOpenly: Boolean!
+  declinedReason: String
+  mutedByMe: Boolean!
+  requestReceived: Boolean!
+  requestSent: Boolean!
+}
+
+type ContentMedia @aws_cognito_user_pools @aws_iam @aws_lambda {
+  arrival: Boolean!
+  clip: Boolean!
+  images: Int!
+  liveShare: Boolean!
+  meetUp: Boolean!
+  place: Boolean!
+  voice: Boolean!
+}
+
+type ConversationPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  ephemeral: EphemeralDuration!
+  items: [DirectMessage!]!
+  next: String
+  read: ReadMark
+}
+
+type DataCopyDownload @aws_cognito_user_pools @aws_iam @aws_lambda {
+  expiresAt: AWSDateTime!
+  url: AWSURL!
+}
+
+type DataCopyPart @aws_cognito_user_pools @aws_iam @aws_lambda {
+  bytes: Float!
+  number: Int!
+}
+
+type DataRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  cancellableUntil: AWSDateTime
+  dueAt: AWSDateTime!
+  expiresAt: AWSDateTime
+  finishedAt: AWSDateTime
+  id: ID!
+  kept: [KeptData!]!
+  kind: DataRequestKind!
+  parts: [DataCopyPart!]
+  requestedAt: AWSDateTime!
+  scope: BulkErasureScope
+  status: DataRequestStatus!
+}
+
+type DataRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [DataRequest!]!
+  next: String
+}
+
+type Debate @aws_cognito_user_pools @aws_iam @aws_lambda {
+  address: String!
+  byLeadership: Boolean!
+  closedBy: DebateClosedBy
+  endsAt: AWSDateTime!
+  extended: Boolean!
+  id: ID!
+  messageCount: Int!
+  name: String!
+  openedBy: AccountRef!
+  opensAt: AWSDateTime!
+  runningSummary: Summary
+  status: DebateStatus!
+  subject: String!
+  summary: Post
+  summaryAnswer: DebateSummaryAnswer
+  summaryDraft: Summary
+  support: ProposalSupport
+  supportedByMe: Boolean!
+  universe: String!
+}
+
+type DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  credentialsUpdatedAt: AWSDateTime!
+  deactivatedAt: AWSDateTime
+  id: ID!
+  interactions: [DelegatedAgentInteraction]
+  name: String!
+  status: DelegatedAgentStatus!
+  suspendedAt: AWSDateTime
+  universes: [String]
+}
+
+type DelegatedAgentAction @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  channel: String
+  conversationWith: ID
+  groupId: ID
+  groupName: String
+  id: ID!
+  kind: DelegatedAgentActionKind!
+  messageId: ID
+  postId: ID
+  snippet: String
+  subjectPostId: ID
+  universe: String
+}
+
+type DelegatedAgentActivity @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [DelegatedAgentAction!]!
+  next: String
+}
+
+type DelegatedAgentAllowance @aws_cognito_user_pools @aws_iam @aws_lambda {
+  allowance: Int!
+  createdLast24Hours: Int!
+  operated: Int!
+}
+
+type DelegatedAgentCredentials @aws_cognito_user_pools @aws_iam @aws_lambda {
+  agent: DelegatedAgent!
+  agentId: ID!
+  algorithm: String!
+  operatorId: ID!
+  privateKey: String!
+  signInUrl: String!
+}
+
+type DelegatedAgentSelf @aws_cognito_user_pools @aws_iam @aws_lambda {
+  attestationPermission: Boolean!
+  id: ID!
+  interactions: [DelegatedAgentInteraction]
+  name: String!
+  universes: [String]
+}
+
+type DeviceDisplayMode @aws_cognito_user_pools @aws_iam @aws_lambda {
+  device: String!
+  displayMode: DisplayMode!
+}
+
+type DirectMessage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  arrival: Arrival
+  authorId: ID!
+  changedAt: AWSDateTime
+  clip: Clip
+  createdAt: AWSDateTime!
+  deleted: Boolean!
+  deletedForMe: Boolean!
+  display: String!
+  expiresAt: AWSDateTime!
+  id: ID!
+  images: [PostImage!]!
+  language: String
+  link: LinkPreview
+  liveShare: LiveShareMarker
+  meetUp: MeetUp
+  pending: Boolean!
+  place: Place
+  respondsTo: ID
+  spans: [TextSpan!]!
+  text: String!
+  via: PostVia
+  voice: Voice
+}
+
+type DnsProof @aws_cognito_user_pools @aws_iam @aws_lambda {
+  expiresAt: AWSDateTime!
+  recordName: String!
+  recordType: String!
+  universe: String!
+  value: String!
+}
+
+type DoNotDisturb @aws_cognito_user_pools @aws_iam @aws_lambda {
+  end: String!
+  start: String!
+  timeZone: String!
+}
+
+type DraftPreview @aws_cognito_user_pools @aws_iam @aws_lambda {
+  document: AWSJSON!
+  draftId: ID!
+  endsAt: AWSDateTime!
+  universe: String!
+  version: Int!
+}
+
+type ExploreUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accounts: [AccountRef!]
+  count: Int
+  createdAt: AWSDateTime
+  description: String
+  field: UniverseField
+  image: PostImage
+  lastPostAt: AWSDateTime
+  nextLevel: GovernanceLevel
+  nextLevelThreshold: Int
+  postCount: Int
+  residentCount: Int
+  territory: Territory
+  universe: String!
+}
+
+type ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ExploreUniverse!]!
+  reason: String!
+  updatedAt: AWSDateTime
+}
+
+type ExposedPart @aws_cognito_user_pools @aws_iam @aws_lambda {
+  access: ExposedAccess!
+  universe: String!
+}
+
+type ExtraUsageCredit @aws_cognito_user_pools @aws_iam @aws_lambda {
+  expiresAt: AWSDateTime!
+  units: Int!
+}
+
+type FavoriteUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  alerts: Boolean!
+  description: String
+  image: PostImage
+  private: Boolean!
+  universe: String!
+}
+
+type FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [FavoriteUniverse!]!
+  offered: Boolean!
+}
+
+type FeedRemovalReview @aws_cognito_user_pools @aws_iam @aws_lambda {
+  backVotes: Int
+  endsAt: AWSDateTime!
+  keepVotes: Int
+  myVote: FeedRemovalVote
+  openedAt: AWSDateTime!
+  postId: ID!
+  status: FeedRemovalReviewStatus!
+  universe: String!
+}
+
+type FeedRemovalReviewPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [FeedRemovalReview!]!
+  next: String
+}
+
+type Follow @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: Account!
+  address: String!
+  createdAt: AWSDateTime!
+  universe: String
+}
+
+type FollowPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Follow!]!
+  next: String
+}
+
+type GiftCode @aws_cognito_user_pools @aws_iam {
+  amount: Int!
+  code: String!
+  currency: String!
+  expiresAt: AWSDateTime!
+  link: String!
+  months: Int!
+  purchasedAt: AWSDateTime!
+  refundableUntil: AWSDateTime!
+  status: GiftCodeStatus!
+  tier: PaidTier!
+  usedAt: AWSDateTime
+}
+
+type GiftCodePrice @aws_cognito_user_pools @aws_iam {
+  amount: Int!
+  currency: String!
+  months: Int!
+  tier: PaidTier!
+}
+
+type GovernanceRecord @aws_cognito_user_pools @aws_iam @aws_lambda {
+  actor: AccountRef
+  at: AWSDateTime!
+  byPlatform: Boolean!
+  channel: String
+  explanation: String
+  kind: GovernanceRecordKind!
+  leadership: Leadership
+  measure: String
+  proposal: Proposal
+  statementOfReasons: String
+}
+
+type GovernanceRecordPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [GovernanceRecord!]!
+  next: String
+}
+
+type GovernanceShare @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  share: Float!
+  suspendedUntil: AWSDateTime
+}
+
+type GovernanceText @aws_cognito_user_pools @aws_iam @aws_lambda {
+  adoptedAt: AWSDateTime!
+  proposalId: ID!
+  text: String!
+}
+
+type GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda {
+  announcement: Boolean!
+  createdAt: AWSDateTime!
+  creatorId: ID!
+  description: String
+  ephemeral: EphemeralDuration!
+  id: ID!
+  meetingPoint: Place
+  meetingPointUntil: AWSDateTime
+  memberCount: Int!
+  membersCanInvite: Boolean!
+  mentionsMuted: Boolean!
+  muted: Boolean!
+  myRole: GroupRole
+  name: String!
+}
+
+type GroupChatExpected @aws_iam {
+  announcement: Boolean
+  description: String
+  membersCanInvite: Boolean
+  name: String
+}
+
+type GroupEvent @aws_cognito_user_pools @aws_iam @aws_lambda {
+  actorId: ID!
+  name: String
+  target: AccountRef
+  targetId: ID
+  type: GroupEventType!
+}
+
+type GroupInvitation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  declinedReason: String
+  expiresAt: AWSDateTime!
+  group: GroupRef!
+  invitee: AccountRef!
+  inviter: AccountRef!
+  status: GroupInvitationStatus!
+}
+
+type GroupInvitationPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [GroupInvitation!]!
+  next: String
+}
+
+type GroupMember @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  joinedAt: AWSDateTime!
+  role: GroupRole!
+}
+
+type GroupMessage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  arrival: Arrival
+  author: AccountRef!
+  authorId: ID!
+  changedAt: AWSDateTime
+  clip: Clip
+  createdAt: AWSDateTime!
+  deleted: Boolean!
+  deletedByAdmin: Boolean!
+  deletedForMe: Boolean!
+  display: String!
+  event: GroupEvent
+  expiresAt: AWSDateTime!
+  id: ID!
+  images: [PostImage!]!
+  kind: GroupMessageKind!
+  language: String
+  link: LinkPreview
+  liveShare: LiveShareMarker
+  meetUp: MeetUp
+  place: Place
+  respondsTo: ID
+  spans: [TextSpan!]!
+  text: String!
+  via: PostVia
+  voice: Voice
+}
+
+type GroupMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  group: GroupChat!
+  items: [GroupMessage!]!
+  next: String
+  reads: [ReadMark!]!
+}
+
+type GroupRef @aws_cognito_user_pools @aws_iam @aws_lambda {
+  id: ID!
+  memberCount: Int!
+  name: String!
+}
+
+type HandleAvailability @aws_cognito_user_pools @aws_iam @aws_lambda {
+  available: Boolean!
+  handle: String!
+  reason: String
+}
+
+type HappeningNow @aws_cognito_user_pools @aws_iam @aws_lambda {
+  events: [UniverseEvent!]!
+  levelGoal: LevelGoal
+  secondRound: SecondRound
+  universe: String!
+  votes: [Proposal!]!
+}
+
+type ImageAttachment @aws_iam {
+  alt: String
+  id: ID!
+}
+
+type ImageUpload @aws_cognito_user_pools @aws_iam @aws_lambda {
+  fields: AWSJSON!
+  id: ID!
+  url: String!
+}
+
+type InboxItem @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef
+  group: GroupRef
+  kind: InboxItemKind!
+  lastAt: AWSDateTime!
+  lastFromMe: Boolean!
+  lastKind: InboxLastKind
+  lastText: String!
+  mutedByMe: Boolean!
+  unread: Boolean!
+}
+
+type InboxPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [InboxItem!]!
+  next: String
+  requests: Int!
+  unread: Int!
+}
+
+type InferredInterest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  field: UniverseField
+  kind: InterestKind!
+  tag: String
+  universe: String
+}
+
+type Interest @aws_iam {
+  consent: Boolean
+  field: UniverseField
+  tag: String
+  universe: String
+}
+
+type InterestConsent @aws_cognito_user_pools @aws_iam @aws_lambda {
+  givenAt: AWSDateTime!
+  interest: InferredInterest!
+}
+
+type InterestProfile @aws_cognito_user_pools @aws_iam @aws_lambda {
+  chosenFields: [UniverseField!]!
+  consents: [InterestConsent!]!
+  fieldChoiceOffered: Boolean!
+  inferred: [InferredInterest!]!
+}
+
+type InvitationLinkInfo @aws_cognito_user_pools @aws_iam @aws_lambda {
+  inviter: AccountRef
+  works: Boolean!
+}
+
+type InviteExceptionPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [AccountRef!]!
+  next: String
+}
+
+type JoinRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  createdAt: AWSDateTime!
+  expiresAt: AWSDateTime!
+  universe: String!
+}
+
+type JoinRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [JoinRequest!]!
+  next: String
+}
+
+type JoinRequestsAnswer @aws_cognito_user_pools @aws_iam @aws_lambda {
+  answered: Int!
+  waiting: Int!
+}
+
+type JurorVote @aws_cognito_user_pools @aws_iam @aws_lambda {
+  dismiss: Boolean!
+  outcome: AppealOutcome
+  reducedToDays: Int
+}
+
+type JuryDuty @aws_cognito_user_pools @aws_iam @aws_lambda {
+  answerBy: AWSDateTime!
+  articles: [Int!]!
+  askedAt: AWSDateTime
+  days: Int
+  drawnAt: AWSDateTime!
+  jury: Int!
+  kind: SanctionKind!
+  myVote: JurorVote
+  reasons: [ReportReason!]!
+  reviewStatus: SanctionReviewStatus
+  reviews: [SanctionReview!]!
+  sanctionId: ID!
+  sanctionedAt: AWSDateTime!
+  snippet: String
+  status: JurorStatus!
+  universe: String!
+}
+
+type JuryDutyPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [JuryDuty!]!
+  next: String
+}
+
+type KeptData @aws_cognito_user_pools @aws_iam @aws_lambda {
+  category: KeptDataCategory!
+  count: Int!
+  keptFor: String!
+}
+
+type Layout @aws_cognito_user_pools @aws_iam @aws_lambda {
+  collection: UniverseField
+  copiedFrom: LayoutRef
+  createdAt: AWSDateTime!
+  creator: AccountRef
+  deleted: Boolean!
+  description: String
+  document: AWSJSON!
+  name: String!
+  platform: Boolean!
+  registryVersion: Int!
+  screenshots: LayoutScreenshots
+  universe: String
+  universeCount: Int!
+  updatedAt: AWSDateTime!
+  version: Int!
+}
+
+type LayoutCatalogPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Layout!]!
+  next: String
+}
+
+type LayoutCheck @aws_cognito_user_pools @aws_iam @aws_lambda {
+  document: AWSJSON
+  refusals: [LayoutRefusal!]!
+}
+
+type LayoutCopy @aws_cognito_user_pools @aws_iam @aws_lambda {
+  draft: StudioDraft
+  layout: Layout
+}
+
+type LayoutRef @aws_cognito_user_pools @aws_iam @aws_lambda {
+  deleted: Boolean
+  name: String!
+  universe: String!
+  version: Int
+}
+
+type LayoutRefusal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  code: String!
+  limit: Int
+  path: String
+  widget: String
+}
+
+type LayoutRetouch @aws_cognito_user_pools @aws_iam @aws_lambda {
+  canvas: LayoutCanvasKind!
+  state: LayoutRetouchState
+  variant: String
+  widget: String!
+}
+
+type LayoutRetouches @aws_cognito_user_pools @aws_iam @aws_lambda {
+  device: String!
+  layout: LayoutRef!
+  retouches: [LayoutRetouch!]!
+  universe: String!
+}
+
+type LayoutScreenshot @aws_cognito_user_pools @aws_iam @aws_lambda {
+  url: String!
+  widths: [Int!]!
+}
+
+type LayoutScreenshots @aws_cognito_user_pools @aws_iam @aws_lambda {
+  desktop: LayoutScreenshot
+  phone: LayoutScreenshot
+  tablet: LayoutScreenshot
+}
+
+type Leadership @aws_cognito_user_pools @aws_iam @aws_lambda {
+  interimUntil: AWSDateTime
+  kind: LeadershipKind!
+  members: [GovernanceShare!]!
+  minTermEndsAt: AWSDateTime
+  since: AWSDateTime!
+  suspended: [GovernanceShare!]!
+  viaSecondRound: Boolean!
+}
+
+type LeadershipQuestion @aws_cognito_user_pools @aws_iam @aws_lambda {
+  answer: String
+  answerChangedAt: AWSDateTime
+  answeredAt: AWSDateTime
+  answeredBy: AccountRef
+  archivedAt: AWSDateTime!
+  author: AccountRef!
+  createdAt: AWSDateTime!
+  id: ID!
+  likeCount: Int!
+  likedByMe: Boolean!
+  text: String!
+  universe: String!
+}
+
+type LeadershipQuestionPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [LeadershipQuestion!]!
+  next: String
+}
+
+type LevelGoal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  aboveSince: AWSDateTime
+  nextLevel: GovernanceLevel!
+  residents: Int!
+  threshold: Int!
+}
+
+type LinkPreview @aws_cognito_user_pools @aws_iam @aws_lambda {
+  description: String
+  image: PostImage
+  siteName: String
+  title: String!
+  url: String!
+}
+
+type LiveChannel @aws_cognito_user_pools @aws_iam @aws_lambda {
+  channel: String!
+  shard: String!
+}
+
+type LiveLine @aws_cognito_user_pools @aws_iam @aws_lambda {
+  activity: UniverseActivity!
+  announcement: Post
+  debate: Debate
+  event: UniverseEvent
+  poll: Poll
+  universe: String!
+  vote: Proposal
+}
+
+type LivePosition @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID!
+  at: AWSDateTime!
+  point: Point!
+  secondsToMeetingPoint: Int
+  shareId: ID!
+}
+
+type LiveShare @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID!
+  endsAt: AWSDateTime!
+  eventId: ID
+  id: ID!
+  meetUpId: ID
+  meetingPoint: Place
+  startedAt: AWSDateTime!
+  target: ShareTarget!
+  targetId: ID!
+}
+
+type LiveShareMarker @aws_cognito_user_pools @aws_iam @aws_lambda {
+  ended: Boolean!
+  endsAt: AWSDateTime!
+  id: ID!
+  startedAt: AWSDateTime!
+}
+
+type LiveWatch @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID
+  channels: [LiveChannel!]!
+  tagKeys: [String!]!
+  universeKey: String
+  until: AWSDateTime!
+}
+
+type Locatable @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef
+  accountId: ID!
+  activity: String!
+  endsAt: AWSDateTime!
+  mapCell: String!
+  universe: String!
+  updatedAt: AWSDateTime!
+}
+
+type MeetUp @aws_cognito_user_pools @aws_iam @aws_lambda {
+  answers: [MeetUpAnswer!]!
+  at: AWSDateTime!
+  cancelled: Boolean!
+  changedAt: AWSDateTime
+  place: Place!
+  title: String
+}
+
+type MeetUpAnswer @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID!
+  answer: MeetUpAnswerKind!
+  at: AWSDateTime!
+}
+
+type MeetUpDetails @aws_iam {
+  at: AWSDateTime!
+  place: Place!
+  title: String
+}
+
+type MembersListing @aws_cognito_user_pools @aws_iam @aws_lambda {
+  listed: Boolean!
+  universe: String!
+}
+
+type MessagingSettings @aws_cognito_user_pools @aws_iam @aws_lambda {
+  agentRequests: String!
+  autoAccept: Boolean!
+  invitePolicy: String!
+  readReceipts: Boolean!
+  requestPolicy: String!
+  silentDecline: Boolean!
+}
+
+type ModerationLogEntry @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appealDecidedAt: AWSDateTime
+  appealOutcome: AppealOutcome
+  appealReasons: String
+  appealReviews: [SanctionReview!]!
+  appellant: AccountRef
+  articles: [Int!]!
+  automatic: Boolean!
+  channel: String
+  createdAt: AWSDateTime!
+  days: Int
+  hours: Int
+  id: ID!
+  kind: SanctionKind!
+  moderator: AccountRef
+  reasons: [ReportReason!]!
+}
+
+type ModerationLogPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ModerationLogEntry!]!
+  next: String
+}
+
+type MomentData @aws_cognito_user_pools @aws_iam @aws_lambda {
+  adopted: Boolean
+  explanation: String
+  level: GovernanceLevel
+  moderator: AccountRef
+  no: Int
+  note: String
+  proposalId: ID
+  proposalTitle: String
+  residents: Int
+  secondRound: Boolean
+  winner: AccountRef
+  yes: Int
+}
+
+type Mutation @aws_iam {
+  acceptConnectionRequest(accountId: ID!): ConnectionState @aws_cognito_user_pools @aws_iam @aws_lambda
+  acceptGroupChatInvitation(id: ID!): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  acceptUniverseConditions(conditionsVersion: Int!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  acceptUniverseInvitation(conditionsVersion: Int, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  addFavoriteUniverse(universe: String!): FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  addInterests(interests: [InterestInput!]!): InterestProfile! @aws_cognito_user_pools @aws_iam @aws_lambda
+  addInviteException(accountId: ID!): AccountRef @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerAllJoinRequests(accept: Boolean!, universe: String!): JoinRequestsAnswer @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerDebateSummary(approve: Boolean!, name: String!, universe: String!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerJoinRequest(accept: Boolean!, accountId: ID!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerJuryDraw(accept: Boolean!, sanctionId: ID!): JuryDuty @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerLeadershipQuestion(id: ID!, text: String!): LeadershipQuestion @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerMeetUp(answer: MeetUpAnswerKind!, messageId: ID!, target: ShareTarget!, targetId: ID!): MeetUp @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerNearbyConnection(accept: Boolean!, requestId: ID!): NearbyRequest @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerRepostRequest(accept: Boolean!, id: ID!, universe: String!): RepostRequest @aws_cognito_user_pools @aws_iam @aws_lambda
+  answerUniverseTransfer(accept: Boolean!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  appealSanction(id: ID!, publishName: Boolean): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  appointModerator(accountId: ID!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  approvePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  archiveChannel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  askLeadership(text: String!, universe: String!): LeadershipQuestion @aws_cognito_user_pools @aws_iam @aws_lambda
+  askProposalRefusalReview(proposalId: ID!): ProposalRefusal @aws_cognito_user_pools @aws_iam @aws_lambda
+  askSanctionReviews(sanctionId: ID!): JuryDuty @aws_cognito_user_pools @aws_iam @aws_lambda
+  askToJoinUniverse(conditionsVersion: Int, universe: String!): JoinRequest @aws_cognito_user_pools @aws_iam @aws_lambda
+  attendUniverseEvent(attending: Boolean!, id: ID!): UniverseEvent @aws_cognito_user_pools @aws_iam @aws_lambda
+  banFromUniverse(accountId: ID!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  becomeLocatable(activity: String!, lat: Float!, lon: Float!, minutes: Int!, universe: String!): Locatable @aws_cognito_user_pools @aws_iam @aws_lambda
+  billingPortal(returnPath: String): CheckoutStart @aws_cognito_user_pools @aws_iam
+  block(accountId: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  buyGiftCode(currency: String, months: Int!, returnPath: String, tier: PaidTier!): CheckoutStart @aws_cognito_user_pools @aws_iam
+  cancelBulkErasure(requestId: ID!): DataRequest! @aws_cognito_user_pools @aws_iam @aws_lambda
+  cancelMeetUp(messageId: ID!, target: ShareTarget!, targetId: ID!): MeetUp @aws_cognito_user_pools @aws_iam @aws_lambda
+  cancelUniverseDeletion(universe: String!): UniverseDeletion @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeChannelMessage(channel: String!, messageId: ID!, text: String!): ChannelMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeDirectMessage(accountId: ID!, id: ID!, text: String!): DirectMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeGroupChat(announcement: Boolean, description: String, expected: GroupChatExpectedInput, id: ID!, membersCanInvite: Boolean, name: String): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeGroupMessage(id: ID!, messageId: ID!, text: String!): GroupMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeHandle(handle: String!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeMeetUp(meetUp: MeetUpDetailsInput!, messageId: ID!, target: ShareTarget!, targetId: ID!): MeetUp @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeOperatorPlan(delegatedAgents: Int!): OperatorPlan @aws_iam @aws_lambda
+  changePassword(currentPassword: String!, newPassword: String!): Boolean @aws_cognito_user_pools @aws_iam
+  changePost(id: ID!, text: String!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  changePrivateUniverse(display: String, joinMode: PrivateUniverseJoinMode, legalSpace: String, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeProposal(id: ID!, text: String): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeSubscriptionTier(input: SubscriptionTierOfferInput!, tierId: ID!, universe: String!): SubscriptionTier @aws_cognito_user_pools @aws_iam @aws_lambda
+  changeUniverseEvent(id: ID!, link: String, minutes: Int, place: String, point: PointInput, removePoint: Boolean, removeRoute: Boolean, removeZone: Boolean, route: RouteInput, startsAt: AWSDateTime, title: String, zone: ZoneInput): UniverseEvent @aws_cognito_user_pools @aws_iam @aws_lambda
+  checkDnsProof(domain: String!): PrivateUniverseCreation @aws_cognito_user_pools @aws_iam @aws_lambda
+  chooseFields(consented: [UniverseField!], fields: [UniverseField!]!): InterestProfile! @aws_cognito_user_pools @aws_iam @aws_lambda
+  chooseTeamMemberTier(universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  closeDebate(name: String!, universe: String!): Debate @aws_cognito_user_pools @aws_iam @aws_lambda
+  confirmAccountDeletion(token: String!): AccountDeletion @aws_cognito_user_pools @aws_iam
+  confirmEmailChange(code: String!): Boolean @aws_cognito_user_pools @aws_iam
+  confirmNfcConnection(token: String!): NfcConnection @aws_cognito_user_pools @aws_iam @aws_lambda
+  copyLayout(as: String!, name: String!, target: String, universe: String!): LayoutCopy @aws_cognito_user_pools @aws_iam @aws_lambda
+  copyTheme(as: String!, name: String!, target: String, universe: String!): Theme @aws_cognito_user_pools @aws_iam @aws_lambda
+  createChannel(name: String!, universe: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  createCliSignInCode(challenge: String!, label: String): CliSignInCode @aws_cognito_user_pools @aws_iam
+  createDelegatedAgent(interactions: [DelegatedAgentInteraction], name: String!, universes: [String]): DelegatedAgentCredentials @aws_cognito_user_pools @aws_iam @aws_lambda
+  createGroupChat(description: String, invite: [ID!], name: String!): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  createPoll(choices: [String!]!, question: String!, universe: String!): Poll @aws_cognito_user_pools @aws_iam @aws_lambda
+  createPost(announcement: Boolean, clip: ID, images: [ImageAttachmentInput], link: String, replyPolicy: ReplyPolicy, requestId: ID, text: String!, universe: String): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  createPrivateUniverse(declarationKind: UniverseDeclarationKind, declarationReference: String, domain: String, hostedName: String, joinMode: PrivateUniverseJoinMode!, legalSpace: String!, memberTier: Int, subscriptionTier: SubscriptionTierOfferInput): PrivateUniverseCreation @aws_cognito_user_pools @aws_iam @aws_lambda
+  createUniverseEvent(link: AWSURL, minutes: Int!, place: String, point: PointInput, route: RouteInput, startsAt: AWSDateTime!, title: String!, universe: String!, zone: ZoneInput): UniverseEvent @aws_cognito_user_pools @aws_iam @aws_lambda
+  decideUniverseAppeal(outcome: AppealOutcome!, reasons: String!, reducedToDays: Int, sanctionId: ID!, universe: String!): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  declareUniverse(kind: UniverseDeclarationKind!, reference: String!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  declineConnectionRequest(accountId: ID!, openly: Boolean, reason: String): ConnectionState @aws_cognito_user_pools @aws_iam @aws_lambda
+  declineGroupChatInvitation(id: ID!, openly: Boolean, reason: String): GroupInvitation @aws_cognito_user_pools @aws_iam @aws_lambda
+  declineUniverseInvitation(universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteChannel(channel: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteChannelMessage(channel: String!, messageId: ID!): ChannelMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteConversation(accountId: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteDelegatedAgent(id: ID!): DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteDirectMessage(accountId: ID!, id: ID!): DirectMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteDirectMessageForMe(accountId: ID!, id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteGroupMessage(id: ID!, messageId: ID!): GroupMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteGroupMessageForMe(id: ID!, messageId: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteLayout(name: String!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deletePersonalTheme(name: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deletePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  deletePrivateUniverse(universe: String!): UniverseDeletion @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteStudioDraft(id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteTheme(name: String!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteUniverseEvent(id: ID!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  deleteUniversePage(name: String!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  dislikePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  dismissChannelMessageReports(channel: String!, messageId: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  dismissPostReports(id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  endDraftPreview(universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  endUniverseThemeTrial(universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  exposeUniverse(access: ExposedAccess, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  extendDebate(hours: Int!, name: String!, universe: String!): Debate @aws_cognito_user_pools @aws_iam @aws_lambda
+  fileProposal(accountId: ID, channel: ChannelProposalInput, dailyDigest: Boolean, description: String, display: String, field: UniverseField, foldingCoefficient: Float, kind: ProposalKind!, layoutRef: LayoutRefInput, local: String, logo: ImageAttachmentInput, maxModerators: Int, pinnedChannels: [String!], removeLogo: Boolean, removeTerritory: Boolean, removeWatermark: Boolean, searchWords: [String!], subUniverse: String, targetDate: AWSDate, territory: TerritoryChoiceInput, text: String, theme: ThemeRefInput, title: String!, universe: String!, votingMethod: String, watermark: WatermarkSettingInput): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  follow(address: String!): Follow @aws_cognito_user_pools @aws_iam @aws_lambda
+  forgetInterests(interests: [InterestInput!]): InterestProfile! @aws_cognito_user_pools @aws_iam @aws_lambda
+  forgetNotInterested(accountId: ID, postId: ID, scope: NotInterestedScope!, tag: String, universe: String): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  givePostingBan(accountId: ID!, article: Int, days: Int!, universe: String!): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  giveSubUniverseGovernance(accountId: ID!, powers: [SubUniversePower!]!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  giveWritingBan(accountId: ID!, article: Int, channel: String!, hours: Int!): ChannelWritingBan @aws_cognito_user_pools @aws_iam @aws_lambda
+  hideReply(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  hideUniverse(universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  importUniversePages(file: AWSJSON!, universe: String!): [StudioDraft!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  inviteToGroupChat(accountId: ID!, id: ID!, unblock: Boolean): GroupInvitation @aws_cognito_user_pools @aws_iam @aws_lambda
+  inviteToUniverse(accountId: ID, email: String, unblock: Boolean, universe: String!): UniverseInvitation @aws_cognito_user_pools @aws_iam @aws_lambda
+  joinChannel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  joinUniverse(universe: String!): Residence @aws_cognito_user_pools @aws_iam @aws_lambda
+  leaveChannel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  leaveGroupChat(id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  leaveNearby: Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  leaveUniverse(universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  lendVotes(accountId: ID!, universe: String!): MyVote @aws_cognito_user_pools @aws_iam @aws_lambda
+  liftUniverseBan(accountId: ID!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  liftWritingBan(accountId: ID!, channel: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  likeLeadershipQuestion(id: ID!): LeadershipQuestion @aws_cognito_user_pools @aws_iam @aws_lambda
+  likePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  makeUniverseLayout(draftId: ID!): UniverseAppearanceMade @aws_cognito_user_pools @aws_iam @aws_lambda
+  makeUniversePage(draftId: ID!): PageOfUniverse @aws_cognito_user_pools @aws_iam @aws_lambda
+  makeUniverseTheme(draftId: ID!): UniverseAppearanceMade @aws_cognito_user_pools @aws_iam @aws_lambda
+  markChannelRead(channel: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  markConversationRead(accountId: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  markGroupChatRead(id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  markLanding(universe: String!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  markNotificationsRead(all: Boolean, ids: [ID!]): Int @aws_cognito_user_pools @aws_iam @aws_lambda
+  moveChannel(before: String, name: String!, universe: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  moveFavoriteUniverse(before: String, universe: String!): FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  movePinnedPost(before: ID, postId: ID!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  moveUniversePage(before: String, name: String!, universe: String!): [PageOfUniverse!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  mute(accountId: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  muteChannel(channel: String!, mentions: Boolean): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  muteGroupChat(id: ID!, mentions: Boolean): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  nameChannelModerator(accountId: ID!, channel: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  nameGroupChatAdmin(accountId: ID!, id: ID!): GroupMember @aws_cognito_user_pools @aws_iam @aws_lambda
+  nearbyToken: NearbyToken @aws_cognito_user_pools @aws_iam @aws_lambda
+  nfcConnectionToken: NfcToken @aws_cognito_user_pools @aws_iam @aws_lambda
+  notInterested(postId: ID!, scope: NotInterestedScope!, tag: String): NotInterested @aws_cognito_user_pools @aws_iam @aws_lambda
+  offerSubscriptionTier(input: SubscriptionTierOfferInput!, universe: String!): SubscriptionTier @aws_cognito_user_pools @aws_iam @aws_lambda
+  openChannel(name: String!, universe: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  openDebate(hours: Int, name: String!, subject: String!, universe: String!): Debate @aws_cognito_user_pools @aws_iam @aws_lambda
+  pickPollChoice(choice: Int!, id: ID!): Poll @aws_cognito_user_pools @aws_iam @aws_lambda
+  pinPost(postId: ID!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  publishLayout(document: AWSJSON!, universe: String!): Layout @aws_cognito_user_pools @aws_iam @aws_lambda
+  publishLayoutVersion(document: AWSJSON!, name: String!, universe: String!): Layout @aws_cognito_user_pools @aws_iam @aws_lambda
+  publishTheme(theme: AWSJSON!, universe: String!): Theme @aws_cognito_user_pools @aws_iam @aws_lambda
+  publishThemeVersion(name: String!, theme: AWSJSON!, universe: String!): Theme @aws_cognito_user_pools @aws_iam @aws_lambda
+  publishUniversePage(page: AWSJSON!, universe: String!): PageOfUniverse @aws_cognito_user_pools @aws_iam @aws_lambda
+  quote(clip: ID, id: ID!, images: [ImageAttachmentInput], link: String, replyPolicy: ReplyPolicy, requestId: ID, text: String!, universe: String): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  reactivateDelegatedAgent(id: ID!): DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda
+  reactivateUniverse(universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  recordClipPlays(plays: [ClipPlayInput!]!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  recordOnboardingActivity(address: String, kind: OnboardingActivity!): Onboarding @aws_cognito_user_pools @aws_iam @aws_lambda
+  redeemGiftCode(code: String!): PaidSubscription @aws_cognito_user_pools @aws_iam
+  refundGiftCode(code: String!): GiftCode @aws_cognito_user_pools @aws_iam
+  regenerateDelegatedAgentCredentials(id: ID!): DelegatedAgentCredentials @aws_cognito_user_pools @aws_iam @aws_lambda
+  registerPushDevice(appVersion: String, environment: PushEnvironment, locale: String, platform: PushPlatform!, timeZone: String, token: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeChannelMessage(article: Int, channel: String!, messageId: ID!): ModerationLogEntry @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeChannelModerator(accountId: ID!, channel: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeConnection(accountId: ID!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeDebateMessage(article: Int, id: ID!, name: String!, universe: String!): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeFavoriteUniverse(universe: String!): FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeGroupChatAdmin(accountId: ID!, id: ID!): GroupMember @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeGroupChatMember(accountId: ID!, id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  removeInviteException(accountId: ID!): AccountRef @aws_cognito_user_pools @aws_iam @aws_lambda
+  removePostAsModerator(article: Int, id: ID!): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  renameDelegatedAgent(id: ID!, name: String!): DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda
+  renewPersonalInvitationLink: PersonalInvitationLink @aws_cognito_user_pools @aws_iam @aws_lambda
+  replyTo(clip: ID, id: ID!, images: [ImageAttachmentInput], link: String, requestId: ID, text: String!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportChannelMessage(article: Int, channel: String!, messageId: ID!, reason: ReportReason!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportDirectMessage(accountId: ID!, article: Int, id: ID!, reason: ReportReason!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportGroupChat(article: Int, id: ID!, reason: ReportReason!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportGroupMessage(article: Int, id: ID!, messageId: ID!, reason: ReportReason!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportLayout(article: Int, name: String!, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportLocatable(accountId: ID!, article: Int, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportNearbySightings(sightings: [NearbySightingInput!]!): [NearbyPerson!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportPost(article: Int, id: ID!, reason: ReportReason!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportProjectDone(proposalId: ID!): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportSearchWords(input: SearchWordsReportInput!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportTheme(article: Int, name: String!, part: ThemeReportPart, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportUniverseBanner(article: Int, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportUniversePage(article: Int, block: String, page: String!, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  reportUniverseTerritory(article: Int, reason: ReportReason!, universe: String!): Report @aws_cognito_user_pools @aws_iam @aws_lambda
+  repost(id: ID!, universe: String): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestAccountDeletion(handle: String!, locale: String, successors: [AccountDeletionSuccessorInput!]): AccountDeletionRequest @aws_cognito_user_pools @aws_iam
+  requestAvatarUpload(contentType: String!): AvatarUpload @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestBulkErasure(scope: BulkErasureScope!): DataRequest! @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestConnection(accountId: ID!, id: ID, text: String!, unblock: Boolean): ConnectionState @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestDataCopy(locale: String): DataRequest! @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestEmailChange(challenge: String, email: String!, locale: String): Boolean @aws_cognito_user_pools @aws_iam
+  requestImageUpload(contentType: String!, size: Int!): ImageUpload @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestNearbyConnection(token: String!): NearbyRequest @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestRectification(input: RectificationInput!): DataRequest! @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestRepost(id: ID!, target: String, text: String): RepostRequest @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestVideoUpload(contentType: String!, size: Int!): VideoUpload @aws_cognito_user_pools @aws_iam @aws_lambda
+  requestVoiceUpload(contentType: String!, size: Int!): VoiceUpload @aws_cognito_user_pools @aws_iam @aws_lambda
+  resetLayoutRetouches(device: String, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  restrictDelegatedAgent(id: ID!, interactions: [DelegatedAgentInteraction], universes: [String]): DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda
+  savePersonalTheme(theme: AWSJSON!): SavedTheme @aws_cognito_user_pools @aws_iam @aws_lambda
+  saveStudioDraft(document: AWSJSON!, id: ID, kind: StudioDraftKind!, universe: String): StudioDraft @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendArrival(groupChatId: ID, id: ID!, target: ShareTarget, targetId: ID, zoneName: String!): ID! @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendChannelMessage(channel: String!, clip: ID, images: [ImageAttachmentInput], link: String, messageId: ID, respondsTo: ID, text: String!, voice: ID): ChannelMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendDirectMessage(accountId: ID!, clip: ID, id: ID, images: [ImageAttachmentInput], link: String, respondsTo: ID, text: String!, unblock: Boolean, voice: ID): DirectMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendGroupMessage(clip: ID, id: ID!, images: [ImageAttachmentInput], link: String, messageId: ID, respondsTo: ID, text: String!, voice: ID): GroupMessage @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendLivePositions(points: [PositionInput!]!, shareId: ID!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendMeetUp(id: ID!, meetUp: MeetUpDetailsInput!, target: ShareTarget!, targetId: ID!): ID! @aws_cognito_user_pools @aws_iam @aws_lambda
+  sendPlace(place: PlaceInput!, target: ShareTarget!, targetId: ID!): ID! @aws_cognito_user_pools @aws_iam @aws_lambda
+  setAppealPublishName(id: ID!, publishName: Boolean!): Sanction @aws_cognito_user_pools @aws_iam @aws_lambda
+  setAutomaticRenewal(enabled: Boolean!): PaidSubscription @aws_cognito_user_pools @aws_iam
+  setBackupDelegate(accountId: ID, universe: String!): MyVote @aws_cognito_user_pools @aws_iam @aws_lambda
+  setBillingDay(input: BillingDayChoiceInput!, subscription: SubscriptionRefInput!): BillingDay @aws_cognito_user_pools @aws_iam @aws_lambda
+  setChannelAgents(channel: String!, forbidden: Boolean!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  setChannelCreation(membersCreate: Boolean!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setChannelSlowMode(channel: String!, seconds: Int!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  setConversationEphemeral(accountId: ID!, duration: EphemeralDuration!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setEmailFallback(enabled: Boolean!): NotificationSettings! @aws_cognito_user_pools @aws_iam @aws_lambda
+  setGroupChatEphemeral(duration: EphemeralDuration!, id: ID!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setLayoutRetouches(device: String, layout: LayoutRefInput!, retouches: [LayoutRetouchInput!]!, universe: String!): LayoutRetouches @aws_cognito_user_pools @aws_iam @aws_lambda
+  setListedOnMembersPage(listed: Boolean!, universe: String!): MembersListing @aws_cognito_user_pools @aws_iam @aws_lambda
+  setMeetingPoint(groupChatId: ID!, place: PlaceInput): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  setMessagingSettings(agentRequests: String, autoAccept: Boolean, invitePolicy: String, readReceipts: Boolean, requestPolicy: String, silentDecline: Boolean): MessagingSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  setNearbyLabel(label: String): String! @aws_cognito_user_pools @aws_iam @aws_lambda
+  setNotificationSettings(categories: [NotificationCategorySettingInput!], doNotDisturb: DoNotDisturbInput, mentionsAndRepliesFromFollowedOnly: Boolean, removeDoNotDisturb: Boolean): NotificationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  setOperatorPlanRenewal(enabled: Boolean!): OperatorPlan @aws_iam @aws_lambda
+  setPersonalTheme(accent: String, density: ThemeDensity, device: String, deviceDisplayMode: DisplayMode, displayMode: DisplayMode, motion: ThemeMotion, myThemeEverywhere: Boolean, postTransparency: PostTransparency, readableTypeface: Boolean, removeAccent: Boolean, removeDeviceDisplayMode: Boolean, sounds: Boolean, textScale: Float, theme: ThemeRefInput): PersonalTheme @aws_cognito_user_pools @aws_iam @aws_lambda
+  setPinnedChannels(channels: [String!]!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setProjectStatus(note: String!, proposalId: ID!, status: ProjectStatus!): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  setRecommendations(enabled: Boolean!): RecommendationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  setReplyPolicy(id: ID!, policy: ReplyPolicy!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  setTierSubscriptionRenewal(enabled: Boolean!, universe: String!): TierSubscription @aws_cognito_user_pools @aws_iam
+  setTranslationSettings(auto: Boolean, languages: [String!], privateByPlatform: Boolean): TranslationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseAdmin(accountId: ID!, admin: Boolean!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseAlerts(alerts: Boolean!, universe: String!): FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseConditions(text: String!, universe: String!): UniverseText @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseDisplay(display: String!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseField(field: UniverseField!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseIdentity(banner: ImageAttachmentInput, bannerNight: ImageAttachmentInput, logo: ImageAttachmentInput, removeBanner: Boolean, removeBannerNight: Boolean, removeLogo: Boolean, removeWatermark: Boolean, universe: String!, watermark: WatermarkSettingInput): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseManifesto(text: String!, universe: String!): UniverseText @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniversePageHidden(hidden: Boolean!, name: String!, universe: String!): PageOfUniverse @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseProfile(defaultLayout: UniverseLayout, description: String, firstFocus: UniverseFocus, image: ImageAttachmentInput, layoutRef: LayoutRefInput, readerRetouches: Boolean, removeDefaultLayout: Boolean, removeFirstFocus: Boolean, removeImage: Boolean, removeLayoutRef: Boolean, switcherLayouts: [LayoutRefInput!], theme: ThemeRefInput, universe: String!, universeStrip: Boolean): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseReputation(foldingCoefficient: Float, turnedOn: Boolean, universe: String!): PrivateUniverseReputation @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseSearchWords(universe: String!, words: [String!]!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseSuccessors(accountIds: [ID!]!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  setUniverseTerritory(boundaryId: String, kind: String, name: String, remove: Boolean, territory: TerritoryChoiceInput, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  setVoteReception(accept: Boolean!, everywhere: Boolean, universe: String!): MyVote @aws_cognito_user_pools @aws_iam @aws_lambda
+  signOutEverywhere: Boolean @aws_cognito_user_pools @aws_iam
+  skipFavoriteUniverses: FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  skipOnboarding: Onboarding @aws_cognito_user_pools @aws_iam @aws_lambda
+  startDraftPreview(draftId: ID!): DraftPreview @aws_cognito_user_pools @aws_iam @aws_lambda
+  startLiveShare(minutes: Int, target: ShareTarget!, targetId: ID!, untilEventId: ID, untilMeetUpId: ID): LiveShare @aws_cognito_user_pools @aws_iam @aws_lambda
+  startOnboarding: Onboarding @aws_cognito_user_pools @aws_iam @aws_lambda
+  startOperatorPlan(currency: String, delegatedAgents: Int!, interval: BillingInterval, returnPath: String): CheckoutStart @aws_iam @aws_lambda
+  startSubscription(automaticRenewal: Boolean!, currency: String, interval: BillingInterval!, returnPath: String, tier: PaidTier!): CheckoutStart @aws_cognito_user_pools @aws_iam
+  startTierSubscription(input: TierSubscriptionStartInput!, universe: String!): CheckoutStart @aws_cognito_user_pools @aws_iam @aws_lambda
+  startUniverseThemeTrial(draftId: ID!): UniverseThemeTrial @aws_cognito_user_pools @aws_iam @aws_lambda
+  stepDownAsGroupChatAdmin(id: ID!): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  stopLiveShare(shareId: ID!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  stopLocatable(universe: String!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  supportDebate(name: String!, universe: String!): Debate @aws_cognito_user_pools @aws_iam @aws_lambda
+  supportPoll(id: ID!): Poll @aws_cognito_user_pools @aws_iam @aws_lambda
+  supportProposal(id: ID!): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  supportUniverseEvent(id: ID!): UniverseEvent @aws_cognito_user_pools @aws_iam @aws_lambda
+  suspendDelegatedAgent(id: ID!): DelegatedAgent @aws_cognito_user_pools @aws_iam @aws_lambda
+  transferUniverse(accountId: ID!, universe: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  tryTheme(name: String!, universe: String!): PersonalTheme @aws_cognito_user_pools @aws_iam @aws_lambda
+  typing(accountId: ID, groupId: ID): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  unarchiveChannel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  unblock(accountId: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  undislikePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  undoThemeTry: PersonalTheme @aws_cognito_user_pools @aws_iam @aws_lambda
+  unfollow(address: String!): Follow @aws_cognito_user_pools @aws_iam @aws_lambda
+  unhideReply(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  unlikeLeadershipQuestion(id: ID!): LeadershipQuestion @aws_cognito_user_pools @aws_iam @aws_lambda
+  unlikePost(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  unmute(accountId: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  unmuteChannel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  unmuteGroupChat(id: ID!): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  unpinAnnouncement(postId: ID!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  unpinPost(postId: ID!, universe: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  unregisterPushDevice(token: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  updateLocatableCell(lat: Float!, lon: Float!, universe: String!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  updateProfile(expected: ProfileExpectedInput, input: ProfileUpdateInput!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  verifySellerIdentity(returnPath: String): CheckoutStart @aws_cognito_user_pools @aws_iam
+  voteAsJuror(dismiss: Boolean, outcome: AppealOutcome, reasons: String, reducedToDays: Int, sanctionId: ID!): JuryDuty @aws_cognito_user_pools @aws_iam @aws_lambda
+  voteOnFeedRemovalReview(postId: ID!, vote: FeedRemovalVote!): FeedRemovalReview @aws_cognito_user_pools @aws_iam @aws_lambda
+  voteOnProposal(candidate: ID, id: ID!, yes: Boolean): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  watchChannel(channel: String!): ChannelWatch @aws_cognito_user_pools @aws_iam @aws_lambda
+  watchLive(address: String, threadId: ID): LiveWatch @aws_cognito_user_pools @aws_iam @aws_lambda
+  welcomeResident(accountId: ID!, universe: String!): NewResident @aws_cognito_user_pools @aws_iam @aws_lambda
+  withdrawFromJury(sanctionId: ID!): JuryDuty @aws_cognito_user_pools @aws_iam @aws_lambda
+  withdrawProposal(id: ID!): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  withdrawSubscriptionTier(tierId: ID!, universe: String!): SubscriptionTier @aws_cognito_user_pools @aws_iam @aws_lambda
+  withdrawVotes(universe: String!): MyVote @aws_cognito_user_pools @aws_iam @aws_lambda
+}
+
+type MyGroupChat @aws_cognito_user_pools @aws_iam @aws_lambda {
+  group: GroupRef!
+  lastAt: AWSDateTime!
+  lastFromMe: Boolean!
+  lastKind: InboxLastKind
+  lastText: String!
+  mutedByMe: Boolean!
+  unread: Boolean!
+}
+
+type MyGroupChatPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [MyGroupChat!]!
+  next: String
+}
+
+type MyInteractions @aws_cognito_user_pools @aws_iam @aws_lambda {
+  delegatedAgents: Int
+  favoriteUniverses: Int
+  followers: Int
+  following: Int
+  likes: Int
+  posts: Int
+  privateUniverses: Int
+  proposals: Int
+  replies: Int
+  reports: Int
+  reposts: Int
+  residences: Int
+  sanctions: Int
+  votesCast: Int
+}
+
+type MyJoinRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  expiresAt: AWSDateTime!
+  status: MyJoinRequestStatus!
+}
+
+type MyUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  deletedAt: AWSDateTime
+  deletedForGoodAt: AWSDateTime
+  description: String
+  image: PostImage
+  joinedAt: AWSDateTime!
+  role: UniverseRole!
+  universe: String!
+}
+
+type MyUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [MyUniverse!]!
+  next: String
+}
+
+type MyVote @aws_cognito_user_pools @aws_iam @aws_lambda {
+  acceptBlockedUntil: AWSDateTime
+  askedToChoose: Boolean!
+  backup: AccountRef
+  canLendAt: AWSDateTime
+  chain: [AccountRef!]!
+  holds: Int!
+  lentAt: AWSDateTime
+  lentTo: AccountRef
+  reception: VoteReception
+  receptionEverywhere: VoteReception
+  refusesVotes: Boolean!
+  universe: String!
+}
+
+type NearbyPerson @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  closeness: NearbyCloseness!
+  connected: Boolean!
+  label: String!
+  lastSeenAt: AWSDateTime!
+  token: String!
+}
+
+type NearbyRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  expiresAt: AWSDateTime!
+  from: AccountRef!
+  fromLabel: String!
+  id: ID!
+  status: NearbyRequestStatus!
+  to: AccountRef!
+  toLabel: String!
+}
+
+type NearbySighting @aws_iam {
+  closeness: NearbyCloseness!
+  token: String!
+}
+
+type NearbyToken @aws_cognito_user_pools @aws_iam @aws_lambda {
+  expiresAt: AWSDateTime!
+  token: String!
+}
+
+type NewPosts @aws_cognito_user_pools @aws_iam @aws_lambda {
+  authors: [AccountRef!]!
+  count: Int!
+}
+
+type NewResident @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  joinedAt: AWSDateTime!
+  welcomeCount: Int!
+  welcomedByMe: Boolean!
+}
+
+type NextPaidPeriod @aws_cognito_user_pools @aws_iam {
+  automaticRenewal: Boolean!
+  from: AWSDateTime!
+  kind: NextPaidPeriodKind!
+  paidUntil: AWSDateTime!
+  tier: PaidTier!
+}
+
+type NfcCheck @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID!
+  possible: Boolean!
+}
+
+type NfcConnection @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID!
+  status: NfcConnectionStatus!
+}
+
+type NfcToken @aws_cognito_user_pools @aws_iam @aws_lambda {
+  expiresAt: AWSDateTime!
+  token: String!
+}
+
+type NotInterested @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef
+  post: PostRef
+  scope: NotInterestedScope!
+  since: AWSDateTime!
+  tag: String
+  universe: String
+  until: AWSDateTime
+}
+
+type Notification @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accepted: Boolean
+  actorFollowedByMe: Boolean
+  actors: [AccountRef!]!
+  category: NotificationCategory!
+  channel: String
+  conversationWith: ID
+  count: Int!
+  createdAt: AWSDateTime!
+  dataRequest: NotificationDataRequest
+  days: Int
+  debate: String
+  eventId: ID
+  eventPlace: String
+  eventStartsAt: AWSDateTime
+  eventZone: Zone
+  group: GroupRef
+  id: ID!
+  kind: NotificationKind!
+  level: GovernanceLevel
+  link: String!
+  mandatory: Boolean!
+  measure: NotificationMeasure
+  meetUp: NotificationMeetUp
+  message: NotificationSnippet
+  note: String
+  post: NotificationSnippet
+  postId: ID
+  proposalId: ID
+  rank: Int
+  read: Boolean!
+  sanction: NotificationSanction
+  status: ProjectStatus
+  subject: NotificationSnippet
+  tierPrice: NotificationTierPrice
+  universe: String
+  updatedAt: AWSDateTime!
+  waiting: Boolean
+}
+
+type NotificationCategorySetting @aws_cognito_user_pools @aws_iam @aws_lambda {
+  category: NotificationCategory!
+  setting: NotificationCategorySettingValue!
+}
+
+type NotificationDataRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  answer: String
+  expiresAt: AWSDateTime
+  id: ID!
+  kept: [KeptData!]
+  kind: DataRequestKind!
+  parts: Int
+  scope: BulkErasureScope
+}
+
+type NotificationMeasure @aws_cognito_user_pools @aws_iam @aws_lambda {
+  action: String!
+  article: Int
+  automated: Boolean!
+  statement: String!
+}
+
+type NotificationMeetUp @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  cancelled: Boolean!
+  changed: Boolean!
+  place: Place!
+  title: String
+}
+
+type NotificationPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Notification!]!
+  next: String
+  unread: Int!
+}
+
+type NotificationSanction @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appealOutcome: AppealOutcome
+  appealableUntil: AWSDateTime!
+  articles: [Int!]!
+  automatic: Boolean!
+  days: Int
+  endsAt: AWSDateTime
+  hours: Int
+  id: ID!
+  kind: SanctionKind!
+}
+
+type NotificationSettings @aws_cognito_user_pools @aws_iam @aws_lambda {
+  categories: [NotificationCategorySetting!]!
+  doNotDisturb: DoNotDisturb
+  emailFallback: Boolean!
+  mentionsAndRepliesFromFollowedOnly: Boolean!
+}
+
+type NotificationSnippet @aws_cognito_user_pools @aws_iam @aws_lambda {
+  display: String!
+  id: ID!
+  media: ContentMedia
+}
+
+type NotificationTierPrice @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appliesAt: AWSDateTime!
+  price: TierPrice!
+  tier: String!
+}
+
+type Onboarding @aws_cognito_user_pools @aws_iam @aws_lambda {
+  addressesVisited: Int!
+  completedAt: AWSDateTime
+  endsAt: AWSDateTime
+  offered: Boolean!
+  skipped: Boolean!
+  startedAt: AWSDateTime
+  status: OnboardingStatus
+  steps: [OnboardingStep!]!
+}
+
+type OnboardingStep @aws_cognito_user_pools @aws_iam @aws_lambda {
+  completed: Boolean!
+  completedAt: AWSDateTime
+  helpSlug: String!
+  kind: OnboardingStepKind!
+}
+
+type OperatorPlan @aws_iam @aws_lambda {
+  automaticRenewal: Boolean!
+  billingDay: BillingDay
+  delegatedAgents: Int!
+  interval: BillingInterval!
+  nextDelegatedAgents: Int
+  nextFrom: AWSDateTime
+  paidUntil: AWSDateTime!
+  payerId: ID!
+  provider: String!
+  status: SubscriptionStatus!
+}
+
+type OperatorPlanOffer @aws_iam @aws_lambda {
+  blockPrice: OperatorPlanPrice
+  prices: [OperatorPlanPrice!]!
+  providers: [String!]!
+}
+
+type OperatorPlanPrice @aws_iam @aws_lambda {
+  amount: Int!
+  currency: String!
+  delegatedAgents: Int!
+  interval: BillingInterval!
+}
+
+type PageOfUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  document: AWSJSON
+  hidden: Boolean!
+  icon: String
+  kind: PageOfUniverseKind!
+  modifiedAt: AWSDateTime
+  name: String!
+  order: Int
+  removed: Boolean!
+  universe: String!
+  url: AWSURL!
+  version: Int
+}
+
+type PaidSubscription @aws_cognito_user_pools @aws_iam {
+  automaticRenewal: Boolean!
+  billingDay: BillingDay
+  interval: BillingInterval!
+  next: NextPaidPeriod
+  paidUntil: AWSDateTime!
+  payerId: ID!
+  provider: String!
+  status: SubscriptionStatus!
+  tier: PaidTier!
+}
+
+type PendingBillingDay @aws_cognito_user_pools @aws_iam @aws_lambda {
+  amount: Int!
+  currency: String!
+  day: Int!
+  month: Int
+}
+
+type PersonalInvitationLink @aws_cognito_user_pools @aws_iam @aws_lambda {
+  code: String!
+  createdAt: AWSDateTime!
+  credited24h: Int!
+  creditedTotal: Int!
+  url: AWSURL!
+}
+
+type PersonalTheme @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accent: String
+  accentDay: String
+  accentNight: String
+  density: ThemeDensity!
+  deviceDisplayMode: DisplayMode
+  deviceDisplayModes: [DeviceDisplayMode!]!
+  displayMode: DisplayMode!
+  formerTheme: ThemeRef
+  motion: ThemeMotion!
+  myThemeEverywhere: Boolean!
+  postTransparency: PostTransparency!
+  readableTypeface: Boolean!
+  savedCount: Int!
+  sounds: Boolean!
+  textScale: Float!
+  theme: ThemeRef!
+  triedTheme: ThemeRef
+  tryEndsAt: AWSDateTime
+}
+
+type Place @aws_cognito_user_pools @aws_iam @aws_lambda {
+  lat: Float!
+  lon: Float!
+  name: String!
+  point: Point
+}
+
+type PlaceMatch @aws_cognito_user_pools @aws_iam @aws_lambda {
+  address: String
+  id: String
+  kind: String
+  localName: String
+  name: String!
+  point: Point!
+  universes: [String!]!
+}
+
+type PlatformSearchWord @aws_cognito_user_pools @aws_iam @aws_lambda {
+  language: String!
+  text: String!
+}
+
+type Point @aws_cognito_user_pools @aws_iam @aws_lambda {
+  lat: Float!
+  lon: Float!
+}
+
+type Poll @aws_cognito_user_pools @aws_iam @aws_lambda {
+  author: AccountRef!
+  byLeadership: Boolean!
+  choices: [String!]!
+  createdAt: AWSDateTime!
+  endsAt: AWSDateTime
+  id: ID!
+  myChoice: Int
+  opensAt: AWSDateTime
+  question: String!
+  status: PollStatus!
+  supportedByMe: Boolean!
+  supporters: Int!
+  totals: [Int!]
+  universe: String!
+}
+
+type PollPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Poll!]!
+  next: String
+}
+
+type Position @aws_iam {
+  at: AWSDateTime!
+  lat: Float!
+  lon: Float!
+  secondsToMeetingPoint: Int
+}
+
+type Post @aws_cognito_user_pools @aws_iam @aws_lambda {
+  address: String!
+  ai: Boolean!
+  announcementPinnedUntil: AWSDateTime
+  author: AccountRef!
+  authorRole: PostAuthorRole
+  awaitingApproval: Boolean!
+  changedAt: AWSDateTime
+  clip: Clip
+  createdAt: AWSDateTime!
+  deleted: Boolean!
+  digestOf: AWSDate
+  dislikeCount: Int
+  dislikedByMe: Boolean!
+  display: String!
+  endsAt: AWSDateTime!
+  folded: Boolean!
+  hidden: Boolean!
+  hiddenReplyCount: Int!
+  id: ID!
+  images: [PostImage!]!
+  kind: PostKind!
+  language: String
+  likeCount: Int!
+  likedByMe: Boolean!
+  link: LinkPreview
+  moment: MomentKind
+  momentData: MomentData
+  original: PostOriginal
+  parentAuthor: AccountRef
+  parentId: ID
+  projectOf: Proposal
+  removedFromFeeds: Boolean!
+  replyCount: Int!
+  replyPolicy: ReplyPolicy!
+  reportedByMe: [ReportKind!]!
+  repostCount: Int!
+  rules: RulesPost
+  spans: [TextSpan!]!
+  tags: [String!]!
+  temporaryRules: Boolean!
+  text: String!
+  threadId: ID
+  universe: String!
+  url: AWSURL!
+  versions: [PostVersion!]!
+  via: PostVia
+  viaHandle: String
+}
+
+type PostImage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  alt: String
+  animated: Boolean!
+  blurhash: String!
+  height: Int!
+  id: ID!
+  url: String!
+  width: Int!
+  widths: [Int!]!
+}
+
+type PostOriginal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  address: String!
+  author: AccountRef!
+  clip: Clip
+  createdAt: AWSDateTime!
+  deleted: Boolean!
+  display: String!
+  id: ID!
+  images: [PostImage!]!
+  spans: [TextSpan!]!
+  unavailable: Boolean
+}
+
+type PostPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Post!]!
+  next: String
+  reason: String
+}
+
+type PostRef @aws_cognito_user_pools @aws_iam @aws_lambda {
+  id: ID!
+  url: AWSURL!
+}
+
+type PostVersion @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  display: String!
+  spans: [TextSpan!]!
+}
+
+type PostVia @aws_cognito_user_pools @aws_iam @aws_lambda {
+  agentName: String!
+}
+
+type PrivateUniverseCreation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  dnsProof: DnsProof
+  status: PrivateUniverseCreationStatus!
+  universe: Universe
+}
+
+type PrivateUniverseReputation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appliesFrom: AWSDateTime
+  foldingCoefficient: Float!
+  maxCoefficient: Float!
+  minCoefficient: Float!
+  threshold: Int!
+  turnedOn: Boolean!
+  universe: String!
+}
+
+type ProfileExpected @aws_iam {
+  aiDescription: String
+  avatarKey: String
+  bio: String
+  displayName: String
+  links: [ProfileLink]
+  organizationName: String
+}
+
+type ProfileLink @aws_cognito_user_pools @aws_iam @aws_lambda {
+  label: String
+  url: String!
+}
+
+type ProfileUpdate @aws_iam {
+  aiDescription: String
+  avatarKey: String
+  bio: String
+  displayName: String
+  links: [ProfileLink]
+  organizationName: String
+  removeAvatar: Boolean
+}
+
+type Project @aws_cognito_user_pools @aws_iam @aws_lambda {
+  doneAt: AWSDateTime
+  note: String
+  noteAt: AWSDateTime
+  noteBy: AccountRef
+  reportedDoneAt: AWSDateTime
+  status: ProjectStatus!
+}
+
+type Proposal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef
+  annulledAt: AWSDateTime
+  annulledReason: String
+  author: AccountRef!
+  byLeadership: Boolean!
+  candidateVotes: [Int!]
+  candidates: [AccountRef!]
+  channel: ChannelProposal
+  createdAt: AWSDateTime!
+  dailyDigest: Boolean
+  description: String
+  display: String
+  endsAt: AWSDateTime
+  field: UniverseField
+  foldingCoefficient: Float
+  id: ID!
+  kind: ProposalKind!
+  layoutRef: LayoutRef
+  local: String
+  logo: PostImage
+  maxModerators: Int
+  myBallot: String
+  notApplied: String
+  opensAt: AWSDateTime
+  participation: VoteParticipation
+  pinnedChannels: [String!]
+  project: Project
+  projectPost: PostRef
+  quorum: Float
+  removeLogo: Boolean
+  removeTerritory: Boolean
+  removeWatermark: Boolean
+  result: ProposalResult
+  searchWords: [String!]
+  status: ProposalStatus!
+  subUniverse: String
+  support: ProposalSupport
+  supportedByMe: Boolean!
+  targetDate: AWSDate
+  territory: Territory
+  text: String
+  theme: ThemeRef
+  title: String!
+  universe: String!
+  votingMethod: String
+  watermark: Watermark
+  winner: AccountRef
+}
+
+type ProposalPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Proposal!]!
+  next: String
+}
+
+type ProposalRefusal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  explanation: String
+  filedProposalId: ID
+  ground: ProposalRefusalGround!
+  proposalId: ID!
+  refusedAt: AWSDateTime!
+  reviewAskedAt: AWSDateTime
+  reviewOutcome: ProposalRefusalOutcome
+  reviewStatement: String
+  title: String!
+  universe: String!
+}
+
+type ProposalResult @aws_cognito_user_pools @aws_iam @aws_lambda {
+  cast: Int!
+  no: Int!
+  participation: Float!
+  voters: Int!
+  yes: Int!
+}
+
+type ProposalSupport @aws_cognito_user_pools @aws_iam @aws_lambda {
+  inVotes: Boolean!
+  needed: Int!
+  supporters: Int!
+  votes: Int!
+}
+
+type PublicInvitationLink @aws_iam {
+  inviter: AccountRef
+  works: Boolean!
+}
+
+type Query @aws_iam {
+  account(id: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  accountByHandle(handle: String!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  accountById(id: ID!): Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  accounts(ids: [ID]!): [Account] @aws_cognito_user_pools @aws_iam @aws_lambda
+  accountsToFollow: AccountToFollowPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  activeUniverses: ActiveUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  appliedLayout(device: String, page: PageOfUniverseKind, switcher: LayoutRefInput, universe: String!): AppliedLayout @aws_cognito_user_pools @aws_iam @aws_lambda
+  approvedTypefaces: [Typeface!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  billingDayOffer(input: BillingDayChoiceInput!, subscription: SubscriptionRefInput!): BillingDayOffer @aws_cognito_user_pools @aws_iam @aws_lambda
+  blockedAccounts(after: String): AccountPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  channel(channel: String!): Channel @aws_cognito_user_pools @aws_iam @aws_lambda
+  channelMessageChanges(after: String, channel: String!, since: AWSDateTime!): ChannelMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  channelMessages(after: String, channel: String!): ChannelMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  channelModerators(channel: String!): [AccountRef!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  channelReports(after: String, channel: String!): ChannelReportPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  channelWritingBans(channel: String!): [ChannelWritingBan!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  channels(allLevels: Boolean, universe: String!): ChannelList @aws_cognito_user_pools @aws_iam @aws_lambda
+  checkLayout(document: AWSJSON!, universe: String!): LayoutCheck @aws_cognito_user_pools @aws_iam @aws_lambda
+  checkNfcConnection(token: String!): NfcCheck @aws_cognito_user_pools @aws_iam @aws_lambda
+  clipFeed(address: String, after: String, limit: Int): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  clipFeedSequence(address: String, after: String, language: String, limit: Int): ClipFeedSequencePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  connectedAccounts(after: String): AccountPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  connectionRequests(after: String, sent: Boolean): ConnectionRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  connectionState(accountId: ID!): ConnectionState @aws_cognito_user_pools @aws_iam @aws_lambda
+  connectionStates(accountIds: [ID!]!): [ConnectionState!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  conversation(accountId: ID!, after: String): ConversationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  conversationChanges(accountId: ID!, after: String, since: AWSDateTime!): ConversationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  dataCopyDownload(part: Int!, requestId: ID!): DataCopyDownload! @aws_cognito_user_pools @aws_iam @aws_lambda
+  debate(name: String!, universe: String!): Debate @aws_cognito_user_pools @aws_iam @aws_lambda
+  debates(universe: String!): [Debate!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  delegatedAgentActivity(after: String, id: ID!): DelegatedAgentActivity @aws_cognito_user_pools @aws_iam @aws_lambda
+  delegatedAgentAllowance: DelegatedAgentAllowance @aws_cognito_user_pools @aws_iam @aws_lambda
+  delegatedAgents: [DelegatedAgent] @aws_cognito_user_pools @aws_iam @aws_lambda
+  exportUniversePages(universe: String!): AWSJSON @aws_cognito_user_pools @aws_iam @aws_lambda
+  exportUniversePosts(after: String, universe: String!): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  favoriteUniverses: FavoriteUniverses @aws_cognito_user_pools @aws_iam @aws_lambda
+  feedRemovalReviews(after: String, universe: String!): FeedRemovalReviewPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  followers(accountId: ID!, after: String): AccountPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  following(accountId: ID!, after: String): FollowPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  giftCodeOffer(currency: String): [GiftCodePrice!]! @aws_cognito_user_pools @aws_iam
+  governanceHistory(after: String, universe: String!): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  governanceRecord(after: String, universe: String!): GovernanceRecordPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  groupChat(id: ID!): GroupChat @aws_cognito_user_pools @aws_iam @aws_lambda
+  groupChatInvitations(after: String, sent: Boolean): GroupInvitationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  groupChatMembers(id: ID!): [GroupMember!] @aws_cognito_user_pools @aws_iam @aws_lambda
+  groupMessageChanges(after: String, id: ID!, since: AWSDateTime!): GroupMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  groupMessages(after: String, id: ID!): GroupMessagePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  handleAvailability(handle: String!): HandleAvailability @aws_cognito_user_pools @aws_iam @aws_lambda
+  happeningNow(universe: String!): HappeningNow @aws_cognito_user_pools @aws_iam @aws_lambda
+  inbox(after: String): InboxPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  invitationLink(code: String!): InvitationLinkInfo @aws_cognito_user_pools @aws_iam @aws_lambda
+  inviteExceptions(after: String): InviteExceptionPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  isFollowing(address: String!): Boolean @aws_cognito_user_pools @aws_iam @aws_lambda
+  joinRequests(after: String, universe: String!): JoinRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  landedIn(universe: String!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  layout(name: String!, universe: String!): Layout @aws_cognito_user_pools @aws_iam @aws_lambda
+  layoutCatalog(after: String, collection: UniverseField, order: ThemeCatalogOrder, query: String, universe: String): LayoutCatalogPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  leadershipQuestions(after: String, archived: Boolean, universe: String!): LeadershipQuestionPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  linkPreview(url: String!): LinkPreview @aws_cognito_user_pools @aws_iam @aws_lambda
+  listedOnMembersPage(universe: String!): Boolean! @aws_cognito_user_pools @aws_iam @aws_lambda
+  liveLine(universe: String!): LiveLine @aws_cognito_user_pools @aws_iam @aws_lambda
+  livePositions(shareIds: [ID!]!): [LivePosition!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  liveShares(target: ShareTarget!, targetId: ID!): [LiveShare!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  locatableResidents(parentCells: [String!]!, universe: String!): [Locatable!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  me: Account @aws_cognito_user_pools @aws_iam @aws_lambda
+  messagingSettings: MessagingSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  moderationLog(after: String, universe: String!): ModerationLogPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  mutedAccounts(after: String): AccountPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myChannels(universe: String!): [Channel!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myDataRequests(after: String, limit: Int): DataRequestPage! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myEngagedTags: [String!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myGiftCodes: [GiftCode!]! @aws_cognito_user_pools @aws_iam
+  myGroupChats(after: String): MyGroupChatPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myInteractions: MyInteractions @aws_cognito_user_pools @aws_iam @aws_lambda
+  myInterestProfile: InterestProfile! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myJuryDuties(after: String, universe: String): JuryDutyPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myLayoutRetouches(device: String, universe: String!): [LayoutRetouches!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myLikes(after: String): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myLiveShares: [LiveShare!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myLocatable: [Locatable!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myNearbyLabel: String @aws_cognito_user_pools @aws_iam @aws_lambda
+  myNotInterested: [NotInterested!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  myOperatorPlan: OperatorPlan @aws_iam @aws_lambda
+  myPresences(after: String): ResidencePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myProposals(after: String): ProposalPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myReports(after: String): ReportPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myReposts(after: String): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myResidence(universe: String!): Residence @aws_cognito_user_pools @aws_iam @aws_lambda
+  mySanctions(after: String): SanctionPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  mySubscription: PaidSubscription @aws_cognito_user_pools @aws_iam
+  myUniverses(after: String): MyUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myUsage: Usage @aws_cognito_user_pools @aws_iam @aws_lambda
+  myVote(universe: String!): MyVote @aws_cognito_user_pools @aws_iam @aws_lambda
+  myVotedProposals(after: String): ProposalPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  nearbyRequests: [NearbyRequest!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  newPosts(address: String, after: ID, excluding: [ID!], since: AWSDateTime): NewPosts @aws_cognito_user_pools @aws_iam @aws_lambda
+  newUniverses: ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  notificationSettings: NotificationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  notifications(after: String): NotificationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  onboarding: Onboarding @aws_cognito_user_pools @aws_iam @aws_lambda
+  operatorPlanOffer(currency: String, interval: BillingInterval): OperatorPlanOffer @aws_iam @aws_lambda
+  pageOfUniverse(name: String!, universe: String!): PageOfUniverse @aws_cognito_user_pools @aws_iam @aws_lambda
+  pendingDomains: [DnsProof!] @aws_cognito_user_pools @aws_iam @aws_lambda
+  personalInvitationLink: PersonalInvitationLink @aws_cognito_user_pools @aws_iam @aws_lambda
+  personalThemes: [SavedTheme!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  places(bounds: BoundsInput!, language: String!, limit: Int, query: String!): [PlaceMatch!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  platformClips(after: String, language: String!, limit: Int): ClipFeedItemPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  poll(id: ID!): Poll @aws_cognito_user_pools @aws_iam @aws_lambda
+  polls(after: String, universe: String!): PollPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  popularClips(after: String, language: String!, limit: Int): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  post(id: ID!): Post @aws_cognito_user_pools @aws_iam @aws_lambda
+  posts(address: String!, after: String, filter: PostsFilter, limit: Int, since: AWSDateTime): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  postsAwaitingApproval(after: String, universe: String!): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  privateUniverseReputation(universe: String!): PrivateUniverseReputation @aws_cognito_user_pools @aws_iam @aws_lambda
+  projects(after: String, universe: String!): ProposalPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  proposal(id: ID!): Proposal @aws_cognito_user_pools @aws_iam @aws_lambda
+  proposalVotes(after: String, id: ID!): RepresentativeVotePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  proposals(after: String, kind: ProposalKind, status: ProposalStatus, universe: String!): ProposalPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  publicChannelMessages(after: String, channel: String!): ChannelMessagePage @aws_iam
+  publicInvitationLink(code: String!): PublicInvitationLink @aws_iam
+  recentUniverses: [SubUniverse!] @aws_cognito_user_pools @aws_iam @aws_lambda
+  recommendationSettings: RecommendationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  recommendations(after: String, kind: RecommendationKind!, language: String!, limit: Int): RecommendationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  replies(after: String, handle: String!): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  repostRequests(after: String, universe: String!): RepostRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  reposts(after: String, id: ID!): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  route(mode: RouteMode!, points: [PointInput!]!, snap: Boolean): RouteResult @aws_cognito_user_pools @aws_iam @aws_lambda
+  search(after: String, hiddenReplies: Boolean, limit: Int, order: SearchOrder, query: String!): SearchResults @aws_cognito_user_pools @aws_iam @aws_lambda
+  studioDraft(id: ID!): StudioDraft @aws_cognito_user_pools @aws_iam @aws_lambda
+  studioDrafts: [StudioDraft!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  subUniverseMap(universe: String!): SubUniverseMap @aws_cognito_user_pools @aws_iam @aws_lambda
+  subUniverses(after: String, name: String!, order: SubUniverseOrder, startsWith: String): SubUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  subscriptionOffer(currency: String): SubscriptionOffer @aws_cognito_user_pools @aws_iam
+  suggestedPosts(after: String, favoritesFirst: Boolean): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  suggestions(text: String!): [Suggestion!] @aws_cognito_user_pools @aws_iam @aws_lambda
+  theme(appliedIn: String, name: String!, universe: String!): Theme @aws_cognito_user_pools @aws_iam @aws_lambda
+  themeCatalog(after: String, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant): ThemeCatalogPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  thread(after: String, hidden: Boolean, id: ID!): Thread @aws_cognito_user_pools @aws_iam @aws_lambda
+  timeColumn(universe: String!): TimeColumn @aws_cognito_user_pools @aws_iam @aws_lambda
+  timeline(after: String): PostPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  translation(container: String, id: ID!, kind: TranslatableKind!, language: String!): Translation @aws_cognito_user_pools @aws_iam @aws_lambda
+  translationSettings: TranslationSettings @aws_cognito_user_pools @aws_iam @aws_lambda
+  trendingTags: TrendingTagPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universe(name: String!): Universe @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeAppeals(after: String, universe: String!): UniverseAppealPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeAppearanceReports(after: String, universe: String!): UniverseAppearanceReportPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeBans(after: String, universe: String!): UniverseBanPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeConditions(universe: String!, version: Int): UniverseText @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeEventAttendees(after: String, id: ID!): AccountRefPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeEvents(from: AWSDateTime, to: AWSDateTime, universe: String!): [UniverseEvent!]! @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeGovernance(universe: String!): UniverseGovernance @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeInvitations(after: String): UniverseInvitationPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeLanding(universe: String!): UniverseLanding @aws_iam
+  universeManifesto(universe: String!, version: Int): UniverseText @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeManifestoVersions(after: String, universe: String!): UniverseTextPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeMembers(after: String, universe: String!): UniverseMemberPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeModerators(after: String, universe: String!): AccountRefPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeNews(universe: String!): UniverseNews @aws_cognito_user_pools @aws_iam @aws_lambda
+  universePulse(universe: String!): UniversePulse @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeReports(after: String, universe: String!): UniverseReportPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeReputation(universe: String!): UniverseReputation @aws_cognito_user_pools @aws_iam @aws_lambda
+  universeResidents(after: String, agents: Boolean, limit: Int, locatable: Boolean, newResidents: Boolean, query: String, role: PostAuthorRole, universe: String!): UniverseResidentPage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universesByField(field: UniverseField!): ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universesCloseToLevel: ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universesInArea(mapCells: [String!]!): ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  universesInLanguage(language: String!): ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+  voteHolders(accountId: ID, universe: String!): [VoteHolder!] @aws_cognito_user_pools @aws_iam @aws_lambda
+  welcomeWall(after: String, universe: String!): WelcomeWall @aws_cognito_user_pools @aws_iam @aws_lambda
+  whereFollowedAccountsPost: ExploreUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda
+}
+
+type ReadMark @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  readAt: AWSDateTime!
+  upTo: ID!
+  upToAt: AWSDateTime!
+}
+
+type Recommendation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef
+  field: UniverseField
+  language: String
+  post: Post!
+  reason: RecommendationReason!
+  tag: String
+  universe: String
+}
+
+type RecommendationPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Recommendation!]!
+  next: String
+}
+
+type RecommendationSettings @aws_cognito_user_pools @aws_iam @aws_lambda {
+  enabled: Boolean!
+}
+
+type Rectification @aws_iam {
+  text: String!
+}
+
+type Report @aws_cognito_user_pools @aws_iam @aws_lambda {
+  article: Int
+  blockId: String
+  channel: String
+  conversationWith: ID
+  createdAt: AWSDateTime!
+  decidedAt: AWSDateTime
+  groupId: ID
+  id: ID!
+  layoutName: String
+  media: ContentMedia
+  messageId: ID
+  pageName: String
+  postId: ID
+  reason: ReportReason!
+  sentTo: ReportDestination!
+  snippet: String
+  status: ReportStatus!
+  target: ReportTarget!
+  themeName: String
+  themePart: ThemeReportPart
+  universe: String
+}
+
+type ReportPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Report!]!
+  next: String
+}
+
+type ReportReasonCount @aws_cognito_user_pools @aws_iam @aws_lambda {
+  count: Int!
+  reason: ReportReason!
+}
+
+type RepostRequest @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  expiresAt: AWSDateTime!
+  id: ID!
+  postId: ID!
+  repostId: ID
+  requester: AccountRef!
+  status: RepostRequestStatus!
+  target: String!
+  text: String
+  universe: String!
+}
+
+type RepostRequestPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [RepostRequest!]!
+  next: String
+}
+
+type RepresentativeVote @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  choice: String!
+  votes: Int!
+}
+
+type RepresentativeVotePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [RepresentativeVote!]!
+  next: String
+}
+
+type RequestMessage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  display: String!
+  id: ID!
+  text: String!
+}
+
+type Residence @aws_cognito_user_pools @aws_iam @aws_lambda {
+  canVote: Boolean!
+  canVoteAt: AWSDateTime
+  continuousPresence: ContinuousPresence
+  endsAt: AWSDateTime!
+  joinedAt: AWSDateTime!
+  universe: String!
+  voteRequirement: VoteRequirement!
+  voteStatus: VoteStatus!
+}
+
+type ResidencePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Residence!]!
+  next: String
+}
+
+type Route @aws_cognito_user_pools @aws_iam @aws_lambda {
+  ascent: Int
+  descent: Int
+  line: [Point!]
+  meetingPoint: Place
+  metres: Int
+  mode: RouteMode!
+  points: [Point!]!
+  seconds: Int
+  snap: Boolean
+  snapped: Boolean
+  stages: [Stage!]
+}
+
+type RouteResult @aws_cognito_user_pools @aws_iam @aws_lambda {
+  ascent: Int
+  descent: Int
+  line: [Point!]!
+  metres: Int!
+  seconds: Int!
+}
+
+type RulesPost @aws_cognito_user_pools @aws_iam @aws_lambda {
+  helpSlug: String!
+  level: GovernanceLevel
+  moderatorsPerResidents: Int
+  nextLevel: GovernanceLevel
+  nextLevelThreshold: Int
+  residentCount: Int
+  voteRequirement: VoteRequirement
+}
+
+type Sanction @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appeal: Appeal
+  appealableUntil: AWSDateTime!
+  articles: [Int!]!
+  automatic: Boolean!
+  channel: String
+  createdAt: AWSDateTime!
+  days: Int
+  endsAt: AWSDateTime
+  hours: Int
+  id: ID!
+  kind: SanctionKind!
+  moderator: AccountRef
+  postId: ID
+  reasons: [ReportReason!]!
+  snippet: String
+  universe: String!
+}
+
+type SanctionPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Sanction!]!
+  next: String
+}
+
+type SanctionReview @aws_cognito_user_pools @aws_iam @aws_lambda {
+  reasoning: String!
+  side: SanctionReviewSide!
+  writtenAt: AWSDateTime!
+}
+
+type SavedTheme @aws_cognito_user_pools @aws_iam @aws_lambda {
+  copiedFrom: ThemeOrigin
+  corrected: [String!]!
+  createdAt: AWSDateTime!
+  imageSlots: ThemeImageSlots
+  images: ThemeImages!
+  name: String!
+  theme: AWSJSON!
+  updatedAt: AWSDateTime!
+}
+
+type SearchMatch @aws_cognito_user_pools @aws_iam @aws_lambda {
+  kind: SearchMatchKind!
+  word: String!
+}
+
+type SearchResults @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accounts: [Account!]!
+  addresses: [String!]!
+  next: String
+  pages: [PageOfUniverse!]!
+  posts: [Post!]!
+  postsStatus: SearchPostsStatus!
+  retryAfterSeconds: Int
+  tags: [String!]!
+  text: String
+  universeResults: [UniverseResult!]!
+  universes: [Universe!]!
+}
+
+type SearchWordsReport @aws_iam {
+  article: Int
+  reason: ReportReason!
+  target: ReportTarget!
+  universe: String!
+  word: String
+}
+
+type SecondRound @aws_cognito_user_pools @aws_iam @aws_lambda {
+  candidates: [GovernanceShare!]!
+  endsAt: AWSDateTime!
+  proposalId: ID!
+  startedAt: AWSDateTime!
+}
+
+type SellerIdentity @aws_cognito_user_pools @aws_iam @aws_lambda {
+  country: String!
+  email: String!
+  name: String!
+  registrationNumber: String
+}
+
+type Stage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  index: Int!
+  name: String!
+}
+
+type StudioDraft @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  document: AWSJSON!
+  id: ID!
+  kind: StudioDraftKind!
+  savedAt: AWSDateTime!
+  served: StudioDraftServed
+  universe: String
+}
+
+type StudioDraftServed @aws_cognito_user_pools @aws_iam @aws_lambda {
+  kept: Boolean!
+  preview: Boolean!
+  refusal: String
+  trial: Boolean!
+  universe: String!
+  version: Int!
+}
+
+type SubUniverse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  lastPostAt: AWSDateTime
+  name: String!
+  postCount: Int!
+}
+
+type SubUniverseGovernance @aws_cognito_user_pools @aws_iam @aws_lambda {
+  governor: AccountRef!
+  powers: [SubUniversePower!]!
+  since: AWSDateTime!
+  universe: String!
+}
+
+type SubUniverseMap @aws_cognito_user_pools @aws_iam @aws_lambda {
+  tiles: [SubUniverseTile!]!
+  universe: String!
+  updatedAt: AWSDateTime!
+}
+
+type SubUniversePage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [SubUniverse!]!
+  next: String
+}
+
+type SubUniverseTile @aws_cognito_user_pools @aws_iam @aws_lambda {
+  posts: Int!
+  universe: String!
+}
+
+type SubscriptionOffer @aws_cognito_user_pools @aws_iam {
+  prices: [SubscriptionPrice!]!
+  providers: [String!]!
+}
+
+type SubscriptionPrice @aws_cognito_user_pools @aws_iam {
+  amount: Int!
+  currency: String!
+  interval: BillingInterval!
+  tier: PaidTier!
+}
+
+type SubscriptionRef @aws_iam {
+  kind: SubscriptionKind!
+  universe: String
+}
+
+type SubscriptionTier @aws_cognito_user_pools @aws_iam @aws_lambda {
+  id: ID!
+  name: String!
+  perks: [TierPerk!]!
+  priceChanges: [TierPriceChange!]!
+  prices: [TierPrice!]!
+  withdrawnAt: AWSDateTime
+}
+
+type SubscriptionTierOffer @aws_iam {
+  currency: String!
+  monthlyAmount: Int
+  name: String!
+  perks: [TierPerk!]!
+  yearlyAmount: Int
+}
+
+type Suggestion @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountId: ID
+  address: String!
+  formerHandle: String
+  kind: String!
+}
+
+type Summary @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  text: String!
+}
+
+type Territory @aws_cognito_user_pools @aws_iam @aws_lambda {
+  center: Point
+  id: String
+  kind: String!
+  name: String!
+  radius: TerritoryRadius
+}
+
+type TerritoryChoice @aws_iam {
+  boundaryId: String
+  center: Place
+  kind: String
+  name: String
+  radius: TerritoryRadius
+}
+
+type TextSpan @aws_cognito_user_pools @aws_iam @aws_lambda {
+  domain: String
+  end: Int!
+  kind: String!
+  number: Int
+  start: Int!
+  target: String
+  targetId: ID
+  value: String
+}
+
+type Theme @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountCount: Int!
+  collection: UniverseField
+  copiedFrom: ThemeOrigin
+  corrected: [String!]!
+  createdAt: AWSDateTime!
+  creator: AccountRef!
+  deleted: Boolean!
+  description: String
+  document: AWSJSON!
+  format: String!
+  imageSlots: ThemeImageSlots!
+  images: ThemeImages!
+  name: String!
+  official: Boolean!
+  pageScreenshots: ThemePageScreenshots
+  screenshots: [String!]!
+  screenshotsDay: [String!]!
+  theme: AWSJSON!
+  typography: ThemeTypography!
+  universe: String
+  universeCount: Int!
+  updatedAt: AWSDateTime!
+  version: Int!
+}
+
+type ThemeCatalogItem @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountCount: Int!
+  reason: String!
+  screenshots: [String!]!
+  theme: Theme!
+  universeCount: Int!
+  variant: ThemeVariant!
+}
+
+type ThemeCatalogPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [ThemeCatalogItem!]!
+  next: String
+}
+
+type ThemeImageSet @aws_cognito_user_pools @aws_iam @aws_lambda {
+  url: String!
+  urlNight: String!
+  widths: [Int!]!
+  widthsNight: [Int!]!
+}
+
+type ThemeImageSlot @aws_cognito_user_pools @aws_iam @aws_lambda {
+  removed: Boolean!
+  url: String
+  urlNight: String
+  widths: [Int!]!
+  widthsNight: [Int!]!
+}
+
+type ThemeImageSlots @aws_cognito_user_pools @aws_iam @aws_lambda {
+  cardTexture: ThemeImageSlot
+  channelHeader: ThemeImageSlot
+  page: ThemeImageSlot
+  pageHeader: ThemeImageSlot
+  timeColumn: ThemeImageSlot
+}
+
+type ThemeImages @aws_cognito_user_pools @aws_iam @aws_lambda {
+  background: ThemeImageSet
+  banner: ThemeImageSet
+  pattern: ThemeImageSet
+  texture: ThemeImageSet
+  wordmark: ThemeImageSet
+}
+
+type ThemeOrigin @aws_cognito_user_pools @aws_iam @aws_lambda {
+  deleted: Boolean!
+  name: String!
+  universe: String!
+}
+
+type ThemePageScreenshot @aws_cognito_user_pools @aws_iam @aws_lambda {
+  url: String!
+  urlNight: String!
+}
+
+type ThemePageScreenshots @aws_cognito_user_pools @aws_iam @aws_lambda {
+  desktop: ThemePageScreenshot!
+  phone: ThemePageScreenshot!
+  tablet: ThemePageScreenshot!
+}
+
+type ThemeRef @aws_cognito_user_pools @aws_iam @aws_lambda {
+  deleted: Boolean
+  name: String!
+  universe: String
+  version: Int
+}
+
+type ThemeTypography @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accent: String
+  title: String!
+}
+
+type Thread @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [Post!]!
+  next: String
+  root: Post!
+}
+
+type TierPrice @aws_cognito_user_pools @aws_iam @aws_lambda {
+  amount: Int!
+  currency: String!
+  interval: BillingInterval!
+}
+
+type TierPriceChange @aws_cognito_user_pools @aws_iam @aws_lambda {
+  appliesAt: AWSDateTime!
+  price: TierPrice!
+}
+
+type TierSubscription @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accessFrom: AWSDateTime!
+  automaticRenewal: Boolean!
+  billingDay: BillingDay
+  paidUntil: AWSDateTime!
+  price: TierPrice!
+  status: SubscriptionStatus!
+  tier: SubscriptionTier!
+  withdrawalWaivedAt: AWSDateTime
+}
+
+type TierSubscriptionStart @aws_iam {
+  automaticRenewal: Boolean!
+  conditionsVersion: Int!
+  currency: String
+  immediateAccessConsent: Boolean!
+  interval: BillingInterval!
+  returnPath: String
+  tierId: ID!
+}
+
+type TimeColumn @aws_cognito_user_pools @aws_iam @aws_lambda {
+  debates: [Debate!]!
+  events: [UniverseEvent!]!
+  levelGoal: LevelGoal
+  openDebates: Int!
+  openPolls: Int!
+  openVotes: Int!
+  polls: [Poll!]!
+  projects: [Proposal!]!
+  projectsInProgress: Int!
+  secondRound: SecondRound
+  universe: String!
+  upcomingEvents: Int!
+  votes: [Proposal!]!
+}
+
+type Translation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  display: String!
+  from: String!
+  language: String!
+  spans: [TextSpan!]!
+  text: String!
+  title: String
+  version: String!
+}
+
+type TranslationSettings @aws_cognito_user_pools @aws_iam @aws_lambda {
+  auto: Boolean!
+  languages: [String!]!
+  privateByPlatform: Boolean
+}
+
+type TrendSummary @aws_cognito_user_pools @aws_iam @aws_lambda {
+  text: String!
+  writtenAt: AWSDateTime!
+}
+
+type TrendingTag @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountCount: Int!
+  field: UniverseField
+  lastUsedAt: AWSDateTime
+  summary: TrendSummary
+  tag: String!
+  topPost: Post
+  universe: String
+}
+
+type TrendingTagPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [TrendingTag!]!
+  reason: String!
+  updatedAt: AWSDateTime
+}
+
+type Typeface @aws_cognito_user_pools @aws_iam @aws_lambda {
+  category: String!
+  license: String!
+  name: String!
+  scripts: [String!]!
+  source: AWSURL!
+}
+
+type Universe @aws_cognito_user_pools @aws_iam @aws_lambda {
+  access: UniverseAccess
+  adminCount: Int
+  archivedAt: AWSDateTime
+  archivedDeletionAt: AWSDateTime
+  banner: PostImage
+  bannerNight: PostImage
+  bannerOf: String
+  canJoinAt: AWSDateTime
+  conditionsAccepted: Boolean
+  conditionsVersion: Int
+  createdAt: AWSDateTime
+  dailyDigest: Boolean
+  declaration: UniverseDeclaration
+  defaultLayout: UniverseLayout
+  deletedAt: AWSDateTime
+  deletedForGoodAt: AWSDateTime
+  description: String
+  dnsName: String
+  exists: Boolean!
+  exposedAccess: ExposedAccess
+  exposedParts: [ExposedPart!]!
+  field: UniverseField
+  fieldSuggested: Boolean!
+  firstFocus: UniverseFocus
+  image: PostImage
+  imageOf: String
+  joinMode: PrivateUniverseJoinMode
+  joinRefusal: String
+  lastClipAt: AWSDateTime
+  layoutOf: String
+  layoutRef: LayoutRef
+  legalSpace: String
+  memberCount: Int
+  memberTier: Int
+  memberTierChoiceUntil: AWSDateTime
+  myDraftPreview: DraftPreview
+  myJoinRequest: MyJoinRequest
+  myLastVisitAt: AWSDateTime
+  myReaderRole: UniverseReaderRole
+  myRole: UniverseRole
+  myTierSubscription: TierSubscription
+  name: String!
+  nonPayingMemberCount: Int
+  ownerId: ID
+  pages: [PageOfUniverse!]!
+  pagesVersion: Int!
+  payingMemberCount: Int
+  pinnedAnnouncements: [Post!]!
+  pinnedChannels: [Channel!]!
+  pinnedPosts: [Post!]!
+  platformSearchWords: [PlatformSearchWord!]!
+  private: Boolean!
+  proposalsWaitingSupport: Int
+  readOnly: PrivateUniverseReadOnly
+  readerRetouches: Boolean!
+  residentCount: Int
+  root: String
+  rulesPost: Post
+  searchWords: [String!]!
+  seller: SellerIdentity
+  subscriptionFreeUntil: AWSDateTime
+  subscriptionTiers: [SubscriptionTier!]!
+  successors: [ID!]!
+  switcherLayouts: [LayoutRef!]!
+  territory: Territory
+  theme: String!
+  themeOf: String
+  themeRef: ThemeRef!
+  themeTrial: UniverseThemeTrial
+  transferTo: ID
+  universeStrip: Boolean!
+  url: AWSURL
+  watermark: Watermark
+  watermarkOf: String
+}
+
+type UniverseActivity @aws_cognito_user_pools @aws_iam @aws_lambda {
+  newResidents24h: Int!
+  postsLastHour: Int!
+}
+
+type UniverseAppeal @aws_cognito_user_pools @aws_iam @aws_lambda {
+  articles: [Int!]!
+  days: Int
+  decider: AppealDecider!
+  juries: Int!
+  kind: SanctionKind!
+  openedAt: AWSDateTime!
+  reasons: [ReportReason!]!
+  sanctionId: ID!
+  sanctionedAt: AWSDateTime!
+  snippet: String
+  universe: String!
+}
+
+type UniverseAppealPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseAppeal!]!
+  next: String
+}
+
+type UniverseAppearanceMade @aws_cognito_user_pools @aws_iam @aws_lambda {
+  layout: Layout
+  proposal: Proposal
+  theme: Theme
+}
+
+type UniverseAppearanceReport @aws_cognito_user_pools @aws_iam @aws_lambda {
+  articles: [Int!]!
+  blockId: String
+  firstReportAt: AWSDateTime!
+  lastReportAt: AWSDateTime!
+  layoutName: String
+  pageName: String
+  reasons: [ReportReasonCount!]!
+  reportCount: Int!
+  target: ReportTarget!
+  themeName: String
+  themePart: ThemeReportPart
+  universe: String!
+}
+
+type UniverseAppearanceReportPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseAppearanceReport!]!
+  next: String
+}
+
+type UniverseBanPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [AccountRef!]!
+  next: String
+}
+
+type UniverseDeclaration @aws_cognito_user_pools @aws_iam @aws_lambda {
+  declaredAt: AWSDateTime!
+  kind: UniverseDeclarationKind!
+  reference: String!
+  rejectedAt: AWSDateTime
+  status: UniverseDeclarationStatus!
+}
+
+type UniverseDeletion @aws_cognito_user_pools @aws_iam @aws_lambda {
+  deletedAt: AWSDateTime
+  deletedForGoodAt: AWSDateTime
+  universe: String!
+}
+
+type UniverseEvent @aws_cognito_user_pools @aws_iam @aws_lambda {
+  attendeeCount: Int!
+  attendees: AccountRefPage
+  attendeesPreview: [AccountRef!]
+  attending: Boolean!
+  byLeadership: Boolean!
+  createdAt: AWSDateTime!
+  createdBy: AccountRef!
+  id: ID!
+  link: AWSURL
+  minutes: Int!
+  place: String
+  point: Point
+  route: Route
+  startsAt: AWSDateTime!
+  status: UniverseEventStatus!
+  support: ProposalSupport
+  supportedByMe: Boolean!
+  title: String!
+  universe: String!
+  zone: Zone
+}
+
+type UniverseFolding @aws_cognito_user_pools @aws_iam @aws_lambda {
+  coefficient: Float!
+  maxCoefficient: Float!
+  minCoefficient: Float!
+  threshold: Int!
+}
+
+type UniverseGovernance @aws_cognito_user_pools @aws_iam @aws_lambda {
+  charter: GovernanceText
+  folding: UniverseFolding!
+  leadership: Leadership
+  level: GovernanceLevel!
+  manifesto: GovernanceText
+  maxModerators: Int!
+  moderationRules: GovernanceText
+  moderators: Int!
+  nextLevel: GovernanceLevel
+  nextLevelAt: AWSDateTime
+  residents: Int!
+  secondRound: SecondRound
+  subUniverses: [SubUniverseGovernance!]!
+  universe: String!
+  voters: Int!
+  votingMethod: String!
+}
+
+type UniverseInvitation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  createdAt: AWSDateTime!
+  email: String
+  expiresAt: AWSDateTime!
+  invitee: AccountRef
+  inviter: AccountRef!
+  status: UniverseInvitationStatus!
+  universe: String!
+}
+
+type UniverseInvitationPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseInvitation!]!
+  next: String
+}
+
+type UniverseLanding @aws_iam {
+  exists: Boolean!
+  governanceLevel: GovernanceLevel
+  name: String!
+  private: Boolean!
+  theme: String!
+  themeOf: String
+  themeRef: ThemeRef!
+}
+
+type UniverseMember @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  joinedAt: AWSDateTime!
+  role: UniverseRole!
+  successorRank: Int
+}
+
+type UniverseMemberPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseMember!]!
+  next: String
+}
+
+type UniverseNews @aws_cognito_user_pools @aws_iam @aws_lambda {
+  activeChannels: [ChannelActivity!]!
+  channelMessages: Int!
+  clips: Int!
+  decisions: [Proposal!]!
+  newResidents: Int!
+  newResidentsSince: Int!
+  openVotes: Int!
+  pinned: Int!
+  posts: Int!
+  questionsWaiting: Int!
+  since: AWSDateTime
+  toHandle: Int
+  universe: String!
+  votesToCast: Int!
+}
+
+type UniversePulse @aws_cognito_user_pools @aws_iam @aws_lambda {
+  lastVoteId: ID
+  lastVoteParticipation: Float
+  lastVoteQuorum: Float
+  newResidents: Int!
+  posts: Int!
+  universe: String!
+  updatedAt: AWSDateTime!
+}
+
+type UniverseReport @aws_cognito_user_pools @aws_iam @aws_lambda {
+  articles: [Int!]!
+  firstReportAt: AWSDateTime!
+  lastReportAt: AWSDateTime!
+  post: Post!
+  postId: ID!
+  reasons: [ReportReasonCount!]!
+  reportCount: Int!
+}
+
+type UniverseReportPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseReport!]!
+  next: String
+}
+
+type UniverseReputation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  postingBanUntil: AWSDateTime
+  share: Float
+  tier: ReputationTier!
+  universe: String!
+  weightedVotes: Float!
+}
+
+type UniverseResident @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  joinedAt: AWSDateTime
+  locatable: Boolean
+  role: PostAuthorRole
+}
+
+type UniverseResidentPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseResident!]!
+  next: String
+}
+
+type UniverseResult @aws_cognito_user_pools @aws_iam @aws_lambda {
+  match: SearchMatch!
+  universes: [Universe!]!
+}
+
+type UniverseText @aws_cognito_user_pools @aws_iam @aws_lambda {
+  at: AWSDateTime!
+  by: AccountRef
+  isDefault: Boolean!
+  text: String
+  version: Int!
+}
+
+type UniverseTextPage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  items: [UniverseText!]!
+  next: String
+}
+
+type UniverseThemeTrial @aws_cognito_user_pools @aws_iam @aws_lambda {
+  document: AWSJSON!
+  draftId: ID!
+  endsAt: AWSDateTime!
+  startedAt: AWSDateTime!
+  startedBy: AccountRef!
+  universe: String!
+  version: Int!
+}
+
+type Usage @aws_cognito_user_pools @aws_iam @aws_lambda {
+  byCategory: [UsageByCategory!]!
+  extraCredit: ExtraUsageCredit
+  hour: UsageWindow!
+  minute: UsageWindow!
+  quota: UsageWindow
+  tier: UsageTier
+}
+
+type UsageByCategory @aws_cognito_user_pools @aws_iam @aws_lambda {
+  category: UsageCategory!
+  hour: Int!
+  quota: Int
+}
+
+type UsageWindow @aws_cognito_user_pools @aws_iam @aws_lambda {
+  limit: Int!
+  resetAt: AWSDateTime!
+  used: Int!
+}
+
+type VideoUpload @aws_cognito_user_pools @aws_iam @aws_lambda {
+  fields: AWSJSON!
+  id: ID!
+  url: String!
+}
+
+type Voice @aws_cognito_user_pools @aws_iam @aws_lambda {
+  durationMs: Int!
+  id: ID!
+  peaks: [Float!]!
+  url: String!
+}
+
+type VoiceUpload @aws_cognito_user_pools @aws_iam @aws_lambda {
+  fields: AWSJSON!
+  id: ID!
+  url: String!
+}
+
+type VoteHolder @aws_cognito_user_pools @aws_iam @aws_lambda {
+  account: AccountRef!
+  votes: Int!
+}
+
+type VoteParticipation @aws_cognito_user_pools @aws_iam @aws_lambda {
+  cast: Int!
+  participation: Float!
+  voters: Int!
+}
+
+type VoteRequirement @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountDays: Int!
+  contributionRequired: Boolean!
+  presenceDays: Int!
+}
+
+type VoteStatus @aws_cognito_user_pools @aws_iam @aws_lambda {
+  accountDaysDone: Int!
+  contributed: Boolean!
+  presenceDaysDone: Int!
+}
+
+type Watermark @aws_cognito_user_pools @aws_iam @aws_lambda {
+  kind: WatermarkKind!
+  orientation: WatermarkOrientation!
+  text: String
+}
+
+type WatermarkSetting @aws_iam {
+  kind: WatermarkKind!
+  orientation: WatermarkOrientation
+  text: String
+}
+
+type WelcomeWall @aws_cognito_user_pools @aws_iam @aws_lambda {
+  count: Int!
+  items: [NewResident!]!
+  next: String
+  universe: String!
+}
+
+type Zone @aws_cognito_user_pools @aws_iam @aws_lambda {
+  center: Point!
+  place: String
+  point: Point
+  radius: ZoneRadius!
+  revealAt: AWSDateTime
+  revealToAttendees: Boolean
+}
+
+enum AccountKind {
+  human
+  operator
+  system
+}
+
+enum AppealDecider {
+  JURY
+  LEADERSHIP
+  PLATFORM
+}
+
+enum AppealOutcome {
+  CANCELLED
+  CONFIRMED
+  REDUCED
+}
+
+enum AppealStatus {
+  DECIDED
+  OPEN
+}
+
+enum AppliedLayoutSource {
+  FIELD
+  PLATFORM
+  SWITCHER
+  UNIVERSE
+}
+
+enum BillingDayDirection {
+  EARLIER
+  LATER
+  SAME
+}
+
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+enum BulkErasureScope {
+  CLIP_PLAYS
+  INTEREST_PROFILE
+  LIKES_AND_REPOSTS
+  POSTS_AND_REPLIES
+  SENT_MESSAGES
+}
+
+enum ChannelProposalAction {
+  ARCHIVE
+  DELETE
+  OPEN
+  UNARCHIVE
+}
+
+enum ClipFeedStage {
+  END
+  FEED
+  PLATFORM
+  POPULAR
+  RECOMMENDED
+}
+
+enum ClipOrientation {
+  HORIZONTAL
+  SQUARE
+  VERTICAL
+}
+
+enum ConnectionRequestStatus {
+  ACCEPTED
+  ACCEPTED_AUTOMATICALLY
+  DECLINED_OPENLY
+  DECLINED_SILENTLY
+  WAITING
+}
+
+enum ContinuousPresence {
+  CONTINUOUS_30
+  CONTINUOUS_365
+  CONTINUOUS_90
+}
+
+enum DataRequestKind {
+  BULK_ERASURE
+  DATA_COPY
+  RECTIFICATION
+}
+
+enum DataRequestStatus {
+  CANCELLABLE
+  CANCELLED
+  DONE
+  EXPIRED
+  IN_PROGRESS
+  READY
+}
+
+enum DebateClosedBy {
+  END
+  LEADERSHIP
+  LEVEL
+  OPENER
+}
+
+enum DebateStatus {
+  CLOSED
+  GONE
+  OPEN
+  WAITING_SUPPORT
+}
+
+enum DebateSummaryAnswer {
+  APPROVED
+  DECLINED
+}
+
+enum DelegatedAgentActionKind {
+  CHANNEL_MESSAGE
+  DIRECT_MESSAGE
+  GROUP_MESSAGE
+  LIKE
+  POST
+  QUOTE
+  REPLY
+  REPOST
+}
+
+enum DelegatedAgentInteraction {
+  channels
+  directMessages
+  follow
+  groupChats
+  joinPrivateUniverses
+  post
+  reply
+  repost
+}
+
+enum DelegatedAgentStatus {
+  active
+  deactivated
+  suspended
+}
+
+enum DisplayMode {
+  AUTOMATIC
+  DAY
+  DIM
+  NIGHT
+}
+
+enum EphemeralDuration {
+  DAYS_7
+  HOURS_24
+  OFF
+}
+
+enum ExposedAccess {
+  PARTICIPATE
+  READ
+  REPLY
+}
+
+enum FeedRemovalReviewStatus {
+  BACK_TO_FEEDS
+  KEPT_REMOVED
+  OPEN
+}
+
+enum FeedRemovalVote {
+  BACK_TO_FEEDS
+  KEEP_REMOVED
+}
+
+enum GiftCodeStatus {
+  EXPIRED
+  REFUNDED
+  UNUSED
+  USED
+}
+
+enum GovernanceLevel {
+  CITY
+  FEDERATION
+  GROUP_OF_FRIENDS
+  TOWN
+  VILLAGE
+}
+
+enum GovernanceRecordKind {
+  CHANNEL_ARCHIVED
+  CHANNEL_DELETED
+  CHANNEL_OPENED
+  LEADERSHIP_CHANGED
+  PLATFORM_MEASURE
+  PROPOSAL_ADOPTED
+  PROPOSAL_ANNULLED
+}
+
+enum GroupEventType {
+  created
+  joined
+  left
+  removed
+  renamed
+}
+
+enum GroupInvitationStatus {
+  ACCEPTED
+  DECLINED_OPENLY
+  DECLINED_SILENTLY
+  EXPIRED
+  WAITING
+}
+
+enum GroupMessageKind {
+  event
+  message
+}
+
+enum GroupRole {
+  admin
+  member
+}
+
+enum InboxItemKind {
+  CONVERSATION
+  GROUP_CHAT
+}
+
+enum InboxLastKind {
+  ARRIVAL
+  CLIP
+  DELETED
+  IMAGES
+  LIVE_SHARE
+  MEET_UP
+  PLACE
+  TEXT
+  VOICE
+}
+
+enum InterestKind {
+  FIELD
+  TAG
+  UNIVERSE
+}
+
+enum JurorStatus {
+  ACCEPTED
+  DECLINED
+  DISMISSED
+  DONE
+  DRAWN
+  EXPIRED
+  WITHDRAWN
+}
+
+enum KeptDataCategory {
+  INVOICES
+  LEGAL_ARCHIVE
+  LEGAL_HOLD
+  REGISTER_OF_DATA_REQUESTS
+  REPORTED_CONTENT
+}
+
+enum LayoutCanvasKind {
+  DESKTOP
+  PHONE
+  TABLET
+}
+
+enum LayoutRetouchState {
+  SHOWN
+  STOWED
+}
+
+enum LeadershipKind {
+  COLLEGE
+  INTERIM
+  PRESIDENT
+}
+
+enum MeetUpAnswerKind {
+  ACCEPTED
+  DECLINED
+}
+
+enum ModelAttributeTypes {
+  _null
+  binary
+  binarySet
+  bool
+  list
+  map
+  number
+  numberSet
+  string
+  stringSet
+}
+
+enum ModelSortDirection {
+  ASC
+  DESC
+}
+
+enum MomentKind {
+  CHARTER_ADOPTED
+  FIRST_QUORUM
+  LEVEL_REACHED
+  MODERATOR_DESIGNATED
+  PROJECT_DONE
+  PROPOSAL_ANNULLED
+  RESIDENTS_MILESTONE
+  VOTE_CLOSED
+  VOTE_OPENED
+}
+
+enum MyJoinRequestStatus {
+  WAITING
+}
+
+enum NearbyCloseness {
+  FAR
+  IMMEDIATE
+  NEAR
+}
+
+enum NearbyRequestStatus {
+  CONNECTED
+  NO_ANSWER
+  REFUSED
+  WAITING
+}
+
+enum NextPaidPeriodKind {
+  GIFT_CODE
+  RESUMED
+}
+
+enum NfcConnectionStatus {
+  CONNECTED
+  WAITING
+}
+
+enum NotInterestedScope {
+  AUTHOR
+  POST
+  TAG
+  UNIVERSE
+}
+
+enum NotificationCategory {
+  ACCOUNT_SECURITY
+  BILLING
+  CHANNELS
+  CONNECTION_REQUESTS
+  DIRECT_MESSAGES
+  GOVERNANCE
+  GROUP_CHATS
+  INVITATIONS_AND_JOIN_REQUESTS
+  LIKES
+  MENTIONS
+  MODERATION
+  NEW_FOLLOWERS
+  REPLIES
+  REPOSTS_AND_QUOTES
+  UNIVERSES
+}
+
+enum NotificationCategorySettingValue {
+  OFF
+  ON
+  PUSH_OFF
+}
+
+enum NotificationKind {
+  APPEAL_DECIDED
+  BULK_ERASURE_DONE
+  CHANNEL_MENTION
+  CHANNEL_MESSAGE
+  CHANNEL_RESPONSE
+  CONNECTION_ACCEPTED
+  CONNECTION_REQUEST
+  DATA_COPY_READY
+  DATA_REQUEST_ANSWERED
+  DELEGATED_AGENTS_DEACTIVATED
+  DIRECT_MESSAGE
+  EVENT_CANCELLED
+  EVENT_CHANGED
+  EVENT_PLACE_REVEALED
+  EVENT_REMINDER
+  FOLLOW
+  GROUP_INVITATION
+  GROUP_MENTION
+  GROUP_MESSAGE
+  INVITATION_SIGN_UP
+  JUROR_DRAWN
+  LIKE
+  MEET_UP_SOON
+  MENTION
+  MODERATOR_DESIGNATED
+  PASSWORD_RESET
+  PLATFORM_MEASURE
+  PRIVATE_POST_REPOSTED
+  PROJECT_NOTE
+  PROJECT_REPORTED_DONE
+  QUOTE
+  REPLY
+  REPOST
+  REPOST_REQUEST
+  REPOST_REQUEST_ANSWERED
+  SANCTION_CHANNEL_MESSAGE_REMOVAL
+  SANCTION_POSTING_BAN
+  SANCTION_POST_REMOVAL
+  SANCTION_WRITING_BAN
+  SIGNED_OUT_EVERYWHERE
+  SUBSCRIPTION_ENDED
+  SUBSCRIPTION_ENDS_SOON
+  SUBSCRIPTION_PAYMENT_FAILED
+  TIER_PRICE_CHANGE
+  UNIVERSE_ACCESS_OPENED
+  UNIVERSE_ANNOUNCEMENT
+  UNIVERSE_DEBATE_OPENED
+  UNIVERSE_DECLARATION_REJECTED
+  UNIVERSE_DELETED
+  UNIVERSE_INACTIVE
+  UNIVERSE_INVITATION
+  UNIVERSE_JOIN_ACCEPTED
+  UNIVERSE_JOIN_REQUEST
+  UNIVERSE_LEVEL_CHANGED
+  UNIVERSE_PROJECT_DONE
+  UNIVERSE_PROPOSAL_ANNULLED
+  UNIVERSE_SECOND_ROUND
+  UNIVERSE_SUBSCRIPTION_OPENED
+  UNIVERSE_SUCCESSOR
+  UNIVERSE_TRANSFER
+  UNIVERSE_TRANSFER_DECLINED
+  UNIVERSE_VOTE_OPENED
+  UNIVERSE_VOTE_RESULT
+  VOTES_FIRST_RECEIVED
+}
+
+enum OnboardingActivity {
+  ADDRESS_VISITED
+  HELP_GETTING_STARTED_OPENED
+}
+
+enum OnboardingStatus {
+  COMPLETED
+  IN_PROGRESS
+  NOT_COMPLETED
+}
+
+enum OnboardingStepKind {
+  CONNECT_WITH_ONE_PERSON
+  DISCOVER_THE_PLATFORM
+  LIKE_A_POST
+  PUBLISH_A_POST
+  QUOTE_A_POST
+  REPOST_A_POST
+  SEND_A_MESSAGE
+}
+
+enum PageOfUniverseKind {
+  ABOUT
+  AGENDA
+  CUSTOM
+  GOVERNANCE
+  HOME
+  MEMBERS
+  NOW
+}
+
+enum PaidTier {
+  X10
+  X2
+}
+
+enum PollStatus {
+  CLOSED
+  OPEN
+  WAITING_SUPPORT
+}
+
+enum PostAuthorRole {
+  LEADERSHIP
+  MODERATOR
+}
+
+enum PostKind {
+  announcement
+  debate_summary
+  post
+  project
+  quote
+  reply
+  repost
+  rules
+}
+
+enum PostTransparency {
+  LIQUID
+  MORE
+  OPAQUE
+  THEME
+}
+
+enum PostsFilter {
+  ALL
+  DISCUSSED
+  LEADERSHIP
+  PROJECTS
+  SUB_UNIVERSES
+}
+
+enum PrivateUniverseCreationStatus {
+  CREATED
+  DNS_PROOF_REQUIRED
+}
+
+enum PrivateUniverseJoinMode {
+  INVITATION
+  REQUEST
+  SUBSCRIPTION
+}
+
+enum PrivateUniverseReadOnly {
+  ARCHIVED
+  BEYOND_MEMBER_TIER
+}
+
+enum ProjectStatus {
+  ADOPTED
+  DONE
+  IN_PROGRESS
+}
+
+enum ProposalKind {
+  ACTION
+  CHANNEL
+  CHARTER
+  DAILY_DIGEST
+  DISPLAY_CASE
+  FIELD
+  FOLDING_COEFFICIENT
+  LAYOUT
+  MANIFESTO
+  MODERATION_RULES
+  MODERATOR_ELECTION
+  MODERATOR_REVOCATION
+  OTHER
+  PINNED_CHANNELS
+  RECALL
+  SECOND_ROUND
+  SHOWCASE
+  SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL
+  TERRITORY
+  THEME
+  VOTING_METHOD
+}
+
+enum ProposalRefusalGround {
+  LAW
+  PLATFORM_RULES
+}
+
+enum ProposalRefusalOutcome {
+  OVERTURNED
+  UPHELD
+}
+
+enum ProposalStatus {
+  ADOPTED
+  ANNULLED
+  CANCELLED
+  COUNTING
+  OPEN
+  REJECTED
+  WAITING_SUPPORT
+  WITHDRAWN
+}
+
+enum PushEnvironment {
+  PRODUCTION
+  SANDBOX
+}
+
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum RecommendationKind {
+  CLIPS
+  POSTS
+}
+
+enum RecommendationReason {
+  FAVORITE_UNIVERSE
+  FOLLOWED
+  INFERRED_INTEREST
+  NEW_ON_PLATFORM
+  RESIDENT
+  TAG_ENGAGED
+  TRENDING
+}
+
+enum ReplyPolicy {
+  everyone
+  following
+  mentioned
+  nobody
+}
+
+enum ReportDestination {
+  PLATFORM_TEAM
+  UNIVERSE_MODERATION
+}
+
+enum ReportKind {
+  OFF_CHARTER
+  PLATFORM
+}
+
+enum ReportReason {
+  CHARTER_ARTICLE
+  ILLEGAL
+  MISLEADING
+  OFF_TOPIC
+  PLATFORM_RULES
+  SPAM_OR_FLOOD
+  WRONG_NAME
+}
+
+enum ReportStatus {
+  CONTENT_REMOVED
+  NO_ACTION
+  RECEIVED
+}
+
+enum ReportTarget {
+  CHANNEL_MESSAGE
+  DIRECT_MESSAGE
+  GROUP_CHAT
+  GROUP_MESSAGE
+  LAYOUT
+  LOCATABLE
+  PLATFORM_SEARCH_WORD
+  POST
+  THEME
+  UNIVERSE_BANNER
+  UNIVERSE_PAGE
+  UNIVERSE_SEARCH_WORDS
+  UNIVERSE_TERRITORY
+}
+
+enum RepostRequestStatus {
+  ACCEPTED
+  REFUSED
+  WAITING
+}
+
+enum ReputationTier {
+  BANNED_FROM_POSTING
+  NORMAL
+  RESTRICTED
+  TRUSTED
+  WATCHED
+}
+
+enum RouteMode {
+  BICYCLE
+  FOOT
+}
+
+enum SanctionKind {
+  CHANNEL_MESSAGE_REMOVAL
+  DEBATE_MESSAGE_REMOVAL
+  POSTING_BAN
+  POST_REMOVAL
+  WRITING_BAN
+}
+
+enum SanctionReviewSide {
+  AGAINST
+  FOR
+}
+
+enum SanctionReviewStatus {
+  ASKED
+  READY
+  UNAVAILABLE
+}
+
+enum SearchMatchKind {
+  DESCRIPTION
+  NAME
+  PLATFORM_SEARCH_WORD
+  UNIVERSE_SEARCH_WORD
+}
+
+enum SearchOrder {
+  DATE
+  RELEVANCE
+}
+
+enum SearchPostsStatus {
+  READY
+  STARTING
+  UNAVAILABLE
+}
+
+enum ShareTarget {
+  CONVERSATION
+  GROUP_CHAT
+}
+
+enum StudioDraftKind {
+  LAYOUT
+  PAGE
+  THEME
+}
+
+enum SubUniverseOrder {
+  name
+  posts
+  recent
+}
+
+enum SubUniversePower {
+  ANNOUNCEMENTS
+  MODERATION
+  PINNED_POSTS
+}
+
+enum SubscriptionKind {
+  OPERATOR_PLAN
+  PAID_TIER
+  TIER_SUBSCRIPTION
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  ENDED
+  PAST_DUE
+}
+
+enum TerritoryRadius {
+  KM1
+  KM10
+  KM25
+  KM2_5
+  KM5
+  M150
+  M250
+  M500
+}
+
+enum ThemeCatalogOrder {
+  IN_YOUR_UNIVERSES
+  MOST_USED
+  NEWEST
+}
+
+enum ThemeDensity {
+  AIRY
+  DENSE
+  NORMAL
+}
+
+enum ThemeMotion {
+  FULL
+  NONE
+  REDUCED
+}
+
+enum ThemeReportPart {
+  BACKGROUND
+  BANNER
+  CHANNEL_HEADER
+  PATTERN
+  STICKERS
+  TEXTURE
+  THEME
+  TIME_COLUMN
+  WORDMARK
+}
+
+enum ThemeUse {
+  PERSONAL
+  UNIVERSE
+}
+
+enum ThemeVariant {
+  DAY
+  NIGHT
+}
+
+enum TierPerk {
+  EARLY_ACCESS_TO_POSTS
+  RESERVED_CHANNELS
+  RESERVED_POSTS
+  TIER_BADGE
+}
+
+enum TranslatableKind {
+  BIO
+  CHANNEL_MESSAGE
+  CHARTER
+  DIRECT_MESSAGE
+  GROUP_MESSAGE
+  POST
+  PROPOSAL
+  UNIVERSE_DESCRIPTION
+}
+
+enum UniverseAccess {
+  MEMBER
+  NONE
+  PARTICIPATE
+  READ
+  REPLY
+}
+
+enum UniverseDeclarationKind {
+  ASSOCIATION
+  OPEN_SOURCE
+}
+
+enum UniverseDeclarationStatus {
+  DECLARED
+  REJECTED
+}
+
+enum UniverseEventStatus {
+  SCHEDULED
+  WAITING_SUPPORT
+}
+
+enum UniverseField {
+  CULTURE
+  ENTERTAINMENT
+  EVERYDAY_LIFE
+  GAMES
+  PLACES
+  POLITICS
+  SCIENCE
+  SPORT
+  TECH
+  WORK
+}
+
+enum UniverseFocus {
+  AGENDA
+  CLIPS
+  DEBATES
+  GOVERNANCE
+  MAP
+  POSTS
+  SHOWCASE
+  SUB_UNIVERSES
+}
+
+enum UniverseInvitationStatus {
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WAITING
+}
+
+enum UniverseLayout {
+  AGORA
+  FEED_FIRST
+  HUD
+  STUDIO
+  VILLAGE_SQUARE
+}
+
+enum UniverseReaderRole {
+  LEADERSHIP
+  MODERATOR
+  RESIDENT
+  VISITOR
+}
+
+enum UniverseRole {
+  ADMIN
+  MEMBER
+  OWNER
+}
+
+enum UsageCategory {
+  MEDIA
+  MESSAGING
+  OTHER
+  POSTING
+  READING
+  SOCIAL
+}
+
+enum UsageTier {
+  X1
+  X10
+  X100
+  X2
+}
+
+enum VoteReception {
+  ACCEPT
+  REFUSE
+}
+
+enum WatermarkKind {
+  LOGO
+  TEXT
+}
+
+enum WatermarkOrientation {
+  HORIZONTAL
+  VERTICAL
+}
+
+enum ZoneRadius {
+  KM1
+  KM2_5
+  M150
+  M250
+  M500
+}
+
+input AccountDeletionSuccessorInput {
+  accountId: ID!
+  universe: String!
+}
+
+input AmplifyAIConversationTurnErrorInput {
+  errorType: String!
+  message: String!
+}
+
+input BillingDayChoiceInput {
+  day: Int!
+  month: Int
+  settleNow: Boolean
+}
+
+input BoundsInput {
+  east: Float!
+  north: Float!
+  south: Float!
+  west: Float!
+}
+
+input ChannelProposalInput {
+  action: ChannelProposalAction!
+  name: String!
+  universe: String!
+}
+
+input ClipPlayInput {
+  completed: Boolean!
+  playedMs: Int!
+  postId: ID!
+}
+
+input DoNotDisturbInput {
+  end: String!
+  start: String!
+  timeZone: String!
+}
+
+input GroupChatExpectedInput {
+  announcement: Boolean
+  description: String
+  membersCanInvite: Boolean
+  name: String
+}
+
+input ImageAttachmentInput {
+  alt: String
+  id: ID!
+}
+
+input InterestInput {
+  consent: Boolean
+  field: UniverseField
+  tag: String
+  universe: String
+}
+
+input LayoutRefInput {
+  deleted: Boolean
+  name: String!
+  universe: String!
+  version: Int
+}
+
+input LayoutRetouchInput {
+  canvas: LayoutCanvasKind!
+  state: LayoutRetouchState
+  variant: String
+  widget: String!
+}
+
+input MeetUpDetailsInput {
+  at: AWSDateTime!
+  place: PlaceInput!
+  title: String
+}
+
+input ModelBooleanInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  eq: Boolean
+  ne: Boolean
+}
+
+input ModelFloatInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  between: [Float]
+  eq: Float
+  ge: Float
+  gt: Float
+  le: Float
+  lt: Float
+  ne: Float
+}
+
+input ModelIDInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+  size: ModelSizeInput
+}
+
+input ModelIntInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+}
+
+input ModelSizeInput {
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  le: Int
+  lt: Int
+  ne: Int
+}
+
+input ModelStringInput {
+  attributeExists: Boolean
+  attributeType: ModelAttributeTypes
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+  size: ModelSizeInput
+}
+
+input ModelSubscriptionBooleanInput {
+  eq: Boolean
+  ne: Boolean
+}
+
+input ModelSubscriptionFloatInput {
+  between: [Float]
+  eq: Float
+  ge: Float
+  gt: Float
+  in: [Float]
+  le: Float
+  lt: Float
+  ne: Float
+  notIn: [Float]
+}
+
+input ModelSubscriptionIDInput {
+  beginsWith: ID
+  between: [ID]
+  contains: ID
+  eq: ID
+  ge: ID
+  gt: ID
+  in: [ID]
+  le: ID
+  lt: ID
+  ne: ID
+  notContains: ID
+  notIn: [ID]
+}
+
+input ModelSubscriptionIntInput {
+  between: [Int]
+  eq: Int
+  ge: Int
+  gt: Int
+  in: [Int]
+  le: Int
+  lt: Int
+  ne: Int
+  notIn: [Int]
+}
+
+input ModelSubscriptionStringInput {
+  beginsWith: String
+  between: [String]
+  contains: String
+  eq: String
+  ge: String
+  gt: String
+  in: [String]
+  le: String
+  lt: String
+  ne: String
+  notContains: String
+  notIn: [String]
+}
+
+input NearbySightingInput {
+  closeness: NearbyCloseness!
+  token: String!
+}
+
+input NotificationCategorySettingInput {
+  category: NotificationCategory!
+  setting: NotificationCategorySettingValue!
+}
+
+input PlaceInput {
+  lat: Float!
+  lon: Float!
+  name: String!
+  point: PointInput
+}
+
+input PointInput {
+  lat: Float!
+  lon: Float!
+}
+
+input PositionInput {
+  at: AWSDateTime!
+  lat: Float!
+  lon: Float!
+  secondsToMeetingPoint: Int
+}
+
+input ProfileExpectedInput {
+  aiDescription: String
+  avatarKey: String
+  bio: String
+  displayName: String
+  links: [ProfileLinkInput]
+  organizationName: String
+}
+
+input ProfileLinkInput {
+  label: String
+  url: String!
+}
+
+input ProfileUpdateInput {
+  aiDescription: String
+  avatarKey: String
+  bio: String
+  displayName: String
+  links: [ProfileLinkInput]
+  organizationName: String
+  removeAvatar: Boolean
+}
+
+input RectificationInput {
+  text: String!
+}
+
+input RouteInput {
+  ascent: Int
+  descent: Int
+  line: [PointInput!]
+  meetingPoint: PlaceInput
+  metres: Int
+  mode: RouteMode!
+  points: [PointInput!]!
+  seconds: Int
+  snap: Boolean
+  snapped: Boolean
+  stages: [StageInput!]
+}
+
+input SearchWordsReportInput {
+  article: Int
+  reason: ReportReason!
+  target: ReportTarget!
+  universe: String!
+  word: String
+}
+
+input StageInput {
+  index: Int!
+  name: String!
+}
+
+input SubscriptionRefInput {
+  kind: SubscriptionKind!
+  universe: String
+}
+
+input SubscriptionTierOfferInput {
+  currency: String!
+  monthlyAmount: Int
+  name: String!
+  perks: [TierPerk!]!
+  yearlyAmount: Int
+}
+
+input TerritoryChoiceInput {
+  boundaryId: String
+  center: PlaceInput
+  kind: String
+  name: String
+  radius: TerritoryRadius
+}
+
+input ThemeRefInput {
+  deleted: Boolean
+  name: String!
+  universe: String
+  version: Int
+}
+
+input TierSubscriptionStartInput {
+  automaticRenewal: Boolean!
+  conditionsVersion: Int!
+  currency: String
+  immediateAccessConsent: Boolean!
+  interval: BillingInterval!
+  returnPath: String
+  tierId: ID!
+}
+
+input WatermarkSettingInput {
+  kind: WatermarkKind!
+  orientation: WatermarkOrientation
+  text: String
+}
+
+input ZoneInput {
+  center: PointInput!
+  place: String
+  point: PointInput
+  radius: ZoneRadius!
+  revealAt: AWSDateTime
+  revealToAttendees: Boolean
+}

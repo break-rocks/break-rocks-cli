@@ -1,7 +1,7 @@
 // The GraphQL documents of the CLI against the contract: the generated schema is the one of
 // schema/schema.graphql, every operation's document with its selection is valid,
 // and every command sends only valid documents (a fake API validates them with graphql-js).
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSchema, execute as run, getNamedType, isEnumType, isListType, isNonNullType, isObjectType, isScalarType, parse, validate, type GraphQLFieldResolver, type GraphQLOutputType, type GraphQLSchema } from 'graphql';
 import { describe, expect, it } from 'vitest';
@@ -48,7 +48,6 @@ const typeResolver = (_v: unknown, _c: unknown, info: { returnType: GraphQLOutpu
 describe('the contract of the API', () => {
   it('is generated from schema/schema.graphql', async () => {
     const source = join(import.meta.dirname, '..', 'schema', 'schema.graphql');
-    if (!existsSync(source)) return;
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl } = await import('../scripts/gen-schema-lib.mjs');
     expect(parseSdl(readFileSync(source, 'utf8'))).toEqual(JSON.parse(JSON.stringify(GENERATED)));

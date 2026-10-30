@@ -3,7 +3,9 @@ name: CI
 # Lint, types, unit tests, the build, the executable, its completion scripts and its MCP server on
 # stdio, on Linux, macOS and Windows (the CLI runs wherever Node 24 runs: README § Systèmes), on
 # every push to main and every pull request.
-# No AWS credentials, no network: the CLI is tested against fakes. The job "check" is the one status main requires: it fails if any system fails.
+# No AWS credentials, no network: the CLI is tested against fakes, and against the versioned copy of
+# the schema of the platform (schema/schema.graphql). The job "check" is the one status main requires:
+# it fails if any system fails.
 
 on:
   push:
@@ -62,7 +64,7 @@ jobs:
         shell: bash
         run: |
           npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
-          node -e "const [p]=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const f=p.files.map((x)=>x.path); for (const need of ['bin/breakrocks.js','dist/index.js','dist/cli.js','completions/breakrocks.bash','README.md']) if (!f.includes(need)) { console.error('missing', need); process.exit(1); } const bad=f.filter((x)=>/^(src|test|scripts|specs)\//.test(x)); if (bad.length) { console.error('unexpected', bad); process.exit(1); } console.log(p.name, p.version, f.length, 'files', p.size, 'bytes')" "$RUNNER_TEMP/pack.json"
+          node -e "const [p]=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const f=p.files.map((x)=>x.path); for (const need of ['bin/breakrocks.js','dist/index.js','dist/cli.js','completions/breakrocks.bash','README.md']) if (!f.includes(need)) { console.error('missing', need); process.exit(1); } const bad=f.filter((x)=>/^(src|test|scripts|schema)\//.test(x)); if (bad.length) { console.error('unexpected', bad); process.exit(1); } console.log(p.name, p.version, f.length, 'files', p.size, 'bytes')" "$RUNNER_TEMP/pack.json"
       - name: The MCP server on stdio
         shell: bash
         env:
