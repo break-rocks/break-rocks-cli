@@ -790,18 +790,21 @@ Avant la publication npm, remplacer `npx -y breakrocks` par le chemin de l'exéc
 Le dépôt est public, sous licence MIT ; le paquet npm part **à l'ouverture de la production au grand
 public** ; d'ici là, rien ne part sur npm.
 
-1. Le jeton : un compte npm (ou une organisation) qui réserve `breakrocks`, puis un jeton
-   d'automatisation, posé par l'utilisateur : `gh secret set NPM_TOKEN --repo break-rocks/break-rocks-cli`.
-2. Le job `npm` de `release.yml` ne publie que si **deux** conditions sont réunies : le secret
-   `NPM_TOKEN` **et** la variable de dépôt `NPM_PUBLISH` égale à `true`. Elle est absente aujourd'hui :
-   même avec le secret, un tag ne publie rien (le job le dit).
+1. Sans jeton : le paquet `breakrocks` est publié par **trusted publishing** (configuré sur
+   npmjs.com pour `break-rocks/break-rocks-cli`, workflow `release.yml`). Le job `npm` reçoit un jeton
+   OIDC de GitHub Actions (`id-token: write`), que npm échange contre un jeton de publication de
+   courte durée ; aucun secret npm n'est posé dans le dépôt. Il installe un npm qui le permet
+   (11.5.1 ou plus, épinglé) et publie avec la provenance (`--provenance`).
+2. Le job ne publie que si la variable de dépôt `NPM_PUBLISH` vaut `true`. Elle est absente
+   aujourd'hui : un tag ne publie rien sur npm (le job le dit).
 3. Au lancement : poser `gh variable set NPM_PUBLISH --repo break-rocks/break-rocks-cli --body true`,
    puis le tag de la version : `release.yml` construit les exécutables, crée la release (exécutables,
-   `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), puis publie le paquet
-   (`npm publish --access public` ; `prepack` construit `dist/` et les scripts).
+   `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), vérifie que le tag est la
+   version de `package.json`, puis publie le paquet (`npm publish --access public --provenance` ;
+   `prepack` construit `dist/` et les scripts). La publication est **mise en attente** (« staged ») par
+   npm et peut demander l'approbation d'un mainteneur sur npmjs.com avant d'être visible.
 
 Ensuite : `npx breakrocks help`, `npm i -g breakrocks`, `claude mcp add breakrocks -- npx -y breakrocks mcp`.
-La provenance npm (`--provenance`) demande un dépôt public : à ajouter le jour où il l'est.
 Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [arguments JSON] [-- options]`.
 
 ## Licence

@@ -12,6 +12,10 @@ the contract is the GraphQL schema of the platform (`schema/schema.graphql`). Th
   `npm run update:schema -- <path>` copies a new version from a local checkout of the specifications
   (or a `schema.graphql` file) and regenerates `src/api/schema.generated.ts`.
 
+- The npm job of `release.yml` publishes with npm trusted publishing (OIDC, `id-token: write`) and
+  the provenance of the package, with npm 11.21.1: no `NPM_TOKEN` secret any more; the repository
+  variable `NPM_PUBLISH=true` still gates it, and the tag must still be the version of `package.json`.
+
 ### Removed
 
 - The references to internal documents (decision numbers, versions and files of the specifications,

@@ -4,8 +4,8 @@ name: Release
 # package.json), each target builds its executable with Node SEA (npm run build:sea), checks that it
 # answers --version, and the release of the tag gets every executable and its SHA-256, with the
 # completion scripts of bash, zsh, fish and PowerShell (README § Autocomplétion) and the installers
-# install.sh and install.ps1 (README § Installation). Then the npm package is published, only
-# when the secret NPM_TOKEN and the variable NPM_PUBLISH=true exist (README § Publication npm). Run
+# install.sh and install.ps1 (README § Installation). Then the npm package is published with npm
+# trusted publishing, only when the variable NPM_PUBLISH=true exists (README § Publication npm). Run
 # by hand (workflow_dispatch), it builds and checks the five targets and keeps them as artifacts,
 # without a release. No signature yet (macOS notarization, Windows Authenticode: later).
 
@@ -115,20 +115,24 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "breakrocks $GITHUB_REF_NAME" --generate-notes breakrocks-* breakrocks.bash breakrocks.zsh breakrocks.fish breakrocks.ps1 install.sh install.ps1 SHA256SUMS
 
   npm:
-    # The npm package, after the release; published only when both the secret NPM_TOKEN (an
-    # automation token of the npm account that owns the name breakrocks) and the repository variable
-    # NPM_PUBLISH = true exist (the CLI goes public at the opening of production to the public;
-    # until then NPM_PUBLISH is absent and nothing is published, even with the secret).
+    # The npm package, after the release, with npm trusted publishing: npm exchanges the OIDC token of
+    # this workflow for a short-lived publish token (no long-lived token in the secrets), and the package carries its
+    # provenance. Published only when the repository variable NPM_PUBLISH is true (the package goes out
+    # at the opening of production to the public); npm stages the publication, which may wait for the
+    # approval of a maintainer on npmjs.com.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     env:
-      PUBLISH: ${{ secrets.NPM_TOKEN != '' && vars.NPM_PUBLISH == 'true' }}
+      PUBLISH: ${{ vars.NPM_PUBLISH == 'true' }}
     steps:
-      - name: Without NPM_TOKEN and NPM_PUBLISH=true, nothing is published
+      - name: Without NPM_PUBLISH=true, nothing is published
         if: env.PUBLISH != 'true'
-        run: echo "::notice title=npm::NPM_TOKEN or NPM_PUBLISH=true is missing; the package breakrocks is not published to npm (README § Publication npm)"
+        run: echo "::notice title=npm::NPM_PUBLISH=true is missing; the package breakrocks is not published to npm (README § Publication npm)"
       - uses: actions/checkout@v7
         if: env.PUBLISH == 'true'
       - uses: actions/setup-node@v7
@@ -137,6 +141,9 @@ jobs:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
+      - name: An npm that publishes with OIDC (11.5.1 or later)
+        if: env.PUBLISH == 'true'
+        run: npm install -g npm@11.21.1 && npm --version
       - if: env.PUBLISH == 'true'
         run: npm ci
       - name: The tag is the version of package.json
@@ -144,6 +151,4 @@ jobs:
         run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
       - name: Publish (prepack builds dist/ and the completion scripts)
         if: env.PUBLISH == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+        run: npm publish --access public --provenance
