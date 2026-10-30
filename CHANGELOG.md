@@ -5,6 +5,8 @@ the contract is the GraphQL schema of the platform (`schema/schema.graphql`). Th
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-30
+
 ### Changed
 
 - The schema of the platform is a versioned copy, `schema/schema.graphql`, instead of a submodule:
