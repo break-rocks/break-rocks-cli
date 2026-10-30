@@ -800,9 +800,10 @@ public** ; d'ici là, rien ne part sur npm.
 3. Au lancement : poser `gh variable set NPM_PUBLISH --repo break-rocks/break-rocks-cli --body true`,
    puis le tag de la version : `release.yml` construit les exécutables, crée la release (exécutables,
    `SHA256SUMS`, scripts d'autocomplétion, `install.sh`, `install.ps1`), vérifie que le tag est la
-   version de `package.json`, puis publie le paquet (`npm publish --access public --provenance` ;
-   `prepack` construit `dist/` et les scripts). La publication est **mise en attente** (« staged ») par
-   npm et peut demander l'approbation d'un mainteneur sur npmjs.com avant d'être visible.
+   version de `package.json`, puis met le paquet en attente (`npm stage publish . --access public
+   --provenance` ; `prepack` construit `dist/` et les scripts) : le trusted publishing n'autorise que la
+   publication **mise en attente** (« staged »). Un mainteneur l'approuve ensuite, avec sa double
+   authentification, sur npmjs.com ou par `npm stage list breakrocks` puis `npm stage approve <id>`.
 
 Ensuite : `npx breakrocks help`, `npm i -g breakrocks`, `claude mcp add breakrocks -- npx -y breakrocks mcp`.
 Vérification de bout en bout : `node test/smoke/mcp-stdio.mjs [outil] [arguments JSON] [-- options]`.

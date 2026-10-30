@@ -5,6 +5,13 @@ the contract is the GraphQL schema of the platform (`schema/schema.graphql`). Th
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-10-30
+
+### Fixed
+
+- The npm job of `release.yml` stages the package (`npm stage publish`), the only publication the
+  trusted publishing of the package allows; a maintainer approves it with two-factor authentication.
+
 ## [0.11.1] - 2026-10-30
 
 ### Changed
