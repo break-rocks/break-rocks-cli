@@ -5,6 +5,12 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-10-31
+
+### Fixed
+
+- The release builds the macOS arm64 binary on `macos-15` (the `macos-14` runner was not assigned): 0.12.0 was tagged but never published.
+
 ## [0.12.0] - 2026-10-31
 
 **Breaking.** The CLI moves to API v2 of the platform, entirely, with no way back to API v1. The
