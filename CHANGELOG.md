@@ -5,6 +5,12 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-10-31
+
+### Security
+
+- `zod` is forced to 4.6.7 under `@x402/core` and `@x402/evm` (npm `overrides`), which pulled 3.25.76 (GHSA-mrhx-c7xc-m3w5, memory exhaustion on oversized constrained collections, fixed in 4.6.6). The top-level `zod` was already 4.6.7.
+
 ## [0.12.1] - 2026-10-31
 
 ### Fixed
