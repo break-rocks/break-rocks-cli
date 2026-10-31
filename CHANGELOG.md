@@ -74,6 +74,14 @@ tools) of many commands: scripts that read them must be checked. The names of th
 - A command whose definition names an argument, a field or a positional its operation does not have
   fails at load time (and in the tests).
 
+### Fixed
+
+- `--watch` hands control back within a second of `--duration`: the WebSocket of the Event API, closed
+  by the CLI, was kept open by Node until the server answered the close handshake (70 to 90 s); the
+  process now exits after a short grace (`exitWhenDone`).
+- `universes show` reads `Universe.conditionsAccepted` again (the backend answers it, in dev, staging and
+  production).
+
 ### Removed
 
 - `schema/schema.graphql` (API v1) and its line-based parser.

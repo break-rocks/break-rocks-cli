@@ -1,7 +1,7 @@
 // The real-time updates with a fake WebSocket: the subprotocols and the
 // messages of AppSync Events, an event seen once, a refusal; --watch in real time, and its reading
 // again when the connection is refused or the account may not connect.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Context, NO_FLAGS } from '../src/context.js';
 import { connect, realtimeUnavailable } from '../src/realtime.js';
 import { saveSession } from '../src/session.js';
@@ -126,5 +126,29 @@ describe('dm read --watch', () => {
     expect(await h.run('dm', 'read', '@bob', '--watch', '--interval', '15', '--duration', '15', '--json')).toBe(0);
     expect(h.errors.join('\n')).toMatch(/Real time not used \(REALTIME_REFUSED/);
     expect(last(h)).toMatchObject({ mode: 'polling' });
+  });
+});
+
+describe('closing the connection', () => {
+  it('lets the process exit at once although the server never answers the close handshake', async () => {
+    const { lingeringSockets, exitWhenDone } = await import('../src/realtime.js');
+    const before = lingeringSockets();
+    const { Socket } = fakeSocket(ok());
+    (Socket.prototype as unknown as { close: () => void }).close = () => { /* the server stays silent */ };
+    const h = harness();
+    h.io.WebSocket = Socket;
+    const c = await connect(new Context(h.io, NO_FLAGS), { realtimeUrl: 'wss://rt.test/x', httpUrl: 'https://ev.test/event', token: 't', channels: ['/users/a'], onEvent: () => {} });
+    expect(lingeringSockets()).toBe(before + 1);
+    c.close();
+    await expect(c.closed).resolves.toBe('closed');
+    // Still lingering: exitWhenDone forces the exit after its grace.
+    expect(lingeringSockets()).toBe(before + 1);
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    const code = process.exitCode;
+    exitWhenDone(3, 10);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(exit).toHaveBeenCalledWith(3);
+    exit.mockRestore();
+    process.exitCode = code;
   });
 });

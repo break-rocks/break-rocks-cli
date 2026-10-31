@@ -912,9 +912,6 @@ binaires SEA.
   est publié.
 - La web app de production est `beta.break.rocks` jusqu'au lancement (`WEB_HOSTS`,
   `src/endpoints.ts`, `TEMPORARY`) : `break.rocks` ensuite.
-- `universes show` ne lit pas `Universe.conditionsAccepted` (`TEMPORARY`, `src/commands/read.ts`) :
-  l'API v2 de dev le rend `null` pour un univers public alors qu'il est non nul, ce qui annule tout
-  l'univers (constaté le 2026-10-31). Relu quand le backend le rend `false`.
 - `src/srp.ts` est une copie de celui du CLI du back office (pas de paquet commun) : une correction va
   dans les deux.
 

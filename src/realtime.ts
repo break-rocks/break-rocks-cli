@@ -13,6 +13,15 @@ export type RealtimeEvent = { id: string; at?: string; type: string; [field: str
 export type RealtimeMode = 'auto' | 'on' | 'off';
 export const ACK_TIMEOUT_MS = 10_000;
 
+let lingering = 0;
+/** Sockets closed by us whose close handshake the server has not answered: Node keeps the process alive until it does (70 to 90 s on AppSync). */
+export const lingeringSockets = () => lingering;
+/** Ends the process once the CLI is done: at once if nothing lingers, else after a short grace (the sockets are dropped, not waited for). */
+export function exitWhenDone(code: number, graceMs = 250): void {
+  process.exitCode = code;
+  if (lingering > 0) setTimeout(() => process.exit(code), graceMs).unref();
+}
+
 const b64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 
 /** Why the real-time updates cannot be used, or undefined when they can be tried ([_sessionKind]: every account may). */
@@ -36,6 +45,9 @@ export async function connect(ctx: Context, options: { realtimeUrl: string; http
   const auth = { host, Authorization: options.token };
   const seen = options.seen ?? new Set<string>();
   const socket = new Socket(options.realtimeUrl, ['aws-appsync-event-ws', `header-${b64url(auth)}`]);
+  let socketClosed = false;
+  socket.addEventListener('close', () => { if (!socketClosed) { socketClosed = true; lingering--; } });
+  lingering++;
   let timeoutMs = 300_000, lastKa = ctx.now(), resolveClosed!: (r: string) => void;
   const closed = new Promise<string>((r) => { resolveClosed = r; });
   let ticker: ReturnType<typeof setInterval> | undefined;

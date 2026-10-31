@@ -141,10 +141,7 @@ export const feed: Command<FeedInput, unknown> = {
 const UNIVERSE = selection('Universe', 2).replace(`pages ${selection('PageOfUniverse', 1)}`, 'pages { kind name order hidden removed version url }')
   // The universe theme trial and the draft preview without their documents.
   .replace(`themeTrial ${selection('UniverseThemeTrial', 1)}`, 'themeTrial { draftId version startedAt endsAt startedBy { id handle } }')
-  .replace(`myDraftPreview ${selection('DraftPreview', 1)}`, 'myDraftPreview { draftId version endsAt }')
-  // TEMPORARY (technical debt, until the backend answers it): API v2 of dev answers null for the non-null
-  // Universe.conditionsAccepted of a public universe, which nulls the whole universe; not read here.
-  .replace(' conditionsAccepted ', ' ');
+  .replace(`myDraftPreview ${selection('DraftPreview', 1)}`, 'myDraftPreview { draftId version endsAt }');
 
 type UniverseShow = { universe: Record<string, unknown>; theme?: unknown; governance?: unknown; members?: unknown };
 
