@@ -41,7 +41,8 @@ function scripted(handlers: Record<string, (v: Record<string, unknown>) => unkno
   saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
   return { h, calls, map };
 }
-const universe = (v: Record<string, unknown>) => ({ name: v.u ?? v.n, territory: v.t ? { id: (v.t as { boundaryId?: string }).boundaryId ?? null, name: 'x', kind: 'circle', center: null, radius: null } : null, pages: [], pagesVersion: 3, private: true, pinnedChannels: [] });
+const territoryOf = (v: Record<string, unknown>) => (v.i as { territory?: unknown } | undefined)?.territory ?? v.t;
+const universe = (v: Record<string, unknown>) => ({ name: v.u ?? v.n, territory: territoryOf(v) ? { id: (territoryOf(v) as { boundaryId?: string }).boundaryId ?? null, name: 'x', kind: 'circle', center: null, radius: null } : null, pages: [], pagesVersion: 3, private: true, pinnedChannels: [] });
 const page = { name: 'market', icon: 'basket', canvases: { desktop: { columns: 12, items: [] } } };
 const served = (name = 'market') => ({ universe: '%x', kind: 'CUSTOM', name, icon: 'basket', order: 1, hidden: false, removed: false, version: 1, modifiedAt: '2026-10-24T10:00:00.000Z', url: `https://dev.break.rocks/u/x/p/${name}` });
 
@@ -67,37 +68,37 @@ describe('universes territory', () => {
   it('sets a boundary by its id, its name and kind read from its shape', async () => {
     const { h, calls } = scripted({ setUniverseTerritory: universe });
     expect(await h.run('universes', 'territory', 'set', '%paris', '--boundary', 'R7444', '--json')).toBe(0);
-    expect(calls[0].variables).toEqual({ u: '%paris', t: { boundaryId: 'R7444', name: 'Paris', kind: 'boundary:administrative' } });
+    expect(calls[0].variables).toEqual({ u: '%paris', i: { territory: { boundaryId: 'R7444', name: 'Paris', kind: 'boundary:administrative' } }, r: expect.any(String) });
     expect(last(h)).toMatchObject({ universe: '%paris', territory: { id: 'R7444' } });
   });
   it('sets a circle around a named place; refuses a circle without its radius or its name', async () => {
     const { h, calls } = scripted({ setUniverseTerritory: universe });
     expect(await h.run('universes', 'territory', 'set', '%marche', '--circle', '48.85,2.35', '--radius', '1km', '--name', 'Place du marché', '--json')).toBe(0);
-    expect(calls[0].variables.t).toEqual({ center: { name: 'Place du marché', lat: 48.85, lon: 2.35 }, radius: 'KM1' });
+    expect(calls[0].variables.i).toEqual({ territory: { center: { name: 'Place du marché', point: { lat: 48.85, lon: 2.35 } }, radius: 'KM1' } });
     expect(await h.run('universes', 'territory', 'set', '%marche', '--circle', '48.85,2.35', '--radius', '1km', '--json')).toBe(2);
     expect(last<{ error: { code: string; message: string } }>(h).error.message).toContain('--name');
     expect(await h.run('universes', 'territory', 'set', '%marche', '--json')).toBe(2);
     expect(calls.length).toBe(1);
   });
   it('reads, removes and reports it', async () => {
-    const { h, calls } = scripted({ universe: () => ({ name: '%paris', territory: { id: 'R7444', name: 'Paris', kind: 'boundary:administrative', center: null, radius: null } }), setUniverseTerritory: universe, reportUniverseTerritory: () => ({ id: 'r1', reason: 'MISLEADING' }) });
+    const { h, calls } = scripted({ universe: () => ({ name: '%paris', territory: { id: 'R7444', name: 'Paris', kind: 'boundary:administrative', center: null, radius: null } }), setUniverseTerritory: universe, report: () => ({ id: 'r1', reason: 'MISLEADING' }) });
     expect(await h.run('universes', 'territory', 'get', '%paris')).toBe(0);
     expect(h.lines.join('\n')).toContain('boundary Paris [R7444]');
     expect(h.lines.join('\n')).toContain('breakrocks map boundary R7444');
     expect(await h.run('universes', 'territory', 'remove', '%paris', '--json')).toBe(0);
-    expect(calls[1].query).toContain('remove: true');
+    expect(calls[1].query).toContain('clear: true');
     expect(await h.run('universes', 'territory', 'report', '%paris', '--reason', 'MISLEADING', '--json')).toBe(0);
-    expect(calls[2].variables).toMatchObject({ universe: '%paris', reason: 'MISLEADING' });
+    expect(calls[2].variables).toMatchObject({ target: { kind: 'UNIVERSE_TERRITORY', universe: '%paris' }, reason: 'MISLEADING' });
     expect(await h.run('universes', 'territory', 'report', '%paris', '--reason', 'OFF_TOPIC', '--json')).toBe(2);
   });
   it('is proposed by proposals file --kind TERRITORY: a circle, or no territory', async () => {
-    const { h, calls } = scripted({ fileProposal: (v) => ({ id: 'p1', kind: v.kind, title: v.title }) });
+    const { h, calls } = scripted({ fileProposal: (v) => ({ id: 'p1', kind: (v.input as { kind: string }).kind }) });
     expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'Le quartier', '--circle', '48.85,2.35', '--radius', '500', '--territory-name', 'Place', '--json')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ universe: '%marche', kind: 'TERRITORY', territory: { center: { name: 'Place', lat: 48.85, lon: 2.35 }, radius: 'M500' } });
-    expect(calls[0].variables).not.toHaveProperty('removeTerritory');
+    expect(calls[0].variables.input).toMatchObject({ universe: '%marche', kind: 'TERRITORY', title: 'Le quartier', change: { territory: { center: { name: 'Place', point: { lat: 48.85, lon: 2.35 } }, radius: 'M500' } } });
+    expect((calls[0].variables.input as { change: object }).change).not.toHaveProperty('clear');
     expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'Aucun', '--no-territory', '--json')).toBe(0);
-    expect(calls[1].variables).toMatchObject({ removeTerritory: true });
-    expect(calls[1].variables).not.toHaveProperty('territory');
+    expect(calls[1].variables.input).toMatchObject({ change: { clear: ['TERRITORY'] } });
+    expect((calls[1].variables.input as { change: object }).change).not.toHaveProperty('territory');
     expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'x', '--boundary', 'R7444', '--no-territory', '--json')).toBe(2);
   });
 });
@@ -115,7 +116,7 @@ describe('the map', () => {
     expect(await h.run('map', 'boundary', '../x', '--json')).toBe(2);
   });
   it('lists the universes of an area by its map cells, or by the cells of a boundary', async () => {
-    const { h, calls } = scripted({ universesInArea: () => ({ items: [{ universe: '%paris', count: 3, territory: { id: 'R7444', name: 'Paris', kind: 'boundary:administrative' } }], next: null }) });
+    const { h, calls } = scripted({ exploreUniverses: () => ({ items: [{ universe: '%paris', count: 3, territory: { id: 'R7444', name: 'Paris', kind: 'boundary:administrative' } }], next: null }) });
     expect(await h.run('explore', 'area', '--boundary', 'R7444')).toBe(0);
     expect(calls[0].variables).toEqual({ c: ['851fb463fffffff', '851fb467fffffff'] });
     expect(h.lines.join('\n')).toContain('%paris  activity 3');
@@ -160,7 +161,7 @@ describe('universes pages', () => {
     const { h, calls } = scripted({
       universe: () => ({ name: '%x', pagesVersion: 3, pages: [{ ...served('home'), kind: 'HOME', order: null, version: null }, served()] }),
       pageOfUniverse: () => ({ ...served(), document: JSON.stringify(page) }), setUniversePageHidden: () => ({ ...served('agenda'), kind: 'AGENDA', hidden: true }),
-      moveUniversePage: () => [served()], deleteUniversePage: () => true,
+      moveUniversePage: () => [served()], deleteUniversePage: () => served(),
     });
     expect(await h.run('universes', 'pages', '%x')).toBe(0);
     expect(h.lines.join('\n')).toContain('pages version 3');
@@ -192,16 +193,16 @@ describe('the governance page', () => {
   it('pins channels in their order, unpins them all with --none; reads the layout of the governance page', async () => {
     const { h, calls } = scripted({ setPinnedChannels: (v) => ({ name: v.u, private: true, pinnedChannels: (v.c as string[]).map((address) => ({ address })) }), appliedLayout: () => ({ source: 'PLATFORM', retouched: false }) });
     expect(await h.run('governance', 'pin', '%team.', '%team.~general', '%team.~dev')).toBe(0);
-    expect(calls[0].variables).toEqual({ u: '%team.', c: ['%team.~general', '%team.~dev'] });
+    expect(calls[0].variables).toEqual({ u: '%team.', c: ['%team.~general', '%team.~dev'], r: expect.any(String) });
     expect(h.lines.join('\n')).toContain('2. %team.~dev');
     expect(await h.run('governance', 'pin', '%team.', '--none', '--json')).toBe(0);
-    expect(calls[1].variables).toEqual({ u: '%team.', c: [] });
+    expect(calls[1].variables).toEqual({ u: '%team.', c: [], r: expect.any(String) });
     expect(await h.run('governance', 'pin', '%team.', '--json')).toBe(2);
     expect(await h.run('governance', 'layout', '%paris', '--json')).toBe(0);
     expect(calls[2].variables).toMatchObject({ universe: '%paris', page: 'GOVERNANCE' });
   });
   it('reads the proposals by status, the record, the duties of a universe', async () => {
-    const { h, calls } = scripted({ proposals: () => ({ items: [], next: null }), governanceRecord: () => ({ items: [], next: null }), myJuryDuties: () => ({ items: [], next: null }) });
+    const { h, calls } = scripted({ proposals: () => ({ items: [], next: null }), governanceRecords: () => ({ items: [], next: null }), myJuryDuties: () => ({ items: [], next: null }) });
     expect(await h.run('governance', 'proposals', '%paris', '--status', 'WAITING_SUPPORT', '--kind', 'TERRITORY', '--json')).toBe(0);
     expect(calls[0].variables).toMatchObject({ universe: '%paris', status: 'WAITING_SUPPORT', kind: 'TERRITORY' });
     expect(await h.run('governance', 'record', '%paris', '--json')).toBe(0);

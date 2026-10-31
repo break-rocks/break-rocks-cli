@@ -1,0 +1,1915 @@
+"""
+A page of accounts, as shown next to what they did.
+"""
+type AccountRefPage {
+  """
+  The account ref items of this page.
+  """
+  items: [AccountRef!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A debate: the ephemeral channel of a public universe, read by everyone, opened by a resident or the
+leadership, closed at its end, summed up by a platform AI agent.
+"""
+type Debate {
+  """
+  Its address, with its signs ("%paris&budget").
+  """
+  address: String!
+  """
+  Whether the leadership created it (at once, without support).
+  """
+  byLeadership: Boolean!
+  """
+  What closed it, once CLOSED (and GONE after it was open); null while it waits or is open, and for a debate
+  closed before 2026-10-15.
+  """
+  closedBy: DebateClosedBy
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  Whether it was extended (once at most).
+  """
+  extended: Boolean!
+  """
+  The identifier of the debate.
+  """
+  id: ID!
+  """
+  Its number of messages.
+  """
+  messageCount: Int!
+  """
+  The name of the debate.
+  """
+  name: String!
+  """
+  Who opened it, as shown.
+  """
+  openedBy: AccountRef!
+  """
+  When it opens, or opened.
+  """
+  opensAt: AWSDateTime!
+  """
+  The running summary while it is open, from the governance level "village" (debates.feature since v42.1.0):
+  its text and when it was written.
+  """
+  runningSummary: Summary
+  """
+  The state of the debate.
+  """
+  status: DebateStatus!
+  """
+  The subject.
+  """
+  subject: String!
+  """
+  Its summary, once written and approved; null otherwise.
+  """
+  summary: Post
+  """
+  The answer of the leadership to its summary; null before.
+  """
+  summaryAnswer: DebateSummaryAnswer
+  """
+  The final summary before it is posted, to the leadership only (null for others): from the end
+  of the debate until the leadership answers it (answerDebateSummary) or it is posted 24 hours
+  after the end.
+  """
+  summaryDraft: Summary
+  """
+  Its support while it waits for it; null otherwise.
+  """
+  support: ProposalSupport
+  """
+  Whether the caller supports it.
+  """
+  supportedByMe: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+What closed a debate: END (its end came), LEADERSHIP (closed early by the leadership), OPENER
+(closed early by the resident who asked for it), LEVEL (its universe went below the village).
+"""
+enum DebateClosedBy {
+  END
+  LEADERSHIP
+  LEVEL
+  OPENER
+}
+
+"""
+A debate of a public universe (debates.feature; contracts/living-universes.md § Debates): an
+ephemeral channel ("address": "%paris&quiet-nights"), read by everyone, written by the residents
+with the operations of the channels. WAITING_SUPPORT: asked for by a resident ("opensAt": the
+request, which expires 7 days later; "support": the 5 supporters needed); CLOSED: read-only, its
+messages until "endsAt" + 24 hours; "summary": the debate summary once posted; "summaryAnswer":
+the leadership's (APPROVED, DECLINED) once given.
+"""
+enum DebateStatus {
+  CLOSED
+  GONE
+  OPEN
+  WAITING_SUPPORT
+}
+
+"""
+The answer of the leadership to the summary of a debate.
+"""
+enum DebateSummaryAnswer {
+  APPROVED
+  DECLINED
+}
+
+"""
+The DNS TXT record that proves an own domain: publish "value" at "recordName" before "expiresAt".
+"""
+type DnsProof {
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The name of the DNS record to publish.
+  """
+  recordName: String!
+  """
+  The type of the DNS record to publish (TXT).
+  """
+  recordType: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The value of the DNS record to publish.
+  """
+  value: String!
+}
+
+"""
+What a non-member may do in an exposed part of a private universe: read, reply, participate.
+"""
+enum ExposedAccess {
+  PARTICIPATE
+  READ
+  REPLY
+}
+
+"""
+An exposed part ("universe": its name) with the access of the accounts that are not members.
+"""
+type ExposedPart {
+  """
+  What a non-member may do in it.
+  """
+  access: ExposedAccess!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A request to join a private universe joined by request, waiting for the owner or an admin.
+"""
+type JoinRequest {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of join requests, the oldest first.
+"""
+type JoinRequestPage {
+  """
+  The join request items of this page.
+  """
+  items: [JoinRequest!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Every waiting request answered at once: how many now ("answered"; accepted up to the member tier), how many
+still wait.
+"""
+type JoinRequestsAnswer {
+  """
+  The join requests answered.
+  """
+  answered: Int!
+  """
+  The join requests still waiting.
+  """
+  waiting: Int!
+}
+
+"""
+The live line of a universe: what it turns among, in this order (the apps turn it every 6
+seconds): the most recent pinned announcement, the open vote that ends soonest, the open poll
+with the most votes, the open debate with the most messages, the universe event of the day (the
+apps keep it when it is the reader's day); since v46.0.0 never hidden: "activity" when nothing
+is under way. A private universe and the root universe (since v46.0.0): "activity" only.
+"""
+type LiveLine {
+  """
+  The activity of the universe, when nothing is under way.
+  """
+  activity: UniverseActivity!
+  """
+  Whether only the admins write (announcement mode).
+  """
+  announcement: Post
+  """
+  The open debate with the most messages; null when none.
+  """
+  debate: Debate
+  """
+  The universe event of the day; null when none.
+  """
+  event: UniverseEvent
+  """
+  The open poll with the most votes; null when none.
+  """
+  poll: Poll
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The open vote that ends soonest; null when none.
+  """
+  vote: Proposal
+}
+
+"""
+The choice of the caller in a public universe: listed on its members page or not.
+"""
+type MembersListing {
+  """
+  Whether the caller is listed on the members page.
+  """
+  listed: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+The join request of the caller still waiting.
+"""
+type MyJoinRequest {
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The state of the my join request.
+  """
+  status: MyJoinRequestStatus!
+}
+
+"""
+The state of the join request of the caller.
+"""
+enum MyJoinRequestStatus {
+  WAITING
+}
+
+"""
+A private universe of the caller, with its role.
+"""
+type MyUniverse {
+  """
+  Deleted: listed to its members until it is deleted for good (they export their posts).
+  """
+  deletedAt: AWSDateTime
+  """
+  When it is deleted for good unless the deletion is cancelled; null otherwise.
+  """
+  deletedForGoodAt: AWSDateTime
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  Its image; null when none.
+  """
+  image: Image
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  Its role.
+  """
+  role: UniverseRole!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of the private universes of the caller, the most recently joined first.
+"""
+type MyUniversePage {
+  """
+  The my universe items of this page.
+  """
+  items: [MyUniverse!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A new resident on the welcome wall of a universe.
+"""
+type NewResident {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  How many welcomed the resident.
+  """
+  welcomeCount: Int!
+  """
+  Whether the caller welcomed the resident.
+  """
+  welcomedByMe: Boolean!
+}
+
+"""
+A poll of a public universe.
+"""
+type Poll {
+  """
+  Its author, as shown.
+  """
+  author: AccountRef!
+  """
+  Whether the leadership created it (at once, without support).
+  """
+  byLeadership: Boolean!
+  """
+  Its choices, in order.
+  """
+  choices: [String!]!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime
+  """
+  The identifier of the poll.
+  """
+  id: ID!
+  """
+  The index of the choice of the caller; null when none.
+  """
+  myChoice: Int
+  """
+  When it opens; null before it is scheduled.
+  """
+  opensAt: AWSDateTime
+  """
+  Its question.
+  """
+  question: String!
+  """
+  The state of the poll.
+  """
+  status: PollStatus!
+  """
+  Whether the caller supports it.
+  """
+  supportedByMe: Boolean!
+  """
+  The residents who support it.
+  """
+  supporters: Int!
+  """
+  The votes of each choice; null while hidden.
+  """
+  totals: [Int!]
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of polls, the most recent first.
+"""
+type PollPage {
+  """
+  The poll items of this page.
+  """
+  items: [Poll!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A poll of a public universe (polls.feature): "totals" one per choice, while it is open to a reader
+who picked a choice and to its author only (null for the others, a visitor included: v51.0.0,
+D-07), once closed to every reader; "myChoice" the caller's own; CLOSED 7 days after "opensAt".
+"""
+enum PollStatus {
+  CLOSED
+  OPEN
+  WAITING_SUPPORT
+}
+
+"""
+The settings of a private universe to change (changePrivateUniverse, since v78.0.0 in one input, P-5): a field
+not given stays. display: the display case of its name (the same name); joinMode; legalSpace (always refused:
+LEGAL_SPACE_NEVER_CHANGES); automaticAlt and automaticSubtitles (since v78.0.0, D-214): the automatic
+alternative texts (off: no suggested alternative text either) and the automatic subtitles of its posts.
+"""
+input PrivateUniverseChangeInput {
+  automaticAlt: Boolean
+  automaticSubtitles: Boolean
+  display: String
+  joinMode: PrivateUniverseJoinMode
+  legalSpace: String
+}
+
+"""
+The creation of a private universe: created, or waiting for the DNS proof of its own domain.
+"""
+type PrivateUniverseCreation {
+  """
+  The DNS record to publish for an own domain; null otherwise.
+  """
+  dnsProof: DnsProof
+  """
+  The state of the private universe creation.
+  """
+  status: PrivateUniverseCreationStatus!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: Universe
+}
+
+"""
+Whether a private universe is created, or waits for the DNS proof of its own domain.
+"""
+enum PrivateUniverseCreationStatus {
+  CREATED
+  DNS_PROOF_REQUIRED
+}
+
+"""
+A private universe to create (createPrivateUniverse): a hosted name (hostedName, created at once) or an own
+domain (domain: its token is valid 7 days, the universe created by checkDnsProof once its DNS TXT record is
+found); its legal space; its join mode; its member tier (required but for a universe joined by
+subscription, which gives its first tier in subscriptionTier); a declaration as an association or an
+open-source project (declarationKind, declarationReference). An own domain without a declaration:
+OWN_DOMAIN_NOT_FREE.
+"""
+input PrivateUniverseInput {
+  hostedName: String
+  domain: String
+  legalSpace: String!
+  joinMode: PrivateUniverseJoinMode!
+  memberTier: Int
+  subscriptionTier: SubscriptionTierOfferInput
+  declarationKind: UniverseDeclarationKind
+  declarationReference: String
+}
+
+"""
+Private universes (features/universes/; docs/architecture.md § Univers privés).
+SUBSCRIPTION since specs v68.3.0 (D-186): joined by paying a subscription tier.
+"""
+enum PrivateUniverseJoinMode {
+  INVITATION
+  REQUEST
+  SUBSCRIPTION
+}
+
+"""
+Why a private universe is read-only for its members (since v56.0.0).
+"""
+enum PrivateUniverseReadOnly {
+  ARCHIVED
+  BEYOND_MEMBER_TIER
+}
+
+"""
+The reputation of a private universe (since v56.0.0, D-140; contracts/living-universes.md § The
+reputation of a private universe): turned on or off (off by default; "turnedOn": the contract's
+"on", a name AppSync's parser refuses), the moment it applies from once
+turned on (the next midnight UTC; null while off), the coefficient of its folding threshold set
+by its owner within the bounds of the social platform, and the threshold now (its members count
+as its residents).
+"""
+type PrivateUniverseReputation {
+  """
+  When a change applies; null when in force.
+  """
+  appliesFrom: AWSDateTime
+  """
+  The coefficient of the folding threshold.
+  """
+  foldingCoefficient: Float!
+  """
+  The highest coefficient the social platform allows.
+  """
+  maxCoefficient: Float!
+  """
+  The lowest coefficient the social platform allows.
+  """
+  minCoefficient: Float!
+  """
+  The threshold.
+  """
+  threshold: Int!
+  """
+  Whether the reputation is on in the private universe.
+  """
+  turnedOn: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A sub-universe and its activity.
+"""
+type SubUniverse {
+  """
+  When its last post was written; null when none.
+  """
+  lastPostAt: AWSDateTime
+  """
+  The name of the sub universe.
+  """
+  name: String!
+  """
+  The number of its posts.
+  """
+  postCount: Int!
+}
+
+"""
+The sub-universe map of a universe (sub-universe-map.feature): its direct sub-universes with posts in the last
+24 hours, the most first.
+"""
+type SubUniverseMap {
+  """
+  Its tiles, one per sub-universe.
+  """
+  tiles: [SubUniverseTile!]!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+The order of a list of sub-universes. The values stay in lowercase, as stored.
+"""
+enum SubUniverseOrder {
+  name
+  posts
+  recent
+}
+
+"""
+A page of sub-universes, in the order asked.
+"""
+type SubUniversePage {
+  """
+  The sub universe items of this page.
+  """
+  items: [SubUniverse!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A tile of a sub-universe map: a direct sub-universe and its posts of the last 24 hours (the size of its tile).
+"""
+type SubUniverseTile {
+  """
+  Its number of posts, which sizes its tile.
+  """
+  posts: Int!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A summary written by a platform AI agent, with its time.
+"""
+type Summary {
+  """
+  When it was written.
+  """
+  at: AWSDateTime!
+  """
+  The text as written.
+  """
+  text: String!
+}
+
+"""
+The time column of a public universe (universe-page.feature, universe-layouts.feature, since
+v46.0.0): what is under way, each kind the closest deadline first, 3 at most, with how many there
+are in all; sorted by the apps (24 hours first, then the order of the kinds of the field). On the
+page of a sub-universe: the votes, the projects, the polls and the level goal of its first level,
+its own debates and universe events. "votes": the votes open on proposals ("result" the totals so
+far, "quorum" the share needed); "events": those under way or starting within 7 days; "projects":
+the projects in progress with a target date (past dates first); "levelGoal": below the governance
+level "federation" and below the threshold of the next level, null once above it.
+"""
+type TimeColumn {
+  """
+  The open debates.
+  """
+  debates: [Debate!]!
+  """
+  The universe events to come.
+  """
+  events: [UniverseEvent!]!
+  """
+  The collective goal of the next level; null at the federation.
+  """
+  levelGoal: LevelGoal
+  """
+  The number of open debates.
+  """
+  openDebates: Int!
+  """
+  The number of open polls.
+  """
+  openPolls: Int!
+  """
+  The open votes.
+  """
+  openVotes: Int!
+  """
+  The open polls.
+  """
+  polls: [Poll!]!
+  """
+  The projects in progress.
+  """
+  projects: [Proposal!]!
+  """
+  The number of projects in progress.
+  """
+  projectsInProgress: Int!
+  """
+  The second round under way; null otherwise.
+  """
+  secondRound: SecondRound
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The number of universe events to come.
+  """
+  upcomingEvents: Int!
+  """
+  The votes.
+  """
+  votes: [Proposal!]!
+}
+
+"""
+A universe: a place where posts are written, named by its address ("%paris"). themeRef: its universe theme,
+its own or of its nearest universe above that has one (themeOf), or Socle; imageOf, watermarkOf, bannerOf: the
+universe the image (its logo), the watermark and the banner come from; description and image: its own. A
+private universe (private): every account sees its name, description, image, join mode, conditions version
+and legal space (its applicable law); access says what the caller may do in it (MEMBER, the access of an
+exposed part, or NONE); the other fields are for its members only (null or empty otherwise); root is the
+private universe of the first level.
+"""
+type Universe {
+  """
+  Its address, with its sign.
+  """
+  name: String!
+  """
+  False for an address where no universe was created yet.
+  """
+  exists: Boolean!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  The number of residents of its first level; null for a private universe and the root universe.
+  """
+  residentCount: Int
+  """
+  Its posts, newest first, by pages: after is the cursor of the previous page (its next), limit the
+  size of the page, from 1 to 50 (20 by default; LIMIT_INVALID otherwise). Counted by the usage step as
+  the posts of the universe; read for every universe of a request in one call. Null only with an error
+  (a navigable field is a root of its own call).
+  """
+  posts(after: String, limit: Int): PostPage
+  """
+  What the caller may do in a private universe: MEMBER, the access of an exposed part, or NONE; null for a
+  public universe.
+  """
+  access: UniverseAccess
+  """
+  The number of admins of a private universe (members only); null otherwise.
+  """
+  adminCount: Int
+  """
+  Archived (members only): since when, and when it is deleted unless its owner reactivates it.
+  """
+  archivedAt: AWSDateTime
+  """
+  When an archived private universe is deleted unless its owner reactivates it; null otherwise.
+  """
+  archivedDeletionAt: AWSDateTime
+  """
+  The universe banner (universe-identity.feature: 3:1, at least 1,500 × 500) and its night variant: its own,
+  or of its nearest universe above ("bannerOf").
+  """
+  banner: Image
+  """
+  The night variant of its banner: its own, or of its nearest universe above; null when none.
+  """
+  bannerNight: Image
+  """
+  The universe its banner comes from; null when its own or none.
+  """
+  bannerOf: String
+  """
+  A public universe, for a human who left it (its first level), or whose presence ended, less than 7 days ago:
+  when it can join again; null when it can join now.
+  """
+  canJoinAt: AWSDateTime
+  """
+  Whether the caller accepted the current conditions of a private universe; false otherwise.
+  """
+  conditionsAccepted: Boolean!
+  """
+  The version of the conditions of a private universe; null otherwise.
+  """
+  conditionsVersion: Int
+  """
+  Whether the images of the posts of the universe get an automatic alternative text
+  (automatic-alternative-text.feature, since v78.0.0, D-214): always true for a public universe; for a private
+  universe, on by default, turned off or back on by its owner (changePrivateUniverse).
+  """
+  automaticAlt: Boolean!
+  """
+  Whether the clips of the posts of the universe get automatic subtitles (automatic-subtitles.feature, since
+  v78.0.0, D-214): always true for a public universe; for a private universe, on by default, turned off or
+  back on by its owner (changePrivateUniverse).
+  """
+  automaticSubtitles: Boolean!
+  """
+  A public universe of the first level below the governance level "village", other than the root universe: its
+  conversation starters on (the default) or turned off by a proposal (conversation-starters.feature, since
+  v77.1.0, D-213); null elsewhere.
+  """
+  conversationStarters: Boolean
+  """
+  A public universe of the first level: its daily digest on (the default) or turned off by a proposal; null
+  elsewhere.
+  """
+  dailyDigest: Boolean
+  """
+  A public universe: its proposal summaries and vote minutes on (the default) or turned off by a proposal
+  (proposal-summaries.feature, since v77.1.0, D-213), written from the governance level "village"; null for a
+  private universe.
+  """
+  proposalSummaries: Boolean
+  """
+  Declared as an association or an open-source project (members only).
+  """
+  declaration: UniverseDeclaration
+  """
+  Deleted (to its owner only): when, and when it is deleted for good unless cancelled.
+  """
+  deletedAt: AWSDateTime
+  """
+  When it is deleted for good unless the deletion is cancelled; null otherwise.
+  """
+  deletedForGoodAt: AWSDateTime
+  """
+  The DNS name of a private universe of an own domain; null otherwise.
+  """
+  dnsName: String
+  """
+  What a non-member may do in this exposed part; null when not exposed.
+  """
+  exposedAccess: ExposedAccess
+  """
+  The exposed parts of a private universe (members only).
+  """
+  exposedParts: [ExposedPart!]!
+  """
+  The field of its universe of the first level, set or suggested (fieldSuggested); null: none, a private
+  universe, the root universe.
+  """
+  field: UniverseField
+  """
+  Whether its field is only suggested.
+  """
+  fieldSuggested: Boolean!
+  """
+  Its first focus (universe-layouts.feature, since v46.0.0), set by the leadership with its
+  showcase, or of its nearest universe above that has one; null: the one of its field
+  (client configuration "universePages"), else POSTS. Null for a private universe and the root universe.
+  Since v79.0.0 (D-217), POSTS, CLIPS, MAP or DEBATES: a first focus stored with AGENDA, GOVERNANCE,
+  SHOWCASE or SUB_UNIVERSES is served null.
+  """
+  firstFocus: UniverseFocus
+  """
+  The universe image, its logo (a square of at least 512 × 512): its own, or of its nearest universe above
+  ("imageOf").
+  """
+  image: Image
+  """
+  The universe its image comes from; null when its own or none.
+  """
+  imageOf: String
+  """
+  How a private universe is joined; null for a public universe.
+  """
+  joinMode: PrivateUniverseJoinMode
+  """
+  The code joinUniverse answers now (REJOIN_TOO_SOON); null when the caller can join now.
+  """
+  joinRefusal: String
+  """
+  The newest clip of the universe: the news badge of the focus clips (a dot, since v79.0.0) when it is later
+  than the last reading of the clips on the device; null when none.
+  """
+  lastClipAt: AWSDateTime
+  """
+  The universe its default layout comes from; null when its own or none.
+  """
+  layoutOf: String
+  """
+  Its default layout: its own or of its nearest universe above that has one (layoutOf); version read with the
+  universe: the apps read appliedLayout again when it changed. G-8: defaultLayout is gone.
+  """
+  layoutRef: LayoutRef
+  """
+  The legal space of a private universe (its applicable law); null otherwise.
+  """
+  legalSpace: String
+  """
+  The number of members.
+  """
+  memberCount: Int
+  """
+  The member tier of a private universe (members only); null otherwise.
+  """
+  memberTier: Int
+  """
+  After a declaration found false (members only): the end of the 30 days to choose a member tier; no new
+  member until a choice.
+  """
+  memberTierChoiceUntil: AWSDateTime
+  """
+  The draft preview of the caller on this universe (since v54.0.0), while it runs; null otherwise. Read by
+  universe(name) only.
+  """
+  myDraftPreview: DraftPreview
+  """
+  The caller's join request waiting (a non-member), or null.
+  """
+  myJoinRequest: MyJoinRequest
+  """
+  The reader's last visit (since v69.0.0, D-188): its landing in the universe before the current visit, on any
+  device (markLanding); null before a second visit. Read by universe(name) only. Read in the cell of the
+  caller (its own data); phase 1 of the cells: null for a universe of another cell.
+  """
+  myLastVisitAt: AWSDateTime
+  """
+  The caller's role on the page of a public universe other than the root universe (since
+  v46.0.0): the highest of its roles in its first level (LEADERSHIP: its president, a member of
+  its college or its interim, not suspended, or, on the pages of a sub-universe, the account its
+  governance was given to; MODERATOR; RESIDENT; else VISITOR); a delegated agent: its human's.
+  Null for a private universe and the root universe.
+  """
+  myReaderRole: UniverseReaderRole
+  """
+  The role of the caller; null when none.
+  """
+  myRole: UniverseRole
+  """
+  The tier subscription of the caller; null when none.
+  """
+  myTierSubscription: TierSubscription
+  """
+  The members who do not pay (the owner and the admins); null otherwise.
+  """
+  nonPayingMemberCount: Int
+  """
+  The owner of a private universe; null otherwise.
+  """
+  ownerId: ID
+  """
+  Since v49.10.0 (universe-pages.feature): its pages in the order of the main menu (the base pages
+  first, then the custom pages by their order; the hidden ones, with hidden true, to its governance
+  only; a non-member of a private universe: its page of a universe only), and the version of its
+  pages, which grows at each change of a page, of their order or of their hiding (read
+  pagesOfUniverse again when it changed).
+  """
+  pages: [PageOfUniverse!]!
+  """
+  The version of its pages, which grows at each change of a page, of their order or of their hiding.
+  """
+  pagesVersion: Int!
+  """
+  The paying members (members); null otherwise.
+  """
+  payingMemberCount: Int
+  """
+  A public universe: its pinned announcements (announcements.feature), those of its first level,
+  the most recent first (3 at most), then, for a sub-universe whose governance has the power
+  ANNOUNCEMENTS, its own (3 at most); [] for a private universe.
+  """
+  pinnedAnnouncements: [Post!]!
+  """
+  The pinned channels of a private universe, in the order set (at most 5), to its members, each with its
+  unread (a joined channel) and its last message; [] for the others and for a public universe.
+  """
+  pinnedChannels: [Channel!]!
+  """
+  Its pinned posts in the order chosen, 5 at most: a private universe, to its members ([] to the
+  others); a public universe, to everyone (its showcase, pinned by its leadership; a sub-universe
+  shows its own only, when its governance has the power PINNED_POSTS).
+  """
+  pinnedPosts: [Post!]!
+  """
+  Its platform search words (since v63.2.0, D-170, D-171: contracts/search.md): given by the social
+  platform, never by the universe — a country universe: the names of its country in the 20
+  languages of the app; a universe territory that is a city, a region or a department: the names of
+  the place, 25 at most. Empty when none. The apps take the one in the language of the app as the
+  name in the language of the reader.
+  """
+  platformSearchWords: [PlatformSearchWord!]!
+  """
+  Whether it is a private universe.
+  """
+  private: Boolean!
+  """
+  The proposals waiting for support of a public universe (its first level's); null for a private universe and
+  the root universe.
+  """
+  proposalsWaitingSupport: Int
+  """
+  A private universe read-only for its members (members only; since v56.0.0): ARCHIVED (inactive
+  12 months; its owner reactivates it, reactivateUniverse), BEYOND_MEMBER_TIER (more than 10
+  members on the free member tier of a team: until 10 members or fewer, or a paid member tier;
+  the owner and the admins still ban); null otherwise.
+  """
+  readOnly: PrivateUniverseReadOnly
+  """
+  Whether its readers may retouch the layout (true by default).
+  """
+  readerRetouches: Boolean!
+  """
+  The private universe of the first level it belongs to; null for a public universe.
+  """
+  root: String
+  """
+  The rules post of its first level, shown first on its page (rules-post.feature); null for a private
+  universe, or before it is written.
+  """
+  rulesPost: Post
+  """
+  Its universe search words (since v63.2.0): at most 10, set like its description (setUniverseSearchWords, a
+  proposal of kind SHOWCASE). Empty when none.
+  """
+  searchWords: [String!]!
+  """
+  The seller identity of its owner, for a universe joined by subscription; null otherwise.
+  """
+  seller: SellerIdentity
+  """
+  The end of the 30 days without payment (members); null otherwise.
+  """
+  subscriptionFreeUntil: AWSDateTime
+  """
+  Its subscription tiers, joined by subscription (since v68.3.0, D-186): to any account, in the order offered;
+  [] unless joined by subscription.
+  """
+  subscriptionTiers: [SubscriptionTier!]!
+  """
+  The successors of the owner of a private universe, in order (owner only).
+  """
+  successors: [ID!]!
+  """
+  Its switcher layouts (4 at most).
+  """
+  switcherLayouts: [LayoutRef!]!
+  """
+  Its universe territory (contracts/map.md § The universe territory, since v49.8.0): a boundary or
+  a circle of a public universe of the first level, of any field; null for a private universe and
+  the root universe, and for a sub-universe but one of the field "places" that had it before v49.4.0.
+  """
+  territory: Territory
+  """
+  The universe its theme comes from; null when its own.
+  """
+  themeOf: String
+  """
+  The theme, as a reference (a removed theme: Socle).
+  """
+  themeRef: ThemeRef!
+  """
+  Its universe theme trial (since v54.0.0): its own, or of the universe above whose theme it takes,
+  while it runs; null otherwise. "themeRef" keeps the universe theme that comes back after it.
+  """
+  themeTrial: UniverseThemeTrial
+  """
+  The member a transfer waits for; null otherwise.
+  """
+  transferTo: ID
+  """
+  Whether its posts carry the universe strip (universe-strip.feature): its universe of the first level's, true
+  by default.
+  """
+  universeStrip: Boolean!
+  """
+  Its canonical web URL (contracts/urls.md): copying its link copies it as it is.
+  """
+  url: AWSURL
+  """
+  The watermark (universe-identity.feature): its own, or of its nearest universe above ("watermarkOf"); null:
+  none.
+  """
+  watermark: Watermark
+  """
+  The universe its watermark comes from; null when its own or none.
+  """
+  watermarkOf: String
+}
+
+"""
+What the caller may do in a private universe: a member, the access of an exposed part, or nothing.
+"""
+enum UniverseAccess {
+  MEMBER
+  NONE
+  PARTICIPATE
+  READ
+  REPLY
+}
+
+"""
+The activity of a universe (universe-layouts.feature, since v46.0.0), what the live line tells
+when nothing is under way: its posts of the last hour, counted as the pulse counts them (its
+sub-universes' included; reposts, AI agents and the system account not counted), computed every
+5 minutes; the humans who joined its first level in the last 24 hours (0 for a private universe
+and the root universe). A sub-universe tells the activity of its first level.
+"""
+type UniverseActivity {
+  """
+  Its new residents of the last 24 hours.
+  """
+  newResidents24h: Int!
+  """
+  Its posts of the last hour, counted as the pulse counts them.
+  """
+  postsLastHour: Int!
+}
+
+"""
+The declaration of a private universe as an association (its registration number) or an open-source project
+(its public repository), and its state.
+"""
+type UniverseDeclaration {
+  """
+  When it was declared.
+  """
+  declaredAt: AWSDateTime!
+  """
+  The kind of the universe declaration.
+  """
+  kind: UniverseDeclarationKind!
+  """
+  The reference given (a registration number, a repository).
+  """
+  reference: String!
+  """
+  Found false by the platform team (since v56.0.0).
+  """
+  rejectedAt: AWSDateTime
+  """
+  The state of the universe declaration.
+  """
+  status: UniverseDeclarationStatus!
+}
+
+"""
+What a private universe is declared as: an association or an open-source project.
+"""
+enum UniverseDeclarationKind {
+  ASSOCIATION
+  OPEN_SOURCE
+}
+
+"""
+The state of the declaration of a private universe.
+"""
+enum UniverseDeclarationStatus {
+  DECLARED
+  REJECTED
+}
+
+"""
+A private universe deleted ("deletedAt", null once cancelled), deleted for good at "deletedForGoodAt" unless
+cancelled.
+"""
+type UniverseDeletion {
+  """
+  When it was deleted; null otherwise.
+  """
+  deletedAt: AWSDateTime
+  """
+  When it is deleted for good unless the deletion is cancelled; null otherwise.
+  """
+  deletedForGoodAt: AWSDateTime
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A universe event: its title, time, place or zone, route, attendees.
+"""
+type UniverseEvent {
+  """
+  Its number of attendees.
+  """
+  attendeeCount: Int!
+  """
+  Its first attendees; universeEventAttendees reads them all.
+  """
+  attendees: AccountRefPage
+  """
+  Since v52.0.0 (D-128, D-137 (15); contracts/map.md): 3 attendees at most, for a resident reader, those it
+  follows first, then the first who said they attend; null otherwise (attendeeCount as before).
+  """
+  attendeesPreview: [AccountRef!]
+  """
+  Whether the caller attends it.
+  """
+  attending: Boolean!
+  """
+  Whether the leadership created it (at once, without support).
+  """
+  byLeadership: Boolean!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Who created it or asked for it, as shown.
+  """
+  createdBy: AccountRef!
+  """
+  The identifier of the universe event.
+  """
+  id: ID!
+  """
+  Its link; null when none.
+  """
+  link: AWSURL
+  """
+  How long it lasts, in minutes.
+  """
+  minutes: Int!
+  """
+  The place.
+  """
+  place: String
+  """
+  Since v47.1.0 (contracts/map.md): the point of its place ("place" stays its name); with a zone,
+  "place" and "point" are null until the place is revealed to the reader (at its time, or at
+  once to the attendees when it is revealed to them; to its creator always), "zone" shown until
+  then; its route.
+  """
+  point: Point
+  """
+  Its route; null when none.
+  """
+  route: Route
+  """
+  When it starts.
+  """
+  startsAt: AWSDateTime!
+  """
+  The state of the universe event.
+  """
+  status: UniverseEventStatus!
+  """
+  Its support while it waits for it; null otherwise.
+  """
+  support: ProposalSupport
+  """
+  The caller supports this request (WAITING_SUPPORT); false for an event created by the leadership.
+  """
+  supportedByMe: Boolean!
+  """
+  Its title.
+  """
+  title: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its zone, its point hidden until revealed; null when it has a point or none.
+  """
+  zone: Zone
+}
+
+"""
+A universe event to change (changeUniverseEvent): a field not given stays; an empty place or link removes
+it (link is a String so that "" can be sent; a link that is not an https URL: EVENT_LINK_INVALID); a zone
+replaces the point, a point the zone (EVENT_POINT_AND_ZONE when both); clear removes a part.
+"""
+input UniverseEventChangeInput {
+  eventId: ID!
+  title: String
+  startsAt: AWSDateTime
+  minutes: Int
+  place: String
+  link: String
+  point: PointInput
+  zone: ZoneInput
+  route: RouteInput
+  clear: [UniverseEventPart!]
+}
+
+"""
+A universe event to create (createUniverseEvent): point or zone (EVENT_POINT_AND_ZONE when both), and a
+route.
+"""
+input UniverseEventInput {
+  universe: String!
+  title: String!
+  startsAt: AWSDateTime!
+  minutes: Int!
+  place: String
+  link: AWSURL
+  point: PointInput
+  zone: ZoneInput
+  route: RouteInput
+}
+
+"""
+A part of a universe event to remove (changeUniverseEvent clear): its point, its zone (and what it hides),
+its route.
+"""
+enum UniverseEventPart {
+  POINT
+  ZONE
+  ROUTE
+}
+
+"""
+A universe event (universe-events.feature; contracts/living-universes.md § Universe events):
+"startsAt" in UTC (the apps show it in the reader's time zone), "minutes" at most 1,440;
+WAITING_SUPPORT: asked for by a resident ("support": the 5 supporters needed; the request
+expires 7 days later), SCHEDULED: created; "attendeeCount" public, "attending" the caller's,
+"attendees" (a first page) to the residents only, null for others.
+"""
+enum UniverseEventStatus {
+  SCHEDULED
+  WAITING_SUPPORT
+}
+
+"""
+The 10 fields of the social platform (universe-fields.feature): the domain of a public universe of the first
+level.
+"""
+enum UniverseField {
+  CULTURE
+  ENTERTAINMENT
+  EVERYDAY_LIFE
+  GAMES
+  PLACES
+  POLITICS
+  SCIENCE
+  SPORT
+  TECH
+  WORK
+}
+
+"""
+The focus of the page of a public universe (universe-layouts.feature): what its center shows; its first focus
+is where the page opens (since v46.0.0); MAP since v69.0.0 (the map of the universe at the center). Since
+v79.0.0 (D-217), the focus are POSTS, CLIPS, MAP and DEBATES: AGENDA, GOVERNANCE, SHOWCASE and SUB_UNIVERSES
+are no longer focus (the agenda page, the governance page, the about page, the identity bar menu), refused
+as a first focus (UNIVERSE_FOCUS_NOT_OFFERED) and never served; they leave the enum once no app reads them
+(contracts/layouts.md § The universe frame).
+"""
+enum UniverseFocus {
+  AGENDA
+  CLIPS
+  DEBATES
+  GOVERNANCE
+  MAP
+  POSTS
+  SHOWCASE
+  SUB_UNIVERSES
+}
+
+"""
+The governance of a public universe (public): its level and the next change when a threshold
+is crossed ("nextLevel" at "nextLevelAt"), its residents and those who can vote ("voters": its
+votes), its leadership (none below the village: the residents decide by proposals), a second
+round under way, its moderators and their maximum, its voting method, the texts adopted.
+"""
+type UniverseGovernance {
+  """
+  Its charter; null before one is adopted.
+  """
+  charter: GovernanceText
+  """
+  The folding threshold of its posts.
+  """
+  folding: UniverseFolding!
+  """
+  The leadership.
+  """
+  leadership: Leadership
+  """
+  The governance level.
+  """
+  level: GovernanceLevel!
+  """
+  Its manifesto; null before one is adopted.
+  """
+  manifesto: GovernanceText
+  """
+  The most moderators the universe may have.
+  """
+  maxModerators: Int!
+  """
+  Its moderation rules; null before they are adopted.
+  """
+  moderationRules: GovernanceText
+  """
+  Its number of moderators.
+  """
+  moderators: Int!
+  """
+  The next governance level; null at the federation.
+  """
+  nextLevel: GovernanceLevel
+  """
+  When it reaches the next level; null when not under way.
+  """
+  nextLevelAt: AWSDateTime
+  """
+  The number of residents.
+  """
+  residents: Int!
+  """
+  The second round under way; null otherwise.
+  """
+  secondRound: SecondRound
+  """
+  The governances given to its sub-universes.
+  """
+  subUniverses: [SubUniverseGovernance!]!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The residents who can vote.
+  """
+  voters: Int!
+  """
+  The voting method.
+  """
+  votingMethod: VotingMethod!
+}
+
+"""
+The identity of a universe to change (setUniverseIdentity): images uploaded with requestMediaUpload (IMAGE);
+a field not given stays; clear removes a part.
+"""
+input UniverseIdentityInput {
+  banner: ImageAttachmentInput
+  bannerNight: ImageAttachmentInput
+  logo: ImageAttachmentInput
+  watermark: WatermarkSettingInput
+  clear: [UniverseIdentityPart!]
+}
+
+"""
+A part of a universe to remove (P-5: clear instead of removeX): its banner, the night variant of its
+banner, its image (the logo), its watermark (setUniverseIdentity, a proposal of kind SHOWCASE), its
+universe territory (setUniverseTerritory, a proposal of kind TERRITORY).
+"""
+enum UniverseIdentityPart {
+  BANNER
+  BANNER_NIGHT
+  LOGO
+  WATERMARK
+  TERRITORY
+}
+
+"""
+An invitation: to an account ("invitee") or an email address ("email", to the inviter only).
+"""
+type UniverseInvitation {
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The email address.
+  """
+  email: String
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  Who is invited, as shown; null for an email address.
+  """
+  invitee: AccountRef
+  """
+  Who invited, as shown.
+  """
+  inviter: AccountRef!
+  """
+  The state of the universe invitation.
+  """
+  status: UniverseInvitationStatus!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of invitations to private universes, the most recent first.
+"""
+type UniverseInvitationPage {
+  """
+  The universe invitation items of this page.
+  """
+  items: [UniverseInvitation!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+An invitation declined silently at once (a block) stays WAITING for its inviter.
+"""
+enum UniverseInvitationStatus {
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WAITING
+}
+
+"""
+The landing page of a universe read signed out (since v69.0.0, D-188): its name, its universe theme, its
+governance level (a public universe; null for a private one).
+"""
+type UniverseLanding {
+  """
+  False for an address where no universe was created yet.
+  """
+  exists: Boolean!
+  """
+  Its governance level (a public universe); null for a private one.
+  """
+  governanceLevel: GovernanceLevel
+  """
+  The name of the universe landing.
+  """
+  name: String!
+  """
+  Whether it is a private universe.
+  """
+  private: Boolean!
+  """
+  The universe its theme comes from; null when its own.
+  """
+  themeOf: String
+  """
+  The theme, as a reference (a removed theme: Socle).
+  """
+  themeRef: ThemeRef!
+}
+
+"""
+A member of a private universe and its role.
+"""
+type UniverseMember {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  Its role.
+  """
+  role: UniverseRole!
+  """
+  Its rank among the successors of the owner; null when not a successor.
+  """
+  successorRank: Int
+}
+
+"""
+A page of the members of a private universe.
+"""
+type UniverseMemberPage {
+  """
+  The universe member items of this page.
+  """
+  items: [UniverseMember!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The news of a universe for its reader (since v69.0.0, D-188; a private universe for its members
+since v70.0.0, D-189): "since" the reader's last visit (null: nothing counted as new); its posts and
+its clips since then, of the universe itself (at most 100, shown "99+"); its pinned announcements
+and pinned posts since then; its proposals decided since then (the most recent first, at most 20;
+none in a private universe); its new residents since then and of the last 7 days (its new members
+in a private universe); the messages of its channels of the last 10 minutes and its channels
+active then (at most 10, the most messages first; the public channels of a public universe since
+v50.1.0); the open votes the reader can vote on and has not voted on, and all
+its open votes (the second round included); the questions to the leadership waiting for an answer
+(the live content of Who governs); "toHandle": for the leadership the questions waiting, for a
+moderator the reported posts waiting, null for anyone else and in a private universe.
+"""
+type UniverseNews {
+  """
+  The channels most active since the last visit.
+  """
+  activeChannels: [ChannelActivity!]!
+  """
+  The channel messages since the last visit.
+  """
+  channelMessages: Int!
+  """
+  The clips since the last visit.
+  """
+  clips: Int!
+  """
+  The proposals decided since the last visit.
+  """
+  decisions: [Proposal!]!
+  """
+  The new residents.
+  """
+  newResidents: Int!
+  """
+  The new residents since the last visit.
+  """
+  newResidentsSince: Int!
+  """
+  The open votes.
+  """
+  openVotes: Int!
+  """
+  The pinned posts and announcements new since the last visit.
+  """
+  pinned: Int!
+  """
+  The posts since the last visit.
+  """
+  posts: Int!
+  """
+  The questions to the leadership waiting for its answer.
+  """
+  questionsWaiting: Int!
+  """
+  The last visit of the reader the news count from; null at the first visit.
+  """
+  since: AWSDateTime
+  """
+  What waits for the moderation of the caller; null when it does not moderate.
+  """
+  toHandle: Int
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The open votes the caller can vote on and has not voted on.
+  """
+  votesToCast: Int!
+}
+
+"""
+The profile of a universe to change (setUniverseProfile); a field not given stays. image: uploaded with
+requestMediaUpload. theme: a theme of the theme catalog the universe can read. layoutRef: the default layout
+(a layout of the catalog the universe can read); switcherLayouts: at most 4 (an empty list removes them).
+firstFocus: a public universe only, and since v79.0.0 POSTS, CLIPS, MAP or DEBATES (UNIVERSE_FOCUS_NOT_OFFERED
+otherwise).
+"""
+input UniverseProfileInput {
+  description: String
+  image: ImageAttachmentInput
+  theme: ThemeRefInput
+  universeStrip: Boolean
+  firstFocus: UniverseFocus
+  layoutRef: LayoutRefInput
+  switcherLayouts: [LayoutRefInput!]
+  readerRetouches: Boolean
+  clear: [UniverseProfilePart!]
+}
+
+"""
+A part of the profile of a universe to remove (setUniverseProfile clear): its image, its first focus (back
+to the one of its field), its default layout (none).
+"""
+enum UniverseProfilePart {
+  IMAGE
+  FIRST_FOCUS
+  LAYOUT
+}
+
+"""
+The pulse of a public universe (universe-pulse.feature): its posts of the last 24 hours (its
+sub-universes' included, reposts, AI agents and the system account not counted), its new
+residents of the last 7 days, and the votes cast in its last vote closed (a share of its votes)
+against the quorum; computed every 5 minutes ("updatedAt").
+"""
+type UniversePulse {
+  """
+  The last vote; null when none.
+  """
+  lastVoteId: ID
+  """
+  The participation of the last vote; null when none.
+  """
+  lastVoteParticipation: Float
+  """
+  The quorum of the last vote; null when none.
+  """
+  lastVoteQuorum: Float
+  """
+  The new residents.
+  """
+  newResidents: Int!
+  """
+  Its posts of the last hour.
+  """
+  posts: Int!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+The reader's role on the page of a public universe (universe-page.feature, since v46.0.0): the highest of its
+roles in the first level.
+"""
+enum UniverseReaderRole {
+  LEADERSHIP
+  MODERATOR
+  RESIDENT
+  VISITOR
+}
+
+"""
+The members page of a public universe (since v52.0.0, D-133 (d), D-137 (1), (11); contracts/layouts.md, the
+widget "residents").
+A resident on the members page: its public role (the leadership, a moderator), when it joined (null: a role
+holder no longer a resident), whether it is locatable (null: the reader is no resident).
+"""
+type UniverseResident {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime
+  """
+  Whether the resident is locatable now.
+  """
+  locatable: Boolean
+  """
+  Its role.
+  """
+  role: PostAuthorRole
+}
+
+"""
+A page of the residents of a public universe, the leadership first, then the moderators, then by recent
+activity.
+"""
+type UniverseResidentPage {
+  """
+  The universe resident items of this page.
+  """
+  items: [UniverseResident!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The role of a member of a private universe.
+"""
+enum UniverseRole {
+  ADMIN
+  MEMBER
+  OWNER
+}
+
+"""
+Where the caller stands in a universe (myStandingIn, G-6): its residence, its votes, its reputation,
+whether it is listed on the members page, whether it landed there before. One read instead of five when a
+universe opens; served by the cell of the caller (its own data, P-16).
+"""
+type UniverseStanding {
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its residence in a public universe of the first level; null when it is not a resident.
+  """
+  residence: Residence
+  """
+  Its votes there; null when it is not a resident.
+  """
+  vote: MyVote
+  """
+  Its reputation in a public universe; null elsewhere.
+  """
+  reputation: UniverseReputation
+  """
+  Whether it is listed on the members page of the universe.
+  """
+  listedOnMembersPage: Boolean!
+  """
+  Whether it landed in the universe before (markLanding), on any device.
+  """
+  landedBefore: Boolean!
+}
+
+"""
+The universe territory to set (setUniverseTerritory): a boundary or a circle (territory), or the boundary
+chosen among the places found (boundaryId, with its name and kind); or clear true, which removes it (also
+the one a sub-universe of the field "places" kept from before v49.4.0).
+"""
+input UniverseTerritoryInput {
+  territory: TerritoryChoiceInput
+  boundaryId: String
+  name: String
+  kind: String
+  clear: Boolean
+}
+
+"""
+A version of the manifesto or of the conditions ("text" null in a list of versions; "by" null: the default).
+"""
+type UniverseText {
+  """
+  When this version was set.
+  """
+  at: AWSDateTime!
+  """
+  Who set it, as shown; null for the default text of the platform.
+  """
+  by: AccountRef
+  """
+  Whether it is the default text of the platform.
+  """
+  isDefault: Boolean!
+  """
+  The text as written.
+  """
+  text: String
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+A page of the versions of a text of a universe, the most recent first.
+"""
+type UniverseTextPage {
+  """
+  The universe text items of this page.
+  """
+  items: [UniverseText!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The welcome wall of a public universe (welcome-wall.feature): its new residents of the last 7 days ("count"),
+the most recent first.
+"""
+type WelcomeWall {
+  """
+  The new residents on the wall.
+  """
+  count: Int!
+  """
+  The welcome wall items of this page.
+  """
+  items: [NewResident!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}

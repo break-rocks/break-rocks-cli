@@ -1,0 +1,548 @@
+"""
+The bounds of the area of the map shown (WGS 84).
+"""
+input BoundsInput {
+  east: Float!
+  north: Float!
+  south: Float!
+  west: Float!
+}
+
+"""
+The last position of a live share.
+"""
+type LivePosition {
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  When the position was taken.
+  """
+  at: AWSDateTime!
+  """
+  The point (WGS 84).
+  """
+  point: Point!
+  """
+  The time to arrival at the meeting point, in seconds; null when unknown.
+  """
+  secondsToMeetingPoint: Int
+  """
+  The live share.
+  """
+  shareId: ID!
+}
+
+"""
+A live share in progress: its sharer (accountId), its discussion (a conversation or a group chat), its
+start and end, the event or the meet-up it lasts until, the meeting point of its group chat (or of the
+route of its event).
+"""
+type LiveShare {
+  """
+  The identifier of the live share.
+  """
+  id: ID!
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The discussion of the live share: a conversation or a group chat.
+  """
+  discussion: DiscussionRef!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  The universe event it lasts until; null otherwise.
+  """
+  eventId: ID
+  """
+  The message of the meet-up it lasts until 15 minutes after; null otherwise.
+  """
+  meetUpId: ID
+  """
+  The meeting point; null when none.
+  """
+  meetingPoint: Place
+}
+
+"""
+A locatable resident: its map cell (H3, resolution 8, about 1 kilometre across; never its position), its
+activity, its end; "account" its display copy.
+"""
+type Locatable {
+  """
+  The account, as shown.
+  """
+  account: AccountRef
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The activity it is locatable for.
+  """
+  activity: String!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  Its map cell (H3, resolution 8, about 1 kilometre across), never its position.
+  """
+  mapCell: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+How close the phone estimates a person: IMMEDIATE under about 10 cm, NEAR to about 2 m, FAR beyond.
+"""
+enum NearbyCloseness {
+  FAR
+  IMMEDIATE
+  NEAR
+}
+
+"""
+A person in mutual discovery with the caller; "label": their nearby label (the handle with its
+"@", or the text they chose); "lastSeenAt": the last time the caller's phone saw them.
+"""
+type NearbyPerson {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  How close the person is.
+  """
+  closeness: NearbyCloseness!
+  """
+  Whether the caller and the person are connected.
+  """
+  connected: Boolean!
+  """
+  Its nearby label: the text it chose, or its handle.
+  """
+  label: String!
+  """
+  When the person was last seen around.
+  """
+  lastSeenAt: AWSDateTime!
+  """
+  The nearby token seen.
+  """
+  token: String!
+}
+
+"""
+A request to connect through Nearby, with the status the caller sees; it expires 2 minutes
+after it was sent. "fromLabel", "toLabel": the nearby labels of the two people when it was sent.
+"""
+type NearbyRequest {
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The sender, as shown.
+  """
+  from: AccountRef!
+  """
+  The nearby label of the sender.
+  """
+  fromLabel: String!
+  """
+  The identifier of the nearby request.
+  """
+  id: ID!
+  """
+  The state of the nearby request.
+  """
+  status: NearbyRequestStatus!
+  """
+  The recipient, as shown.
+  """
+  to: AccountRef!
+  """
+  The nearby label of the recipient.
+  """
+  toLabel: String!
+}
+
+"""
+WAITING (both; the sender also while refused), CONNECTED (both), REFUSED (the recipient only), NO_ANSWER (the
+sender, once expired).
+"""
+enum NearbyRequestStatus {
+  CONNECTED
+  NO_ANSWER
+  REFUSED
+  WAITING
+}
+
+"""
+A nearby token seen around, and its closeness.
+"""
+input NearbySightingInput {
+  closeness: NearbyCloseness!
+  """
+  The token.
+  """
+  token: String!
+}
+
+"""
+A place: its name and its point (WGS 84). G-8: lat and lon were the same as point.
+"""
+type Place {
+  """
+  The name of the place.
+  """
+  name: String!
+  """
+  The point (WGS 84).
+  """
+  point: Point!
+}
+
+"""
+A place as an argument: its name (1 to 100 visible characters) and its point (PLACE_INVALID).
+"""
+input PlaceInput {
+  name: String!
+  point: PointInput!
+}
+
+"""
+A place found by the cartography (places): "id" its open data id (the "boundaryId" of a
+universe territory), "kind" its kind (a city, a station…), "universes" the public universes
+whose universe territory holds it, of any field (a circle by its distance to the center, a
+boundary when the place is the boundary).
+"""
+type PlaceMatch {
+  """
+  Its postal address, when the cartography gives one; null otherwise.
+  """
+  address: String
+  """
+  The identifier of the place match.
+  """
+  id: String
+  """
+  The kind of the place match.
+  """
+  kind: String
+  """
+  Its local name (since v63.2.0, D-170: contracts/map.md): the name of the place in its own language, beside
+  "name" in the language asked; null when the same, or not given by the cartography yet.
+  """
+  localName: String
+  """
+  The name of the place match.
+  """
+  name: String!
+  """
+  The point (WGS 84).
+  """
+  point: Point!
+  """
+  The addresses of the universes, with their sign.
+  """
+  universes: [String!]!
+}
+
+"""
+A point of the map (as an argument: PointInput): a latitude of -90 to 90, a longitude of -180 to 180.
+"""
+type Point {
+  """
+  Its latitude.
+  """
+  lat: Float!
+  """
+  Its longitude.
+  """
+  lon: Float!
+}
+
+"""
+A point (WGS 84).
+"""
+input PointInput {
+  lat: Float!
+  lon: Float!
+}
+
+"""
+A position of a live share: when, where, and the seconds to the meeting point.
+"""
+input PositionInput {
+  """
+  When.
+  """
+  at: AWSDateTime!
+  lat: Float!
+  lon: Float!
+  secondsToMeetingPoint: Int
+}
+
+"""
+The route of a universe event: its 2 to 100 points as drawn, its mode, whether it is snapped to
+the streets and paths ("snapped"; its "line" then the line through them, 2,000 points at most;
+null: the points drawn are the line), its stages, its meeting point (null: its start), its length
+(metres), duration (seconds) and elevation. As an argument (RouteInput): "points", "mode",
+"snap", "stages", "meetingPoint" (the others ignored).
+"""
+type Route {
+  """
+  Its ascent, in metres; null when unknown.
+  """
+  ascent: Int
+  """
+  Its descent, in metres; null when unknown.
+  """
+  descent: Int
+  """
+  Its line, point by point; null when drawn by hand.
+  """
+  line: [Point!]
+  """
+  The meeting point; null when none.
+  """
+  meetingPoint: Place
+  """
+  Its length, in metres; null when unknown.
+  """
+  metres: Int
+  """
+  How it is travelled.
+  """
+  mode: RouteMode!
+  """
+  Its points as placed.
+  """
+  points: [Point!]!
+  """
+  Its time, in seconds; null when unknown.
+  """
+  seconds: Int
+  """
+  Whether it was asked to follow the ways.
+  """
+  snap: Boolean!
+  """
+  Whether it follows the ways (false when the routing was starting: kept as drawn).
+  """
+  snapped: Boolean!
+  """
+  Its stages; null when none.
+  """
+  stages: [Stage!]
+}
+
+"""
+A route as drawn or snapped (route), to keep with a universe event.
+"""
+input RouteInput {
+  ascent: Int
+  descent: Int
+  line: [PointInput!]
+  """
+  The meeting point; null when none.
+  """
+  meetingPoint: PlaceInput
+  metres: Int
+  mode: RouteMode!
+  points: [PointInput!]!
+  seconds: Int
+  snap: Boolean
+  snapped: Boolean
+  stages: [StageInput!]
+}
+
+"""
+How a route is travelled: on foot or by bicycle.
+"""
+enum RouteMode {
+  BICYCLE
+  FOOT
+}
+
+"""
+A stage of a route (as an argument: StageInput): at its point "index", named 1 to 60 visible characters.
+"""
+type Stage {
+  """
+  Its index among the points of the route.
+  """
+  index: Int!
+  """
+  The name of the stage.
+  """
+  name: String!
+}
+
+"""
+A stage of a route.
+"""
+input StageInput {
+  index: Int!
+  """
+  The name of the stage input.
+  """
+  name: String!
+}
+
+"""
+The universe territory of a public universe of the first level (contracts/map.md § The universe
+territory): an open administrative boundary of the cartography ("id" the id of its PlaceMatch,
+"kind" its kind such as "boundary:administrative") or a circle ("id" null, "kind" "circle",
+"center" and "radius"; "name" the name of the place at its center).
+"""
+type Territory {
+  """
+  Its center.
+  """
+  center: Point
+  """
+  The identifier of the territory.
+  """
+  id: String
+  """
+  The kind of the territory.
+  """
+  kind: String!
+  """
+  The name of the territory.
+  """
+  name: String!
+  """
+  Its radius.
+  """
+  radius: TerritoryRadius
+}
+
+"""
+A universe territory chosen: a boundary (boundaryId, the id of its place) or a circle (center and radius).
+"""
+input TerritoryChoiceInput {
+  boundaryId: String
+  """
+  Its center.
+  """
+  center: PlaceInput
+  """
+  The kind of the territory choice input.
+  """
+  kind: String
+  """
+  The name of the territory choice input.
+  """
+  name: String
+  """
+  Its radius.
+  """
+  radius: TerritoryRadius
+}
+
+"""
+The eight radii of a circle as a universe territory (since v49.8.0): 150 m to 25 km.
+"""
+enum TerritoryRadius {
+  KM1
+  KM10
+  KM25
+  KM2_5
+  KM5
+  M150
+  M250
+  M500
+}
+
+"""
+The zone of a universe event: a circle around "center" of one of five radii, shown instead of the
+point of its place until the place is revealed: at "revealAt" (before the start; at the start
+when the start moved before it; without it, at the start), or at once to the attendees only
+("revealToAttendees"). As an argument (ZoneInput): with the hidden "place" (its name) and its
+"point" (within the circle), required there; served, "place" and "point" are always null.
+"""
+type Zone {
+  """
+  Its center.
+  """
+  center: Point!
+  """
+  The place.
+  """
+  place: String
+  """
+  The point (WGS 84).
+  """
+  point: Point
+  """
+  Its radius.
+  """
+  radius: ZoneRadius!
+  """
+  When its point is revealed; null when never or already.
+  """
+  revealAt: AWSDateTime
+  """
+  Whether its point is revealed to the attendees only.
+  """
+  revealToAttendees: Boolean!
+}
+
+"""
+The zone of a universe event: its center, radius, place, and when its point is revealed.
+"""
+input ZoneInput {
+  """
+  Its center.
+  """
+  center: PointInput!
+  """
+  The place.
+  """
+  place: String
+  """
+  The point (WGS 84).
+  """
+  point: PointInput
+  """
+  Its radius.
+  """
+  radius: ZoneRadius!
+  revealAt: AWSDateTime
+  revealToAttendees: Boolean
+}
+
+"""
+The radius of the zone of a universe event.
+"""
+enum ZoneRadius {
+  KM1
+  KM2_5
+  M150
+  M250
+  M500
+}

@@ -7,10 +7,19 @@ import { bool, int, list, object, openObject, str } from '../schema.js';
 import { agentFromEnv, api, ensureSession, readSession } from '../session.js';
 import { DEFAULT_MAX_USD_PER_DAY, formatUsdc, networkOf, spentToday } from '../x402.js';
 
-const ME = '{ me { id kind handle displayName organizationName legalSpace paidTier paidUntil fullAgeConfirmedAt } }';
+// API v2 holds what only the account reads of itself in Account.own (null on the read of another account):
+// flattened here, so that whoami and capabilities answer as before.
+const OWN = 'own { legalSpace paidTier paidUntil fullAgeConfirmedAt minimumAgeCheckedAt }';
+const ME = `{ me { id kind handle displayName organizationName ${OWN} } }`;
 type Me = { id: string; kind: string; handle: string; displayName: string; organizationName: string | null; legalSpace: string | null; paidTier: string | null; paidUntil: string | null; fullAgeConfirmedAt: string | null; minimumAgeCheckedAt?: string | null };
 /** What a human reads of itself: its account (minimum age checked, legal space), its subscription, the universes it resides in. */
-const HUMAN_ME = '{ me { id kind handle displayName legalSpace minimumAgeCheckedAt paidTier paidUntil } mySubscription { tier status interval paidUntil automaticRenewal provider } myPresences { items { universe joinedAt endsAt canVote } next } }';
+const HUMAN_ME = `{ me { id kind handle displayName ${OWN} } mySubscription { tier status interval paidUntil automaticRenewal provider } myPresences { items { universe joinedAt endsAt canVote } next } }`;
+type MeAnswer = Omit<Me, 'legalSpace' | 'paidTier' | 'paidUntil' | 'fullAgeConfirmedAt' | 'minimumAgeCheckedAt'> & { own?: Partial<Me> | null };
+/** The account of me with its own fields (Account.own) beside the others. */
+const flat = (me: MeAnswer | null): Me => {
+  const { own, ...rest } = (me ?? {}) as MeAnswer;
+  return { legalSpace: null, paidTier: null, paidUntil: null, fullAgeConfirmedAt: null, ...rest, ...(own ?? {}) } as Me;
+};
 type Subscription = { tier: string; status: string; interval: string; paidUntil: string; automaticRenewal: boolean; provider: string };
 type Presence = { universe: string; joinedAt: string; endsAt: string; canVote: boolean };
 type Window = { used: number; limit: number; resetAt: string };
@@ -50,15 +59,15 @@ export const whoami: Command<Record<string, never>, WhoamiResult> = {
   run: async (ctx) => {
     const { session, at } = await ensureSession(ctx);
     if (session.kind === 'human') {
-      const data = await api<{ me: Me; mySubscription: Subscription | null; myPresences: { items: Presence[] } | null; _errors?: { errorType?: string; path?: unknown }[] }>(ctx, HUMAN_ME, {}, { partial: true });
+      const data = await api<{ me: MeAnswer; mySubscription: Subscription | null; myPresences: { items: Presence[] } | null; _errors?: { errorType?: string; path?: unknown }[] }>(ctx, HUMAN_ME, {}, { partial: true });
       const current = readSession(ctx) ?? session;
       const notes = (data._errors ?? []).map((e) => `${Array.isArray(e.path) ? e.path.join('.') : 'the API'}: ${e.errorType ?? 'refused'}`);
       return {
-        actor: 'human', profile: ctx.profileName, env: at.env, cell: at.cell, account: data.me, subscription: data.mySubscription ?? null, residences: data.myPresences?.items ?? [],
+        actor: 'human', profile: ctx.profileName, env: at.env, cell: at.cell, account: flat(data.me), subscription: data.mySubscription ?? null, residences: data.myPresences?.items ?? [],
         ...(notes.length ? { notes } : {}), session: { sessionId: current.sessionId, expiresAt: current.expiresAt, ...(current.signInAgainBy ? { signInAgainBy: current.signInAgainBy } : {}) },
       };
     }
-    const { me } = await api<{ me: Me }>(ctx, ME);
+    const me = flat((await api<{ me: MeAnswer }>(ctx, ME)).me);
     const current = readSession(ctx) ?? session;
     return { actor: current.kind === 'agent' ? 'delegated-agent' : 'operator', profile: ctx.profileName, env: at.env, cell: at.cell, account: me, ...(current.agentId ? { agentId: current.agentId } : {}), session: { sessionId: current.sessionId, expiresAt: current.expiresAt } };
   },
@@ -111,7 +120,7 @@ async function inUniverse(ctx: Context, universe: string): Promise<Capabilities[
     Object.assign(out, u ?? { exists: false });
   } catch (error) { out.error = error instanceof CliError ? error.code : String(error); }
   try {
-    out.residence = (await api<{ myResidence: unknown }>(ctx, `query($u: String!) { myResidence(universe: $u) ${selection('Residence', 1)} }`, { u: universe })).myResidence;
+    out.residence = (await api<{ myStandingIn: { residence: unknown } | null }>(ctx, `query($u: String!) { myStandingIn(universe: $u) { residence ${selection('Residence', 1)} } }`, { u: universe })).myStandingIn?.residence ?? null;
   } catch (error) { out.residence = { error: error instanceof CliError ? error.code : String(error) }; }
   return out;
 }
@@ -129,7 +138,7 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     limits: openObject({ minute: windowSchema, hour: windowSchema, quota: windowSchema, tier: { type: ['string', 'null'] } }),
     allowance: openObject({ allowance: int('Delegated agents allowed'), operated: int('Operated'), createdLast24Hours: int('Created in 24 hours') }),
     payments: openObject({ wallet: bool('A wallet is set'), address: str('Its address'), network: str('The network of the environment'), maxUsdPerDay: { type: 'number' }, spentToday: str('Signed today, USDC') }),
-    universe: openObject({ name: str('The universe'), myRole: { type: ['string', 'null'], description: 'The role of the reader (moderator, leadership…)' }, myReaderRole: { type: ['string', 'null'] }, joinRefusal: { type: ['string', 'null'], description: 'Why the reader may not join' }, residence: openObject({}, 'The residence of the reader (myResidence): canVote, voteRequirement…') }),
+    universe: openObject({ name: str('The universe'), myRole: { type: ['string', 'null'], description: 'The role of the reader (moderator, leadership…)' }, myReaderRole: { type: ['string', 'null'] }, joinRefusal: { type: ['string', 'null'], description: 'Why the reader may not join' }, residence: openObject({}, 'The residence of the reader (myStandingIn.residence): canVote, voteRequirement…') }),
     notes: list('What else to know'),
   }),
   run: async (ctx, { universe }) => {
@@ -138,7 +147,7 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     const notes: string[] = [];
     if (session.kind === 'human') {
       // A human: no operator, no delegated agent to manage, no x402 wallet (its payments are in the app).
-      const { me } = await api<{ me: Me }>(ctx, ME);
+      const me = flat((await api<{ me: MeAnswer }>(ctx, ME)).me);
       const { myUsage } = await api<{ myUsage: Usage }>(ctx, USAGE);
       return {
         actor: 'human', profile: ctx.profileName, env: at.env, account: { id: me.id, handle: me.handle, kind: me.kind }, canManageAgents: false,
@@ -149,7 +158,7 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     }
     let me: Me | undefined;
     let recoveryKeyRequired = !!session.recoveryKeyRequired;
-    try { me = (await api<{ me: Me }>(ctx, ME)).me; } catch (error) {
+    try { me = flat((await api<{ me: MeAnswer }>(ctx, ME)).me); } catch (error) {
       if (error instanceof CliError && error.code === 'RECOVERY_KEY_REQUIRED') { recoveryKeyRequired = true; notes.push('RECOVERY_KEY_REQUIRED: breakrocks operator recovery-key set'); } else throw error;
     }
     let limits: Capabilities['limits'] = { minute: null, hour: null, quota: null, tier: null };

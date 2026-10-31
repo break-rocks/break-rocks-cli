@@ -31,7 +31,9 @@ export function fakeCell(options: PoolOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the JSON bodies of the fake
   const calls: { action: string; body: Record<string, any> }[] = [];
   const graphql: { query: string; authorization: string }[] = [];
-  const access = new Map<string, number>();
+  /** The id tokens issued and when they end: the tokens API v2 takes (an access token: SIGN_IN_REQUIRED). */
+  const idTokens = new Map<string, number>();
+  const accessTokens = new Set<string>();
   const refresh = new Map<string, { revoked: boolean }>();
   const state = { refusedOnce: false, signedOutEverywhere: false, directory: [] as string[] };
   // The command-line sign-in codes of createCliSignInCode: one use, 5 minutes, bound to a challenge, 3 wrong answers.
@@ -43,8 +45,10 @@ export function fakeCell(options: PoolOptions) {
   const issue = (withRefresh: boolean) => {
     const exp = Math.floor(options.now() / 1000) + 3600;
     const accessToken = jwt({ sub: userId, exp, origin_jti: origin, token_use: 'access', n: randomUUID() });
-    access.set(accessToken, exp * 1000);
-    const result: Record<string, unknown> = { AccessToken: accessToken, IdToken: jwt({ sub: userId, exp, token_use: 'id', email }), ExpiresIn: 3600, TokenType: 'Bearer' };
+    const idToken = jwt({ sub: userId, exp, token_use: 'id', email, n: randomUUID() });
+    accessTokens.add(accessToken);
+    idTokens.set(idToken, exp * 1000);
+    const result: Record<string, unknown> = { AccessToken: accessToken, IdToken: idToken, ExpiresIn: 3600, TokenType: 'Bearer' };
     if (withRefresh) { const r = `refresh-${randomUUID()}`; refresh.set(r, { revoked: false }); result.RefreshToken = r; }
     return { AuthenticationResult: result };
   };
@@ -104,7 +108,8 @@ export function fakeCell(options: PoolOptions) {
 
   function api(body: { query: string }, authorization: string): Response {
     graphql.push({ query: body.query, authorization });
-    const exp = access.get(authorization);
+    if (accessTokens.has(authorization)) return json(200, { data: null, errors: [{ errorType: 'SIGN_IN_REQUIRED', message: 'API v2 takes the id token' }] });
+    const exp = idTokens.get(authorization);
     if (!exp || exp <= options.now() || state.signedOutEverywhere) return json(401, { errors: [{ errorType: 'UnauthorizedException', message: 'no' }] });
     if (state.refusedOnce) { state.refusedOnce = false; return json(401, { errors: [{ errorType: 'UnauthorizedException', message: 'no' }] }); }
     const q = body.query;
@@ -114,7 +119,7 @@ export function fakeCell(options: PoolOptions) {
       state.signedOutEverywhere = true;
       return json(200, { data: { signOutEverywhere: true } });
     }
-    if (/\bme\b/.test(q)) data.me = { id: accountId, kind: 'human', handle, displayName: handle, organizationName: null, legalSpace: 'fra', minimumAgeCheckedAt: '2026-10-01', paidTier: null, paidUntil: null, fullAgeConfirmedAt: null };
+    if (/\bme\b/.test(q)) data.me = { id: accountId, kind: 'human', handle, displayName: handle, organizationName: null, own: { legalSpace: 'fra', minimumAgeCheckedAt: '2026-10-01', paidTier: null, paidUntil: null, fullAgeConfirmedAt: null } };
     if (q.includes('mySubscription')) data.mySubscription = null;
     if (q.includes('myPresences')) data.myPresences = { items: [{ universe: '%paris', joinedAt: '2026-10-01T00:00:00.000Z', endsAt: '2026-11-01T00:00:00.000Z', canVote: true }], next: null };
     if (q.includes('myUsage')) {
@@ -129,7 +134,7 @@ export function fakeCell(options: PoolOptions) {
     const headers = Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>).map(([key, value]) => [key.toLowerCase(), value]));
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     if (url.host === 'apps.dev.break.rocks' && url.pathname === '/config/cells.json') {
-      return json(200, { version: 1, default: 'eu', cells: { eu: { region: 'eu-west-1', api: 'https://api.test/graphql', agents: 'https://agents.test', media: 'https://media.test', realtime: 'wss://rt.test/event/realtime', events: 'https://ev.test/event', auth: POOL } }, byCountry: {} });
+      return json(200, { version: 1, default: 'eu', cells: { eu: { region: 'eu-west-1', graphql: 'https://api.test/graphql', agents: 'https://agents.test', media: 'https://media.test', realtime: 'wss://rt.test/event/realtime', events: 'https://ev.test/event', auth: POOL } }, byCountry: {} });
     }
     if (url.host === 'directory.dev.break.rocks' && url.pathname === '/v1/cell') { state.directory.push(body.email); return json(200, { cell: options.cell ?? 'eu' }); }
     if (url.host === 'cognito-idp.eu-west-1.amazonaws.com') {
@@ -140,5 +145,5 @@ export function fakeCell(options: PoolOptions) {
     if (url.host === 'api.test') return api(body, headers.authorization ?? '');
     throw new TypeError(`fetch failed: ${url.host}`);
   };
-  return { fetch, calls, graphql, refresh, access, state, email, password, accountId, handle, userId, issueCode, codes };
+  return { fetch, calls, graphql, refresh, idTokens, state, email, password, accountId, handle, userId, issueCode, codes };
 }

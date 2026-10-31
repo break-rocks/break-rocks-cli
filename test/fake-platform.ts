@@ -198,7 +198,7 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
         return json(200, { data: { setOperatorPlanRenewal: plan } });
       }
       const data: Record<string, unknown> = {};
-      if (/\bme\b/.test(q)) data.me = { id: op.id, handle: op.handle, paidUntil: op.paidUntil };
+      if (/\bme\b/.test(q)) data.me = { id: op.id, handle: op.handle, own: { paidUntil: op.paidUntil } };
       if (q.includes('myOperatorPlan')) data.myOperatorPlan = plan ?? null;
       const currency = (v.currency ?? v.c) as string | undefined, interval = (v.interval ?? v.i) as string | undefined;
       if (q.includes('operatorPlanOffer')) data.operatorPlanOffer = { prices: PLAN_PRICES.filter((p) => (!currency || p.currency === currency) && (!interval || p.interval === interval)), providers: ['stripe'] };
@@ -212,16 +212,21 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
       agents.set(id, agent);
       return json(200, { data: { createDelegatedAgent: { agentId: id, operatorId: op.id, algorithm: 'Ed25519', privateKey: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(), signInUrl: 'https://agents.test/v1/delegated-agents', agent: agentView(agent) } } });
     }
-    if (q.includes('restrictDelegatedAgent')) {
+    // changeDelegatedAgent (API v2): a name, suspended, restrictions, and the restrictions lifted (clear).
+    if (q.includes('changeDelegatedAgent')) {
       const a = agents.get(v.id as string)!;
-      if ('interactions' in v) a.interactions = v.interactions as string[] | null;
-      if ('universes' in v) a.universes = v.universes as string[] | null;
-      return json(200, { data: { restrictDelegatedAgent: agentView(a) } });
+      const input = v.input as { name?: string; suspended?: boolean; interactions?: string[]; universes?: string[]; clear?: string[] };
+      if (input.name !== undefined) a.name = input.name;
+      if (input.suspended !== undefined) a.status = input.suspended ? 'suspended' : 'active';
+      if (input.interactions) a.interactions = input.interactions;
+      if (input.universes) a.universes = input.universes;
+      if (input.clear?.includes('INTERACTIONS')) a.interactions = null;
+      if (input.clear?.includes('UNIVERSES')) a.universes = null;
+      return json(200, { data: { changeDelegatedAgent: agentView(a) } });
     }
-    if (q.includes('suspendDelegatedAgent')) { const a = agents.get(v.id as string)!; a.status = 'suspended'; return json(200, { data: { suspendDelegatedAgent: agentView(a) } }); }
     if (q.includes('delegatedAgents')) return json(200, { data: { delegatedAgents: [...agents.values()].filter((a) => a.operatorId === op.id).map(agentView) } });
     const data: Record<string, unknown> = {};
-    if (/\bme\b/.test(q)) data.me = { id: op.id, kind: 'operator', handle: op.handle, displayName: op.handle, organizationName: null, legalSpace: 'fra', paidTier: null, paidUntil: op.paidUntil, fullAgeConfirmedAt: '2026-10-23' };
+    if (/\bme\b/.test(q)) data.me = { id: op.id, kind: 'operator', handle: op.handle, displayName: op.handle, organizationName: null, own: { legalSpace: 'fra', paidTier: null, paidUntil: op.paidUntil, fullAgeConfirmedAt: '2026-10-23', minimumAgeCheckedAt: null } };
     // A delegated agent reads its own restrictions; null for anyone else.
     if (/\bme\b/.test(q) && q.includes('delegatedAgent')) {
       const self = s.kind === 'agent' ? agents.get(s.agentId!) : undefined;
@@ -242,7 +247,7 @@ export function fakePlatform(options: { now: () => number; price?: string; agent
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ method: init?.method ?? 'GET', url: url.href, headers, body });
     if (url.host === 'apps.dev.break.rocks' && url.pathname === '/config/cells.json') {
-      return json(200, { version: 1, default: 'eu', cells: { eu: { region: 'eu-west-1', api: 'https://api.test/graphql', agents: 'https://agents.test', media: 'https://media.test' } }, byCountry: { US: 'us' } });
+      return json(200, { version: 1, default: 'eu', cells: { eu: { region: 'eu-west-1', graphql: 'https://api.test/graphql', agents: 'https://agents.test', media: 'https://media.test' } }, byCountry: { US: 'us' } });
     }
     if (url.host === 'agents.test') return agentsHost(url.pathname, body ?? {}, headers);
     if (url.host === 'api.test') return graphql(body, headers);

@@ -1,7 +1,7 @@
 // The GraphQL documents of the CLI against the contract: the generated schema is the one of
-// schema/schema.graphql, every operation's document with its selection is valid,
+// schema/api-v2/*.graphql (API v2), every operation's document with its selection is valid,
 // and every command sends only valid documents (a fake API validates them with graphql-js).
-import { readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSchema, execute as run, getNamedType, isEnumType, isListType, isNonNullType, isObjectType, isScalarType, parse, validate, type GraphQLFieldResolver, type GraphQLOutputType, type GraphQLSchema } from 'graphql';
 import { describe, expect, it } from 'vitest';
@@ -46,11 +46,19 @@ const fieldResolver: GraphQLFieldResolver<unknown, unknown> = (_source, _args, _
 const typeResolver = (_v: unknown, _c: unknown, info: { returnType: GraphQLOutputType }) => { const t = getNamedType(info.returnType); return isObjectType(t) ? t.name : (schema.getPossibleTypes(t as never)[0]?.name); };
 
 describe('the contract of the API', () => {
-  it('is generated from schema/schema.graphql', async () => {
-    const source = join(import.meta.dirname, '..', 'schema', 'schema.graphql');
+  it('is generated from schema/api-v2/*.graphql (API v2), descriptions and all', async () => {
+    const source = join(import.meta.dirname, '..', 'schema', 'api-v2');
     // @ts-expect-error the generator is a script without types
-    const { parse: parseSdl } = await import('../scripts/gen-schema-lib.mjs');
-    expect(parseSdl(readFileSync(source, 'utf8'))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
+    const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
+    expect(parseSdl(readContract(source))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
+    // The descriptions ("""…""") are not fields: Query holds the 139 reads of API v2, Mutation its 228 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(139);
+    expect(Object.keys(GENERATED.mutation).length).toBe(228);
+    expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(12);
+  });
+  it('takes a requestId on every mutation but the four ephemeral signals', () => {
+    const without = Object.entries(GENERATED.mutation).filter(([, f]) => !f[1]?.requestId).map(([n]) => n).sort();
+    expect(without).toEqual(['recordClipPlays', 'sendLivePositions', 'typing', 'watch']);
   });
   it('gives each operation a valid document and selection', () => {
     const invalid: string[] = [];
@@ -85,7 +93,7 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
-  post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
+  post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, 'channels send': { channel: '%x~a', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
   'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x~a'] },
 };

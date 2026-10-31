@@ -153,7 +153,8 @@ export const operatorRegister: Command<RegisterInput, RegisterResult> = {
         await ctx.io.sleep(PLAN_PAYMENT_POLL_MS);
       }
       done(pending.id, {});
-      const read = await api<{ me: { handle: string; paidUntil: string | null }; myOperatorPlan: OperatorPlan | null }>(ctx, '{ me { handle paidUntil } myOperatorPlan { automaticRenewal delegatedAgents interval nextDelegatedAgents nextFrom paidUntil payerId provider status } }');
+      const answer = await api<{ me: { handle: string; own: { paidUntil: string | null } | null }; myOperatorPlan: OperatorPlan | null }>(ctx, '{ me { handle own { paidUntil } } myOperatorPlan { automaticRenewal delegatedAgents interval nextDelegatedAgents nextFrom paidUntil payerId provider status } }');
+      const read = { me: { handle: answer.me.handle, paidUntil: answer.me.own?.paidUntil ?? null }, myOperatorPlan: answer.myOperatorPlan };
       ctx.saveProfile({ ...ctx.profile(), handle: read.me.handle });
       return { operatorId: pending.id, handle: read.me.handle, ...(read.me.paidUntil ? { paidUntil: read.me.paidUntil } : {}), ...(read.myOperatorPlan ? { delegatedAgentAllowance: read.myOperatorPlan.delegatedAgents } : {}), env: at.env, cell: at.cell, session: publicSession(session), checkout: page, plan: read.myOperatorPlan };
     }

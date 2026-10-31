@@ -23,9 +23,9 @@ export const WATCH_PROPERTIES: Record<string, JsonSchema> = {
 };
 export type WatchInput = { watch?: boolean; interval?: number; duration?: number; jsonl?: boolean; exec?: string; realtime?: RealtimeMode };
 
-/** What a command watches in real time: its Event API channels (the account's, or those of watchLive) and the events that call for a read. */
+/** What a command watches in real time: its Event API channels (the account's, or those leased by watch) and the events that call for a read. */
 export type LiveSource = { channels: (accountId: string) => Promise<string[]>; matches: (event: RealtimeEvent) => boolean };
-/** The leases of watchLive end after 10 minutes: renewed every 5. */
+/** The leases of watch end after 10 minutes: renewed every 5. */
 export const RENEW_MS = 5 * 60_000;
 const STOPPING = new Set(['RATE_LIMITED', 'QUOTA_EXCEEDED', 'PAYMENT_REQUIRED', 'SIGN_IN_REQUIRED', 'SESSION_EXPIRED', 'Unauthorized']);
 

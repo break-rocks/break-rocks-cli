@@ -115,7 +115,7 @@ describe('the session of a human', () => {
     const renewed = JSON.parse(readFileSync(sessionFile(h), 'utf8'));
     expect(renewed.token).not.toBe(first.token);
     expect(renewed).toMatchObject({ refreshToken: first.refreshToken, signedInAt: first.signedInAt, signInAgainBy: first.signInAgainBy });
-    expect(cell.graphql.at(-1)!.authorization).toBe(renewed.token);
+    expect(cell.graphql.at(-1)!.authorization).toBe(renewed.idToken);
     cell.state.refusedOnce = true;
     expect(await h.run('whoami', '--json')).toBe(0);
     expect(cell.calls.filter((c) => c.body.AuthFlow === 'REFRESH_TOKEN_AUTH')).toHaveLength(2);
@@ -231,9 +231,10 @@ describe('login --browser', () => {
         seen = input;
         const exp = Math.floor(h.clock.now / 1000) + 3600;
         const accessToken = jwt({ sub: cell.userId, exp, origin_jti: 'browser' });
-        cell.access.set(accessToken, exp * 1000);
+        const idToken = jwt({ sub: cell.userId, exp, token_use: 'id' });
+        cell.idTokens.set(idToken, exp * 1000);
         cell.refresh.set('refresh-browser', { revoked: false });
-        return { accessToken, idToken: jwt({ sub: cell.userId, exp }), refreshToken: 'refresh-browser', expiresIn: 3600 };
+        return { accessToken, idToken, refreshToken: 'refresh-browser', expiresIn: 3600 };
       },
     };
     h.io.codeExchange = exchange;

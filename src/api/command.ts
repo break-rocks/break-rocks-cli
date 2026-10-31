@@ -3,42 +3,47 @@
 // selected from its type, their output schema likewise. An account is given by its id or its
 // @handle (resolved with accountByHandle); a theme or a layout by "%universe/name"; an input object
 // by its JSON; a page (items, next) is followed with --all, bounded by --max.
-import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { camel, kebab, type JsonSchema, type ObjectSchema } from '../schema.js';
+import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
-import { documentOf, inputSchema, operation, outputSchema, pageItemType, selection, typeRef, type OperationKind } from './graphql.js';
+import { documentOf, fieldsOf, inputSchema, isInputType, operation, outputSchema, pageItemType, selection, typeRef, type Operation, type OperationKind } from './graphql.js';
 
 /** What the arguments of the contract mean, when their name says it. */
 export const ARG_DESCRIPTIONS: Record<string, string> = {
   universe: 'The universe (%name, %name/sub)', address: 'The address (%universe, %universe/sub, %universe#tag, #tag, @handle)', id: 'The id',
   accountId: 'The account: its id, or @handle', accountIds: 'The accounts: ids or @handles', after: 'The cursor of the next page (the "next" of an answer)',
   text: 'The text', name: 'The name', channel: 'The channel (%universe~name)', limit: 'How many at most', postId: 'The id of the post',
-  reason: 'The reason', article: 'The article of the rules or the charter', requestId: 'An idempotency key (UUID): a request sent again creates nothing twice (one is made when absent)',
-  replyPolicy: 'Who may reply', images: 'Images: [{ "id": <upload id>, "alt": <text> }]', link: 'A link (https)', clip: 'The id of an uploaded video (requestVideoUpload)',
+  reason: 'The reason', article: 'The article of the rules or the charter', requestId: 'An idempotency key (a UUIDv7): a request sent again with it is done once (one is made when absent)',
+  replyPolicy: 'Who may reply', images: 'Images: [{ "id": <upload id>, "alt": <text> }]', link: 'A link (https)', clip: 'The id of an uploaded video (requestMediaUpload VIDEO)',
   theme: 'A theme: %universe/name (or { "universe", "name", "version" })', layoutRef: 'A layout: %universe/name (or { "universe", "name" })', field: 'A field (UniverseField)',
   language: 'A language (BCP 47: fr, en…)', title: 'The title', choices: 'The choices', question: 'The question', startsAt: 'When it starts (ISO 8601)', minutes: 'How long, in minutes',
   hours: 'How long, in hours', days: 'How long, in days', subject: 'The subject', document: 'The document (JSON, or a file with @path)', kind: 'The kind', order: 'The order',
 };
 
-type ArgView = { property: string; arg: string; schema: JsonSchema; required: boolean; type: string };
+type ArgView = { property: string; arg: string; path: string[]; schema: JsonSchema; required: boolean; type: string };
 
 export type ApiDef<O = unknown> = {
   name: string; summary: string; description?: string; examples: string[];
   kind: OperationKind; op: string;
   /** The properties given as positionals (names of the command, after the renames). */
   positionals?: string[];
-  /** A GraphQL argument under another name in the command ("universe" → "in"). */
+  /** A GraphQL argument (or a field of a flattened input: "input.universe") under another name in the command ("universe" → "in"). */
   rename?: Record<string, string>;
   descriptions?: Record<string, string>;
-  /** Arguments set by the command, not offered (fixed values). */
+  /** Arguments (or fields of a flattened input: "to.channel") set by the command, not offered (fixed values). */
   fixed?: Record<string, unknown>;
-  /** Arguments not offered. */
+  /** Arguments (or fields of a flattened input) not offered. */
   hide?: string[];
+  /**
+   * The input objects whose fields are offered as properties of their own (the argument "input", or
+   * "input.change", "discussion"…): default ["input"]. A field takes its own name, unless renamed by its path.
+   */
+  flatten?: string[];
   depth?: number;
   select?: string;
   /** A confirmation before the request (an irreversible action). */
@@ -56,6 +61,13 @@ export type ApiDef<O = unknown> = {
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Sets [value] at [path] in [target] (the objects on the way made). */
+export function setPath(target: Record<string, unknown>, path: readonly string[], value: unknown): void {
+  let at = target;
+  for (const key of path.slice(0, -1)) { if (!isObject(at[key])) at[key] = {}; at = at[key] as Record<string, unknown>; }
+  at[path[path.length - 1]] = value;
+}
 
 /** "%paris/velo/my-theme" → { universe: "%paris/velo", name: "my-theme" }. */
 export function refOf(value: unknown, what: string): unknown {
@@ -76,18 +88,29 @@ export async function accountIdOf(ctx: Context, value: string): Promise<string> 
   return data.accountByHandle.id;
 }
 
-/** The arguments of an operation as the properties of a command. */
-export function argViews(def: Pick<ApiDef, 'kind' | 'op' | 'rename' | 'descriptions' | 'fixed' | 'hide'>): ArgView[] {
+/** The arguments of an operation (and the fields of its flattened inputs) as the properties of a command. */
+export function argViews(def: Pick<ApiDef, 'kind' | 'op' | 'rename' | 'descriptions' | 'fixed' | 'hide' | 'flatten'>): ArgView[] {
   const op = operation(def.kind, def.op);
-  return Object.entries(op.args).filter(([arg]) => !(def.fixed && arg in def.fixed) && !def.hide?.includes(arg)).map(([arg, type]) => {
-    const property = def.rename?.[arg] ?? arg;
+  const flatten = new Set(def.flatten ?? ['input']);
+  const views: ArgView[] = [];
+  const visit = (path: string[], type: string, ancestorsRequired: boolean) => {
+    const key = path.join('.');
+    if ((def.fixed && key in def.fixed) || def.hide?.includes(key)) return;
     const named = typeRef(type).name;
+    if (flatten.has(key) && isInputType(named) && !typeRef(type).list) {
+      for (const [field, f] of Object.entries(fieldsOf(named))) visit([...path, field], f[0], ancestorsRequired && type.endsWith('!'));
+      return;
+    }
+    const leaf = path[path.length - 1];
+    const property = def.rename?.[key] ?? leaf;
     let schema = inputSchema(type);
     if (named === 'ThemeRefInput' || named === 'LayoutRefInput') schema = { anyOf: [{ type: 'string', pattern: '^%\\S+/[^/]+$' }, schema] };
     if (named === 'AWSJSON') schema = { anyOf: [{ type: 'object' }, { type: 'array' }, { type: 'string' }] };
-    const description = def.descriptions?.[property] ?? def.descriptions?.[arg] ?? ARG_DESCRIPTIONS[arg] ?? `${kebab(arg).replace(/-/g, ' ')} (${type})`;
-    return { property, arg, type, schema: { ...schema, description }, required: type.endsWith('!') && arg !== 'requestId' };
-  });
+    const description = def.descriptions?.[property] ?? def.descriptions?.[key] ?? ARG_DESCRIPTIONS[leaf] ?? `${kebab(leaf).replace(/-/g, ' ')} (${type})`;
+    views.push({ property, arg: path[0], path, type, schema: { ...schema, description }, required: ancestorsRequired && type.endsWith('!') && leaf !== 'requestId' });
+  };
+  for (const [arg, type] of Object.entries(op.args)) visit([arg], type, true);
+  return views;
 }
 
 /** The answer of a page followed to its end ([max] pages), its items together. */
@@ -114,8 +137,9 @@ export async function variablesOf(ctx: Context, views: ArgView[], input: Record<
     let value = input[v.property];
     if (value === undefined) continue;
     const named = typeRef(v.type).name;
-    if (v.arg === 'accountId' && typeof value === 'string') value = await accountIdOf(ctx, value);
-    else if (v.arg === 'accountIds' && Array.isArray(value)) value = await Promise.all(value.map((a) => accountIdOf(ctx, String(a))));
+    const leaf = v.path[v.path.length - 1];
+    if (leaf === 'accountId' && typeof value === 'string') value = await accountIdOf(ctx, value);
+    else if (leaf === 'accountIds' && Array.isArray(value)) value = await Promise.all(value.map((a) => accountIdOf(ctx, String(a))));
     else if (named === 'ThemeRefInput' || named === 'LayoutRefInput') value = typeRef(v.type).list && Array.isArray(value) ? value.map((x) => refOf(x, v.property)) : refOf(value, v.property);
     else if (named === 'AWSJSON') {
       if (typeof value === 'string' && value.startsWith('@')) value = readFileSync(resolve(ctx.io.cwd, value.slice(1)), 'utf8');
@@ -124,13 +148,31 @@ export async function variablesOf(ctx: Context, views: ArgView[], input: Record<
     else if (typeRef(v.type).list === false && typeof value === 'string' && SCHEMA_OBJECTS.has(named)) {
       try { value = JSON.parse(value); } catch { throw usageError('INVALID_INPUT', `--${kebab(v.property)}: JSON expected`); }
     }
-    vars[v.arg] = value;
+    setPath(vars, v.path, value);
   }
   return vars;
 }
 const SCHEMA_OBJECTS = new Set<string>();
 
 /** A command that is one operation of the API. */
+/** Whether [path] ("input.change.territory") names an argument of [op] or a field of its inputs. */
+function pathExists(op: Operation, path: string): boolean {
+  const [arg, ...rest] = path.split('.');
+  let type = op.args[arg];
+  for (const field of rest) {
+    if (!type) return false;
+    type = fieldsOf(typeRef(type).name)[field]?.[0];
+  }
+  return !!type;
+}
+
+/** A definition that names what its operation does not have is an error of the CLI, found at load time (and by the tests). */
+function checkDef(def: ApiDef<unknown>, op: Operation, properties: Record<string, JsonSchema>): void {
+  const wrong = [...Object.keys(def.rename ?? {}), ...(def.hide ?? []), ...Object.keys(def.fixed ?? {}), ...(def.flatten ?? [])].filter((p) => !pathExists(op, p));
+  const positionals = (def.positionals ?? []).map((p) => def.rename?.[p] ?? p.split('.').pop()!).filter((p) => !(p in properties));
+  if (wrong.length || positionals.length) throw new Error(`${def.name}: ${op.name} has no ${[...wrong, ...positionals.map((p) => `property ${p}`)].join(', ')}`);
+}
+
 export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, unknown>, O> {
   const op = operation(def.kind, def.op);
   const views = argViews(def);
@@ -142,6 +184,7 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
     properties.max = { type: 'integer', minimum: 1, maximum: 100, default: 10, description: 'Pages at most with --all' };
   }
   Object.assign(properties, def.extra ?? {});
+  checkDef(def as ApiDef<unknown>, op, properties);
   const required = [...views.filter((v) => v.required).map((v) => v.property), ...(def.require ?? [])];
   const input: ObjectSchema = { type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false };
   const depth = def.depth ?? 2;
@@ -149,12 +192,15 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
     name: def.name, summary: def.summary, examples: def.examples,
     description: [def.description, `The ${op.kind} ${op.name} of the API.`].filter(Boolean).join(' '),
     input, output: def.map ? { description: `The answer of ${op.name}, as the command gives it` } : outputSchema(op.type, depth),
-    args: { positionals: (def.positionals ?? []).map((p) => def.rename?.[p] ?? p) }, ...(def.confirm ? { interactive: true } : {}), ...(def.mcp === false ? { mcp: false as const } : {}),
+    args: { positionals: (def.positionals ?? []).map((p) => def.rename?.[p] ?? p.split('.').pop()!) }, ...(def.confirm ? { interactive: true } : {}), ...(def.mcp === false ? { mcp: false as const } : {}),
     run: async (ctx, raw) => {
       const given = def.prepare ? await def.prepare({ ...raw }, ctx) : raw;
-      const vars: Record<string, unknown> = { ...(await variablesOf(ctx, views, given)), ...(def.fixed ?? {}) };
-      for (const arg of def.hide ?? []) if (given[arg] !== undefined) vars[arg] = given[arg];
-      if ('requestId' in op.args && vars.requestId === undefined) vars.requestId = randomUUID();
+      const vars: Record<string, unknown> = await variablesOf(ctx, views, given);
+      for (const [key, value] of Object.entries(def.fixed ?? {})) setPath(vars, key.split('.'), value);
+      for (const key of def.hide ?? []) if (given[key] !== undefined) setPath(vars, key.split('.'), given[key]);
+      // A flattened input that is required is sent, even empty (its fields optional).
+      for (const key of def.flatten ?? ['input']) if (!key.includes('.') && op.args[key]?.endsWith('!') && vars[key] === undefined) vars[key] = {};
+      if ('requestId' in op.args && vars.requestId === undefined) vars.requestId = uuidv7(ctx.now());
       if (def.confirm) await ctx.confirm(def.confirm(given));
       const doc = documentOf(op, Object.keys(vars).concat(paged && given.all ? ['after'] : []), def.select ?? selection(typeRef(op.type).name, depth));
       const data = paged && given.all

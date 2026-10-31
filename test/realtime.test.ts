@@ -30,7 +30,7 @@ const ok = (onSubscribe?: (msg: Sent, s: { message: (m: unknown) => void }) => v
 describe('the Event API', () => {
   it('connects with the subprotocols of AppSync Events, subscribes, and gives each event once', async () => {
     const { Socket, sockets } = fakeSocket(ok((msg, s) => {
-      const event = JSON.stringify({ id: 'e1', type: 'dm.message', conversationWith: 'eu-b' });
+      const event = JSON.stringify({ id: 'e1', type: 'discussion.message', messageId: 'eu-m1', discussion: { kind: 'CONVERSATION', account: { id: 'eu-b' } } });
       s.message({ type: 'data', id: msg.id, event });
       s.message({ type: 'data', id: msg.id, event });
     }));
@@ -44,7 +44,7 @@ describe('the Event API', () => {
     expect(JSON.parse(Buffer.from(s.protocols[1].replace(/^header-/, ''), 'base64url').toString())).toEqual({ host: 'ev.test', Authorization: 'tok' });
     expect(s.sent[0]).toEqual({ type: 'connection_init' });
     expect(s.sent[1]).toMatchObject({ type: 'subscribe', channel: '/users/eu-a', authorization: { host: 'ev.test', Authorization: 'tok' } });
-    expect(events).toEqual([{ id: 'e1', type: 'dm.message', conversationWith: 'eu-b' }]);
+    expect(events).toEqual([{ id: 'e1', type: 'discussion.message', messageId: 'eu-m1', discussion: { kind: 'CONVERSATION', account: { id: 'eu-b' } } }]);
     c.close();
   });
   it('says the refusal of the platform (REALTIME_REFUSED)', async () => {
@@ -62,15 +62,18 @@ describe('the Event API', () => {
   });
 });
 
-function signedIn(Socket?: typeof WebSocket, conversation?: (n: number) => unknown[]) {
+function signedIn(Socket?: typeof WebSocket, conversation?: (n: number) => unknown[], queries: { query: string; variables: Record<string, unknown> }[] = []) {
   let reads = 0;
   const h = harness({
     env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1', BREAKROCKS_REALTIME_URL: 'wss://rt.test/event/realtime', BREAKROCKS_EVENTS_URL: 'https://ev.test/event' },
     fetch: async (_url, init) => {
-      const { query } = JSON.parse(String(init!.body));
+      const { query, variables } = JSON.parse(String(init!.body));
+      queries.push({ query, variables });
       if (query.includes('accountByHandle')) return Response.json({ data: { accountByHandle: { id: 'eu-b' } } });
+      // The lease of a channel of a private universe (watch): its Event API channel.
+      if (query.includes('watch(')) return Response.json({ data: { watch: { eventChannels: [{ eventChannel: '/private/k1/c/ch1', shard: '1' }], until: '2026-10-23T10:10:00.000Z' } } });
       reads++;
-      return Response.json({ data: { conversation: { items: conversation!(reads), next: null } } });
+      return Response.json({ data: { messages: { items: conversation!(reads), next: null } } });
     },
   });
   if (Socket) h.io.WebSocket = Socket;
@@ -82,14 +85,29 @@ const msg = (id: string) => ({ id, createdAt: '2026-10-23T10:00:00.000Z', displa
 describe('dm read --watch', () => {
   it('reads again on each event of the conversation, in real time', async () => {
     const { Socket, sockets } = fakeSocket(ok((m, s) => {
-      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e1', type: 'dm.message', conversationWith: 'eu-b' }) });
-      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e2', type: 'dm.message', conversationWith: 'eu-other' }) });
+      // API v2 listens to discussion.message only: the dm.message of API v1 is ignored.
+      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e0', type: 'dm.message', conversationWith: 'eu-b' }) });
+      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e1', type: 'discussion.message', change: 'new', messageId: 'eu-m2', discussion: { kind: 'CONVERSATION', account: { id: 'eu-b' } } }) });
+      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e2', type: 'discussion.message', change: 'new', messageId: 'eu-x', discussion: { kind: 'CONVERSATION', account: { id: 'eu-other' } } }) });
     }));
     const h = signedIn(Socket, (n) => (n === 1 ? [msg('m1')] : [msg('m2'), msg('m1')]));
     expect(await h.run('dm', 'read', '@bob', '--watch', '--realtime', 'on', '--duration', '5', '--jsonl')).toBe(0);
     expect(h.lines.map((l) => JSON.parse(l).id)).toEqual(['m2']);
     expect((sockets[0] as unknown as { sent: Sent[] }).sent[1]).toMatchObject({ channel: '/users/eu-a' });
     expect(h.errors.join('\n')).toMatch(/Watching in real time/);
+  });
+  it('leases a channel with watch, then reads again on discussion.message and discussion.messages', async () => {
+    const { Socket, sockets } = fakeSocket(ok((m, s) => {
+      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e0', type: 'channel.message', channelId: 'ch1', change: 'new', messageId: 'x' }) });
+      s.message({ type: 'data', id: m.id, event: JSON.stringify({ id: 'e1', type: 'discussion.message', change: 'new', messageId: 'eu-m2', discussion: { kind: 'CHANNEL', channel: '%team.~general' } }) });
+    }));
+    const queries: { query: string; variables: Record<string, unknown> }[] = [];
+    const h = signedIn(Socket, (n) => (n === 1 ? [msg('m1')] : [msg('m2'), msg('m1')]), queries);
+    expect(await h.run('channels', 'read', '%team.~general', '--watch', '--realtime', 'on', '--duration', '5', '--jsonl')).toBe(0);
+    expect(h.lines.map((l) => JSON.parse(l).id)).toEqual(['m2']);
+    expect(queries.find((q) => q.query.includes('watch('))!.variables).toEqual({ a: null, c: '%team.~general' });
+    expect(queries.filter((q) => q.query.includes('messages(')).every((q) => (q.variables.d as { channel: string }).channel === '%team.~general')).toBe(true);
+    expect((sockets[0] as unknown as { sent: Sent[] }).sent[1]).toMatchObject({ channel: '/private/k1/c/ch1' });
   });
   it('reads again every --interval when the platform refuses the connection, and says why once', async () => {
     const { Socket } = fakeSocket((m, s) => { if (m.type === 'connection_init') (s as unknown as { message: (x: unknown) => void }).message({ type: 'connection_error', errors: [{ errorType: 'UnauthorizedException' }] }); });

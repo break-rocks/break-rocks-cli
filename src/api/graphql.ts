@@ -33,6 +33,7 @@ export function operation(kind: OperationKind, name: string): Operation {
 }
 
 export const isObjectType = (name: string) => SCHEMA.types[name]?.k === 'o';
+export const isInputType = (name: string) => SCHEMA.types[name]?.k === 'i';
 export const fieldsOf = (name: string) => SCHEMA.types[name]?.f ?? {};
 export const enumValues = (name: string) => (SCHEMA.types[name]?.k === 'e' ? SCHEMA.types[name].v ?? [] : undefined);
 
@@ -43,11 +44,13 @@ export function pageItemType(raw: string): string | undefined {
   return !t.list && f.items && f.next ? typeRef(f.items[0]).name : undefined;
 }
 
-const requiresArgs = (field: SdlField) => Object.values(field[1] ?? {}).some((t) => t.endsWith('!'));
+/** A field with arguments: a navigable field of API v2 (Universe.posts), read on purpose, never in a default selection. */
+const requiresArgs = (field: SdlField) => Object.keys(field[1] ?? {}).length > 0;
 
 /**
- * The selection of [typeName]: its scalar and enum fields, its object fields down to [depth] (a
- * type is never selected inside itself), unions by their __typename. Empty for a scalar or an enum.
+ * The selection of [typeName]: its fields without arguments, scalar and enum, its object fields down
+ * to [depth] (a type is never selected inside itself), unions by their __typename. Empty for a scalar
+ * or an enum.
  */
 export function selection(typeName: string, depth = 2, path: readonly string[] = []): string {
   const type = SCHEMA.types[typeName];

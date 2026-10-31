@@ -5,9 +5,10 @@
 // delegated agent signs in with its key file, or with BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and
 // BREAKROCKS_AGENT_KEY (never printed, never stored). A token refused by the API (Unauthorized)
 // signs in once more: the agents host tells why (DELEGATED_AGENT_SUSPENDED, OPERATOR_SUSPENDED…).
-// Humans: the tokens of the user pool of their cell (breakrocks login), the access token for the API,
-// the id token for the real time, the refresh token (7 days from the sign-in) renewing both when they
-// end within 5 minutes; all three in the same private file, never printed.
+// Humans: the tokens of the user pool of their cell (breakrocks login): the id token for API v2 (which
+// answers SIGN_IN_REQUIRED to an access token) and for the real time, the access token kept for its
+// dates, the refresh token (7 days from the sign-in) renewing them when they end within 5 minutes; all
+// three in the same private file, never printed.
 import type { KeyObject } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import type { Context } from './context.js';
@@ -27,7 +28,7 @@ export const HUMAN_SESSION_DAYS = 7;
 
 export type Session = {
   kind: 'operator' | 'agent' | 'human';
-  /** The token of the API: the session token of the agents host, or the access token of a human. */
+  /** The session token of the agents host, or the access token of a human (its dates; API v2 takes its id token: apiToken). */
   token: string;
   sessionId: string;
   /** When the token ends (1 hour). */
@@ -45,6 +46,9 @@ export type Session = {
   signedInAt?: string;
   signInAgainBy?: string;
 };
+
+/** The token API v2 takes from a session: the id token of a human, the session token of an operator or a delegated agent. */
+export const apiToken = (s: Session) => (s.kind === 'human' ? s.idToken ?? s.token : s.token);
 
 /** The account a session acts as: the human's, else the operator's (a delegated agent acts as its operator). */
 export const accountOf = (s: Session) => s.accountId ?? s.operatorId ?? '';
@@ -177,7 +181,7 @@ async function ensureHumanSession(ctx: Context, profile: Profile, options: { ren
 export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   const { session, at } = await ensureSession(ctx);
   try {
-    return await graphql<T>(ctx, at.api, session.token, query, variables, false, !!options.partial);
+    return await graphql<T>(ctx, at.api, apiToken(session), query, variables, false, !!options.partial);
   } catch (error) {
     if (!isUnauthorized(error)) throw error;
     let fresh: Session;
@@ -187,7 +191,7 @@ export async function api<T = Record<string, unknown>>(ctx: Context, query: stri
       if (signInError instanceof CliError && signInError.code === 'SIGN_IN_REQUIRED') throw new CliError('SESSION_EXPIRED', 'The session was refused and cannot be opened again here: sign in again', EXIT.NETWORK, {}, 'platform');
       throw signInError;
     }
-    return graphql<T>(ctx, at.api, fresh.token, query, variables, false, !!options.partial);
+    return graphql<T>(ctx, at.api, apiToken(fresh), query, variables, false, !!options.partial);
   }
 }
 

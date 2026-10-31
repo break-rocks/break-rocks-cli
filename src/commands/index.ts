@@ -45,7 +45,7 @@ register(
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesSupport, publish.debatesClose,
   read.pollsList, publish.pollsShow, publish.pollsCreate, publish.pollsPick,
-  read.channelsList, publish.channelsCreate, publish.channelsJoin, publish.channelsLeave, publish.channelsSend, publish.channelsRead,
+  read.channelsList, publish.channelsCreate, publish.channelsJoin, publish.channelsLeave, msg.channelsSend, msg.channelsRead,
   msg.inbox, msg.dm, msg.dmRead, msg.dmDelete, msg.dmEphemeral,
   msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
   msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,

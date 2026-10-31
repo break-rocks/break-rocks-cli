@@ -1,0 +1,903 @@
+"""
+What becomes of the connection requests sent for agent operators: answered by the person, accepted, or
+declined silently. The values stay in lowercase, as stored.
+"""
+enum AgentRequests {
+  answer
+  accept
+  decline
+}
+
+"""
+The frame mode chosen on one device (since v80.0.0, universe-frame-modes.feature).
+"""
+type DeviceFrameMode {
+  """
+  The device (its identifier, the header x-device-id).
+  """
+  device: String!
+  """
+  The frame mode.
+  """
+  frameMode: FrameMode!
+}
+
+"""
+Do-not-disturb hours: no push from "start" (included) to "end" (excluded), "HH:MM" in the IANA time zone
+"timeZone".
+"""
+type DoNotDisturb {
+  """
+  When they end (HH:mm).
+  """
+  end: String!
+  """
+  When they start (HH:mm).
+  """
+  start: String!
+  """
+  The IANA time zone.
+  """
+  timeZone: String!
+}
+
+"""
+The do-not-disturb hours: start and end (HH:mm), in a time zone.
+"""
+input DoNotDisturbInput {
+  end: String!
+  start: String!
+  """
+  The IANA time zone.
+  """
+  timeZone: String!
+}
+
+"""
+The frame mode of the universe screen (since v80.0.0, universe-frame-modes.feature, contracts/layouts.md §
+The frame modes): STANDARD (the default), IMMERSIVE, READING, since v80.2.0, ONE_HAND (drawn as STANDARD
+on a tablet and a desktop) and, since v80.4.0, CUSTOM (the frame document UniverseFrameSettings.frame,
+contracts/layouts.md § The custom mode). An app that receives a value it does not know draws STANDARD.
+"""
+enum FrameMode {
+  STANDARD
+  IMMERSIVE
+  READING
+  ONE_HAND
+  CUSTOM
+}
+
+"""
+Who can invite the caller to group chats: the accounts connected with it, nobody, or the connected accounts
+except a list (myAccounts(list: INVITE_EXCEPTIONS)). The values stay in lowercase, as stored.
+"""
+enum InvitePolicy {
+  connections
+  nobody
+  except
+}
+
+"""
+The settings of direct messages and group chats: who can send connection requests, whether they are
+accepted automatically, what becomes of those sent for agent operators, the default silent decline (the
+connection requests and invitations the settings refuse are declined silently instead), who can invite to
+group chats, and the read receipts.
+"""
+type MessagingSettings {
+  """
+  Who can send connection requests.
+  """
+  requestPolicy: RequestPolicy!
+  """
+  Whether connection requests are accepted automatically.
+  """
+  autoAccept: Boolean!
+  """
+  What becomes of the connection requests sent for agent operators.
+  """
+  agentRequests: AgentRequests!
+  """
+  Whether the requests and invitations the settings refuse are declined silently.
+  """
+  silentDecline: Boolean!
+  """
+  Who can invite to group chats.
+  """
+  invitePolicy: InvitePolicy!
+  """
+  Read receipts, for direct messages and group chats: on by default; off, neither sent nor seen.
+  """
+  readReceipts: Boolean!
+}
+
+"""
+The settings of direct messages and group chats to change; a field not given stays.
+"""
+input MessagingSettingsInput {
+  requestPolicy: RequestPolicy
+  autoAccept: Boolean
+  agentRequests: AgentRequests
+  silentDecline: Boolean
+  invitePolicy: InvitePolicy
+  readReceipts: Boolean
+}
+
+"""
+A notice to the account. "actors": who did it, the latest first (3 at most), "count" of them
+in all (likes, reposts and new followers grouped within 1 hour; 1 otherwise; none for account
+security). "post": the post the actor wrote (the reply, the quote, the post that mentions);
+"subject": the account's own post concerned (liked, reposted, quoted, replied to);
+"message": a direct or group chat message, or the first message of a connection request;
+"link": the path the notification opens in the apps. "mandatory": kept even when its category
+is turned off.
+"""
+type Notification {
+  """
+  For an answer (a join request, a repost request, a transfer): whether it was accepted; null for the other
+  kinds.
+  """
+  accepted: Boolean
+  """
+  FOLLOW: whether the account follows the latest actor (to follow back); false for the other kinds.
+  """
+  actorFollowedByMe: Boolean!
+  """
+  The accounts that acted, as shown, the most recent first.
+  """
+  actors: [AccountRef!]!
+  """
+  The category.
+  """
+  category: NotificationCategory!
+  """
+  CHANNEL_MESSAGE, CHANNEL_MENTION: the channel, its address as shown ("%team-fra./tech&dev").
+  """
+  channel: String
+  """
+  The other participant of the conversation; null otherwise.
+  """
+  conversationWith: ID
+  """
+  How many events it groups.
+  """
+  count: Int!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  DATA_COPY_READY, BULK_ERASURE_DONE, DATA_REQUEST_ANSWERED (since v68.1.0): the data request.
+  """
+  dataRequest: NotificationDataRequest
+  """
+  Days left: before a deleted private universe is deleted for good, before an inactive one is
+  deleted; SUBSCRIPTION_ENDS_SOON: before the due date of the subscription (7 or 1).
+  """
+  days: Int
+  """
+  UNIVERSE_DEBATE_OPENED: the debate, its address ("%paris&quiet-nights"; its subject is "subject").
+  """
+  debate: String
+  """
+  EVENT_REMINDER, EVENT_CHANGED, EVENT_CANCELLED: the universe event (its title is "subject"; none once
+  cancelled); EVENT_CHANGED: its start and place now.
+  """
+  eventId: ID
+  """
+  The place of the universe event; null otherwise.
+  """
+  eventPlace: String
+  """
+  When the universe event starts; null otherwise.
+  """
+  eventStartsAt: AWSDateTime
+  """
+  EVENT_CHANGED (since v47.1.0): the zone of the event while it hides its place (never the hidden place);
+  EVENT_PLACE_REVEALED: the place revealed is "eventPlace".
+  """
+  eventZone: Zone
+  """
+  The group chat, as shown; null otherwise.
+  """
+  group: GroupRef
+  """
+  The identifier of the notification.
+  """
+  id: ID!
+  """
+  The kind of the notification.
+  """
+  kind: NotificationKind!
+  """
+  The governance level.
+  """
+  level: GovernanceLevel
+  """
+  Where it leads in the app (a path).
+  """
+  link: String!
+  """
+  Whether it cannot be turned off (account security, moderation).
+  """
+  mandatory: Boolean!
+  """
+  PLATFORM_MEASURE (since v49.8.0): the measure and its statement of reasons ("universe" its universe,
+  "subject" what it concerned).
+  """
+  measure: NotificationMeasure
+  """
+  Since v49.16.0: MEET_UP_SOON, the meet-up (its title, or its place, is "message"); a
+  DIRECT_MESSAGE or GROUP_MESSAGE of a meet-up sent, changed or cancelled, the same.
+  """
+  meetUp: NotificationMeetUp
+  """
+  The message it tells about; null otherwise.
+  """
+  message: NotificationSnippet
+  """
+  The note; null when none.
+  """
+  note: String
+  """
+  The post.
+  """
+  post: NotificationSnippet
+  """
+  UNIVERSE_ANNOUNCEMENT: the announcement (its start is "subject", its author the actor).
+  """
+  postId: ID
+  """
+  A universe alert: the proposal (its vote, its second round, its result), the new governance level.
+  """
+  proposalId: ID
+  """
+  The rank reached (a vote, a milestone); null otherwise.
+  """
+  rank: Int
+  """
+  Whether the caller read it.
+  """
+  read: Boolean!
+  """
+  SANCTION_POST_REMOVAL, SANCTION_POSTING_BAN: the sanction (the removed post is "subject"; the universe is
+  "universe").
+  """
+  sanction: NotificationSanction
+  """
+  PROJECT_NOTE (since v46.0.0): the status the leadership set and its note ("subject": the title of the
+  project, "proposalId" its proposal).
+  """
+  status: ProjectStatus
+  """
+  The subject.
+  """
+  subject: NotificationSnippet
+  """
+  TIER_PRICE_CHANGE (since v68.3.0): the tier, its new price, when it applies ("universe" its universe).
+  """
+  tierPrice: NotificationTierPrice
+  """
+  Private universes: the universe (its display name; for PRIVATE_POST_REPOSTED, the public
+  universe of the repost), the rank of a successor, the answer to a repost request.
+  """
+  universe: String
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+  """
+  CONNECTION_REQUEST, GROUP_INVITATION: still waiting for the account's answer (it can accept it); false for
+  the other kinds.
+  """
+  waiting: Boolean!
+}
+
+"""
+Notifications (features/notifications/notifications.feature; docs/architecture.md § Notifications).
+"""
+enum NotificationCategory {
+  ACCOUNT_SECURITY
+  BILLING
+  CHANNELS
+  CONNECTION_REQUESTS
+  DIRECT_MESSAGES
+  GOVERNANCE
+  GROUP_CHATS
+  INVITATIONS_AND_JOIN_REQUESTS
+  LIKES
+  MENTIONS
+  MODERATION
+  NEW_FOLLOWERS
+  REPLIES
+  REPOSTS_AND_QUOTES
+  UNIVERSES
+}
+
+"""
+The setting of one notification category.
+"""
+type NotificationCategorySetting {
+  """
+  The category.
+  """
+  category: NotificationCategory!
+  """
+  On, off, or on without push.
+  """
+  setting: NotificationCategorySettingValue!
+}
+
+"""
+The setting of one notification category.
+"""
+input NotificationCategorySettingInput {
+  """
+  The category.
+  """
+  category: NotificationCategory!
+  setting: NotificationCategorySettingValue!
+}
+
+"""
+ON (in the app and by push), PUSH_OFF (in the app only), OFF (none, except the mandatory ones, in the app).
+"""
+enum NotificationCategorySettingValue {
+  OFF
+  ON
+  PUSH_OFF
+}
+
+"""
+The data request of a notification of My data (since v68.1.0): DATA_COPY_READY its "expiresAt" and
+number of "parts"; BULK_ERASURE_DONE its "scope" and "kept"; DATA_REQUEST_ANSWERED the "answer" of
+the platform team to a rectification request.
+"""
+type NotificationDataRequest {
+  """
+  The answer of the platform team to a rectification; null otherwise.
+  """
+  answer: String
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime
+  """
+  The identifier of the notification data request.
+  """
+  id: ID!
+  """
+  What is kept after a bulk erasure, and why; null otherwise.
+  """
+  kept: [KeptData!]
+  """
+  The kind of the notification data request.
+  """
+  kind: DataRequestKind!
+  """
+  The number of parts of a data copy ready; null otherwise.
+  """
+  parts: Int
+  """
+  The scope of a bulk erasure; null otherwise.
+  """
+  scope: BulkErasureScope
+}
+
+"""
+The kind of a notification (contracts/notifications.md). An unknown kind is shown as a generic notification,
+so that new kinds can be added.
+"""
+enum NotificationKind {
+  APPEAL_DECIDED
+  BULK_ERASURE_DONE
+  CHANNEL_MENTION
+  CHANNEL_MESSAGE
+  CHANNEL_RESPONSE
+  CONNECTION_ACCEPTED
+  CONNECTION_REQUEST
+  DATA_COPY_READY
+  DATA_REQUEST_ANSWERED
+  DELEGATED_AGENTS_DEACTIVATED
+  DIRECT_MESSAGE
+  EVENT_CANCELLED
+  EVENT_CHANGED
+  EVENT_PLACE_REVEALED
+  EVENT_REMINDER
+  FOLLOW
+  GROUP_INVITATION
+  GROUP_MENTION
+  GROUP_MESSAGE
+  INVITATION_SIGN_UP
+  JUROR_DRAWN
+  LIKE
+  MEET_UP_SOON
+  MENTION
+  MODERATOR_DESIGNATED
+  PASSWORD_RESET
+  PLATFORM_MEASURE
+  PRIVATE_POST_REPOSTED
+  PROJECT_NOTE
+  PROJECT_REPORTED_DONE
+  QUOTE
+  REPLY
+  REPOST
+  REPOST_REQUEST
+  REPOST_REQUEST_ANSWERED
+  SANCTION_CHANNEL_MESSAGE_REMOVAL
+  SANCTION_POSTING_BAN
+  SANCTION_POST_REMOVAL
+  SANCTION_WRITING_BAN
+  SIGNED_OUT_EVERYWHERE
+  SUBSCRIPTION_ENDED
+  SUBSCRIPTION_ENDS_SOON
+  SUBSCRIPTION_PAYMENT_FAILED
+  TIER_PRICE_CHANGE
+  UNIVERSE_ACCESS_OPENED
+  UNIVERSE_ANNOUNCEMENT
+  UNIVERSE_DEBATE_OPENED
+  UNIVERSE_DECLARATION_REJECTED
+  UNIVERSE_DELETED
+  UNIVERSE_INACTIVE
+  UNIVERSE_INVITATION
+  UNIVERSE_JOIN_ACCEPTED
+  UNIVERSE_JOIN_REQUEST
+  UNIVERSE_LEVEL_CHANGED
+  UNIVERSE_PROJECT_DONE
+  UNIVERSE_PROPOSAL_ANNULLED
+  UNIVERSE_SECOND_ROUND
+  UNIVERSE_SUBSCRIPTION_OPENED
+  UNIVERSE_SUCCESSOR
+  UNIVERSE_TRANSFER
+  UNIVERSE_TRANSFER_DECLINED
+  UNIVERSE_VOTE_OPENED
+  UNIVERSE_VOTE_RESULT
+  VOTES_FIRST_RECEIVED
+}
+
+"""
+A sanction received (SANCTION_POST_REMOVAL, SANCTION_POSTING_BAN): its id (mySanctions, where
+it is appealed), the articles of the charter it cites (none for an automatic posting ban
+without one), a posting ban's days and end, when its appeal closes.
+A platform measure received (PLATFORM_MEASURE, since v49.8.0): what was done ("action":
+UNIVERSE_TERRITORY_REMOVAL, the removal of the universe territory of "universe", named in
+"subject"), the article of the platform rules applied, the statement of reasons, and whether it
+was decided automatically (false: a human decided it).
+"""
+type NotificationMeasure {
+  """
+  The measure taken.
+  """
+  action: String!
+  """
+  The article of the platform rules cited; null when none.
+  """
+  article: Int
+  """
+  Whether the measure was taken by automated means.
+  """
+  automated: Boolean!
+  """
+  The statement of reasons.
+  """
+  statement: String!
+}
+
+"""
+A meet-up where a notification tells it: its time, place and title; a change or a cancellation told as a
+message.
+"""
+type NotificationMeetUp {
+  """
+  The time of the meet-up.
+  """
+  at: AWSDateTime!
+  """
+  Whether it is cancelled.
+  """
+  cancelled: Boolean!
+  """
+  Whether the meet-up was changed.
+  """
+  changed: Boolean!
+  """
+  The place of the meet-up.
+  """
+  place: Place!
+  """
+  Its title; null when none.
+  """
+  title: String
+}
+
+"""
+The newest first; "unread": the notifications of the account not read.
+"""
+type NotificationPage {
+  """
+  The notification items of this page.
+  """
+  items: [Notification!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  The unread messages or items.
+  """
+  unread: Int!
+}
+
+"""
+The sanction a notification tells about.
+"""
+type NotificationSanction {
+  """
+  APPEAL_DECIDED: what the appeal decided (the sanction as it is now: "days" and "endsAt" after a reduction).
+  """
+  appealOutcome: AppealOutcome
+  """
+  Until when the sanction can be appealed.
+  """
+  appealableUntil: AWSDateTime!
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  Whether the platform gave it automatically.
+  """
+  automatic: Boolean!
+  """
+  The number of days.
+  """
+  days: Int
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime
+  """
+  Since v50.1.0: the hours of a writing ban in a public channel.
+  """
+  hours: Int
+  """
+  The identifier of the notification sanction.
+  """
+  id: ID!
+  """
+  The kind of the notification sanction.
+  """
+  kind: SanctionKind!
+}
+
+"""
+The notification settings of the caller: its notification categories, the mentions and replies from followed
+accounts only, the do-not-disturb hours, the email fallback.
+"""
+type NotificationSettings {
+  """
+  The setting of each notification category.
+  """
+  categories: [NotificationCategorySetting!]!
+  """
+  The do-not-disturb hours; null when none.
+  """
+  doNotDisturb: DoNotDisturb
+  """
+  The email fallback (since specs v64.0.0, D-168): false by default; set by setSettings.
+  """
+  emailFallback: Boolean!
+  """
+  Whether only the mentions and replies of the accounts the caller follows notify it.
+  """
+  mentionsAndRepliesFromFollowedOnly: Boolean!
+}
+
+"""
+The notification settings to change; a field not given stays. Account security cannot be turned off
+(NOTIFICATION_CATEGORY_MANDATORY), only its push. emailFallback: the direct messages and the invitations no
+device received for 24 hours, summed up by email, 1 a day at most (a delegated agent:
+DELEGATED_AGENT_NOT_ALLOWED).
+"""
+input NotificationSettingsInput {
+  categories: [NotificationCategorySettingInput!]
+  mentionsAndRepliesFromFollowedOnly: Boolean
+  doNotDisturb: DoNotDisturbInput
+  emailFallback: Boolean
+}
+
+"""
+A copy of a post or a message where a notification shows it (the first 140 characters);
+"media": a direct, group chat or channel message's images or clip (its text may be empty),
+null without (and on a notification written before 2026-10-15).
+"""
+type NotificationSnippet {
+  """
+  The text as shown, its signs resolved (contracts/text.md).
+  """
+  display: String!
+  """
+  The identifier of the notification snippet.
+  """
+  id: ID!
+  """
+  The media of the content, as counts; null when none.
+  """
+  media: ContentMedia
+}
+
+"""
+TIER_PRICE_CHANGE: the subscription tier ("tier", its name), its new price and when it applies.
+"""
+type NotificationTierPrice {
+  """
+  When it applies.
+  """
+  appliesAt: AWSDateTime!
+  """
+  The price.
+  """
+  price: TierPrice!
+  """
+  The tier.
+  """
+  tier: String!
+}
+
+"""
+The APNs environment of an iOS build: PRODUCTION (TestFlight, App Store), SANDBOX (development).
+"""
+enum PushEnvironment {
+  PRODUCTION
+  SANDBOX
+}
+
+"""
+The platform of a device receiving push notifications.
+"""
+enum PushPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+"""
+The recommendations setting of the account, for every device: on by default ("enabled"; the
+contract's "on" is a name AppSync does not parse, as a field or an argument).
+"""
+type RecommendationSettings {
+  """
+  Whether the recommendations are on.
+  """
+  enabled: Boolean!
+}
+
+"""
+The recommendations setting to change (a delegated agent: DELEGATED_AGENT_NOT_ALLOWED).
+"""
+input RecommendationSettingsInput {
+  enabled: Boolean!
+}
+
+"""
+Who can send connection requests to the caller. The values stay in lowercase, as stored.
+"""
+enum RequestPolicy {
+  everyone
+  following
+  followers
+  nobody
+}
+
+"""
+Every personal setting of the caller, read at once (G-5).
+"""
+type Settings {
+  """
+  The settings of direct messages and group chats.
+  """
+  messaging: MessagingSettings!
+  """
+  The notification settings.
+  """
+  notifications: NotificationSettings!
+  """
+  The translation settings.
+  """
+  translation: TranslationSettings!
+  """
+  The recommendations setting.
+  """
+  recommendations: RecommendationSettings!
+  """
+  The nearby label the caller chose (contracts/nearby.md); null: its handle is shown.
+  """
+  nearbyLabel: String
+  """
+  The subtitles setting (automatic-subtitles.feature, since v78.0.0, D-214): whether the subtitles of every clip
+  are shown as it plays, automatic or corrected; off by default; kept with the account, and on the device by
+  the apps.
+  """
+  subtitles: Boolean!
+  """
+  The gesture tips already shown to the account (contracts/layouts.md § Gesture tips, since v78.2.0).
+  """
+  tips: TipSettings!
+  """
+  The frame mode of the universe screen and the immersive offer (contracts/layouts.md § The frame modes,
+  since v80.0.0).
+  """
+  universeFrame: UniverseFrameSettings!
+}
+
+"""
+The personal settings to change (setSettings), by section: a section or a field not given stays.
+"""
+input SettingsInput {
+  messaging: MessagingSettingsInput
+  notifications: NotificationSettingsInput
+  translation: TranslationSettingsInput
+  recommendations: RecommendationSettingsInput
+  """
+  The nearby label (1 to 30 visible characters, contracts/nearby.md); clear NEARBY_LABEL goes back to the
+  handle.
+  """
+  nearbyLabel: String
+  """
+  The subtitles setting (since v78.0.0, D-214).
+  """
+  subtitles: Boolean
+  """
+  The gesture tips shown (since v78.2.0): only true is written; a tip shown stays shown.
+  """
+  tips: TipSettingsInput
+  """
+  The frame mode of the account or of one device, and the immersive offer made (since v80.0.0); the frame
+  document of the custom mode (since v80.4.0).
+  """
+  universeFrame: UniverseFrameSettingsInput
+  clear: [SettingsPart!]
+}
+
+"""
+A personal setting to remove (setSettings clear): the nearby label (back to the handle), the
+do-not-disturb hours, the frame mode of a device (DEVICE_FRAME_MODE, since v80.0.0: the device named by
+universeFrame.device, else the calling device, the header x-device-id, as DEVICE_DISPLAY_MODE of
+PersonalThemePart; that device goes back to the frame mode of the account), the frame document (FRAME, since
+v80.5.0: the account, and every device whose frame mode is CUSTOM, go back to STANDARD, chosen staying true).
+"""
+enum SettingsPart {
+  NEARBY_LABEL
+  DO_NOT_DISTURB
+  DEVICE_FRAME_MODE
+  FRAME
+}
+
+"""
+The gesture tips already shown to the account (contracts/layouts.md § Gesture tips; home-modes.feature,
+universe-layouts.feature, swipe-to-the-author.feature; since v78.2.0): each false by default, set to true by the
+app once its tip is shown, whether or not it is closed, so that another device of the account does not show it
+again. Kept with the account, and on the device by the apps.
+"""
+type TipSettings {
+  """
+  Whether the gesture tip of the home was shown (the standard key tips.homeGestures).
+  """
+  homeGestures: Boolean!
+  """
+  Whether the gesture tip of the universe was shown (the standard key tips.universeGestures).
+  """
+  universeGestures: Boolean!
+  """
+  Whether the gesture tip of the clips and posts was shown (the standard key tips.authorSwipe).
+  """
+  authorSwipe: Boolean!
+}
+
+"""
+The gesture tips shown, to record (setSettings, since v78.2.0); a field not given stays. The only change is from
+false to true: true marks the tip shown; false changes nothing (a tip shown is never shown again).
+"""
+input TipSettingsInput {
+  homeGestures: Boolean
+  universeGestures: Boolean
+  authorSwipe: Boolean
+}
+
+"""
+The reader's settings of translation, kept with the account: the languages it added to the language
+of the app (any ISO 639-1 code), the automatic translation (off by default), and whether the social
+platform may translate its private messages when the device cannot (null: never asked).
+"""
+type TranslationSettings {
+  """
+  Whether the texts in other languages are translated automatically.
+  """
+  auto: Boolean!
+  """
+  The languages of the caller (ISO 639-1), 20 at most.
+  """
+  languages: [String!]!
+  """
+  Whether the reader agreed that the platform translates its direct and group messages when the device cannot
+  (asked once): null while not asked, true, false (contracts/translation.md).
+  """
+  privateByPlatform: Boolean
+}
+
+"""
+The translation settings to change; a field not given stays (TRANSLATION_LANGUAGES_INVALID: more than 20
+languages, or a code that is not ISO 639-1).
+"""
+input TranslationSettingsInput {
+  languages: [String!]
+  auto: Boolean
+  privateByPlatform: Boolean
+}
+
+"""
+The frame mode of the universe screen (universe-frame-modes.feature, contracts/layouts.md § The frame modes;
+since v80.0.0): "frameMode" the one of the account (STANDARD while never chosen), "deviceFrameMode" the one
+of the calling device (the header x-device-id; null: the frame mode of the account), "deviceFrameModes"
+all; "chosen" whether the account ever made an explicit choice of a frame mode, STANDARD included, for the
+account or for one device; "immersiveOffered" whether the immersive offer was
+made to the account, set to true by the app once it is shown, so that another device does not make it again;
+"oneHandLeft" (since v80.2.0) the option "left hand" of ONE_HAND, the same on all the devices of the account;
+"frame" (since v80.4.0) the frame document of CUSTOM, the same on all the devices of the account.
+"""
+type UniverseFrameSettings {
+  """
+  The frame mode of the account.
+  """
+  frameMode: FrameMode!
+  """
+  The frame mode of the calling device; null: the frame mode of the account.
+  """
+  deviceFrameMode: FrameMode
+  """
+  The frame mode of each device that has one.
+  """
+  deviceFrameModes: [DeviceFrameMode!]!
+  """
+  Whether the account ever chose a frame mode, STANDARD included, for the account or for one device (the
+  immersive offer is made only while it is false).
+  """
+  chosen: Boolean!
+  """
+  Whether the immersive offer was made to the account.
+  """
+  immersiveOffered: Boolean!
+  """
+  The option "left hand" of the one-hand mode: its rows mirrored (since v80.2.0); false by default.
+  """
+  oneHandLeft: Boolean!
+  """
+  The frame document of the custom mode, format break-rocks-frame/1 (contracts/frame.schema.json; since
+  v80.4.0); null while the account never saved one.
+  """
+  frame: AWSJSON
+}
+
+"""
+The frame mode to change (setSettings, since v80.0.0); a field not given stays. frameMode sets the frame
+mode of the account; deviceFrameMode sets the one of a device; device names that device for deviceFrameMode
+and for clear DEVICE_FRAME_MODE (its identifier; absent, the header x-device-id); frameMode or
+deviceFrameMode, whatever their value, marks the account as having chosen (chosen true). A choice in the
+identity bar menu or the immersive offer accepted sends frameMode with clear DEVICE_FRAME_MODE.
+immersiveOffered: only true is written (an offer made stays made). oneHandLeft (since v80.2.0) sets the option
+"left hand" of the one-hand mode for the account; it does not mark the account as having chosen. frame (since
+v80.4.0) saves the frame document of the account, checked (FRAME_FORMAT_INVALID, FRAME_TOO_LARGE,
+FRAME_POSTS_REQUIRED, FRAME_LIVE_LINE_FOLDED, FRAME_RAILS_INVALID, FRAME_BUTTONS_INVALID); it does not mark the
+account as having chosen; frame given as null (since v80.5.0) removes the frame document, as clear FRAME. The
+checks come in this order: the size, the schema, the rules outside it (contracts/layouts.md § The custom mode).
+CUSTOM in frameMode or deviceFrameMode while the account has no frame document and none is given:
+FRAME_DOCUMENT_MISSING. The editor saves with frame and frameMode CUSTOM (or deviceFrameMode
+CUSTOM for one device) in one setSettings.
+"""
+input UniverseFrameSettingsInput {
+  frameMode: FrameMode
+  device: String
+  deviceFrameMode: FrameMode
+  immersiveOffered: Boolean
+  oneHandLeft: Boolean
+  frame: AWSJSON
+}

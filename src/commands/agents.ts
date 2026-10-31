@@ -8,6 +8,7 @@ import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
+import { uuidv7 } from '../ids.js';
 import { api, requireOperator } from '../session.js';
 
 export const INTERACTIONS = ['channels', 'directMessages', 'follow', 'groupChats', 'joinPrivateUniverses', 'post', 'reply', 'repost'] as const;
@@ -67,8 +68,9 @@ export const agentsCreate: Command<{ name: string; interactions?: string[]; univ
     requireOperator(ctx);
     if (saveProfile) { checkProfileName(saveProfile); if (ctx.store.profile(saveProfile)) throw usageError('PROFILE_EXISTS', `The profile "${saveProfile}" exists`, { profile: saveProfile }); }
     if (out && existsSync(resolve(ctx.io.cwd, out))) throw usageError('FILE_EXISTS', `${out} exists`, { path: out });
-    const vars: Record<string, unknown> = { name, ...(interactions ? { interactions } : {}), ...(universes ? { universes } : {}) };
-    const data = await api<{ createDelegatedAgent: Credentials }>(ctx, `mutation($name: String!, $interactions: [DelegatedAgentInteraction], $universes: [String]) { createDelegatedAgent(name: $name, interactions: $interactions, universes: $universes) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, vars);
+    // The answer holds a private key: never kept by the platform, a replay creates again (DELEGATED_AGENT_NAME_TAKEN).
+    const vars: Record<string, unknown> = { name, ...(interactions ? { interactions } : {}), ...(universes ? { universes } : {}), requestId: uuidv7(ctx.now()) };
+    const data = await api<{ createDelegatedAgent: Credentials }>(ctx, `mutation($name: String!, $interactions: [DelegatedAgentInteraction!], $universes: [String!], $requestId: ID!) { createDelegatedAgent(name: $name, interactions: $interactions, universes: $universes, requestId: $requestId) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, vars);
     return keep(ctx, data.createDelegatedAgent, out, saveProfile);
   },
   quiet: (r) => r.agentId,
@@ -88,18 +90,22 @@ export const agentsShow: Command<{ agent: string }, DelegatedAgent> = {
   quiet: (r) => r.id,
 };
 
-const simpleMutation = (verb: 'suspend' | 'reactivate', field: string, summary: string): Command<{ agent: string }, DelegatedAgent> => ({
+/** changeDelegatedAgent of the agent [id] with [input] (DelegatedAgentChangeInput). */
+const changeAgent = async (ctx: Context, id: string, input: Record<string, unknown>) =>
+  (await api<{ changeDelegatedAgent: DelegatedAgent }>(ctx, `mutation($id: ID!, $input: DelegatedAgentChangeInput!, $r: ID!) { changeDelegatedAgent(agentId: $id, input: $input, requestId: $r) { ${AGENT_FIELDS} } }`, { id, input, r: uuidv7(ctx.now()) })).changeDelegatedAgent;
+
+const simpleMutation = (verb: 'suspend' | 'reactivate', suspended: boolean, summary: string): Command<{ agent: string }, DelegatedAgent> => ({
   name: `agents ${verb}`, summary, examples: [`breakrocks agents ${verb} herald`],
   input: object({ agent: agentRef }, ['agent']), output: agentSchema, args: { positionals: ['agent'] },
   run: async (ctx, { agent }) => {
     requireOperator(ctx);
     const { id } = await agentIdOf(ctx, agent);
-    return (await api<Record<string, DelegatedAgent>>(ctx, `mutation($id: ID!) { ${field}(id: $id) { ${AGENT_FIELDS} } }`, { id }))[field];
+    return changeAgent(ctx, id, { suspended });
   },
   quiet: (r) => r.id,
 });
-export const agentsSuspend = simpleMutation('suspend', 'suspendDelegatedAgent', 'Suspend a delegated agent (its sessions refused within 5 seconds)');
-export const agentsReactivate = simpleMutation('reactivate', 'reactivateDelegatedAgent', 'Reactivate a suspended delegated agent');
+export const agentsSuspend = simpleMutation('suspend', true, 'Suspend a delegated agent (its sessions refused within 5 seconds; changeDelegatedAgent)');
+export const agentsReactivate = simpleMutation('reactivate', false, 'Reactivate a suspended delegated agent (changeDelegatedAgent)');
 
 export const agentsRename: Command<{ agent: string; name: string }, DelegatedAgent> = {
   name: 'agents rename', summary: 'Rename a delegated agent', examples: ['breakrocks agents rename herald courier'],
@@ -107,7 +113,7 @@ export const agentsRename: Command<{ agent: string; name: string }, DelegatedAge
   run: async (ctx, { agent, name }) => {
     requireOperator(ctx);
     const { id } = await agentIdOf(ctx, agent);
-    return (await api<{ renameDelegatedAgent: DelegatedAgent }>(ctx, `mutation($id: ID!, $name: String!) { renameDelegatedAgent(id: $id, name: $name) { ${AGENT_FIELDS} } }`, { id, name })).renameDelegatedAgent;
+    return changeAgent(ctx, id, { name });
   },
   quiet: (r) => r.id,
 };
@@ -119,7 +125,7 @@ export const agentsDelete: Command<{ agent: string }, DelegatedAgent> = {
     requireOperator(ctx);
     const found = await agentIdOf(ctx, agent);
     await ctx.confirm(`Delete the delegated agent "${found.name}" (${found.id})? This cannot be undone.`, { agentId: found.id });
-    return (await api<{ deleteDelegatedAgent: DelegatedAgent }>(ctx, `mutation($id: ID!) { deleteDelegatedAgent(id: $id) { ${AGENT_FIELDS} } }`, { id: found.id })).deleteDelegatedAgent;
+    return (await api<{ deleteDelegatedAgent: DelegatedAgent }>(ctx, `mutation($id: ID!, $r: ID!) { deleteDelegatedAgent(agentId: $id, requestId: $r) { ${AGENT_FIELDS} } }`, { id: found.id, r: uuidv7(ctx.now()) })).deleteDelegatedAgent;
   },
   quiet: (r) => r.id,
 };
@@ -135,11 +141,8 @@ export const agentsRestrict: Command<{ agent: string; interactions?: string[]; u
     if (interactions && anyInteraction) throw usageError('INVALID_INPUT', '--interactions and --any-interaction are exclusive');
     if (universes && anyUniverse) throw usageError('INVALID_INPUT', '--universes and --any-universe are exclusive');
     const { id } = await agentIdOf(ctx, agent);
-    const vars: Record<string, unknown> = { id };
-    const args: string[] = ['id: $id'], decl: string[] = ['$id: ID!'];
-    if (interactions || anyInteraction) { vars.interactions = anyInteraction ? null : interactions; args.push('interactions: $interactions'); decl.push('$interactions: [DelegatedAgentInteraction]'); }
-    if (universes || anyUniverse) { vars.universes = anyUniverse ? null : universes; args.push('universes: $universes'); decl.push('$universes: [String]'); }
-    return (await api<{ restrictDelegatedAgent: DelegatedAgent }>(ctx, `mutation(${decl.join(', ')}) { restrictDelegatedAgent(${args.join(', ')}) { ${AGENT_FIELDS} } }`, vars)).restrictDelegatedAgent;
+    const clear = [...(anyInteraction ? ['INTERACTIONS'] : []), ...(anyUniverse ? ['UNIVERSES'] : [])];
+    return changeAgent(ctx, id, { ...(interactions ? { interactions } : {}), ...(universes ? { universes } : {}), ...(clear.length ? { clear } : {}) });
   },
   quiet: (r) => r.id,
 };
@@ -153,7 +156,8 @@ export const agentsRegenerate: Command<{ agent: string; out?: string }, CreatedR
     requireOperator(ctx);
     const found = await agentIdOf(ctx, agent);
     await ctx.confirm(`Make new credentials for "${found.name}"? Its current key stops at once.`, { agentId: found.id });
-    const data = await api<{ regenerateDelegatedAgentCredentials: Credentials }>(ctx, `mutation($id: ID!) { regenerateDelegatedAgentCredentials(id: $id) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, { id: found.id });
+    // The new key replaces the former one; a replay makes yet another key (never kept by the platform).
+    const data = await api<{ regenerateDelegatedAgentCredentials: Credentials }>(ctx, `mutation($id: ID!, $r: ID!) { regenerateDelegatedAgentCredentials(agentId: $id, requestId: $r) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, { id: found.id, r: uuidv7(ctx.now()) });
     return keep(ctx, data.regenerateDelegatedAgentCredentials, out);
   },
   quiet: (r) => r.agentId,
@@ -173,7 +177,7 @@ export const agentsActivity: Command<{ agent: string; after?: string; all?: bool
     const items: Record<string, unknown>[] = [];
     let cursor = after ?? null;
     for (let page = 0; page < (all ? max : 1); page++) {
-      const data = await api<{ delegatedAgentActivity: Activity }>(ctx, 'query($id: ID!, $after: String) { delegatedAgentActivity(id: $id, after: $after) { items { id kind at universe postId subjectPostId messageId conversationWith groupId groupName channel snippet } next } }', { id, after: cursor });
+      const data = await api<{ delegatedAgentActivity: Activity }>(ctx, 'query($id: ID!, $after: String) { delegatedAgentActivity(agentId: $id, after: $after) { items { id kind at universe postId subjectPostId messageId conversationWith groupChatId groupChatName channel snippet } next } }', { id, after: cursor });
       items.push(...data.delegatedAgentActivity.items);
       cursor = data.delegatedAgentActivity.next;
       if (!cursor) break;

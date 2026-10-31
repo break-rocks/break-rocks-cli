@@ -1,0 +1,1847 @@
+"""
+The appeal of a sanction: opened by the sanctioned account, decided by a jury, the leadership or the platform.
+"""
+type Appeal {
+  """
+  When it was decided; null while open.
+  """
+  decidedAt: AWSDateTime
+  """
+  When it was opened.
+  """
+  openedAt: AWSDateTime!
+  """
+  The outcome.
+  """
+  outcome: AppealOutcome
+  """
+  Since v50.1.0 (D-26): "publish my name", ticked when appealing, changed until the decision
+  (setAppealPublishName).
+  """
+  publishName: Boolean!
+  """
+  The reasons given.
+  """
+  reasons: String
+  """
+  The days of a reduced sanction.
+  """
+  reducedToDays: Int
+  """
+  The state of the appeal.
+  """
+  status: AppealStatus!
+}
+
+"""
+Who decides an appeal: a jury, the leadership, the platform team.
+"""
+enum AppealDecider {
+  JURY
+  LEADERSHIP
+  PLATFORM
+}
+
+"""
+The outcome of an appeal: the sanction confirmed, reduced or cancelled.
+"""
+enum AppealOutcome {
+  CANCELLED
+  CONFIRMED
+  REDUCED
+}
+
+"""
+Whether an appeal is open or decided.
+"""
+enum AppealStatus {
+  DECIDED
+  OPEN
+}
+
+"""
+The action of a channel proposal (D-196 (2): channelAction, never channel, which P-10 keeps for the address
+of a channel): its action on the channel name at the level universe ("%paris/velo") of the universe.
+"""
+type ChannelAction {
+  """
+  What the proposal does to the channel.
+  """
+  action: ChannelProposalAction!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The name of the channel action.
+  """
+  name: String!
+}
+
+"""
+The action of a channel proposal to file (ProposalChangeInput.channelAction).
+"""
+input ChannelActionInput {
+  action: ChannelProposalAction!
+  universe: String!
+  name: String!
+}
+
+"""
+The badge of the continuous presence of a resident: 30, 90 or 365 days.
+"""
+enum ContinuousPresence {
+  CONTINUOUS_30
+  CONTINUOUS_365
+  CONTINUOUS_90
+}
+
+"""
+The vote of the residents of a public universe without moderators on a post removed from feeds:
+48 hours ("openedAt" to "endsAt"), the majority of the votes cast deciding, without quorum (no
+vote, or a tie: kept removed). The counts once decided only; "myStandingIn" the caller's own.
+"""
+type FeedRemovalReview {
+  """
+  The votes to put it back in the feeds; null while the vote is open.
+  """
+  backVotes: Int
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  The votes to keep it removed; null while the vote is open.
+  """
+  keepVotes: Int
+  """
+  The vote of the caller; null when none.
+  """
+  myVote: FeedRemovalVote
+  """
+  When it was opened.
+  """
+  openedAt: AWSDateTime!
+  """
+  The identifier of the post.
+  """
+  postId: ID!
+  """
+  The state of the feed removal review.
+  """
+  status: FeedRemovalReviewStatus!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of feed removal reviews, the most recent first.
+"""
+type FeedRemovalReviewPage {
+  """
+  The feed removal review items of this page.
+  """
+  items: [FeedRemovalReview!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The state of a feed removal review.
+"""
+enum FeedRemovalReviewStatus {
+  BACK_TO_FEEDS
+  KEPT_REMOVED
+  OPEN
+}
+
+"""
+A vote of a feed removal review: back to the feeds, or kept removed.
+"""
+enum FeedRemovalVote {
+  BACK_TO_FEEDS
+  KEEP_REMOVED
+}
+
+"""
+A proposal to file (fileProposal, G-12): its header, and the change it proposes. kind says which fields of
+change it reads (ProposalChangeInput), with the refusals of each kind (PROPOSAL_CHANNEL_REQUIRED,
+PROPOSAL_FOLDING_COEFFICIENT_REQUIRED…).
+"""
+input FileProposalInput {
+  universe: String!
+  kind: ProposalKind!
+  title: String!
+  text: String
+  change: ProposalChangeInput
+}
+
+"""
+The governance of public universes, second slice (features/governance/governance-levels.feature,
+leadership.feature, proposals.feature, delegated-voting.feature; docs/architecture.md § Governance).
+"""
+enum GovernanceLevel {
+  CITY
+  FEDERATION
+  GROUP_OF_FRIENDS
+  TOWN
+  VILLAGE
+}
+
+"""
+Since v50.1.0 (public-channels.feature): CHANNEL_OPENED, CHANNEL_ARCHIVED, CHANNEL_DELETED, with
+the channel ("channel": its address as shown then) and who did it: a member of the leadership
+("actor"), an adopted channel proposal ("proposal"), or an automatic act of the platform ("byPlatform":
+the universe went below the governance level "village"; since v76.0.0, the opening of "&general"), never a
+platform measure (a record PLATFORM_MEASURE of its own).
+"""
+type GovernanceRecord {
+  """
+  Who acted (a channel opened, archived or deleted by the leadership); null otherwise.
+  """
+  actor: AccountRef
+  """
+  When it was decided.
+  """
+  at: AWSDateTime!
+  """
+  Whether the platform acted on its own, an automatic act (the universe below "village", the opening of
+  "&general"); never a platform measure, which is a record PLATFORM_MEASURE of its own.
+  """
+  byPlatform: Boolean!
+  """
+  The address of the channel ("%team-fra./tech&dev").
+  """
+  channel: String
+  """
+  The explanation; null when none.
+  """
+  explanation: String
+  """
+  The kind of the governance record.
+  """
+  kind: GovernanceRecordKind!
+  """
+  The leadership.
+  """
+  leadership: Leadership
+  """
+  The platform measure; null otherwise.
+  """
+  measure: String
+  """
+  The proposal.
+  """
+  proposal: Proposal
+  """
+  The statement of reasons of a platform measure; null otherwise.
+  """
+  statementOfReasons: String
+  """
+  The vote minutes of the proposal (PROPOSAL_ADOPTED, PROPOSAL_REJECTED; proposal-summaries.feature, since
+  v77.1.0, D-213): written by a platform AI agent when its vote ended, from the governance level "village",
+  the result, the participation and what comes next, signed as written by a platform AI agent. Since v78.1.0:
+  also on a LEADERSHIP_CHANGED brought by a second round won, the vote minutes of that second round (its
+  winner, the votes of each candidate, the participation and what comes next); a second round is started by
+  the computation of the leadership, never by a vote, and its start has no record. Null for another kind,
+  below "village", when the residents turned the proposal summaries and the vote minutes off, beyond the
+  number of texts of the day of the agent, or once removed by the moderation of the universe or the platform
+  team (a record PROPOSAL_REJECTED then stays, without its vote minutes). Written in the language most used by
+  the posts of the universe and its sub-universes in the last 30 days, the replies counted as posts, without
+  the reposts nor the posts of the system account (English on a tie or without a post); translation(kind:
+  VOTE_MINUTES, id: the proposal, the second round included).
+  """
+  minutes: Summary
+}
+
+"""
+The governance history of the governance page (since v49.9.0, contracts/living-universes.md §
+The governance history): a proposal adopted or annulled ("explanation": the platform team's, as
+written), a platform measure on the universe ("statementOfReasons" as written, naming no account;
+"measure": TERRITORY, THEME, LAYOUT, BANNER, PAGE or BLOCK), a change of its leadership ("leadership": from
+then). Since v77.1.0 (D-213): a proposal adopted carries its vote minutes ("minutes"), and a proposal rejected
+is a record PROPOSAL_REJECTED when it gets its vote minutes; it stays one when they are removed ("minutes"
+null). Since v78.1.0: a LEADERSHIP_CHANGED brought by a second round won carries the vote minutes of that
+second round.
+"""
+enum GovernanceRecordKind {
+  CHANNEL_ARCHIVED
+  CHANNEL_DELETED
+  CHANNEL_OPENED
+  LEADERSHIP_CHANGED
+  PLATFORM_MEASURE
+  PROPOSAL_ADOPTED
+  PROPOSAL_ANNULLED
+  PROPOSAL_REJECTED
+}
+
+"""
+A page of the governance records of a universe, the most recent first.
+"""
+type GovernanceRecordPage {
+  """
+  The governance record items of this page.
+  """
+  items: [GovernanceRecord!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A leader or a candidate, with its smoothed share of the votes of the residents who can vote (0 to
+1); "suspendedUntil": a member of the leadership suspended from it (a posting ban, a platform
+measure) until then (Leadership.suspended), null otherwise.
+"""
+type GovernanceShare {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  Its share of the votes (0 to 1).
+  """
+  share: Float!
+  """
+  Until when this member of the leadership is suspended; null when not.
+  """
+  suspendedUntil: AWSDateTime
+}
+
+"""
+A text adopted by a proposal (the charter, the manifesto, the moderation rules).
+"""
+type GovernanceText {
+  """
+  When it was adopted.
+  """
+  adoptedAt: AWSDateTime!
+  """
+  The identifier of the proposal.
+  """
+  proposalId: ID!
+  """
+  The text as written.
+  """
+  text: String!
+}
+
+"""
+The state of a juror on an appeal.
+"""
+enum JurorStatus {
+  ACCEPTED
+  DECLINED
+  DISMISSED
+  DONE
+  DRAWN
+  EXPIRED
+  WITHDRAWN
+}
+
+"""
+The vote of a juror on an appeal.
+"""
+type JurorVote {
+  """
+  Whether the juror dismissed the appeal.
+  """
+  dismiss: Boolean!
+  """
+  The outcome.
+  """
+  outcome: AppealOutcome
+  """
+  The days of a reduced sanction.
+  """
+  reducedToDays: Int
+}
+
+"""
+The caller drawn as juror of an appeal: to accept by "answerBy"; the sanction appealed (without
+the resident); its vote; the reviews of the platform AI agents the jury asked for ("reviewStatus"
+null: none asked; "askedAt": when a juror last asked for them (askSanctionReviews), null when none
+— still ASKED 15 minutes later, they may be asked again; "reviews": for then against, once both
+are written).
+"""
+type JuryDuty {
+  """
+  Until when the juror answers its draw.
+  """
+  answerBy: AWSDateTime!
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  When the reviews were asked; null before.
+  """
+  askedAt: AWSDateTime
+  """
+  The number of days.
+  """
+  days: Int
+  """
+  When the juror was drawn.
+  """
+  drawnAt: AWSDateTime!
+  """
+  The jury of the appeal the juror sits in (a later jury when the first does not reach its decision).
+  """
+  jury: Int!
+  """
+  The kind of the jury duty.
+  """
+  kind: SanctionKind!
+  """
+  The vote of the caller; null when none.
+  """
+  myVote: JurorVote
+  """
+  The reasons given.
+  """
+  reasons: [ReportReason!]!
+  """
+  The state of the reviews asked by the jury; null when none was asked.
+  """
+  reviewStatus: SanctionReviewStatus
+  """
+  The reviews written for and against the sanction.
+  """
+  reviews: [SanctionReview!]!
+  """
+  The identifier of the sanction.
+  """
+  sanctionId: ID!
+  """
+  When the sanction was given.
+  """
+  sanctionedAt: AWSDateTime!
+  """
+  The content in short, 140 visible characters at most; null once the content is deleted or ended.
+  """
+  snippet: String
+  """
+  The state of the jury duty.
+  """
+  status: JurorStatus!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of jury duties, the most recent first.
+"""
+type JuryDutyPage {
+  """
+  The jury duty items of this page.
+  """
+  items: [JuryDuty!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Who governs: a president, a college (its members by share) or an interim; "minTermEndsAt": until
+then only a resident above 2/3 of the smoothed votes takes over (null for an interim, which ends
+at "interimUntil"); "viaSecondRound": a winner of a second round, president while above 25%.
+"""
+type Leadership {
+  """
+  Until when an interim leads; null otherwise.
+  """
+  interimUntil: AWSDateTime
+  """
+  The kind of the leadership.
+  """
+  kind: LeadershipKind!
+  """
+  Its members and their shares of the votes.
+  """
+  members: [GovernanceShare!]!
+  """
+  The end of its minimum term; null when none.
+  """
+  minTermEndsAt: AWSDateTime
+  """
+  Since when it leads.
+  """
+  since: AWSDateTime!
+  """
+  Its members suspended now (leadership.feature), until "suspendedUntil": a suspended president is listed
+  here, its interim governs ("interimUntil").
+  """
+  suspended: [GovernanceShare!]!
+  """
+  Whether it was elected in a second round.
+  """
+  viaSecondRound: Boolean!
+}
+
+"""
+The kind of the leadership of a public universe: a president, a college, an interim.
+"""
+enum LeadershipKind {
+  COLLEGE
+  INTERIM
+  PRESIDENT
+}
+
+"""
+A question to the leadership of a public universe (questions-to-the-leadership.feature): public; "archivedAt"
+90 days after "createdAt", or when the leadership ended.
+"""
+type LeadershipQuestion {
+  """
+  The answer of the leadership; null before.
+  """
+  answer: String
+  """
+  When the answer was last changed; null when never.
+  """
+  answerChangedAt: AWSDateTime
+  """
+  When it was answered; null before.
+  """
+  answeredAt: AWSDateTime
+  """
+  Who answered, as shown; null before.
+  """
+  answeredBy: AccountRef
+  """
+  When it is archived: 90 days after createdAt, or when the leadership ended.
+  """
+  archivedAt: AWSDateTime!
+  """
+  Its author, as shown.
+  """
+  author: AccountRef!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The identifier of the leadership question.
+  """
+  id: ID!
+  """
+  The number of its likes.
+  """
+  likeCount: Int!
+  """
+  Whether the caller likes it.
+  """
+  likedByMe: Boolean!
+  """
+  The text as written.
+  """
+  text: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of questions to the leadership, the most liked first.
+"""
+type LeadershipQuestionPage {
+  """
+  The leadership question items of this page.
+  """
+  items: [LeadershipQuestion!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The collective goal of level: the residents against the threshold of the next governance level ("812 /
+1,000"); "aboveSince": once above it, the 30 days run from there.
+"""
+type LevelGoal {
+  """
+  Since when the residents are above the threshold of the next level; null while below.
+  """
+  aboveSince: AWSDateTime
+  """
+  The next governance level (a level goal exists below the federation only).
+  """
+  nextLevel: GovernanceLevel!
+  """
+  The number of residents.
+  """
+  residents: Int!
+  """
+  The threshold.
+  """
+  threshold: Int!
+}
+
+"""
+An entry of the public moderation log: the sanction, its articles, its moderator, never the
+sanctioned resident; the decision of its appeal, with the reasoning of the two platform AI agents
+a jury asked for ("appealReviews": for then against the sanction, empty when none was asked). Since v78.1.0:
+the removal of a text of a platform AI agent (PLATFORM_AGENT_TEXT_REMOVAL, "agentText"), never appealed.
+"""
+type ModerationLogEntry {
+  """
+  Since v78.1.0: the text of a platform AI agent removed (PLATFORM_AGENT_TEXT_REMOVAL); null otherwise.
+  """
+  agentText: PlatformAgentText
+  """
+  When its appeal was decided; null otherwise.
+  """
+  appealDecidedAt: AWSDateTime
+  """
+  The outcome of its appeal; null otherwise.
+  """
+  appealOutcome: AppealOutcome
+  """
+  The reasons of the decision on its appeal; null otherwise.
+  """
+  appealReasons: String
+  """
+  The reviews written for its appeal.
+  """
+  appealReviews: [SanctionReview!]!
+  """
+  Since v50.1.0 (D-26): the sanctioned resident, once decided, when it wished to be named; null: "a resident".
+  """
+  appellant: AccountRef
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  Whether the platform gave it automatically.
+  """
+  automatic: Boolean!
+  """
+  Since v50.1.0: the public channel of a CHANNEL_MESSAGE_REMOVAL or a WRITING_BAN (its address as shown then);
+  a writing ban's hours.
+  """
+  channel: String
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The number of days.
+  """
+  days: Int
+  """
+  The number of hours.
+  """
+  hours: Int
+  """
+  The identifier of the moderation log entry.
+  """
+  id: ID!
+  """
+  The kind of the moderation log entry.
+  """
+  kind: SanctionKind!
+  """
+  The moderator who acted, as shown; null when automatic or by the platform.
+  """
+  moderator: AccountRef
+  """
+  The reasons given.
+  """
+  reasons: [ReportReason!]!
+}
+
+"""
+A page of the moderation log of a universe, the most recent first.
+"""
+type ModerationLogPage {
+  """
+  The moderation log items of this page.
+  """
+  items: [ModerationLogEntry!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The parts of a moment, each kind serving its own (the others null): a vote opened or closed its
+proposal, its title as written and whether it is a second round, a closed vote its totals and
+result ("winner" in their place for a second round); the charter adopted and the first quorum
+their proposal; a level reached the level; a moderator designated the moderator (and the
+proposal that elected them); a power of ten of residents the number; a proposal annulled its
+proposal and the explanation of the platform team, as written; a project done (since v46.0.0)
+its proposal, its title and the note it was done with, as written.
+"""
+type MomentData {
+  """
+  For a vote closed: whether it was adopted.
+  """
+  adopted: Boolean
+  """
+  The explanation; null when none.
+  """
+  explanation: String
+  """
+  The governance level.
+  """
+  level: GovernanceLevel
+  """
+  The moderator who acted, as shown; null when automatic or by the platform.
+  """
+  moderator: AccountRef
+  """
+  The votes no.
+  """
+  no: Int
+  """
+  The note; null when none.
+  """
+  note: String
+  """
+  The identifier of the proposal.
+  """
+  proposalId: ID
+  """
+  The title of the proposal; null otherwise.
+  """
+  proposalTitle: String
+  """
+  The number of residents.
+  """
+  residents: Int
+  """
+  The second round under way; null otherwise.
+  """
+  secondRound: Boolean
+  """
+  The winner of a vote on persons; null before it is counted.
+  """
+  winner: AccountRef
+  """
+  The votes yes.
+  """
+  yes: Int
+}
+
+"""
+The moments of a public universe (contracts/living-universes.md § Moments).
+"""
+enum MomentKind {
+  CHARTER_ADOPTED
+  FIRST_QUORUM
+  LEVEL_REACHED
+  MODERATOR_DESIGNATED
+  PROJECT_DONE
+  PROPOSAL_ANNULLED
+  RESIDENTS_MILESTONE
+  VOTE_CLOSED
+  VOTE_OPENED
+}
+
+"""
+The caller's votes in a universe: the votes it holds ("holds": 0 when lent), to whom it lends
+them and the chain they went through (only the lender sees it), its backup delegate, when it can
+lend again ("canLendAt", null: now), its reception of votes there and everywhere, whether it
+refuses votes there now, until when accepting is blocked after a refusal, and whether it is
+asked to choose after a first vote received.
+"""
+type MyVote {
+  """
+  Until when accepting votes is blocked after a refusal; null when not.
+  """
+  acceptBlockedUntil: AWSDateTime
+  """
+  Whether the caller is asked to choose after a first vote received.
+  """
+  askedToChoose: Boolean!
+  """
+  Its backup delegate; null when none.
+  """
+  backup: AccountRef
+  """
+  When it can lend again; null: now.
+  """
+  canLendAt: AWSDateTime
+  """
+  The accounts its votes went through (only the lender sees it).
+  """
+  chain: [AccountRef!]!
+  """
+  The votes it holds (0 when lent).
+  """
+  holds: Int!
+  """
+  When it lent its votes; null when not lent.
+  """
+  lentAt: AWSDateTime
+  """
+  To whom it lends its votes; null when not lent.
+  """
+  lentTo: AccountRef
+  """
+  Its reception of votes in this universe; null: the one of everywhere.
+  """
+  reception: VoteReception
+  """
+  Its reception of votes everywhere; null: none chosen. Read in the cell of the caller (its own setting,
+  everywhere).
+  """
+  receptionEverywhere: VoteReception
+  """
+  Whether it refuses votes here now.
+  """
+  refusesVotes: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+The project of an adopted action proposal (projects.feature, since v46.0.0): carried by the
+leadership, or by its author without leadership; "note" the last note (500 characters at most),
+"reportedDoneAt" the author reported it done (null once the leadership set a status). Null again
+when the proposal is annulled.
+"""
+type Project {
+  """
+  When it was done; null before.
+  """
+  doneAt: AWSDateTime
+  """
+  The note; null when none.
+  """
+  note: String
+  """
+  When its note was written; null when none.
+  """
+  noteAt: AWSDateTime
+  """
+  Who wrote its note, as shown; null when none.
+  """
+  noteBy: AccountRef
+  """
+  When its author declared it done; null before.
+  """
+  reportedDoneAt: AWSDateTime
+  """
+  The state of the project.
+  """
+  status: ProjectStatus!
+}
+
+"""
+The status of a project (projects.feature, since v46.0.0).
+"""
+enum ProjectStatus {
+  ADOPTED
+  DONE
+  IN_PROGRESS
+}
+
+"""
+A proposal of a public universe. "account": the moderator elected or revoked; "local": the
+sub-universe of a local vote (one vote per resident who takes part); "candidates" and
+"candidateVotes" for a second round, with its "winner"; "notApplied": why an adopted proposal
+could not apply (a code); "myBallot": the caller's own vote ("YES", "NO" or a candidate's id).
+"""
+type Proposal {
+  """
+  When it was annulled; null otherwise.
+  """
+  annulledAt: AWSDateTime
+  """
+  Why it was annulled; null otherwise.
+  """
+  annulledReason: String
+  """
+  Its author, as shown.
+  """
+  author: AccountRef!
+  """
+  Whether the leadership created it (at once, without support).
+  """
+  byLeadership: Boolean!
+  """
+  For a second round: the votes of each candidate, in the order of candidates; null otherwise.
+  """
+  candidateVotes: [Int!]
+  """
+  The candidates of a second round.
+  """
+  candidates: [AccountRef!]
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime
+  """
+  The identifier of the proposal.
+  """
+  id: ID!
+  """
+  The kind of the proposal.
+  """
+  kind: ProposalKind!
+  """
+  The vote of the caller ("YES", "NO" or the id of a candidate); null when it did not vote.
+  """
+  myBallot: String
+  """
+  Why an adopted proposal could not apply (a code); null otherwise.
+  """
+  notApplied: String
+  """
+  When it opens; null before it is scheduled.
+  """
+  opensAt: AWSDateTime
+  """
+  The votes cast against the votes of the universe (0 to 1).
+  """
+  participation: VoteParticipation
+  """
+  Kind ACTION: its project, from ADOPTED; null before, and once annulled.
+  """
+  project: Project
+  """
+  Kind ACTION: its project post, as a reference (its identifier and its URL: open it with post(id) or
+  thread(postId)); null for any other kind.
+  """
+  projectPost: PostRef
+  """
+  The quorum of its vote, as a share of the votes of the universe (0 to 1); null for a vote without quorum.
+  """
+  quorum: Float
+  """
+  Its totals once counted, and of an open vote its totals so far, never for a vote on persons while it is
+  open; null otherwise.
+  """
+  result: ProposalResult
+  """
+  The state of the proposal.
+  """
+  status: ProposalStatus!
+  """
+  Its proposal summary (proposal-summaries.feature, since v77.1.0, D-213): written by a platform AI agent when
+  its vote opened, from the governance level "village", at most 600 characters: what it changes; for an action
+  proposal, the arguments for and against as the agent reads the replies of its project post, with their
+  links; for an election, a second round, a recall or a revocation, the object of the vote and the candidates,
+  never an argument for or against a person; signed as written by a platform AI agent, in the language most
+  used by the posts of the universe and its sub-universes in the last 30 days (English on a tie or without a
+  post; since v78.1.0, the replies counted as posts, without the reposts nor the posts of the system account)
+  (translation(kind: PROPOSAL_SUMMARY, id: the proposal)); null before its vote opens, below "village", when the
+  residents turned the proposal summaries and the vote minutes off, beyond the number of texts of the day of the
+  agent, or once removed by the moderation of the universe or the platform team.
+  """
+  summary: Summary
+  """
+  Its support while it waits for it; null otherwise.
+  """
+  support: ProposalSupport
+  """
+  Whether the caller supports it.
+  """
+  supportedByMe: Boolean!
+  """
+  The text as written.
+  """
+  text: String
+  """
+  Its title.
+  """
+  title: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The winner of a vote on persons; null before it is counted.
+  """
+  winner: AccountRef
+  """
+  The change it proposes, by kind (G-12); null for a kind that changes nothing (OTHER, CHARTER…: their text).
+  """
+  change: ProposalChange
+}
+
+"""
+The change a proposal proposes (Proposal.change, G-12): the fields of its kind set, the others null (see
+ProposalChangeInput).
+"""
+type ProposalChange {
+  """
+  The moderator elected or revoked, the president recalled.
+  """
+  account: AccountRef
+  """
+  The voting method.
+  """
+  votingMethod: VotingMethod
+  """
+  The most moderators the universe may have.
+  """
+  maxModerators: Int
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  The daily digest on or off; null for another kind.
+  """
+  dailyDigest: Boolean
+  """
+  The proposal summaries and the vote minutes on or off (PROPOSAL_SUMMARIES, since v77.1.0); null for another
+  kind.
+  """
+  proposalSummaries: Boolean
+  """
+  The conversation starters on or off (CONVERSATION_STARTERS, since v77.1.0); null for another kind.
+  """
+  conversationStarters: Boolean
+  """
+  The coefficient of the folding threshold it sets (within the bounds of the social platform).
+  """
+  foldingCoefficient: Float
+  """
+  The layout of the catalog it sets as the default layout.
+  """
+  layoutRef: LayoutRef
+  """
+  The theme.
+  """
+  theme: ThemeRef
+  """
+  The universe territory it sets; null with clear TERRITORY (no universe territory).
+  """
+  territory: Territory
+  """
+  The sub-universe whose governance is withdrawn.
+  """
+  subUniverse: String
+  """
+  The text as shown, its signs resolved (contracts/text.md).
+  """
+  display: String
+  """
+  The universe description it sets ("" removes it).
+  """
+  description: String
+  """
+  The universe image it sets (kept while the proposal is voted on); null with clear LOGO.
+  """
+  logo: Image
+  """
+  The watermark it sets; null with clear WATERMARK.
+  """
+  watermark: Watermark
+  """
+  The universe search words it sets ([] clears them); null: unchanged.
+  """
+  searchWords: [String!]
+  """
+  Its action on a public channel (CHANNEL).
+  """
+  channelAction: ChannelAction
+  """
+  The pinned channels it sets, in their order (addresses).
+  """
+  pinnedChannels: [String!]
+  """
+  The sub-universe of a local vote (one vote per resident who takes part).
+  """
+  local: String
+  """
+  Its target date (ACTION: at least the day after it was filed); null without.
+  """
+  targetDate: AWSDate
+  """
+  What it removes.
+  """
+  clear: [UniverseIdentityPart!]!
+}
+
+"""
+The change a proposal proposes, by kind:
+- accountId: the moderator elected or revoked (MODERATOR_ELECTION, MODERATOR_REVOCATION), the president
+recalled (RECALL).
+- votingMethod (VOTING_METHOD); maxModerators (MODERATION_RULES); field (FIELD); dailyDigest
+(DAILY_DIGEST); proposalSummaries (PROPOSAL_SUMMARIES, PROPOSAL_SUMMARIES_REQUIRED without it);
+conversationStarters (CONVERSATION_STARTERS, a public universe of the first level below "village", other than
+the root universe, PROPOSAL_CONVERSATION_STARTERS_REQUIRED without it); foldingCoefficient
+(FOLDING_COEFFICIENT, within the bounds of the social platform: FOLDING_COEFFICIENT_OUT_OF_BOUNDS); layoutRef (LAYOUT); theme (THEME, and SHOWCASE); territory
+(TERRITORY); subUniverse (SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL); display (DISPLAY_CASE).
+- description, logo, watermark, searchWords (SHOWCASE: [] clears the search words; "" removes the
+description).
+- channelAction (CHANNEL); pinnedChannels (PINNED_CHANNELS, the addresses in their order).
+- local: the sub-universe of a local vote (the leadership, a local question: OTHER).
+- targetDate: an action proposal (ACTION), at least the day after (PROJECT_TARGET_DATE_INVALID).
+- clear: what the proposal removes (SHOWCASE: LOGO, WATERMARK; TERRITORY: TERRITORY).
+"""
+input ProposalChangeInput {
+  accountId: ID
+  votingMethod: VotingMethod
+  maxModerators: Int
+  field: UniverseField
+  dailyDigest: Boolean
+  proposalSummaries: Boolean
+  conversationStarters: Boolean
+  foldingCoefficient: Float
+  layoutRef: LayoutRefInput
+  theme: ThemeRefInput
+  territory: TerritoryChoiceInput
+  subUniverse: String
+  display: String
+  description: String
+  logo: ImageAttachmentInput
+  watermark: WatermarkSettingInput
+  searchWords: [String!]
+  channelAction: ChannelActionInput
+  pinnedChannels: [String!]
+  local: String
+  targetDate: AWSDate
+  clear: [UniverseIdentityPart!]
+}
+
+"""
+The kind of a proposal: what it changes, and how it is voted on (contracts/living-universes.md). ACTION
+engages the residents in something to do (the majority of the votes cast, no quorum).
+"""
+enum ProposalKind {
+  ACTION
+  CHANNEL
+  CHARTER
+  CONVERSATION_STARTERS
+  DAILY_DIGEST
+  DISPLAY_CASE
+  FIELD
+  FOLDING_COEFFICIENT
+  LAYOUT
+  MANIFESTO
+  MODERATION_RULES
+  MODERATOR_ELECTION
+  MODERATOR_REVOCATION
+  OTHER
+  PINNED_CHANNELS
+  PROPOSAL_SUMMARIES
+  RECALL
+  SECOND_ROUND
+  SHOWCASE
+  SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL
+  TERRITORY
+  THEME
+  VOTING_METHOD
+}
+
+"""
+A page of proposals, the most recent first.
+"""
+type ProposalPage {
+  """
+  The proposal items of this page.
+  """
+  items: [Proposal!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A proposal a platform AI agent refused when filed (fileProposal: PROPOSAL_REFUSED, errorInfo
+proposalId, ground, explanation): why, when its review was asked, and its outcome (OVERTURNED: the
+proposal filed, "filedProposalId"; UPHELD: it stays refused) with the statement of the platform team.
+"""
+type ProposalRefusal {
+  """
+  The explanation; null when none.
+  """
+  explanation: String
+  """
+  The proposal filed again after the review; null otherwise.
+  """
+  filedProposalId: ID
+  """
+  Why it was refused.
+  """
+  ground: ProposalRefusalGround!
+  """
+  The identifier of the proposal.
+  """
+  proposalId: ID!
+  """
+  When it was refused.
+  """
+  refusedAt: AWSDateTime!
+  """
+  When a review was asked; null otherwise.
+  """
+  reviewAskedAt: AWSDateTime
+  """
+  The outcome of the review; null before.
+  """
+  reviewOutcome: ProposalRefusalOutcome
+  """
+  The statement of the review; null before.
+  """
+  reviewStatement: String
+  """
+  Its title.
+  """
+  title: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+Why a platform AI agent refused a proposal: the law or the platform rules.
+"""
+enum ProposalRefusalGround {
+  LAW
+  PLATFORM_RULES
+}
+
+"""
+The outcome of the review of a refused proposal.
+"""
+enum ProposalRefusalOutcome {
+  OVERTURNED
+  UPHELD
+}
+
+"""
+The public totals of a counted proposal: the votes cast for and against, the votes of the universe at the
+close, the participation (0 to 1).
+"""
+type ProposalResult {
+  """
+  The votes cast.
+  """
+  cast: Int!
+  """
+  The votes no.
+  """
+  no: Int!
+  """
+  The votes cast against the votes of the universe (0 to 1).
+  """
+  participation: Float!
+  """
+  The residents who can vote.
+  """
+  voters: Int!
+  """
+  The votes yes.
+  """
+  yes: Int!
+}
+
+"""
+The state of a proposal.
+"""
+enum ProposalStatus {
+  ADOPTED
+  ANNULLED
+  CANCELLED
+  COUNTING
+  OPEN
+  REJECTED
+  WAITING_SUPPORT
+  WITHDRAWN
+}
+
+"""
+The support of a resident's proposal: the votes of its supporters (with a leadership: "needed" in votes, 1% of
+the votes) or their number (without: 5).
+"""
+type ProposalSupport {
+  """
+  Whether its support is counted in votes (with leadership) rather than in residents.
+  """
+  inVotes: Boolean!
+  """
+  The support it needs.
+  """
+  needed: Int!
+  """
+  The residents who support it.
+  """
+  supporters: Int!
+  """
+  The votes.
+  """
+  votes: Int!
+}
+
+"""
+The public vote of a resident holding lent votes ("choice": YES, NO or a candidate's id), published with the
+result.
+"""
+type RepresentativeVote {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  Its choice ("YES", "NO" or a candidate).
+  """
+  choice: String!
+  """
+  The votes.
+  """
+  votes: Int!
+}
+
+"""
+A page of the votes of the representatives on a proposal.
+"""
+type RepresentativeVotePage {
+  """
+  The representative vote items of this page.
+  """
+  items: [RepresentativeVote!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The reputation tier of a resident in a public universe.
+"""
+enum ReputationTier {
+  BANNED_FROM_POSTING
+  NORMAL
+  RESTRICTED
+  TRUSTED
+  WATCHED
+}
+
+"""
+The governance of public universes (features/governance/residents.feature,
+universe-reputation.feature, universe-moderation.feature; docs/architecture.md § Governance).
+The caller's residence in a public universe of the first level: until "endsAt" unless renewed by
+an activity. "canVote": the vote requirement met, or kept from before a change of the governance
+level (lost by leaving); "canVoteAt": when its conditions of time are met (null while a prior
+contribution is missing); "voteRequirement": of the governance level now; "voteStatus": where
+the resident stands (contracts/living-universes.md § Vote requirement and My residence).
+"""
+type Residence {
+  """
+  Whether the resident can vote: the vote requirement met, or kept from before a change of the governance
+  level.
+  """
+  canVote: Boolean!
+  """
+  When its conditions of time are met; null while a prior contribution is missing.
+  """
+  canVoteAt: AWSDateTime
+  """
+  Since v50.1.0 (D-28): the badge of the continuous presence (30, 90 or 365 days; null before 30), never the
+  number of days.
+  """
+  continuousPresence: ContinuousPresence
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The vote requirement of the governance level now.
+  """
+  voteRequirement: VoteRequirement!
+  """
+  Where the resident stands against the vote requirement.
+  """
+  voteStatus: VoteStatus!
+}
+
+"""
+What joinUniverse answers (since v76.0.0, D-208, not built): the residence, and "&general" of the universe
+to offer to join to the new resident (public-channels.feature).
+"""
+type UniverseJoined {
+  """
+  The address of "&general" of the universe to offer to join ("%paris&general"); null when the universe
+  has no "&general" or it is archived, when the human already joined it, or when the caller is not a human.
+  """
+  generalChannel: String
+  """
+  The residence of the human in the universe.
+  """
+  residence: Residence!
+}
+
+"""
+A page of presences (myPresences), the most recently joined first.
+"""
+type ResidencePage {
+  """
+  The residence items of this page.
+  """
+  items: [Residence!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+What a rules post tells (contracts/living-universes.md § The rules post): the governance level,
+the residents at the time of reading, the next level and its threshold, the vote requirement,
+at most 1 moderator for "moderatorsPerResidents" residents by default, the article of the help
+("helpSlug"). The root universe's tells the platform rules: everything null but "helpSlug".
+"""
+type RulesPost {
+  """
+  The slug of its help page.
+  """
+  helpSlug: String!
+  """
+  The governance level.
+  """
+  level: GovernanceLevel
+  """
+  The residents per moderator; null when none.
+  """
+  moderatorsPerResidents: Int
+  """
+  The next governance level; null at the federation.
+  """
+  nextLevel: GovernanceLevel
+  """
+  The residents the next governance level needs.
+  """
+  nextLevelThreshold: Int
+  """
+  The number of residents of its first level; null for a private universe and the root universe.
+  """
+  residentCount: Int
+  """
+  The vote requirement of the governance level now.
+  """
+  voteRequirement: VoteRequirement
+}
+
+"""
+A sanction of the caller in a public universe: a post removed, or a posting ban of "days" until
+"endsAt", citing "articles" of the charter (an automatic posting ban of reputation: the articles
+reported, else the "reasons" reported; no moderator); appealed until "appealableUntil".
+"""
+type Sanction {
+  """
+  Its appeal; null when none.
+  """
+  appeal: Appeal
+  """
+  Until when the sanction can be appealed.
+  """
+  appealableUntil: AWSDateTime!
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  Whether the platform gave it automatically.
+  """
+  automatic: Boolean!
+  """
+  Since v50.1.0: the public channel of a CHANNEL_MESSAGE_REMOVAL or a WRITING_BAN (its address as shown then);
+  a writing ban's hours (1, 24 or 168).
+  """
+  channel: String
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The number of days.
+  """
+  days: Int
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime
+  """
+  The number of hours.
+  """
+  hours: Int
+  """
+  The identifier of the sanction.
+  """
+  id: ID!
+  """
+  The kind of the sanction.
+  """
+  kind: SanctionKind!
+  """
+  The moderator who acted, as shown; null when automatic or by the platform.
+  """
+  moderator: AccountRef
+  """
+  The identifier of the post.
+  """
+  postId: ID
+  """
+  The reasons given.
+  """
+  reasons: [ReportReason!]!
+  """
+  The content in short, 140 visible characters at most; null once the content is deleted or ended.
+  """
+  snippet: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+Since v50.1.0 (public-channels.feature): a message of a public channel removed, a writing ban in a public
+channel. Since v78.1.0 (platform-ai-agents.feature): PLATFORM_AGENT_TEXT_REMOVAL, a text of a platform AI agent
+removed by the moderation of the universe (removePlatformAgentText), in the moderation log only, never a
+sanction of an account.
+"""
+enum SanctionKind {
+  CHANNEL_MESSAGE_REMOVAL
+  DEBATE_MESSAGE_REMOVAL
+  PLATFORM_AGENT_TEXT_REMOVAL
+  POSTING_BAN
+  POST_REMOVAL
+  WRITING_BAN
+}
+
+"""
+A page of sanctions, the most recent first.
+"""
+type SanctionPage {
+  """
+  The sanction items of this page.
+  """
+  items: [Sanction!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The reasoning of a platform AI agent on a sanction, against the charter of its universe (at most
+2,000 characters, in the language of the charter): read by the jury of its appeal, published with
+the decision. Only the jury decides.
+"""
+type SanctionReview {
+  """
+  Its reasoning.
+  """
+  reasoning: String!
+  """
+  Whether it argues for or against the sanction.
+  """
+  side: SanctionReviewSide!
+  """
+  When it was written.
+  """
+  writtenAt: AWSDateTime!
+}
+
+"""
+The side a platform AI agent argues on a sanction, for a jury: for it, or against it
+(universe-moderation.feature).
+"""
+enum SanctionReviewSide {
+  AGAINST
+  FOR
+}
+
+"""
+The reviews a jury asked for: asked (the agents reasoning), ready (both written), unavailable (the model
+answered nothing: ask again).
+"""
+enum SanctionReviewStatus {
+  ASKED
+  READY
+  UNAVAILABLE
+}
+
+"""
+A second round of 48 hours between the two top holders: voted as its proposal ("proposalId").
+"""
+type SecondRound {
+  """
+  The candidates of a second round.
+  """
+  candidates: [GovernanceShare!]!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  The identifier of the proposal.
+  """
+  proposalId: ID!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+}
+
+"""
+A sub-universe given a governance of its own by the leadership: its governor and the powers given.
+"""
+type SubUniverseGovernance {
+  """
+  The account the governance of the sub-universe was given to.
+  """
+  governor: AccountRef!
+  """
+  Its powers.
+  """
+  powers: [SubUniversePower!]!
+  """
+  Since when.
+  """
+  since: AWSDateTime!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A power given to the governance of a sub-universe.
+"""
+enum SubUniversePower {
+  ANNOUNCEMENTS
+  MODERATION
+  PINNED_POSTS
+}
+
+"""
+An appeal waiting in a universe, for its leadership: the sanction (without the resident), who decides it, the
+juries drawn.
+"""
+type UniverseAppeal {
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  The number of days.
+  """
+  days: Int
+  """
+  Who decides it.
+  """
+  decider: AppealDecider!
+  """
+  The juries drawn.
+  """
+  juries: Int!
+  """
+  The kind of the universe appeal.
+  """
+  kind: SanctionKind!
+  """
+  When it was opened.
+  """
+  openedAt: AWSDateTime!
+  """
+  The reasons given.
+  """
+  reasons: [ReportReason!]!
+  """
+  The identifier of the sanction.
+  """
+  sanctionId: ID!
+  """
+  When the sanction was given.
+  """
+  sanctionedAt: AWSDateTime!
+  """
+  The content in short, 140 visible characters at most; null once the content is deleted or ended.
+  """
+  snippet: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A page of appeals to decide, the oldest first.
+"""
+type UniverseAppealPage {
+  """
+  The universe appeal items of this page.
+  """
+  items: [UniverseAppeal!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The folding of the posts of a public universe (universe-reputation.feature): its folding
+threshold now ("threshold": the larger of 3 and "coefficient" times the square root of its
+residents, rounded up; twice it removes a post from feeds), the coefficient in force (one half
+by default, changed by a proposal of kind FOLDING_COEFFICIENT) and the bounds the social
+platform sets for it.
+"""
+type UniverseFolding {
+  """
+  The coefficient of the folding threshold.
+  """
+  coefficient: Float!
+  """
+  The highest coefficient the social platform allows.
+  """
+  maxCoefficient: Float!
+  """
+  The lowest coefficient the social platform allows.
+  """
+  minCoefficient: Float!
+  """
+  The threshold.
+  """
+  threshold: Int!
+}
+
+"""
+The caller's reputation in a public universe: "share" of weighted likes (null while neutral, below 10 weighted
+votes).
+"""
+type UniverseReputation {
+  """
+  Until when the caller is banned from posting; null when not.
+  """
+  postingBanUntil: AWSDateTime
+  """
+  The share of weighted likes of the caller (0 to 1); null while neutral, below 10 weighted votes.
+  """
+  share: Float
+  """
+  The tier.
+  """
+  tier: ReputationTier!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The weighted votes on the posts of the caller.
+  """
+  weightedVotes: Float!
+}
+
+"""
+The votes a resident holds (public; who lent them is private).
+"""
+type VoteHolder {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  The votes.
+  """
+  votes: Int!
+}
+
+"""
+The votes cast on a vote against the votes of the universe (since v69.0.0, D-188: the vote state),
+read against its quorum: an open vote, a vote on persons included; a vote counted.
+"""
+type VoteParticipation {
+  """
+  The votes cast.
+  """
+  cast: Int!
+  """
+  The votes cast against the votes of the universe (0 to 1).
+  """
+  participation: Float!
+  """
+  The residents who can vote.
+  """
+  voters: Int!
+}
+
+"""
+Whether a resident accepts or refuses the votes lent to it.
+"""
+enum VoteReception {
+  ACCEPT
+  REFUSE
+}
+
+"""
+What voting needs at a governance level: an account of "accountDays", joined "presenceDays" ago, and a prior
+contribution when "contributionRequired".
+"""
+type VoteRequirement {
+  """
+  The days the account must have.
+  """
+  accountDays: Int!
+  """
+  Whether a prior contribution is required.
+  """
+  contributionRequired: Boolean!
+  """
+  The days of presence required.
+  """
+  presenceDays: Int!
+}
+
+"""
+Where a resident stands: its whole days of account and of presence, up to those required, and its prior
+contribution.
+"""
+type VoteStatus {
+  """
+  The days the account has.
+  """
+  accountDaysDone: Int!
+  """
+  Whether the resident contributed.
+  """
+  contributed: Boolean!
+  """
+  The days of presence done.
+  """
+  presenceDaysDone: Int!
+}
+
+"""
+A voting method of the governance of a public universe (G-18: was a string). Only DELEGATED today; others
+are to define (product.md § Delegated voting).
+"""
+enum VotingMethod {
+  DELEGATED
+}

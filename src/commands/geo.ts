@@ -11,6 +11,7 @@ import type { Context } from '../context.js';
 import { cliRefusal, networkError, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
+import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
 import { request } from '../transport.js';
 
@@ -95,7 +96,7 @@ export async function territoryChoice(ctx: Context, i: TerritoryFlags): Promise<
   }
   if (!i.radius) throw usageError('INVALID_INPUT', '--circle needs --radius (150 m to 25 km)');
   if (!i.name?.trim()) throw usageError('INVALID_INPUT', '--circle needs --name: the place at its center, made public with the universe territory (1 to 100 characters)');
-  return { center: { name: i.name, ...pointOf(i.circle!) }, radius: radiusOf(i.radius) };
+  return { center: { name: i.name, point: pointOf(i.circle!) }, radius: radiusOf(i.radius) };
 }
 
 const territoryProps = {
@@ -137,26 +138,27 @@ export const territorySet: Command<{ universe: string } & TerritoryFlags, Territ
   output: territoryOutput, args: { positionals: ['universe'] },
   run: async (ctx, i) => {
     const territory = await territoryChoice(ctx, i);
-    const u = (await api<{ setUniverseTerritory: { name: string; territory: Territory } }>(ctx, `mutation($u: String!, $t: TerritoryChoiceInput) { setUniverseTerritory(universe: $u, territory: $t) { name territory ${TERRITORY} } }`, { u: i.universe, t: territory })).setUniverseTerritory;
+    const u = (await api<{ setUniverseTerritory: { name: string; territory: Territory } }>(ctx, `mutation($u: String!, $i: UniverseTerritoryInput!, $r: ID!) { setUniverseTerritory(universe: $u, input: $i, requestId: $r) { name territory ${TERRITORY} } }`, { u: i.universe, i: { territory }, r: uuidv7(ctx.now()) })).setUniverseTerritory;
     return { universe: u?.name ?? i.universe, territory: u?.territory ?? null };
   },
   text: territoryText, quiet: (r) => r.territory?.id ?? undefined,
 };
 
 export const territoryRemove: Command<{ universe: string }, TerritoryAnswer> = {
-  name: 'universes territory remove', summary: 'Remove the universe territory of a universe (setUniverseTerritory remove; the leadership)',
+  name: 'universes territory remove', summary: 'Remove the universe territory of a universe (setUniverseTerritory clear; the leadership)',
   description: 'Without leadership: breakrocks proposals file --kind TERRITORY --no-territory.',
   examples: ['breakrocks universes territory remove %paris'],
   input: object({ universe: str('The universe (%name)') }, ['universe']), output: territoryOutput, args: { positionals: ['universe'] },
   run: async (ctx, { universe }) => {
-    const u = (await api<{ setUniverseTerritory: { name: string; territory: Territory } }>(ctx, `mutation($u: String!) { setUniverseTerritory(universe: $u, remove: true) { name territory ${TERRITORY} } }`, { u: universe })).setUniverseTerritory;
+    const u = (await api<{ setUniverseTerritory: { name: string; territory: Territory } }>(ctx, `mutation($u: String!, $r: ID!) { setUniverseTerritory(universe: $u, input: { clear: true }, requestId: $r) { name territory ${TERRITORY} } }`, { u: universe, r: uuidv7(ctx.now()) })).setUniverseTerritory;
     return { universe: u?.name ?? universe, territory: u?.territory ?? null };
   },
   text: territoryText,
 };
 
 export const territoryReport = apiCommand({
-  name: 'universes territory report', summary: 'Report the universe territory of a universe to the platform team (reportUniverseTerritory)', kind: 'mutation', op: 'reportUniverseTerritory', positionals: ['universe'],
+  name: 'universes territory report', summary: 'Report the universe territory of a universe to the platform team (report UNIVERSE_TERRITORY)', kind: 'mutation', op: 'report', flatten: ['target'], positionals: ['target.universe'], require: ['universe'],
+  fixed: { 'target.kind': 'UNIVERSE_TERRITORY' }, hide: ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'name', 'themePart', 'block', 'accountId', 'word'].map((f) => `target.${f}`),
   description: 'MISLEADING (it does not match the universe), PLATFORM_RULES or ILLEGAL; always to the platform team. One\'s own: REPORT_OWN_CONTENT; none: TERRITORY_NOT_FOUND.',
   descriptions: { universe: 'The universe (%name)', article: 'The article of the platform rules (with PLATFORM_RULES)' }, depth: 1,
   examples: ['breakrocks universes territory report %paris --reason MISLEADING'],
@@ -192,7 +194,7 @@ export const MAX_AREA_CELLS = 19;
 const AREA_PAGE = selection('ExploreUniversePage', 2).replace('territory { id kind name radius }', `territory ${TERRITORY}`);
 
 export const exploreArea: Command<{ cells?: string[]; boundary?: string }, unknown> = {
-  name: 'explore area', summary: 'The universes of an area of the map: those whose universe territory meets its map cells (universesInArea)',
+  name: 'explore area', summary: 'The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA)',
   description: `The area is 1 to ${MAX_AREA_CELLS} map cells of resolution 5 (H3), given by --cells, or by --boundary: the cells its shape meets (breakrocks map boundary). The CLI computes no map cell from a box (no H3 library). 100 universes at most, the most active of the last hour first, each with its territory.`,
   examples: ['breakrocks explore area --boundary R7444', 'breakrocks explore area --cells 851fb463fffffff,851fb467fffffff --json'],
   input: object({ cells: list(`Map cells of resolution 5 (1 to ${MAX_AREA_CELLS})`, { type: 'string', pattern: CELL_R5 }, { minItems: 1, maxItems: MAX_AREA_CELLS }), boundary: str('A boundary whose shape gives the cells (R7444)', { pattern: BOUNDARY_ID }) }),
@@ -204,9 +206,9 @@ export const exploreArea: Command<{ cells?: string[]; boundary?: string }, unkno
       const all = (await boundaryShape(ctx, i.boundary)).feature.properties.cells ?? [];
       cells = all.filter((c) => new RegExp(CELL_R5).test(c));
       if (cells.length !== all.length) throw usageError('MAP_CELLS_INVALID', `The shape of ${i.boundary} is compacted to coarser map cells (a large boundary): give --cells of resolution 5`, { boundary: i.boundary });
-      if (cells.length > MAX_AREA_CELLS) throw usageError('MAP_CELLS_INVALID', `The shape of ${i.boundary} meets ${cells.length} map cells; universesInArea takes ${MAX_AREA_CELLS} at most: give --cells`, { boundary: i.boundary, cells: cells.length });
+      if (cells.length > MAX_AREA_CELLS) throw usageError('MAP_CELLS_INVALID', `The shape of ${i.boundary} meets ${cells.length} map cells; exploreUniverses takes ${MAX_AREA_CELLS} at most: give --cells`, { boundary: i.boundary, cells: cells.length });
     }
-    return (await api<{ universesInArea: unknown }>(ctx, `query($c: [String!]!) { universesInArea(mapCells: $c) ${AREA_PAGE} }`, { c: cells })).universesInArea;
+    return (await api<{ exploreUniverses: unknown }>(ctx, `query($c: [String!]!) { exploreUniverses(by: AREA, mapCells: $c) ${AREA_PAGE} }`, { c: cells })).exploreUniverses;
   },
   text: (r) => {
     const page = r as { items?: { universe: string; count?: number | null; residentCount?: number | null; territory?: Territory }[] } | null;

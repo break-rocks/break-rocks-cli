@@ -83,7 +83,7 @@ describe('the GraphQL API', () => {
 });
 
 describe('the addresses of the API', () => {
-  const map = { version: 3, default: 'eu', cells: { eu: { region: 'eu-west-1', api: 'https://eu.api/graphql', agents: 'https://agents.eu' }, us: { region: 'us-east-1', api: 'https://us.api/graphql', agents: 'https://agents.us' } }, byCountry: { US: 'us' } };
+  const map = { version: 3, default: 'eu', cells: { eu: { region: 'eu-west-1', graphql: 'https://eu.api/graphql', agents: 'https://agents.eu' }, us: { region: 'us-east-1', graphql: 'https://us.api/graphql', agents: 'https://agents.us' } }, byCountry: { US: 'us' } };
   it('come from the cell map of the environment (kept 5 minutes): the cell of the profile, of the id, of the country, else the default', async () => {
     const { endpoints } = await import('../src/endpoints.js');
     const { fetch, seen } = scripted(respond(200, map), respond(200, map));
@@ -98,6 +98,15 @@ describe('the addresses of the API', () => {
     await endpoints(ctx, { env: 'staging' });
     expect(seen.length).toBe(2);
     expect(await error(endpoints(ctx, { env: 'staging', cell: 'ap' }))).toMatchObject({ code: 'CELL_UNKNOWN' });
+  });
+  it('are API v2 only: a cell without "graphql" is API_V2_UNAVAILABLE, unless BREAKROCKS_API_URL names it', async () => {
+    const { endpoints } = await import('../src/endpoints.js');
+    const v1 = { version: 1, default: 'eu', cells: { eu: { region: 'eu-west-1', api: 'https://v1.appsync/graphql', agents: 'https://agents.eu' } } };
+    const { fetch } = scripted(respond(200, v1));
+    const { ctx } = ctxOf(fetch);
+    expect(await error(endpoints(ctx, { env: 'dev' }))).toMatchObject({ code: 'API_V2_UNAVAILABLE', exit: 3 });
+    const h = harness({ env: { BREAKROCKS_API_URL: 'https://api.dev.break.rocks/graphql' }, fetch: async () => new Response(JSON.stringify(v1), { status: 200 }) });
+    expect(await endpoints(new Context(h.io, NO_FLAGS), { env: 'dev' })).toMatchObject({ api: 'https://api.dev.break.rocks/graphql', agents: 'https://agents.eu/v1' });
   });
   it('say NETWORK_ERROR (exit 3) when the CDN does not answer and no map is cached', async () => {
     const { endpoints } = await import('../src/endpoints.js');
