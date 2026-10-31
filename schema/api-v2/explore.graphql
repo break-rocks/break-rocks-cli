@@ -1,0 +1,706 @@
+"""
+An account to follow: "gained", its new followers of the last 7 days minus those lost (each once, however they
+follow).
+"""
+type AccountToFollow {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  Its followers now.
+  """
+  followerCount: Int!
+  """
+  Its new followers of the last 7 days minus those lost: the number it is ranked by.
+  """
+  gained: Int!
+}
+
+"""
+The accounts to follow of Explore, ranked as reason tells, computed every minute (updatedAt): a ranking, no
+cursor.
+"""
+type AccountToFollowPage {
+  """
+  The account to follow items of this page.
+  """
+  items: [AccountToFollow!]!
+  """
+  How the list is ranked, shown with it.
+  """
+  reason: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime
+}
+
+"""
+A clip of the clip feed: its stage (FEED, RECOMMENDED or POPULAR), its reason when RECOMMENDED.
+"""
+type ClipFeedItem {
+  """
+  The post.
+  """
+  post: Post!
+  """
+  Why it is recommended, for a recommended clip; null otherwise.
+  """
+  recommendation: Recommendation
+  """
+  The stage of the clip feed it comes from.
+  """
+  stage: ClipFeedStage!
+}
+
+"""
+A page of the clips of a clip feed, in the order of the feed.
+"""
+type ClipFeedItemPage {
+  """
+  The clip feed item items of this page.
+  """
+  items: [ClipFeedItem!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A page of the clip feed that never ends: its clips, and whether the end card comes before the first one (the
+clips of the feed are seen, or there are none); next null: the last end card follows.
+"""
+type ClipFeedSequencePage {
+  """
+  Whether the end card comes before the first item of this page.
+  """
+  endCardBefore: Boolean!
+  """
+  The clip feed sequence items of this page.
+  """
+  items: [ClipFeedItem!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The endless clip feed (since v52.0.0, D-132; contracts/recommendations.md § The endless clip feed).
+Where the reader is in the clip feed (PLATFORM since v66.0.0: the platform clips, after the popular clips).
+"""
+enum ClipFeedStage {
+  END
+  FEED
+  PLATFORM
+  POPULAR
+  RECOMMENDED
+}
+
+"""
+A clip the app played: the post, how long, whether to the end.
+"""
+input ClipPlayInput {
+  completed: Boolean!
+  playedMs: Int!
+  """
+  The identifier of the post.
+  """
+  postId: ID!
+}
+
+"""
+Which list of Explore to read (exploreUniverses, G-7): ACTIVE (the active universes), FIELD (the universes
+of a field: field required), CLOSE_TO_LEVEL (close to a governance level), AREA (the universes whose
+universe territory meets the map cells: mapCells required), LANGUAGE (language required), NEW (the new
+universes), WHERE_FOLLOWED_ACCOUNTS_POST (where the accounts the caller follows post).
+"""
+enum ExploreBy {
+  ACTIVE
+  FIELD
+  CLOSE_TO_LEVEL
+  AREA
+  LANGUAGE
+  NEW
+  WHERE_FOLLOWED_ACCOUNTS_POST
+}
+
+"""
+A universe of a list of Explore of v39.1.0 (contracts/explore.md § Since v39.1.0): "count" the
+number the list ranks by; "postCount" and "createdAt" for the new universes; "accounts" up to 3
+of the accounts followed (where the accounts I follow post); "nextLevel" and "nextLevelThreshold"
+for the universes close to a level ("812 / 1,000").
+"""
+type ExploreUniverse {
+  """
+  The accounts, as shown.
+  """
+  accounts: [AccountRef!]
+  """
+  The number the list ranks by (its activity, its residents…).
+  """
+  count: Int
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  Its image; null when none.
+  """
+  image: Image
+  """
+  When its last post was written; null when none.
+  """
+  lastPostAt: AWSDateTime
+  """
+  The next governance level; null at the federation.
+  """
+  nextLevel: GovernanceLevel
+  """
+  The residents the next governance level needs.
+  """
+  nextLevelThreshold: Int
+  """
+  The number of its posts.
+  """
+  postCount: Int
+  """
+  The number of residents of its first level; null for a private universe and the root universe.
+  """
+  residentCount: Int
+  """
+  Its universe territory, to draw (by AREA); null otherwise.
+  """
+  territory: Territory
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its field set (false) or only suggested (true); false when it has none.
+  """
+  fieldSuggested: Boolean!
+}
+
+"""
+A list of Explore, ranked as reason tells, computed every minute (updatedAt): a ranking, no cursor.
+"""
+type ExploreUniversePage {
+  """
+  The explore universe items of this page.
+  """
+  items: [ExploreUniverse!]!
+  """
+  How the list is ranked, shown with it.
+  """
+  reason: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime
+}
+
+"""
+A favorite universe of the caller (seen by it only): public at any level but the root, or private while a
+member.
+"alerts": its universe alerts on (a public universe of the first level; false for any other favorite
+universe).
+"""
+type FavoriteUniverse {
+  """
+  Whether its alerts are on.
+  """
+  alerts: Boolean!
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  Its image; null when none.
+  """
+  image: Image
+  """
+  Whether it is a private universe.
+  """
+  private: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+The favorite universes in the caller's order; "offered": an account (whenever it registered) that never picked
+one nor skipped: offer the pick (at any opening, on any device).
+"""
+type FavoriteUniverses {
+  """
+  The favorite universes items of this page.
+  """
+  items: [FavoriteUniverse!]!
+  """
+  Whether it is offered to the caller.
+  """
+  offered: Boolean!
+}
+
+"""
+An interest of the interest profile: "universe" (UNIVERSE, as written), "tag" (TAG), "field" (FIELD).
+"""
+type InferredInterest {
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  The kind of the inferred interest.
+  """
+  kind: InterestKind!
+  """
+  The tag, with its sign ("#sport").
+  """
+  tag: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+A special category choice and the date of its consent (since v68.0.0, D-181 (1)).
+"""
+type InterestConsent {
+  """
+  When the consent was given.
+  """
+  givenAt: AWSDateTime!
+  """
+  The interest consented to.
+  """
+  interest: InferredInterest!
+}
+
+"""
+An interest: a field, a tag or a universe, with the consent of the caller where asked.
+"""
+input InterestInput {
+  consent: Boolean
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  The tag, with its sign ("#sport").
+  """
+  tag: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+The clip feed at the start and the interest profile (since v66.0.0, D-178, D-180, D-181;
+contracts/recommendations.md § The clip feed at the start).
+"""
+enum InterestKind {
+  FIELD
+  TAG
+  UNIVERSE
+}
+
+"""
+The interest profile: the inferred interests, the strongest first (100 at most); the fields chosen
+(1 to 3, or none; they do not expire); "fieldChoiceOffered" while the human has neither chosen nor
+skipped (true again once the recommendations are turned back on); the special category consents.
+"""
+type InterestProfile {
+  """
+  The fields the caller chose.
+  """
+  chosenFields: [UniverseField!]!
+  """
+  The consents given to special categories of interests.
+  """
+  consents: [InterestConsent!]!
+  """
+  Whether the choice of fields is offered now.
+  """
+  fieldChoiceOffered: Boolean!
+  """
+  The interests inferred from the activity of the caller.
+  """
+  inferred: [InferredInterest!]!
+}
+
+"""
+What the caller said it is not interested in, since "since"; "until": null for POST (for good), 90 days later
+otherwise.
+"""
+type NotInterested {
+  """
+  The account, as shown.
+  """
+  account: AccountRef
+  """
+  The post.
+  """
+  post: PostRef
+  """
+  What the caller is not interested in.
+  """
+  scope: NotInterestedScope!
+  """
+  Since when.
+  """
+  since: AWSDateTime!
+  """
+  The tag, with its sign ("#sport").
+  """
+  tag: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+  """
+  Until when it holds; null: until taken back.
+  """
+  until: AWSDateTime
+}
+
+"""
+What the caller is not interested in, or no longer (setNotInterested): scope, and its target: postId (POST,
+and TAG with tag, one of the tags of the post), accountId (AUTHOR), universe (UNIVERSE); the target given
+when it was said, to take it back.
+"""
+input NotInterestedInput {
+  scope: NotInterestedScope!
+  postId: ID
+  accountId: ID
+  universe: String
+  tag: String
+}
+
+"""
+What the caller is not interested in: an author, a post, a tag, a universe.
+"""
+enum NotInterestedScope {
+  AUTHOR
+  POST
+  TAG
+  UNIVERSE
+}
+
+"""
+A platform search word (since v63.2.0, D-170): a name given by the social platform, and its language (BCP 47;
+the 20 languages of the app as the apps name them, "en-US", "zh-Hans"…).
+"""
+type PlatformSearchWord {
+  """
+  Its language (ISO 639-1).
+  """
+  language: String!
+  """
+  The text as written.
+  """
+  text: String!
+}
+
+"""
+A recommended post or quote (a reposted post once, as its original) and its reason: "account"
+(FOLLOWED: the account followed), "universe" (RESIDENT, FAVORITE_UNIVERSE: the universe, as
+written), "tag" (TAG_ENGAGED: the tag), "language" (TRENDING: ISO 639-1, as Post.language); since
+v66.0.0, INFERRED_INTEREST: "universe", "tag" or "field" (the interest).
+"""
+type Recommendation {
+  """
+  The account, as shown.
+  """
+  account: AccountRef
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  Its language (ISO 639-1); null when none was detected.
+  """
+  language: String
+  """
+  The post.
+  """
+  post: Post!
+  """
+  Why the post is recommended.
+  """
+  reason: RecommendationReason!
+  """
+  The tag, with its sign ("#sport").
+  """
+  tag: String
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+What is recommended: posts or clips (contracts/recommendations.md).
+"""
+enum RecommendationKind {
+  CLIPS
+  POSTS
+}
+
+"""
+A page of recommendations.
+"""
+type RecommendationPage {
+  """
+  The recommendation items of this page.
+  """
+  items: [Recommendation!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The strongest affinity of the reader with a recommendation: the sentence the apps show. Since
+v66.0.0 (D-178): INFERRED_INTEREST (a clip, from an inferred interest or a chosen field: "universe",
+"tag" or "field"), NEW_ON_PLATFORM (an exploration clip).
+"""
+enum RecommendationReason {
+  FAVORITE_UNIVERSE
+  FOLLOWED
+  INFERRED_INTEREST
+  NEW_ON_PLATFORM
+  RESIDENT
+  TAG_ENGAGED
+  TRENDING
+}
+
+"""
+What a result matched first (since v63.2.0): its kind, and the name or the word matched as written.
+"""
+type SearchMatch {
+  """
+  The kind of the search match.
+  """
+  kind: SearchMatchKind!
+  """
+  The word.
+  """
+  word: String!
+}
+
+"""
+What a universe matched in a search: its name, its description, a universe search word, a platform search
+word.
+"""
+enum SearchMatchKind {
+  DESCRIPTION
+  NAME
+  PLATFORM_SEARCH_WORD
+  UNIVERSE_SEARCH_WORD
+}
+
+"""
+Search (since v55.5.0, contracts/search.md): RELEVANCE (the most searched words, ties the most
+recent first) or DATE (the most recent first); the state of the engine of the posts, which sleeps
+after an idle period (STARTING: "posts" empty, search again after "retryAfterSeconds", at most 30).
+The four first lists come with the first page only (5 at most each); "tags" written with "#".
+"""
+enum SearchOrder {
+  DATE
+  RELEVANCE
+}
+
+"""
+The state of the search engine of the posts, which sleeps when idle.
+"""
+enum SearchPostsStatus {
+  READY
+  STARTING
+  UNAVAILABLE
+}
+
+"""
+The results of a search (contracts/search.md): posts, accounts, universes, universe pages, tags and addresses.
+"""
+type SearchResults {
+  """
+  The accounts, as shown. Phase 1 of the cells (P-16): the cell called answers from its own data only; an
+  account of another cell is left out of the list.
+  """
+  accounts: [Account!]!
+  """
+  The addresses that match.
+  """
+  addresses: [String!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  The universe pages that match.
+  """
+  pages: [PageOfUniverse!]!
+  """
+  The posts and replies that match.
+  """
+  posts: [Post!]!
+  """
+  The state of the search engine of the posts.
+  """
+  postsStatus: SearchPostsStatus!
+  """
+  While the engine starts, the seconds to wait before searching again; null otherwise.
+  """
+  retryAfterSeconds: Int
+  """
+  The tags, with their sign.
+  """
+  tags: [String!]!
+  """
+  The words searched, as the search understood them; null when only addresses.
+  """
+  text: String
+  """
+  The results of the universes (since v63.2.0, D-170, D-171: contracts/search.md § Universe search
+  words and multilingual results): first page only, at most 5, a match on the name first, then on a
+  platform search word, then on a universe search word, then on the description; the country
+  universes of one country found by the search one result. "universes" stays as it is.
+  """
+  universeResults: [UniverseResult!]!
+  """
+  The addresses of the universes, with their sign.
+  """
+  universes: [Universe!]!
+}
+
+"""
+A universe or an account whose name starts with what is typed.
+"formerHandle": the suggestion matched a former handle, still set aside for its holder (7 days).
+"""
+type Suggestion {
+  """
+  The identifier of the account.
+  """
+  accountId: ID
+  """
+  The address suggested, with its sign ("@bob", "%paris").
+  """
+  address: String!
+  """
+  The suggestion matched a former handle, still set aside for its holder (7 days); null otherwise.
+  """
+  formerHandle: String
+  """
+  The kind of the suggestion.
+  """
+  kind: SuggestionKind!
+}
+
+"""
+What a suggestion is: an account (by its handle, or a former handle still set aside for its holder) or a
+universe. The values stay in lowercase, as stored.
+"""
+enum SuggestionKind {
+  account
+  universe
+}
+
+"""
+A trending tag ("#marathon", to read across the social platform) and the number of accounts that
+used it in the last 24 hours; the public universe of the first level where it was most used
+("universe", its display form; null when it was the root universe) and its field (null: none), its post of the
+last 24 hours with the highest interest, and for the 3 first a trend summary.
+"""
+type TrendingTag {
+  """
+  The number of accounts that use it.
+  """
+  accountCount: Int!
+  """
+  The field of the universe; null when none.
+  """
+  field: UniverseField
+  """
+  When it was last used.
+  """
+  lastUsedAt: AWSDateTime
+  """
+  Its trend summary (the first 3 trending tags); null otherwise.
+  """
+  summary: TrendSummary
+  """
+  The tag, with its sign ("#sport").
+  """
+  tag: String!
+  """
+  Its most liked post; null when none.
+  """
+  topPost: Post
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+The trending tags of Explore, ranked as reason tells, computed every minute (updatedAt): a ranking, no cursor.
+"""
+type TrendingTagPage {
+  """
+  The trending tag items of this page.
+  """
+  items: [TrendingTag!]!
+  """
+  How the list is ranked, shown with it.
+  """
+  reason: String!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime
+}
+
+"""
+A trend summary: at most 300 characters written by a platform AI agent (the apps say so), every hour.
+"""
+type TrendSummary {
+  """
+  The text as written.
+  """
+  text: String!
+  """
+  When it was written.
+  """
+  writtenAt: AWSDateTime!
+}
+
+"""
+A result of the universes (since v63.2.0): one universe, or the country universes of one country found by the
+search (the main name first, then the others in the order of the data of the country), and what matched.
+"""
+type UniverseResult {
+  """
+  What matched.
+  """
+  match: SearchMatch!
+  """
+  The addresses of the universes, with their sign.
+  """
+  universes: [Universe!]!
+}

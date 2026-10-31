@@ -1,13 +1,15 @@
 // Media sent to the platform (as the web app does,
 // video.ts): checked as the apps check them before anything is sent (an image JPEG, PNG, WebP or GIF
 // of at most 10 MB, its alternative text at most 1,000 characters; a video MP4, QuickTime or WebM
-// of at most 512 MB), then requestImageUpload / requestVideoUpload and the presigned POST of S3 (its
-// fields, then the file). The platform processes them afterwards: the post waits for it
-// (IMAGE_NOT_READY, CLIP_NOT_READY: the same request sent again with the same requestId).
+// of at most 512 MB), then requestMediaUpload (its kind and its media destination: a post in its
+// universe, a message, a theme) and the presigned POST of S3 (its fields, then the file). The platform
+// processes them afterwards: the post waits for it (IMAGE_NOT_READY, CLIP_NOT_READY: the same request sent
+// again with the same requestId).
 import { existsSync, openAsBlob, readFileSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 import type { Context } from './context.js';
 import { CliError, networkError, usageError } from './errors.js';
+import { uuidv7 } from './ids.js';
 import { api } from './session.js';
 import { imageInfo } from './theme/images.js';
 
@@ -80,18 +82,24 @@ async function send(ctx: Context, form: Form, file: { path: string; type: string
   return form.id;
 }
 
-/** Sends an image checked: its upload id. */
-export async function uploadImage(ctx: Context, image: CheckedImage): Promise<string> {
-  ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
-  const { requestImageUpload } = await api<{ requestImageUpload: Form }>(ctx, 'mutation($t: String!, $s: Int!) { requestImageUpload(contentType: $t, size: $s) { id url fields } }', { t: image.type, s: image.bytes });
-  return send(ctx, requestImageUpload, image);
+/** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
+export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null };
+
+async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO', file: { type: string; bytes: number }, target: MediaTarget): Promise<Form> {
+  const input = { kind, contentType: file.type, size: file.bytes, destination: target.destination, ...(target.destination === 'POST' && target.address ? { address: target.address } : {}) };
+  return (await api<{ requestMediaUpload: Form }>(ctx, 'mutation($i: MediaUploadInput!, $r: ID!) { requestMediaUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestMediaUpload;
 }
 
-/** Sends a video checked: its upload id (the clip of a post once converted). */
-export async function uploadVideo(ctx: Context, video: CheckedVideo): Promise<string> {
+/** Sends an image checked for [target]: its upload id. */
+export async function uploadImage(ctx: Context, image: CheckedImage, target: MediaTarget): Promise<string> {
+  ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
+  return send(ctx, await requestUpload(ctx, 'IMAGE', image, target), image);
+}
+
+/** Sends a video checked for [target]: its upload id (the clip of a post or a message once converted). */
+export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget): Promise<string> {
   ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)…`);
-  const { requestVideoUpload } = await api<{ requestVideoUpload: Form }>(ctx, 'mutation($t: String!, $s: Int!) { requestVideoUpload(contentType: $t, size: $s) { id url fields } }', { t: video.type, s: video.bytes });
-  return send(ctx, requestVideoUpload, video);
+  return send(ctx, await requestUpload(ctx, 'VIDEO', video, target), video);
 }
 
 /**

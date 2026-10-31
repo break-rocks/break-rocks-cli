@@ -1,0 +1,2453 @@
+# The SDL of API v2 (D-167, D-172; contracts/api-v2/README.md), written by hand, one file per domain,
+# read in the order of their names. The descriptions are GraphQL descriptions ("""…"""): the deployment
+# turns them into the # comments AppSync serves, and adds the directives of authorization from the
+# operation table of the backend: none is written here.
+# Rules (API-V2-SONDE.md): no comment inside an enum, no useful description on an argument (said in the
+# description of the field), @deprecated on fields only.
+
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+"""
+What can be read. Every root field is a line of the operation table of the backend, counted by the usage
+step. Grouped by domain: accounts, posts, messages, universes, governance, reports, appearance, map,
+explore, notifications, payments.
+"""
+type Query {
+  """
+  An account by its current handle, without its sign; null when no account holds it. Links and copies use the
+  id (account), never the handle.
+  """
+  accountByHandle(handle: String!): Account
+
+  """
+  Several accounts by their ids, in the order asked: 100 at most (TOO_MANY_IDS); null in place of an id no
+  account holds. Phase 1 of the cells (P-16): the cell called answers from its own data only; null in place of
+  an account of another cell.
+  """
+  accounts(ids: [ID!]!): [Account]
+
+  """
+  Whether connecting by the NFC token read from another phone is possible, and with which account
+  (contracts/invitations.md).
+  """
+  checkNfcConnection(token: String!): NfcCheck
+
+  """
+  The connection states of several accounts, in the order asked (Who governs, since v46.0.0): at most 16 at
+  once (TOO_MANY_IDS). Served by the cell of the caller (P-16). Phase 1 of the cells: an account of another
+  cell is never connected nor requested: connected, canRequest, canWriteAtOnce, canInvite, requestSent,
+  requestReceived and declinedOpenly are false, declinedReason null; blockedByMe and mutedByMe are read in the
+  cell of the caller.
+  """
+  connectionStates(accountIds: [ID!]!): [ConnectionState!]
+
+  """
+  The link to a part of a data copy READY, after a recent sign-in. Errors: DATA_REQUEST_NOT_FOUND
+  (another account's, an unknown id or part), DATA_COPY_NOT_READY, DATA_COPY_EXPIRED, RECENT_SIGN_IN_REQUIRED.
+  """
+  dataCopyDownload(part: Int!, dataRequestId: ID!): DataCopyDownload
+
+  """
+  What a delegated agent of the caller did (agentId), the most recent first: its posts, replies, reposts,
+  quotes, likes and messages, each with a snippet. DELEGATED_AGENT_NOT_FOUND,
+  DELEGATED_AGENT_CANNOT_MANAGE_AGENTS. limit: from 1 to 50 (30 by default; LIMIT_INVALID otherwise); after:
+  the next of the page before.
+  """
+  delegatedAgentActivity(after: String, limit: Int, agentId: ID!): DelegatedAgentActivity
+
+  """
+  The allowance of delegated agents of the caller (an agent operator): how many it may operate, how many it
+  operates, how many it created over the last 24 hours.
+  """
+  delegatedAgentAllowance: DelegatedAgentAllowance
+
+  """
+  The delegated agents of the caller (an agent operator), the most recently created first: a bounded list, the
+  allowance at most.
+  """
+  delegatedAgents: [DelegatedAgent!]
+
+  """
+  The accounts that follow an account (accountId), the most recent follow first. Phase 1 of the cells (P-16):
+  the cell called answers from its own data only; an account of another cell is left out of the list. limit:
+  from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  followers(accountId: ID!, after: String, limit: Int): AccountPage
+
+  """
+  The addresses an account (accountId) follows, the most recent follow first. Phase 1 of the cells (P-16): the
+  cell called answers from its own data only (an account follows in its own cell). limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  following(accountId: ID!, after: String, limit: Int): FollowPage
+
+  """
+  Whether a handle can be taken now by the caller, and if not, the code that changeHandle would answer
+  (reason).
+  """
+  handleAvailability(handle: String!): HandleAvailability
+
+  """
+  Whether the caller follows an address: an account ("@bob"), an account in a universe ("@bob%paris"), a
+  universe. The relation of the caller is read in its own cell (P-16): never a field of the account or the
+  universe read.
+  """
+  isFollowing(address: String!): Boolean
+
+  """
+  The caller's data requests, the most recent first; "limit" 20 by default, at most 50. limit: from 1 to 50
+  (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myDataRequests(after: String, limit: Int): DataRequestPage
+
+  """
+  My interactions (contracts/my-interactions.md): the numbers in one operation, and the lists
+  only it opens, 20 per page, the most recent first; never the choice of a vote (myBallot null).
+  """
+  myInteractions: MyInteractions
+
+  """
+  The onboarding of the caller (a human): offered or not, its 7 steps and their state
+  (contracts/onboarding.md).
+  """
+  onboarding: Onboarding
+
+  """
+  The personal invitation link of the caller, its URL and its counts of the accounts it brought.
+  """
+  personalInvitationLink: PersonalInvitationLink
+
+  """
+  The account of the caller: a human (its ID token) or an agent operator (its Agent JWT) reads its own
+  account; a delegated agent (its Agent JWT) reads the account of its operator, with delegatedAgent its own
+  restrictions (null for the others).
+  """
+  me: Account
+
+  """
+  Whether a personal invitation link works, and the public display of its inviter. Open to visitors
+  who are not signed in; it never refuses.
+  """
+  publicInvitationLink(code: String!): PublicInvitationLink
+
+  """
+  An account by its id (C-14: one read; accountById is gone). Null for an id no account holds, and for a
+  deleted account once its interactions disappeared.
+  """
+  account(id: ID!): Account
+
+  """
+  The lists of accounts of the caller (G-4), the most recent first: BLOCKED (the accounts it blocked),
+  MUTED, CONNECTED (to write to, or to invite; those it blocked left out), INVITE_EXCEPTIONS (who cannot
+  invite it to group chats under invitePolicy "except", 1,000 at most). limit: from 1 to 100 (50 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before (CURSOR_INVALID for a cursor of another
+  list). Phase 1 of the cells (P-16): the cell called answers from its own data only; an account of another
+  cell is left out of the list.
+  """
+  myAccounts(list: MyAccountList!, after: String, limit: Int): AccountPage
+
+  """
+  A member's own posts and replies of a private universe, the newest first, until it is deleted for good.
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  exportUniversePosts(after: String, limit: Int, universe: String!): PostPage
+
+  """
+  The link preview of a link, for the app of its sender before it sends a post or a message (never
+  for a reader): null when there is none (a link never read, a blocked domain, a page without a
+  title, not a web page, too slow...). Built once and reused 7 days by every sender.
+  """
+  linkPreview(url: String!): LinkPreview
+
+  """
+  Live posts: the new posts of the personal timeline (no address) or of an address, after the
+  newest post shown ("after") or a time ("since"); "excluding": the posts the app just made
+  (20 at most), which it shows at once.
+  """
+  newPosts(address: String, sincePostId: ID, excluding: [ID!], since: AWSDateTime): NewPosts
+
+  """
+  A post, a reply, a repost or a quote by its id, as the caller may read it. POST_NOT_FOUND,
+  POST_NOT_READABLE.
+  """
+  post(id: ID!): Post
+
+  """
+  The posts of an address (a universe, an account, an account in a universe, a tag, a combined address), the
+  newest first. filter: the feed filters of a public universe of the first level (ALL by default; another
+  filter elsewhere: POSTS_FILTER_NOT_OFFERED); CLIPS and IMAGES on an address with an account
+  only (since v76.0.0, POSTS_FILTER_NOT_OFFERED elsewhere). since: only the posts created at or after that time (clients
+  that read again), at most 7 days back (POSTS_SINCE_TOO_OLD). A universe also reads its posts through
+  universe(name) { posts }. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of
+  the page before.
+  """
+  posts(address: String!, after: String, filter: PostsFilter, limit: Int, since: AWSDateTime): PostPage
+
+  """
+  The posts of restricted authors waiting for a moderator, the oldest first; a moderator approves one
+  (removing it is removePostAsModerator). limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after:
+  the next of the page before.
+  """
+  postsAwaitingApproval(after: String, limit: Int, universe: String!): PostPage
+
+  """
+  The replies of an account (accountId: G-18, an account is named by its id), the newest first, those the
+  caller may read. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  replies(after: String, limit: Int, accountId: ID!): PostPage
+
+  """
+  The requests to repost a post of a private universe into a universe, waiting for its moderation, the most
+  recent first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  repostRequests(after: String, limit: Int, universe: String!): RepostRequestPage
+
+  """
+  The reposts of a post (postId), the most recent first. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  reposts(after: String, limit: Int, postId: ID!): PostPage
+
+  """
+  The suggested alternative text of an image the caller uploaded (requestMediaUpload, IMAGE) for a post, a
+  reply or a quote (media destination POST), asked by the app once the media editor is validated without an
+  alternative text (automatic-alternative-text.feature, since v78.0.0, D-214): written once per image, on the
+  first request, by the platform AI agent that describes the media of the posts, at most 1,000 visible
+  characters, in "language" (the language of the app, ISO 639-1), marked as written by a platform AI agent,
+  and kept with the image (asked again: the same text, not counted again); never naming a person from their
+  face, never telling a sensitive attribute, never copying the personal data readable in the image. Sent back
+  unchanged as ImageAttachmentInput.alt, it is the alternative text marked as suggested by AI
+  (Image.altSuggested); changed, the alternative text of the author; not sent, it becomes the automatic
+  alternative text of the image (Image.automaticAlt). Deleted with the image when it is not used within 24
+  hours. Another media destination: SUGGESTED_ALT_POSTS_ONLY; a private universe whose automatic alternative
+  texts are off: AUTOMATIC_ALT_OFF; 20 an hour and 100 a day (UTC) per account: SUGGESTED_ALT_HOURLY_LIMIT,
+  SUGGESTED_ALT_DAILY_LIMIT. Null when the agent writes none (beyond its number of texts of the day, turned
+  off). IMAGE_NOT_FOUND, IMAGE_NOT_READY.
+  """
+  suggestedAlt(imageId: ID!, language: String!): String
+
+  """
+  The suggested posts of the caller, each with its reason. favoritesFirst (the home while the personal
+  timeline is empty): the posts of the favorite universes and their sub-universes first (reason
+  FAVORITE_UNIVERSES_LAST_48_HOURS), then the others. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  suggestedPosts(after: String, limit: Int, favoritesFirst: Boolean): PostPage
+
+  """
+  A post (postId) and its replies, in the order of the thread; hidden true: the hidden replies of its root,
+  behind their link. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  thread(after: String, limit: Int, hidden: Boolean, postId: ID!): Thread
+
+  """
+  The personal timeline of the caller: the posts of what it follows, the newest first. Phase 1 of the cells
+  (P-16): the posts of the cell called only. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise);
+  after: the next of the page before.
+  """
+  timeline(after: String, limit: Int): PostPage
+
+  """
+  The translation of a content into "language" (one of the 20 languages of the apps: LANGUAGE_NOT_SUPPORTED);
+  null when it has no language or is already in it. "id": the post, the message, the proposal, the account
+  (BIO), the universe address (CHARTER, UNIVERSE_DESCRIPTION), the image (IMAGE_ALT, since v78.0.0), the
+  post of the clip (CLIP_SUBTITLES, since v78.0.0); "container": what holds a message (DIRECT_MESSAGE: the
+  other account's id; GROUP_MESSAGE: the group chat's id; CHANNEL_MESSAGE: the channel or debate address), the
+  post of the image (IMAGE_ALT). The content of a universe is translated once per version and language and
+  kept with it; a direct or group message is served and kept nowhere, once the reader agreed
+  (TRANSLATION_NOT_AGREED). 1,000 a day per account (TRANSLATION_LIMIT); none to a delegated agent
+  (TRANSLATION_NOT_FOR_AGENTS); TRANSLATION_UNAVAILABLE: not available for now. Two steps: the posts function
+  reads the content with the reader's rights, the translation function translates.
+  """
+  translation(container: String, id: ID!, kind: TranslatableKind!, language: String!): Translation
+
+  """
+  The posts of My interactions (G-9, contracts/my-interactions.md): those the caller liked (LIKED) or
+  reposted (REPOSTED), the most recent like or repost first. limit: from 1 to 50 (20 by default;
+  LIMIT_INVALID otherwise).
+  """
+  myPosts(kind: MyPostsKind!, after: String, limit: Int): PostPage
+
+  """
+  A channel by its address ("%team-fra./tech&dev"), as the caller sees it: a member of the private universe,
+  or anyone for a public channel. CHANNEL_NOT_FOUND.
+  """
+  channel(channel: String!): Channel
+
+  """
+  The channel moderators of a channel of a private universe (a public channel has none: its universe
+  moderators moderate it). Its bound is not written yet (README.md § To settle).
+  """
+  channelModerators(channel: String!): [AccountRef!]
+
+  """
+  The writing bans in force in a channel, for its channel moderators, the owner and the admins (a public
+  channel: the moderators of the universe). Its bound is not written yet (README.md § To settle).
+  """
+  channelWritingBans(channel: String!): [ChannelWritingBan!]
+
+  """
+  The channels of a level of a private universe (universe: "%team-fra./tech"), or of every level (allLevels
+  true), for its members; the public channels of a public universe, for everyone. Members only in a private
+  universe, even in an exposed part; never an agent operator itself.
+  """
+  channels(allLevels: Boolean, universe: String!): ChannelList
+
+  """
+  The connection requests of the caller: received (sent absent or false) or sent (sent true), the most recent
+  first. limit: from 1 to 50 (30 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  connectionRequests(after: String, limit: Int, sent: Boolean): ConnectionRequestPage
+
+  """
+  A group chat the caller is a member of, as the caller sees it. GROUP_NOT_FOUND for any other.
+  """
+  groupChat(id: ID!): GroupChat
+
+  """
+  Received (the last 30 days, with their answer), or "sent" (waiting or declined openly). limit: from 1 to 50
+  (30 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  groupChatInvitations(after: String, limit: Int, sent: Boolean): GroupInvitationPage
+
+  """
+  The members of a group chat, the admins first (20 at most, the size of a group chat), those the caller
+  blocked or that blocked it left out but for an admin.
+  """
+  groupChatMembers(groupChatId: ID!): [GroupMember!]
+
+  """
+  The channels the caller joined in a private universe, at every level, the most recently active first, with
+  their unread. Its bound is not written yet (README.md § To settle).
+  """
+  myChannels(universe: String!): [Channel!]
+
+  """
+  The messages of a discussion (G-1), the newest first: a conversation (either participant), a group chat
+  (a member: the messages since it joined), a channel (a member of a private universe; a public channel:
+  anyone, a visitor who is not signed in included, its channel window). after: the next of the page before
+  (CURSOR_INVALID otherwise). limit: from 1 to 50 (30 by default; LIMIT_INVALID otherwise). A message deleted
+  for the caller is left out: a page may hold fewer messages than its size, keep following next.
+  """
+  messages(discussion: DiscussionRefInput!, after: String, limit: Int): MessagePage
+
+  """
+  Catching up (C-10): the messages of a discussion changed or deleted since since (at most 30 days back:
+  CHANGES_SINCE_TOO_OLD), the oldest change first, those deleted for the caller with deletedForMe true and
+  no text. after: the next of the page before. limit: from 1 to 100 (50 by default; LIMIT_INVALID
+  otherwise).
+  """
+  messageChanges(discussion: DiscussionRefInput!, since: AWSDateTime!, after: String, limit: Int): MessagePage
+
+  """
+  The inbox of the caller: its conversations and group chats, the most recent message first, or only one
+  kind (G-1: kind GROUP_CHAT is the former myGroupChats). limit: from 1 to 50 (30 by default; LIMIT_INVALID
+  otherwise). A delegated agent sees the kinds it is allowed (DELEGATED_AGENT_NOT_ALLOWED for a kind it is
+  not); an agent operator gets an empty inbox.
+  """
+  inbox(kind: InboxItemKind, after: String, limit: Int): InboxPage
+
+  """
+  One debate of a universe by its name, whatever its status (GONE: the debate without its messages);
+  CHANNEL_NOT_FOUND when there is none.
+  """
+  debate(name: String!, universe: String!): Debate
+
+  """
+  The debates of a universe (a sub-universe lists its own): open first, then waiting for support, then closed.
+  Its bound is not written yet (README.md § To settle).
+  """
+  debates(universe: String!): [Debate!]
+
+  """
+  The join requests waiting in a private universe joined by request, for its owner and admins, the oldest
+  first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  joinRequests(after: String, limit: Int, universe: String!): JoinRequestPage
+
+  """
+  The live line of a universe (universe-layouts.feature); a private universe and the root universe (since
+  v46.0.0): its activity only.
+  """
+  liveLine(universe: String!): LiveLine
+
+  """
+  The residences of the caller in public universes, the most recent first. limit: from 1 to 50 (20 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myPresences(after: String, limit: Int): ResidencePage
+
+  """
+  The private universes the caller is a member of, the most recently joined first. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myUniverses(after: String, limit: Int): MyUniversePage
+
+  """
+  The own domains the caller asked for and whose DNS proof is still waiting, with the record to publish; each
+  token valid 7 days. Its bound is not written yet (README.md § To settle).
+  """
+  pendingDomains: [DnsProof!]
+
+  """
+  A poll by its id: opened by the leadership, or by a resident with the support of 5 residents; 2 to 6
+  choices, 7 days; one choice per resident, private; public totals; binding nobody.
+  """
+  poll(id: ID!): Poll
+
+  """
+  The polls of a public universe, open first, then waiting for support, then closed. limit: from 1 to 50 (20
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  polls(after: String, limit: Int, universe: String!): PollPage
+
+  """
+  The reputation of a private universe, for its members (since v56.0.0).
+  """
+  privateUniverseReputation(universe: String!): PrivateUniverseReputation
+
+  """
+  The sub-universe map of a universe; null when not offered (fewer than 4 direct sub-universes with posts, a
+  private universe to a non-member).
+  """
+  subUniverseMap(universe: String!): SubUniverseMap
+
+  """
+  The sub-universes of a universe (name), in the order asked (recent activity, name, posts), those whose name
+  starts with startsWith. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
+  page before.
+  """
+  subUniverses(after: String, limit: Int, name: String!, order: SubUniverseOrder, startsWith: String): SubUniversePage
+
+  """
+  The time column of a public universe (G-8: it replaces happeningNow): its open votes, debates, polls,
+  universe events, projects, second round and goal of level; null for a private universe and the root
+  universe; cached 30 seconds.
+  """
+  timeColumn(universe: String!): TimeColumn
+
+  """
+  The accounts banned from a private universe, for its owner and admins, the most recent first. limit: from 1
+  to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeBans(after: String, limit: Int, universe: String!): AccountRefPage
+
+  """
+  The conditions of a private universe: their last version, or the version asked. A non-member reads them
+  before joining.
+  """
+  universeConditions(universe: String!, version: Int): UniverseText
+
+  """
+  The attendees of a universe event, a page at a time, to the residents of its universe (null for others).
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeEventAttendees(after: String, limit: Int, eventId: ID!): AccountRefPage
+
+  """
+  The universe events of a universe between from and to: by default the last 7 days and the next 90. A bounded
+  list: 20 upcoming events at most, and those of the period.
+  """
+  universeEvents(from: AWSDateTime, to: AWSDateTime, universe: String!): [UniverseEvent!]
+
+  """
+  The invitations to private universes received by the caller, the most recent first. limit: from 1 to 50 (20
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeInvitations(after: String, limit: Int): UniverseInvitationPage
+
+  """
+  Signed out (a guest of the identity pool, IAM; since v69.0.0, D-188, universe-navigation.feature):
+  the landing page of a universe whose link is opened without an account — its name, its universe
+  theme, its governance level (a public universe); never its content.
+  """
+  universeLanding(universe: String!): UniverseLanding
+
+  """
+  The current version, or "version"; the manifesto to the members, the conditions to every account.
+  """
+  universeManifesto(universe: String!, version: Int): UniverseText
+
+  """
+  The versions of the manifesto of a private universe, the most recent first. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeManifestoVersions(after: String, limit: Int, universe: String!): UniverseTextPage
+
+  """
+  The members of a private universe, for its members: the owner, the admins, then the members. limit: from 1
+  to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeMembers(after: String, limit: Int, universe: String!): UniverseMemberPage
+
+  """
+  The moderators of a public universe, read by everyone. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  universeModerators(after: String, limit: Int, universe: String!): AccountRefPage
+
+  """
+  The news of a universe (since v69.0.0, D-188, and v70.0.0, D-189: contracts/layouts.md § The
+  dashboard): the news badges of the dashboard and the now page, the universe itself and never its
+  sub-universes; null for the root universe and for a private universe the reader is not a member of.
+  """
+  universeNews(universe: String!): UniverseNews
+
+  """
+  The pulse of a public universe; null below 10 residents, for a private universe and the root universe.
+  """
+  universePulse(universe: String!): UniversePulse
+
+  """
+  The residents of a public universe (signed in; an agent operator: AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS;
+  a private universe or the root universe: ROOT_HAS_NO_GOVERNANCE, universeMembers lists the members
+  of a private one): the leadership first, its president first, then the moderators, with their
+  role, then the residents by recent activity, 50 a page ("limit" 1 to 50); "query": a part of the
+  display name or the handle; "role": the leadership or the moderators only; "newResidents": joined
+  less than 30 days ago; "locatable": locatable now (a resident reader; otherwise an empty page);
+  "agents": no longer offered by the apps since v56.0.0, an empty page (only humans join). A resident who
+  chose not to be
+  listed is left out, never the leadership nor a moderator. limit: from 1 to 50 (50 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  universeResidents(after: String, agents: Boolean, limit: Int, locatable: Boolean, newResidents: Boolean, query: String, role: PostAuthorRole, universe: String!): UniverseResidentPage
+
+  """
+  The welcome wall: the new residents of the last 7 days; a resident welcomes each once, never
+  themselves (no effect on votes nor reputation; it renews the welcomer's presence). limit: from 1 to 50 (20
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  welcomeWall(after: String, limit: Int, universe: String!): WelcomeWall
+
+  """
+  A universe by its address (with its sign, "%paris"). A universe that does not exist answers
+  exists false. Its posts are a field you can navigate: universe(name) { posts(limit) { … } }.
+  """
+  universe(name: String!): Universe
+
+  """
+  Where the caller stands in a universe (G-6): its residence, its votes, its reputation, whether it is
+  listed on the members page, whether it landed there before. One read when a universe opens; what is not
+  asked is not computed. Served by the cell of the caller (its own data, § Which cell to call, rule 3); phase
+  1 of the cells: a universe of another cell answers no residence, no vote, no reputation, false and false.
+  """
+  myStandingIn(universe: String!): UniverseStanding
+
+  """
+  The feed removal reviews of a public universe, the newest first, 20 a page (since v51.0.0, D-35): read by
+  everyone. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  feedRemovalReviews(after: String, limit: Int, universe: String!): FeedRemovalReviewPage
+
+  """
+  The governance history of a public universe: every moment, the most recent first (a moment stays 30 days
+  among its posts). limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  governanceMoments(after: String, limit: Int, universe: String!): PostPage
+
+  """
+  The governance history of the governance page (since v49.9.0): the proposals adopted and annulled, the
+  platform measures on the
+  universe, the changes of its leadership, the most recent first; the first page the last 90 days, "next" the
+  older ones. limit: from 1 to 200 (50 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  governanceRecords(after: String, limit: Int, universe: String!): GovernanceRecordPage
+
+  """
+  Questions to the leadership (from the governance level "village"): asked and liked by the
+  residents (500 characters, 3 open each), answered by the leadership (2,000 characters; answering
+  again within 1 hour changes the answer); public; "archived": the archived ones. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  leadershipQuestions(after: String, limit: Int, archived: Boolean, universe: String!): LeadershipQuestionPage
+
+  """
+  The public moderation log of a universe, the newest first. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  moderationLog(after: String, limit: Int, universe: String!): ModerationLogPage
+
+  """
+  Juries (from the city): the caller's duties; accept or decline within 24 hours; withdraw; vote a
+  decision (with its reasons) or the dismissal of the jury.
+  "universe" (since v49.9.0, My duties of the governance page): the duties of that universe only. limit: from
+  1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myJuryDuties(after: String, limit: Int, universe: String): JuryDutyPage
+
+  """
+  The caller's sanctions, the newest first; an appeal within 7 days (the sanction stays in force meanwhile).
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  mySanctions(after: String, limit: Int): SanctionPage
+
+  """
+  Projects (projects.feature, since v46.0.0): the action proposals adopted and not done (in progress
+  first, by target date, past first and none last, then adopted); the leadership, or the author
+  without leadership, sets one in progress or done with a note; its author reports it done. limit: from 1 to
+  50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  projects(after: String, limit: Int, universe: String!): ProposalPage
+
+  """
+  A proposal by its id. PROPOSAL_NOT_FOUND.
+  """
+  proposal(id: ID!): Proposal
+
+  """
+  The votes of the representatives on a proposal (proposalId), the largest first: those who hold lent votes,
+  never the choice of the others. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the
+  next of the page before.
+  """
+  proposalVotes(after: String, limit: Int, proposalId: ID!): RepresentativeVotePage
+
+  """
+  The proposals of a public universe, the most recent first, filtered by status and kind (since v49.9.0): a
+  page reads at most 200 proposals of the universe, so a filtered page may hold fewer items with a cursor to
+  go on. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  proposals(after: String, limit: Int, kind: ProposalKind, status: ProposalStatus, universe: String!): ProposalPage
+
+  """
+  The appeals of the sanctions of a public universe the leadership has to decide, the oldest first. limit:
+  from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeAppeals(after: String, limit: Int, universe: String!): UniverseAppealPage
+
+  """
+  The governance of a public universe: its level, its leadership, its moderators, its texts adopted, its
+  folding threshold and the governances of its sub-universes (public).
+  """
+  universeGovernance(universe: String!): UniverseGovernance
+
+  """
+  The votes one account holds (accountId), or the top holders of lent votes of a universe, the largest first.
+  Its bound is not written yet (README.md § To settle).
+  """
+  voteHolders(accountId: ID, universe: String!): [VoteHolder!]
+
+  """
+  The proposals of My interactions (G-9): those the caller filed (voted absent or false), or those it voted
+  on (voted true), the most recent first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise).
+  """
+  myProposals(voted: Boolean, after: String, limit: Int): ProposalPage
+
+  """
+  The caller's reports, the newest first, with their status. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  myReports(after: String, limit: Int): ReportPage
+
+  """
+  A review queue of reported content (G-3): POSTS (the posts of universe reported off-charter, its
+  moderation), APPEARANCE (the appearance of universe), CHANNEL (the messages of channel, its channel
+  moderators, the moderators of a public universe for a public channel); the most recently reported first.
+  The argument the queue needs, missing: INVALID_REQUEST. ONLY_MODERATION_READS_REPORTS for anyone else.
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise).
+  """
+  reportedContent(queue: ReportQueue!, universe: String, channel: String, after: String, limit: Int): ReportedContentPage
+
+  """
+  The layout that applies to a page of a universe on a device (contracts/layouts.md): the one picked in the
+  switcher (switcher), else the choice of the reader, else the default layout of the universe, else its field
+  layout, else the platform layout; with the reader retouches of the device (device: the calling device by
+  default).
+  """
+  appliedLayout(device: String, page: PageOfUniverseKind, switcher: LayoutRefInput, universe: String!): AppliedLayout
+
+  """
+  The approved title typefaces a theme may use (themes.feature).
+  """
+  approvedTypefaces: [Typeface!]
+
+  """
+  Checks a layout document (or, since v49.10.0, a page of a universe: a document "break-rocks-layout/3" with
+  one page) for a universe, without publishing it: the document as it would be kept, and what would be
+  refused.
+  """
+  checkLayout(document: AWSJSON!, universe: String!): LayoutCheck
+
+  """
+  The custom pages of a universe as one JSON file (break-rocks-layout/3), for its governance, to import
+  elsewhere (importUniversePages).
+  """
+  exportUniversePages(universe: String!): AWSJSON
+
+  """
+  A layout of the catalog by its universe and its name, its last version. LAYOUT_NOT_IN_CATALOG.
+  """
+  layout(name: String!, universe: String!): Layout
+
+  """
+  The layout catalog: the layouts a universe can read (universe), by collection (a field), in the order asked,
+  those matching query. limit: from 1 to 100 (50 by default; LIMIT_INVALID otherwise); after: the next of the
+  page before.
+  """
+  layoutCatalog(after: String, limit: Int, collection: UniverseField, order: ThemeCatalogOrder, query: String, universe: String): LayoutCatalogPage
+
+  """
+  The reader retouches of the caller in a universe, for a device (the calling one by default), one per layout
+  retouched. One per layout retouched: the default layout of the universe and its switcher layouts (4 at
+  most).
+  """
+  myLayoutRetouches(device: String, universe: String!): [LayoutRetouches!]
+
+  """
+  A page of a universe by its name, with its document (contracts/layouts.md § The pages of a universe).
+  """
+  pageOfUniverse(name: String!, universe: String!): PageOfUniverse
+
+  """
+  The personal themes the caller saved (savePersonalTheme), the most recent first. 50 at most.
+  """
+  personalThemes: [SavedTheme!]
+
+  """
+  A studio draft of the caller by its id. STUDIO_DRAFT_NOT_FOUND.
+  """
+  studioDraft(id: ID!): StudioDraft
+
+  """
+  The studio drafts of the caller, the most recently saved first: 50 at most.
+  """
+  studioDrafts: [StudioDraft!]
+
+  """
+  A theme of the catalog by its universe and its name, its last version, or as applied in a universe
+  (appliedIn). THEME_NOT_IN_CATALOG.
+  """
+  theme(appliedIn: String, name: String!, universe: String!): Theme
+
+  """
+  The theme catalog: the themes a universe or the caller can use, by collection (a field), creator, use
+  (personal or universe theme) and variant, in the order asked, those matching query. limit: from 1 to 100 (50
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  themeCatalog(after: String, limit: Int, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant): ThemeCatalogPage
+
+  """
+  The last position of each live share asked (20 at most) the caller may see.
+  """
+  livePositions(shareIds: [ID!]!): [LivePosition!]
+
+  """
+  The locatable residents of a universe in the map cells of resolution 6 of the area shown (4 at most), to its
+  residents.
+  """
+  locatableResidents(parentMapCells: [String!]!, universe: String!): [Locatable!]
+
+  """
+  The live shares in progress of the caller, in every discussion.
+  """
+  myLiveShares: [LiveShare!]
+
+  """
+  The public universes where the caller is locatable now (3 at most).
+  """
+  myLocatable: [Locatable!]
+
+  """
+  The requests to connect through Nearby of the caller, sent and received, still waiting or answered within
+  the last 10 minutes (contracts/nearby.md). At most the requests of 10 minutes (10 requests in any 10 minutes
+  are sent at most).
+  """
+  nearbyRequests: [NearbyRequest!]
+
+  """
+  The places matching the words within the area shown, then around it (10 at most), in the reader's language;
+  never the position of the device. limit: from 1 to 10 (10 by default; LIMIT_INVALID otherwise).
+  """
+  places(bounds: BoundsInput!, language: String!, limit: Int, query: String!): [PlaceMatch!]
+
+  """
+  The route through 2 to 100 points (at most 500 km), on foot or by bicycle, snapped to the streets and paths
+  on request.
+  """
+  route(mode: RouteMode!, points: [PointInput!]!, snap: Boolean): Route
+
+  """
+  The live shares in progress in a discussion (G-13): a conversation or a group chat the caller takes part
+  discussion (DISCUSSION_TARGET_INVALID for a channel). Its bound is not written yet (README.md § To settle).
+  """
+  liveShares(discussion: DiscussionRefInput!): [LiveShare!]
+
+  """
+  Explore: the accounts to follow, ranked as reason tells, computed every minute (updatedAt). A ranking, not a
+  page: 10 accounts at most.
+  """
+  accountsToFollow: AccountToFollowPage
+
+  """
+  The clip feed, newest first: the posts with a vertical or square clip of what the caller follows
+  (no address; 20 a page), or of an address (a universe, an account, a tag; "limit" 1 to 50, 20 by default).
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  clipFeed(address: String, after: String, limit: Int): PostPage
+
+  """
+  The clip feed that never ends (address null: the follows): the clips of the feed of the last 7
+  days, the end card, the recommended clips (recommendations on, never a delegated agent), the
+  popular clips, then the last end card; a private universe stops at its end card. "limit" 1 to
+  50, 20 by default; "language": the language of the app (optional, the account's languages
+  otherwise). Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the
+  next of the page before.
+  """
+  clipFeedSequence(address: String, after: String, language: String, limit: Int): ClipFeedSequencePage
+
+  """
+  Favorite universes: the account itself (never an agent operator); each mutation returns them all.
+  """
+  favoriteUniverses: FavoriteUniverses
+
+  """
+  The tags of the posts the caller liked, replied to, reposted or quoted in the last 30 days, 50 at most, the
+  most engaged first.
+  """
+  myEngagedTags: [String!]
+
+  """
+  The caller's interest profile: empty with the recommendations off or for a delegated agent. Usage category
+  OTHER.
+  """
+  myInterestProfile: InterestProfile
+
+  """
+  What the caller said it is not interested in, still in force, the most recent first (200 at most kept, the
+  oldest forgotten first).
+  """
+  myNotInterested: [NotInterested!]
+
+  """
+  The platform clips alone (the tab "For you" of the clips mode after popularClips; the clip feed of a
+  list after it): every vertical and square clip of the public universes ranked by its clip quality
+  score, the reader's languages first, the last 7 days, then 30, then 90; 1 in 10 an exploration clip
+  (recommendation NEW_ON_PLATFORM); "next" null once no clip is left. "limit" 1 to 50, 20 by default.
+  Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
+  page before.
+  """
+  platformClips(after: String, language: String!, limit: Int): ClipFeedItemPage
+
+  """
+  The popular clips of the caller's languages (the language of the app, those of its account): the
+  50 vertical and square clips of the last 7 days with the most clip views per language, without
+  the authors it blocked or muted, what it is not interested in, the clips it reported and, with
+  the recommendations on, those shown to it in the last 7 days. "limit" 1 to 50, 20 by default.
+  Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
+  page before.
+  """
+  popularClips(after: String, language: String!, limit: Int): PostPage
+
+  """
+  The universes the caller visited last, the most recent first: 20 at most.
+  """
+  recentUniverses: [SubUniverse!]
+
+  """
+  The recommendations of the caller, from the accounts it follows, the universes it is a resident of, its
+  favorite universes, the tags it engaged with and the trending posts of its languages (language: the language
+  of the app); off, a delegated agent: an empty page. Usage category READING. Phase 1 of the cells (P-16): the
+  posts of the cell called only. limit: from 1 to 20 (20 by default; LIMIT_INVALID otherwise); after: the next
+  of the page before.
+  """
+  recommendations(after: String, kind: RecommendationKind!, language: String!, limit: Int): RecommendationPage
+
+  """
+  Search (since v55.5.0, contracts/search.md): the query of 2 to 200 characters, words and addresses;
+  "order" RELEVANCE and "hiddenReplies" false when not given; "limit" 20 by default, 1 to 50; "after":
+  the "next" of the same search (CURSOR_INVALID otherwise, or after an hour); 500 posts at most. Phase 1 of
+  the cells (P-16): the posts, accounts, universes and pages of the cell called only. limit: from 1 to 50 (20
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  search(after: String, hiddenReplies: Boolean, limit: Int, order: SearchOrder, query: String!): SearchResults
+
+  """
+  The accounts and universes whose name starts with what is typed (text), to complete an address. Its bound is
+  not written yet (README.md § To settle).
+  """
+  suggestions(text: String!): [Suggestion!]
+
+  """
+  Explore: the trending tags, ranked as reason tells, computed every minute (updatedAt). A ranking, not a
+  page: 10 tags at most.
+  """
+  trendingTags: TrendingTagPage
+
+  """
+  A list of Explore (G-7, contracts/explore.md), ranked as its reason tells, computed every minute
+  (updatedAt): by ACTIVE, FIELD (field), CLOSE_TO_LEVEL, AREA (mapCells, the H3 cells of the map shown, 50 at
+  most), LANGUAGE (language, ISO 639-1), NEW, WHERE_FOLLOWED_ACCOUNTS_POST. The argument its by needs,
+  missing: INVALID_REQUEST. A ranking, not a page: no cursor; 20 universes at most (10 for CLOSE_TO_LEVEL; NEW
+  and AREA as their rules say). Phase 1 of the cells (P-16): the universes of the cell called only.
+  """
+  exploreUniverses(by: ExploreBy!, field: UniverseField, language: String, mapCells: [String!]): ExploreUniversePage
+
+  """
+  The notifications of the account itself (a human or an agent operator; a delegated agent is refused), the
+  newest first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before.
+  """
+  notifications(after: String, limit: Int): NotificationPage
+
+  """
+  Every personal setting of the caller at once (G-5): messaging, notifications, translation,
+  recommendations, the nearby label, the subtitles, the gesture tips shown. A delegated agent reads its operator's.
+  """
+  mySettings: Settings
+
+  """
+  What a billing day would cost; changes nothing. Errors: as setBillingDay.
+  """
+  billingDayOffer(input: BillingDayChoiceInput!, subscription: SubscriptionRefInput!): BillingDayOffer
+
+  """
+  The gift codes offered in currency (the first of the catalog by default), one per paid tier and number of
+  months (1, 3 or 12): each costs its months times the monthly price of its tier, 12 months the yearly price.
+  """
+  giftCodeOffer(currency: String): [GiftCodePrice!]
+
+  """
+  The gift codes the caller bought, the newest first. Its bound is not written yet (README.md § To settle).
+  """
+  myGiftCodes: [GiftCode!]
+
+  """
+  The operator's plan paid by instant payment; null without any.
+  """
+  myOperatorPlan: OperatorPlan
+
+  """
+  The reader's subscription; null without any.
+  """
+  mySubscription: PaidSubscription
+
+  """
+  The caller's usage (a human, an agent operator, a delegated agent: its own). Counts in the minute limit
+  only.
+  """
+  myUsage: Usage
+
+  """
+  The plans offered, in increasing order, in "currency" (by default the first currency each is priced in), for
+  "interval" (MONTH by default; YEAR since specs v60.0.0).
+  """
+  operatorPlanOffer(currency: String, interval: BillingInterval): OperatorPlanOffer
+
+  """
+  The prices in "currency" (the first of the catalog, EUR, by default; a currency outside the catalog: no
+  prices).
+  """
+  subscriptionOffer(currency: String): SubscriptionOffer
+}
+
+"""
+What can be written. Every root field is a line of the operation table of the backend, counted by the usage
+step. Every mutation takes requestId: ID!, the idempotency key of the request: a UUIDv7 made by the app
+(REQUEST_ID_INVALID when it is not a UUID, before any function runs), but the four ephemeral signals
+typing, sendLivePositions, recordClipPlays and watch, which take none (README.md § Idempotency). A creation
+played again with the same requestId answers what it created the first time and creates nothing more; a
+toggle or a setting writes the state wanted, so playing it again gives the same state.
+"""
+type Mutation {
+  """
+  Cancels a bulk erasure within its 24 hours. Errors: BULK_ERASURE_NOT_CANCELLABLE, DATA_REQUEST_NOT_FOUND.
+  """
+  cancelBulkErasure(dataRequestId: ID!, requestId: ID!): DataRequest
+
+  """
+  Changes the handle of the caller, at most once every 24 hours (HANDLE_CHANGED_RECENTLY); the former handle
+  is set aside for its holder 7 days. The handle codes. Returns the account.
+  """
+  changeHandle(handle: String!, requestId: ID!): Account
+
+  """
+  Changes the password (the current one checked by Cognito, its rules applied): every session of
+  the account ends ("session.ended", PASSWORD_CHANGED, with "exceptSession" the origin_jti of the
+  caller's token): the calling app signs in again with the new password, the others sign out.
+  Errors: PASSWORD_WRONG, PASSWORD_INVALID, TOO_MANY_ATTEMPTS.
+  """
+  changePassword(currentPassword: String!, newPassword: String!, requestId: ID!): Boolean
+
+  """
+  The secret of the link of the deletion confirmation ("token" of /me/account/delete), by the
+  account signed in: deleted at once and for good, every session ends ("session.ended",
+  ACCOUNT_DELETED). Errors: DELETION_CONFIRMATION_EXPIRED (after 24 hours), DELETION_CONFIRMATION_INVALID.
+  """
+  confirmAccountDeletion(token: String!, requestId: ID!): AccountDeletion
+
+  """
+  The code received at the new address: it becomes the account's email address. Errors:
+  EMAIL_CHANGE_CODE_INVALID, EMAIL_CHANGE_CODE_EXPIRED, TOO_MANY_ATTEMPTS (5 wrong codes: ask
+  again), EMAIL_UNAVAILABLE (another account took it meanwhile).
+  """
+  confirmEmailChange(code: String!, requestId: ID!): Boolean
+
+  """
+  Connects with the account of the NFC token read from its phone (contracts/invitations.md). Returns the state
+  of the connection.
+  """
+  confirmNfcConnection(token: String!, requestId: ID!): NfcConnection
+
+  """
+  A command-line sign-in code for the command-line client of the same computer (a human signed
+  in: Cognito token): one-time, 5 minutes, bound to the account, its cell and "challenge" (the S256
+  of the verifier the command-line client keeps: 43 characters base64url); "label" (at most 64
+  visible characters, longer cut) names the device. The command-line client exchanges it through
+  the CUSTOM_AUTH flow of the user pool client: InitiateAuth (USERNAME) then RespondToAuthChallenge
+  (CUSTOM_CHALLENGE, ANSWER "<code>.<verifier>"); 3 wrong answers invalidate the code; the session
+  is an ordinary one (signOutEverywhere closes it). Errors: CLI_CHALLENGE_INVALID,
+  TOO_MANY_REQUESTS (10 codes in any hour).
+  """
+  createCliSignInCode(challenge: String!, label: String, requestId: ID!): CliSignInCode
+
+  """
+  An agent operator creates a delegated agent with a name and its restrictions, within its allowance
+  (DELEGATED_AGENT_ALLOWANCE_REACHED, DELEGATED_AGENT_CREATIONS_REACHED). Returns its credentials: the private
+  key is shown once.
+  """
+  createDelegatedAgent(interactions: [DelegatedAgentInteraction!], name: String!, universes: [String!], requestId: ID!): DelegatedAgentCredentials
+
+  """
+  An agent operator deletes one of its delegated agents (agentId). Returns it as it was.
+  """
+  deleteDelegatedAgent(agentId: ID!, requestId: ID!): DelegatedAgent
+
+  """
+  HELP_GETTING_STARTED_OPENED (the article "getting-started" opened) completes DISCOVER_THE_PLATFORM;
+  ADDRESS_VISITED changes nothing since v41.0.0.
+  """
+  recordOnboardingActivity(address: String, kind: OnboardingActivity!, requestId: ID!): Onboarding
+
+  """
+  An agent operator replaces the credentials of one of its delegated agents (agentId): the former key stops
+  working. Returns the new credentials: the private key is shown once.
+  """
+  regenerateDelegatedAgentCredentials(agentId: ID!, requestId: ID!): DelegatedAgentCredentials
+
+  """
+  Replaces the personal invitation link of the caller: the former link no longer works. Returns the new link.
+  """
+  renewPersonalInvitationLink(requestId: ID!): PersonalInvitationLink
+
+  """
+  A human asks for the deletion, naming its handle (any case, with or without "@") and, for each
+  private universe it owns, the member it appoints as next owner (none: that universe is deleted
+  like a private universe deleted by its owner); a deletion confirmation goes to its email
+  address, in "locale" (the app's language) when given. Errors: HANDLE_NOT_YOURS,
+  NEW_OWNER_MUST_BE_MEMBER, ONLY_OWNER_TRANSFERS, PRIVATE_UNIVERSE_NOT_FOUND, TRANSFER_TO_SELF,
+  PRIVATE_UNIVERSES_OWNED_LIMIT, SUCCESSORS_INVALID. An agent operator deletes its account on the agents host.
+  """
+  requestAccountDeletion(handle: String!, locale: String, successors: [AccountDeletionSuccessorInput!], requestId: ID!): AccountDeletionRequest
+
+  """
+  A signed form to upload the avatar of the caller: a JPEG, PNG or WebP image (AVATAR_TYPE_NOT_SUPPORTED);
+  then updateProfile with its id as avatar.
+  """
+  requestAvatarUpload(contentType: String!, requestId: ID!): MediaUpload
+
+  """
+  Asks for the bulk erasure of a scope: hidden at once, cancellable 24 hours, then erased for good.
+  Errors: RECENT_SIGN_IN_REQUIRED, BULK_ERASURE_IN_PROGRESS (one of the same scope still cancellable).
+  """
+  requestBulkErasure(scope: BulkErasureScope!, requestId: ID!): DataRequest
+
+  """
+  Asks for a data copy, prepared apart; "locale" (BCP 47) the language of its viewer and of its
+  email. Errors: RECENT_SIGN_IN_REQUIRED, DATA_COPY_IN_PROGRESS, DATA_COPY_TOO_SOON (errorInfo.availableAt).
+  """
+  requestDataCopy(locale: String, requestId: ID!): DataRequest
+
+  """
+  A new email address: a 6-digit code goes to it (valid 24 hours); the current address stays the
+  one that signs in until the code is confirmed. The same answer when another account uses the
+  address (its holder is warned by email). Errors: EMAIL_INVALID.
+  Since specs v67.0.0 (D-177 (1)): "challenge", the S256 challenge of the verifier the device keeps:
+  the email carries the email code link (/auth/change-email#…), and the code is answered
+  "<code>.<verifier>" by the session that asked.
+  """
+  requestEmailChange(challenge: String, email: String!, locale: String, requestId: ID!): Boolean
+
+  """
+  A rectification request to the platform team, answered within 1 month. Errors: RECTIFICATION_TEXT_EMPTY,
+  RECTIFICATION_TEXT_TOO_LONG.
+  """
+  requestRectification(input: RectificationInput!, requestId: ID!): DataRequest
+
+  """
+  Every session of the caller ends (a human only: Cognito token; delegated agents' sessions
+  are not concerned): signed out everywhere, its refresh tokens revoked, and every app of the
+  account told by the real-time updates ("session.ended") to close and sign out.
+  """
+  signOutEverywhere(requestId: ID!): Boolean
+
+  """
+  The caller skips the onboarding. Returns the onboarding.
+  """
+  skipOnboarding(requestId: ID!): Onboarding
+
+  """
+  The caller starts the onboarding. Returns the onboarding.
+  """
+  startOnboarding(requestId: ID!): Onboarding
+
+  """
+  Changes the profile of the caller (input), checked against the values the app started from (expected:
+  CHANGED_MEANWHILE for a field changed meanwhile, the others change). The profile codes. Returns the account.
+  """
+  updateProfile(expected: ProfileExpectedInput, input: ProfileUpdateInput!, requestId: ID!): Account
+
+  """
+  Follows an address (following true: an account everywhere "@bob", an account in a universe "@bob%paris",
+  a universe) or stops (false) (C-2). FOLLOW_SELF, FOLLOW_TAG, FOLLOW_UNIVERSE_ALONE, FOLLOW_NOT_ALLOWED,
+  ADDRESS_TWO_UNIVERSES, UNBLOCK_FIRST, INTERACTION_BLOCKED, PRIVATE_UNIVERSE_MEMBERS_ONLY, the universe
+  name codes. Returns the follow; null once stopped.
+  """
+  setFollow(address: String!, following: Boolean!, requestId: ID!): Follow
+
+  """
+  Blocks an account (blocked true) or unblocks it (C-2). BLOCK_SELF, ACCOUNT_NOT_FOUND. Returns where the
+  caller stands with it.
+  """
+  setBlock(accountId: ID!, blocked: Boolean!, requestId: ID!): ConnectionState
+
+  """
+  Mutes an account (muted true) or unmutes it (C-2): its posts, reposts and replies hidden from the caller
+  only. MUTE_SELF, ACCOUNT_NOT_FOUND. Returns where the caller stands with it.
+  """
+  setMute(accountId: ID!, muted: Boolean!, requestId: ID!): ConnectionState
+
+  """
+  Adds an account to the exceptions of who can invite the caller (excepted true; invitePolicy "except",
+  1,000 at most) or removes it (C-2). Returns the account.
+  """
+  setInviteException(accountId: ID!, excepted: Boolean!, requestId: ID!): AccountRef
+
+  """
+  Changes a delegated agent of the caller (C-7): its name (the delegated agent name codes), suspended or
+  reactivated, its restrictions (DELEGATED_AGENT_UNIVERSES_TOO_MANY). DELEGATED_AGENT_NOT_FOUND,
+  DELEGATED_AGENT_DEACTIVATED, DELEGATED_AGENT_CANNOT_MANAGE_AGENTS. Returns the delegated agent.
+  """
+  changeDelegatedAgent(agentId: ID!, input: DelegatedAgentChangeInput!, requestId: ID!): DelegatedAgent
+
+  """
+  A token to connect by NFC (P-2, G-13: was nfcConnectionToken), valid until expiresAt
+  (contracts/invitations.md).
+  """
+  createNfcToken(requestId: ID!): ConnectionToken
+
+  """
+  The moderation of a universe answers a request to repost a post of a private universe into it
+  (repostRequestId): accept true reposts it. Returns the request.
+  """
+  answerRepostRequest(accept: Boolean!, repostRequestId: ID!, universe: String!, requestId: ID!): RepostRequest
+
+  """
+  A moderator approves the post of a restricted author waiting for approval: it is published. Returns the
+  post.
+  """
+  approvePost(postId: ID!, requestId: ID!): Post
+
+  """
+  The author changes the text of its post, as the edit window and its versions allow (versions keeps the
+  former texts). images (since v78.0.0, D-214, automatic-alternative-text.feature): the alternative texts of
+  its images to change (id: Image.id; alt: its new text, none to erase it), the others unchanged; within the
+  same edit window, the post then shown as changed, versions keeping the former alternative texts
+  (PostVersion.images); IMAGE_NOT_FOUND (not an image of the post), IMAGE_ALT_TOO_LONG. Returns the post.
+  """
+  changePost(images: [ImageAttachmentInput!], postId: ID!, text: String!, requestId: ID!): Post
+
+  """
+  Posts a text, images (at most 4) or a clip (never both: POST_IMAGES_AND_CLIP), or both a text and media, in
+  a universe (universe: a posting address; none: the personal space). clip: a video uploaded with
+  requestMediaUpload (VIDEO); images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
+  the author accepted; replyPolicy: who can reply; announcement: an announcement of the leadership. requestId
+  is the idempotency key, and the post is "<cell>-<requestId>" (Post.id). The posting codes
+  (contracts/errors.md). Returns the post.
+  """
+  createPost(announcement: Boolean, clip: ID, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, text: String!, universe: String, requestId: ID!): Post
+
+  """
+  The author deletes its post (or the moderation, which answers its reports "content removed"). Returns the
+  post, deleted.
+  """
+  deletePost(postId: ID!, requestId: ID!): Post
+
+  """
+  Moves a pinned post before another (before: null, to the end), with the rights of setPinnedPost. Returns the
+  universe.
+  """
+  movePinnedPost(before: ID, postId: ID!, universe: String!, requestId: ID!): Universe
+
+  """
+  Quotes a post (postId) with a text and media, in a universe; requestId is the idempotency key, and the quote
+  is "<cell>-<requestId>" (Post.id). Returns the quote.
+  """
+  quote(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, text: String!, universe: String, requestId: ID!): Post
+
+  """
+  Replies to a post or a reply (postId) with a text and media; requestId is the idempotency key, and the reply
+  is "<cell>-<requestId>" (Post.id). Returns the reply.
+  """
+  replyTo(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, text: String!, requestId: ID!): Post
+
+  """
+  Reposts a post (postId), in its universe or in another one the caller may post in. Returns the repost.
+  """
+  repost(postId: ID!, universe: String, requestId: ID!): Post
+
+  """
+  A member asks to repost a post (postId) of its private universe into targetUniverse (a posting address),
+  with text for a quote (its own text). Returns the request.
+  """
+  requestRepost(postId: ID!, targetUniverse: String, text: String, requestId: ID!): RepostRequest
+
+  """
+  The author of a post sets who can reply to it. Returns the post.
+  """
+  setReplyPolicy(postId: ID!, policy: ReplyPolicy!, requestId: ID!): Post
+
+  """
+  The author of a post, a reply or a quote writes the alternative text of one of its images (imageId) in place
+  of its automatic alternative text, at any time, without the post being shown as changed
+  (automatic-alternative-text.feature, since v78.0.0, D-214): it becomes the alternative text of the image
+  (Image.alt, marked as changed: Image.altChanged) and Image.automaticAlt is null from then on, the automatic
+  alternative text kept in the post history (Post.mediaVersions, ALT). Once per image: an image that has had an
+  alternative text of its author, even erased since, answers IMAGE_ALT_ALREADY_WRITTEN (its alternative text
+  changes with changePost, within the edit window). As a change of the post: POST_NOT_AUTHOR, POST_NOT_FOUND,
+  POST_NOT_CHANGEABLE, POSTING_BANNED, CONDITIONS_NOT_ACCEPTED; IMAGE_NOT_FOUND (not an image of the post),
+  IMAGE_ALT_TOO_LONG. Returns the post.
+  """
+  setImageAlt(alt: String!, imageId: ID!, postId: ID!, requestId: ID!): Post
+
+  """
+  The author of a post, a reply or a quote with a clip turns its automatic subtitles off (automaticSubtitles
+  false: the clip shows no subtitles, corrected or not) or back on (automatic-subtitles.feature, since v78.0.0,
+  D-214), at any time, without the post being shown as changed. As a change of the post: POST_NOT_AUTHOR,
+  POST_NOT_FOUND, POST_NOT_CHANGEABLE, POSTING_BANNED, CONDITIONS_NOT_ACCEPTED; POST_WITHOUT_CLIP. Returns the
+  post.
+  """
+  setAutomaticSubtitles(automaticSubtitles: Boolean!, postId: ID!, requestId: ID!): Post
+
+  """
+  The author of a post, a reply or a quote corrects the subtitles of its clip (cues: every subtitle cue, in the
+  order of the clip), at any time, without the post being shown as changed (automatic-subtitles.feature, since
+  v78.0.0, D-214): each cue changed is the text of the author, marked as corrected (SubtitleCue.corrected), the
+  others staying marked as written by a platform AI agent; translated again; each correction is a version of
+  the post history (Post.mediaVersions, SUBTITLES). As a change of the post: POST_NOT_AUTHOR, POST_NOT_FOUND,
+  POST_NOT_CHANGEABLE, POSTING_BANNED, CONDITIONS_NOT_ACCEPTED; SUBTITLES_NOT_FOUND, SUBTITLE_CUES_INVALID,
+  SUBTITLE_TOO_LONG, SUBTITLES_TOO_MANY, SUBTITLES_TOO_LONG. Returns the post.
+  """
+  correctSubtitles(cues: [SubtitleCueInput!]!, postId: ID!, requestId: ID!): Post
+
+  """
+  The leadership in place (or the governance of the sub-universe) unpins a pinned announcement, those of a
+  former leadership included.
+  """
+  unpinAnnouncement(postId: ID!, universe: String!, requestId: ID!): Universe
+
+  """
+  Likes a post (liked true) or takes the like back (liked false): writes the state wanted, so playing
+  it again changes nothing (api-design.md P-4). requestId is the idempotency key of the request, a
+  UUID (REQUEST_ID_INVALID otherwise). Returns the post as it is now.
+  """
+  setLike(postId: ID!, liked: Boolean!, requestId: ID!): Post
+
+  """
+  Dislikes a post (disliked true) or takes it back (C-2): no effect on the visibility of the post nor the
+  reputation of its author; its author alone sees the number. Returns the post as it is now.
+  """
+  setDislike(postId: ID!, disliked: Boolean!, requestId: ID!): Post
+
+  """
+  The author of a post hides a reply of its thread (hidden true) or shows it again (C-2): readable behind
+  a link. NOT_A_REPLY, NOT_THREAD_AUTHOR. Returns the reply as it is now.
+  """
+  setReplyHidden(postId: ID!, hidden: Boolean!, requestId: ID!): Post
+
+  """
+  Pins a post (pinned true, at the end, 5 at most) or unpins it (G-9). A private universe: its owner and
+  admins, a post of the universe or of a sub-universe. A public universe: its leadership from the governance
+  level "village", a post or a quote of the universe or of its public sub-universes (a sub-universe: its
+  governance with the power PINNED_POSTS). ALREADY_PINNED, PIN_LIMIT, NOT_PINNABLE, PIN_NOT_IN_UNIVERSE,
+  ONLY_OWNER_OR_ADMINS_PIN, LEADERSHIP_ONLY, PINNED_POSTS_FROM_VILLAGE, SUB_UNIVERSE_POWER_MISSING. Returns
+  the universe with its pinned posts.
+  """
+  setPinnedPost(postId: ID!, universe: String!, pinned: Boolean!, requestId: ID!): Universe
+
+  """
+  A signed form to upload a media (C-11), size in bytes: IMAGE (a post, a message, a universe: JPEG, PNG,
+  WebP or GIF, 10 MB at most; IMAGE_TYPE_NOT_SUPPORTED), VIDEO (a clip: MP4, QuickTime or WebM, the video
+  limits of the posts, 512 MB and 3 minutes; CLIP_TOO_LARGE), VOICE (audio/mp4, audio/webm or audio/ogg,
+  20 MB, 15 minutes; VOICE_TOO_LARGE, VOICE_TYPE_NOT_SUPPORTED). 24 hours to use it: a media not used is then
+  deleted, with the suggested alternative text of an image. The avatar keeps requestAvatarUpload. Since
+  v78.0.0 (D-214), its arguments in one input (MediaUploadInput) with its media destination, kept with the
+  media: the media is attached to that media destination only, and for POST in the universe declared
+  (MEDIA_DESTINATION_MISMATCH otherwise, from the operation that attaches it); MEDIA_DESTINATION_INVALID.
+  """
+  requestMediaUpload(input: MediaUploadInput!, requestId: ID!): MediaUpload
+
+  """
+  Admins only; a description "" removes it. "expected": the values the app started from; a
+  field changed meanwhile is refused (CHANGED_MEANWHILE, errorInfo.fields) while the others
+  change, and the answer shows the group chat as it is.
+  """
+  changeGroupChat(announcement: Boolean, description: String, expected: GroupChatExpectedInput, groupChatId: ID!, membersCanInvite: Boolean, name: String, requestId: ID!): GroupChat
+
+  """
+  The owner and the admins; the members too when allowed (setChannelCreation). "name": with or without "&".
+  """
+  createChannel(name: String!, universe: String!, requestId: ID!): Channel
+
+  """
+  Creates a group chat with a name, a description and the accounts invited at once (invite: 19 at most, the
+  creator and duplicates ignored), each invited as inviteToGroupChat invites; those refused are told in a
+  partial answer (GROUP_INVITATIONS_REFUSED, errorInfo.refused: [{ accountId, code }]). Humans and delegated
+  agents allowed group chats; never an agent operator itself. Returns the group chat.
+  """
+  createGroupChat(description: String, invite: [ID!], name: String!, requestId: ID!): GroupChat
+
+  """
+  The owner or an admin deletes a channel of a private universe, with its messages (the general channel
+  stays). True once done.
+  """
+  deleteChannel(channel: String!, requestId: ID!): Boolean
+
+  """
+  Deletes a conversation on the side of the caller only (the other participant keeps it). True once done.
+  """
+  deleteConversation(accountId: ID!, requestId: ID!): Boolean
+
+  """
+  A member invites a connected account to a group chat (an admin only unless membersCanInvite), unblocking it
+  first with unblock. NOT_CONNECTED, INVITATIONS_NOT_ACCEPTED, UNBLOCK_FIRST, GROUP_FULL. Returns the
+  invitation.
+  """
+  inviteToGroupChat(accountId: ID!, groupChatId: ID!, unblock: Boolean, requestId: ID!): GroupInvitation
+
+  """
+  A member of a private universe joins one of its channels. Returns the channel.
+  """
+  joinChannel(channel: String!, requestId: ID!): Channel
+
+  """
+  The caller leaves a channel it joined (the general channel stays joined). Returns the channel.
+  """
+  leaveChannel(channel: String!, requestId: ID!): Channel
+
+  """
+  The caller leaves a group chat; when the last admin leaves, the member who joined first becomes admin. True
+  once done.
+  """
+  leaveGroupChat(groupChatId: ID!, requestId: ID!): Boolean
+
+  """
+  The leadership orders the channels of a public universe: "name" (at the level "universe") before "before" (a
+  name at that level, or an address), null: last; "&general" stays first (CHANNEL_GENERAL_FIRST, since
+  v76.0.0), and moving "&general" itself changes nothing.
+  """
+  moveChannel(before: String, name: String!, universe: String!, requestId: ID!): Channel
+
+  """
+  The leadership of a public universe of the first level opens a channel in it or in one of its
+  public sub-universes ("universe"), from the governance level "village" (CHANNEL_LEVEL_TOO_LOW),
+  10 at most across its levels, archived ones included (PUBLIC_CHANNELS_LIMIT), its name free among
+  the channels and the debates of the level (CHANNEL_NAME_TAKEN); LEADERSHIP_ONLY otherwise, or a
+  channel proposal (fileProposal, kind CHANNEL). A private universe: as createChannel.
+  """
+  openChannel(name: String!, universe: String!, requestId: ID!): Channel
+
+  """
+  A moderator of the universe removes a message of a public channel, citing "article" of the charter
+  (SANCTION_ARTICLE_REQUIRED, MODERATOR_ONLY): a sanction CHANNEL_MESSAGE_REMOVAL, in the moderation
+  log and appealed; the message shows "deleted by a moderator". Its author deletes it with deleteMessage.
+  """
+  removeChannelMessage(article: Int, channel: String!, messageId: ID!, requestId: ID!): ModerationLogEntry
+
+  """
+  Either of two connected accounts ends their connection, without telling the other: the
+  conversation stays readable, nobody writes in it nor changes a message (NOT_CONNECTED) until
+  they connect again (the same conversation). NOT_CONNECTED when they are not connected.
+  """
+  removeConnection(accountId: ID!, requestId: ID!): ConnectionState
+
+  """
+  An admin removes a member from a group chat. Returns the group chat.
+  """
+  removeGroupChatMember(accountId: ID!, groupChatId: ID!, requestId: ID!): GroupChat
+
+  """
+  Sends a connection request to an account with a first message (text), unblocking it first with unblock;
+  requestId is the idempotency key and the identifier of its message (a UUIDv7, as sendMessage). Humans and
+  delegated agents allowed direct messages; never an agent operator itself. Returns where the caller stands
+  with it.
+  """
+  requestConnection(accountId: ID!, text: String!, unblock: Boolean, requestId: ID!): ConnectionState
+
+  """
+  The owner and the admins forbid delegated agents in a channel (or allow them again).
+  """
+  setChannelAgents(channel: String!, forbidden: Boolean!, requestId: ID!): Channel
+
+  """
+  The owner and the admins let the members create channels (false by default). Returns the channels of the
+  universe with membersCreate.
+  """
+  setChannelCreation(membersCreate: Boolean!, universe: String!, requestId: ID!): ChannelList
+
+  """
+  A channel moderator, the owner or an admin sets the slow mode of a channel: seconds 10, 60 or 300; 0 turns
+  it off. Returns the channel.
+  """
+  setChannelSlowMode(channel: String!, seconds: Int!, requestId: ID!): Channel
+
+  """
+  Either participant, while connected (NOT_CONNECTED otherwise), makes the new messages of the
+  conversation ephemeral (24 hours, 7 days) or not (OFF); the messages sent before keep their
+  "expiresAt". Both see it (MessagePage.ephemeral; "conversation.changed" to both).
+  """
+  setConversationEphemeral(accountId: ID!, duration: EphemeralDuration!, requestId: ID!): Boolean
+
+  """
+  Admins only (GROUP_ADMINS_ONLY): the new messages of the group chat ephemeral (24 hours, 7
+  days) or not (OFF); the messages sent before keep their "expiresAt". Every member sees it
+  (GroupChat.ephemeral; "group.changed").
+  """
+  setGroupChatEphemeral(duration: EphemeralDuration!, groupChatId: ID!, requestId: ID!): GroupChat
+
+  """
+  The meeting point of a group chat, kept 24 hours; null removes it; an admin only in announcement mode.
+  """
+  setMeetingPoint(groupChatId: ID!, place: PlaceInput, requestId: ID!): GroupChat
+
+  """
+  The pinned channels of a private universe (since v49.9.0): the owner and the admins set the whole list in
+  its order, by channel
+  address, at most 5 ([] unpins every channel); the universe as it is now. In a public universe, the
+  leadership; its "&general" first (CHANNEL_GENERAL_FIRST, since v76.0.0).
+  """
+  setPinnedChannels(channels: [String!]!, universe: String!, requestId: ID!): Universe
+
+  """
+  An admin steps down to member; when the last admin steps down, the member who joined first becomes admin.
+  Returns the group chat.
+  """
+  stepDownAsGroupChatAdmin(groupChatId: ID!, requestId: ID!): GroupChat
+
+  """
+  Answers the connection request of an account (C-4): accept true connects them; accept false declines,
+  silently, or openly with a reason (openly true). Returns where the caller stands with it.
+  """
+  answerConnectionRequest(accountId: ID!, accept: Boolean!, openly: Boolean, reason: String, requestId: ID!): ConnectionState
+
+  """
+  Sends a message (C-3, G-2) to a conversation, a group chat or a channel: a text with images, a clip or a
+  link, a voice message alone, a place, a meet-up (a human, in a conversation or a group chat) or an arrival
+  notice. requestId is the idempotency key and the identifier of the message: a UUIDv7 dated less than 24
+  hours ago and at most 1 minute ahead (MESSAGE_ID_INVALID; MESSAGE_ID_TAKEN for another message). The
+  refusals of each discussion and content stay (contracts/errors.md § Messages, Channels, The map).
+  Returns the message.
+  """
+  sendMessage(input: SendMessageInput!, requestId: ID!): Message
+
+  """
+  Changes the text of a message of the caller (C-3), within 15 minutes of sending it
+  (MESSAGE_CHANGE_WINDOW_PASSED); not a voice message (VOICE_NOT_CHANGEABLE), a meet-up (changeMeetUp), a
+  place or an arrival (MESSAGE_NOT_CHANGEABLE). MESSAGE_NOT_AUTHOR, MESSAGE_NOT_FOUND, MESSAGE_DELETED.
+  Returns the message.
+  """
+  changeMessage(discussion: DiscussionRefInput!, messageId: ID!, text: String!, requestId: ID!): Message
+
+  """
+  Deletes a message (C-3): for everyone (its author; a group chat admin; a channel moderator), or for the
+  caller only (forMe true: either participant of a conversation, any of its messages; a member of a group
+  chat, any message since it joined; again: nothing changes). Returns the message as the caller sees it now.
+  """
+  deleteMessage(discussion: DiscussionRefInput!, messageId: ID!, forMe: Boolean, requestId: ID!): Message
+
+  """
+  The caller types in a conversation or a group chat (G-1; DISCUSSION_TARGET_INVALID for a channel):
+  published at once to the other participants, not stored. An app sends it at most every 3 seconds while
+  typing; it shows 5 seconds after the last one. The platform publishes at most one per caller and
+  discussion every 3 seconds (the others answer true). Ephemeral: no requestId, no replay (I13).
+  """
+  typing(discussion: DiscussionRefInput!): Boolean
+
+  """
+  A participant answers a meet-up (ACCEPTED, DECLINED) until its time (MEET_UP_PAST), again to change the
+  answer. MEET_UP_NOT_PARTICIPANT, MEET_UP_NOT_FOUND, MEET_UP_CANCELLED. Returns the meet-up.
+  """
+  answerMeetUp(discussion: DiscussionRefInput!, messageId: ID!, answer: MeetUpAnswerKind!, requestId: ID!): MeetUp
+
+  """
+  Its author, or a group chat admin, changes a meet-up: the whole place, time and title
+  (MEET_UP_CHANGE_NOT_ALLOWED, MEET_UP_PAST; never a delegated agent). A change of the day clears every
+  answer but the author's. Returns the meet-up.
+  """
+  changeMeetUp(discussion: DiscussionRefInput!, messageId: ID!, meetUp: MeetUpInput!, requestId: ID!): MeetUp
+
+  """
+  Its author, or a group chat admin, cancels a meet-up until its time: it stays as a message, cancelled
+  true, no longer answered. Returns the meet-up.
+  """
+  cancelMeetUp(discussion: DiscussionRefInput!, messageId: ID!, requestId: ID!): MeetUp
+
+  """
+  Answers an invitation to a group chat (C-4): accept true joins it (GROUP_FULL, GROUP_INVITATION_EXPIRED);
+  accept false declines, silently, or openly with a reason. Returns the invitation.
+  """
+  answerGroupChatInvitation(groupChatId: ID!, accept: Boolean!, openly: Boolean, reason: String, requestId: ID!): GroupInvitation
+
+  """
+  A group chat admin names a member admin (admin true) or removes the role (C-9). GROUP_ADMINS_ONLY.
+  Returns the member.
+  """
+  setGroupChatAdmin(groupChatId: ID!, accountId: ID!, admin: Boolean!, requestId: ID!): GroupMember
+
+  """
+  Mutes a group chat (muted true; mentions true mutes its mentions of the caller too) or unmutes it (C-2).
+  Returns the group chat.
+  """
+  setGroupChatMuted(groupChatId: ID!, muted: Boolean!, mentions: Boolean, requestId: ID!): GroupChat
+
+  """
+  Archives a channel (archived true) or unarchives it (C-2): the channel managers of a private universe
+  (CHANNEL_MANAGERS_ONLY); the general channel stays (CHANNEL_GENERAL_STAYS). Returns the channel.
+  """
+  setChannelArchived(channel: String!, archived: Boolean!, requestId: ID!): Channel
+
+  """
+  Mutes a joined channel (muted true; mentions true mutes its mentions of the caller too) or unmutes it
+  (C-2). CHANNEL_NOT_JOINED. Returns the channel.
+  """
+  setChannelMuted(channel: String!, muted: Boolean!, mentions: Boolean, requestId: ID!): Channel
+
+  """
+  The owner or an admin of a private universe names a member channel moderator (moderator true) or removes
+  the role (C-9). CHANNEL_MODERATORS_MANAGERS_ONLY, NOT_A_MEMBER, PUBLIC_CHANNEL_NO_MODERATORS. Returns the
+  channel.
+  """
+  setChannelModerator(channel: String!, accountId: ID!, moderator: Boolean!, requestId: ID!): Channel
+
+  """
+  A channel moderator, the owner or an admin gives a member a writing ban (banned true, for hours 1, 24 or
+  168 in a public channel, citing article when the moderation asks it) or lifts it (banned false; none in
+  force: nothing changes) (C-9). CHANNEL_MODERATORS_ONLY, NOT_A_MEMBER, WRITING_BAN_DURATION_INVALID,
+  WRITING_BAN_NOT_ALLOWED, SANCTION_ARTICLE_REQUIRED; banned true without hours: INVALID_REQUEST. Returns the
+  writing ban in force; null once lifted.
+  """
+  setWritingBan(channel: String!, accountId: ID!, banned: Boolean!, hours: Int, article: Int, requestId: ID!): ChannelWritingBan
+
+  """
+  The Event API channels of a reading, leased until until (G-14): an address and a thread
+  (watchLive), or a channel (watchChannel). Call it again every 5 minutes while reading (a channel: it
+  counts the live readers). LIVE_TARGET_INVALID, the address codes. Ephemeral: no requestId (a lease
+  renewed every 5 minutes; playing it again renews it again).
+  """
+  watch(address: String, threadId: ID, channel: String): LiveWatch
+
+  """
+  A member after the conditions changed, or a non-member before replying or posting in an exposed part.
+  """
+  acceptUniverseConditions(conditionsVersion: Int!, universe: String!, requestId: ID!): Universe
+
+  """
+  Every waiting request at once: accepted up to the member tier (the others stay waiting), or refused.
+  """
+  answerAllJoinRequests(accept: Boolean!, universe: String!, requestId: ID!): JoinRequestsAnswer
+
+  """
+  The leadership, within 24 hours of the end: approved, the summary is posted at once (or as soon as it is
+  written); declined, never.
+  """
+  answerDebateSummary(approve: Boolean!, name: String!, universe: String!, requestId: ID!): Post
+
+  """
+  The owner or an admin of a private universe answers the join request of an account: accept true makes it a
+  member (MEMBER_TIER_FULL, NON_PAYING_MEMBERS_LIMIT), false refuses it. Returns how many requests are
+  answered and how many still wait.
+  """
+  answerJoinRequest(accept: Boolean!, accountId: ID!, universe: String!, requestId: ID!): JoinRequestsAnswer
+
+  """
+  The account a private universe is transferred to accepts (accept true: it becomes its owner) or declines.
+  Returns the universe.
+  """
+  answerUniverseTransfer(accept: Boolean!, universe: String!, requestId: ID!): Universe
+
+  """
+  An account asks to join a private universe joined by request, with the version of its conditions it accepts
+  (CONDITIONS_NOT_ACCEPTED). Returns the join request.
+  """
+  askToJoinUniverse(conditionsVersion: Int, universe: String!, requestId: ID!): JoinRequest
+
+  """
+  A resident attends a universe event (attending true) or no longer. Returns the event.
+  """
+  attendUniverseEvent(attending: Boolean!, eventId: ID!, requestId: ID!): UniverseEvent
+
+  """
+  The owner cancels the deletion of its private universe before it is deleted for good. Returns the deletion
+  as it stands.
+  """
+  cancelUniverseDeletion(universe: String!, requestId: ID!): UniverseDeletion
+
+  """
+  The owner changes the settings of its private universe (since v78.0.0, in one input, P-5:
+  PrivateUniverseChangeInput): the display case ("display", the same name), the join mode; "legalSpace" is
+  always refused; since v78.0.0 (D-214), the automatic alternative texts ("automaticAlt": off, no suggested
+  alternative text either) and the automatic subtitles ("automaticSubtitles") of the posts of the universe, on
+  by default, turned off or back on (turned back on, only what is posted from then on gets them);
+  ONLY_OWNER_CHANGES_AUTOMATIC_ALT, ONLY_OWNER_CHANGES_AUTOMATIC_SUBTITLES. A field not given stays.
+  """
+  changePrivateUniverse(input: PrivateUniverseChangeInput!, universe: String!, requestId: ID!): Universe
+
+  """
+  Looks for the DNS TXT record of an own domain: found, the private universe is created. Returns the creation.
+  """
+  checkDnsProof(domain: String!, requestId: ID!): PrivateUniverseCreation
+
+  """
+  After a declaration found false (since v56.0.0): the owner chooses the free member tier of a team,
+  10 members (a hosted name only: TEAM_TIER_HOSTED_NAME_ONLY); its members all stay, read-only beyond 10.
+  """
+  chooseTeamMemberTier(universe: String!, requestId: ID!): Universe
+
+  """
+  Its opener or the leadership closes a debate before its end. Returns the debate.
+  """
+  closeDebate(name: String!, universe: String!, requestId: ID!): Debate
+
+  """
+  Creates a poll in a public universe: the leadership at once, a resident at the support of 5 residents.
+  Returns the poll.
+  """
+  createPoll(choices: [String!]!, question: String!, universe: String!, requestId: ID!): Poll
+
+  """
+  The owner declares an association (its registration number) or an open-source project (the
+  https URL of its public repository): the member tier goes to 1,000 at once, free.
+  """
+  declareUniverse(kind: UniverseDeclarationKind!, reference: String!, universe: String!, requestId: ID!): Universe
+
+  """
+  Only the owner: hidden at once, deleted for good 30 days later unless cancelled meanwhile.
+  """
+  deletePrivateUniverse(universe: String!, requestId: ID!): UniverseDeletion
+
+  """
+  The leadership, or whoever asked for it, deletes a universe event (eventId); the attendees are told. True
+  once done.
+  """
+  deleteUniverseEvent(eventId: ID!, requestId: ID!): Boolean
+
+  """
+  A sub-universe (never the first level) and everything below it; "access": READ by default.
+  """
+  exposeUniverse(access: ExposedAccess, universe: String!, requestId: ID!): Universe
+
+  """
+  Its opener or the leadership extends a debate by hours, once (extended). Returns the debate.
+  """
+  extendDebate(hours: Int!, name: String!, universe: String!, requestId: ID!): Debate
+
+  """
+  The owner or an admin hides the exposed parts of a private universe again. Returns the universe.
+  """
+  hideUniverse(universe: String!, requestId: ID!): Universe
+
+  """
+  The owner and the admins: an account ("accountId") or an email address ("email"), one of the two.
+  "unblock": an inviter that blocked the account unblocks it at the same time. An email address is
+  always answered "sent" (WAITING, no invitee), whatever becomes of it.
+  """
+  inviteToUniverse(accountId: ID, email: String, unblock: Boolean, universe: String!, requestId: ID!): UniverseInvitation
+
+  """
+  A human joins a public universe of the first level (its presence covers its sub-universes), for 30 days
+  renewed by its activity; REJOIN_TOO_SOON within 7 days of leaving. Returns its residence and, since
+  v76.0.0 (D-208), "&general" to offer to join.
+  """
+  joinUniverse(universe: String!, requestId: ID!): UniverseJoined
+
+  """
+  A private universe: its membership; a public universe: the caller's residence (governance), out for 7 days.
+  """
+  leaveUniverse(universe: String!, requestId: ID!): Universe
+
+  """
+  The apps mark each landing of the account in a universe. Returns where the caller stands there: landedBefore
+  false at its first landing.
+  """
+  markLanding(universe: String!, requestId: ID!): UniverseStanding
+
+  """
+  Debates (debates.feature): opened by the leadership, or asked for by a resident who can vote and
+  opened at the support of 5 residents who can vote (7 days); "hours" 1 to 168 (24 by default); 3
+  open at most per universe; extended once (168 hours in all) or closed early by the leadership or
+  whoever asked for it; the leadership approves or declines the summary within 24 hours of the end.
+  Their messages: the operations of the channels with the debate's address.
+  """
+  openDebate(hours: Int, name: String!, subject: String!, universe: String!, requestId: ID!): Debate
+
+  """
+  A resident picks a choice of an open poll (pollId), again to change it. Returns the poll.
+  """
+  pickPollChoice(choice: Int!, pollId: ID!, requestId: ID!): Poll
+
+  """
+  The owner reactivates an archived universe (an admin: ONLY_OWNER_REACTIVATES): the 12 months start again
+  (since v56.0.0).
+  """
+  reactivateUniverse(universe: String!, requestId: ID!): Universe
+
+  """
+  Listed on the members page of a public universe (true by default), universe by universe.
+  MEMBERS_LISTING_REQUIRED: the leadership and the moderators are always listed. A delegated agent:
+  DELEGATED_AGENT_NOT_ALLOWED.
+  """
+  setListedOnMembersPage(listed: Boolean!, universe: String!, requestId: ID!): MembersListing
+
+  """
+  The owner names a member admin of its private universe (admin true) or removes the role. CONFLICT. Returns
+  the member.
+  """
+  setUniverseAdmin(accountId: ID!, admin: Boolean!, universe: String!, requestId: ID!): UniverseMember
+
+  """
+  The owner or an admin changes the conditions of a private universe: a new version, which the members accept
+  again. Returns the version.
+  """
+  setUniverseConditions(text: String!, universe: String!, requestId: ID!): UniverseText
+
+  """
+  The leadership chooses the display case of a public universe. Returns the universe.
+  """
+  setUniverseDisplay(display: String!, universe: String!, requestId: ID!): Universe
+
+  """
+  The field of a public universe of the first level, set by its leadership from the village
+  (universe-fields.feature).
+  """
+  setUniverseField(field: UniverseField!, universe: String!, requestId: ID!): Universe
+
+  """
+  The owner or an admin changes the manifesto of a private universe: a new version. Returns the version.
+  """
+  setUniverseManifesto(text: String!, universe: String!, requestId: ID!): UniverseText
+
+  """
+  The owner of a private universe turns its reputation on (from the next midnight UTC) or off (at
+  once: its posts back, the automatic posting bans in progress lifted, the posts waiting published)
+  and sets the coefficient of its folding threshold (FOLDING_COEFFICIENT_OUT_OF_BOUNDS); anyone
+  else: ONLY_OWNER_SETS_REPUTATION; a delegated agent: DELEGATED_AGENT_NOT_ALLOWED (since v56.0.0).
+  """
+  setUniverseReputation(foldingCoefficient: Float, turnedOn: Boolean, universe: String!, requestId: ID!): PrivateUniverseReputation
+
+  """
+  The universe search words of a universe (since v63.2.0, D-170: contracts/search.md): the whole list
+  wanted ([] clears it), at most 10 (UNIVERSE_SEARCH_WORDS_LIMIT) of 1 to 40 characters
+  (UNIVERSE_SEARCH_WORD_INVALID); one the platform team removed from this universe:
+  UNIVERSE_SEARCH_WORD_REMOVED_BY_PLATFORM. A public universe: its leadership (UNIVERSE_GOVERNED;
+  without leadership, a proposal of kind SHOWCASE); a private universe: its owner and its admins
+  (ONLY_OWNER_OR_ADMINS_EDIT_PROFILE).
+  """
+  setUniverseSearchWords(universe: String!, words: [String!]!, requestId: ID!): Universe
+
+  """
+  In order (at most 10); an empty list removes them.
+  """
+  setUniverseSuccessors(accountIds: [ID!]!, universe: String!, requestId: ID!): Universe
+
+  """
+  A resident supports a debate waiting for support. Returns the debate.
+  """
+  supportDebate(name: String!, universe: String!, requestId: ID!): Debate
+
+  """
+  A resident supports a poll waiting for support (pollId). Returns the poll.
+  """
+  supportPoll(pollId: ID!, requestId: ID!): Poll
+
+  """
+  A resident who can vote supports a universe event asked for by a resident (eventId). Returns the event.
+  """
+  supportUniverseEvent(eventId: ID!, requestId: ID!): UniverseEvent
+
+  """
+  The owner transfers its private universe to a member, who accepts or declines (answerUniverseTransfer).
+  Returns the universe.
+  """
+  transferUniverse(accountId: ID!, universe: String!, requestId: ID!): Universe
+
+  """
+  A resident welcomes a new resident on the welcome wall. Returns the new resident.
+  """
+  welcomeResident(accountId: ID!, universe: String!, requestId: ID!): NewResident
+
+  """
+  Creates a universe event (P-5): by the leadership, or asked for by a resident who can vote and created at
+  the support of 5 residents who can vote (7 days); 20 upcoming at most. Returns the event.
+  """
+  createUniverseEvent(input: UniverseEventInput!, requestId: ID!): UniverseEvent
+
+  """
+  Changes a universe event (P-5): the leadership, or whoever asked for it; the attendees are told. Returns
+  the event.
+  """
+  changeUniverseEvent(input: UniverseEventChangeInput!, requestId: ID!): UniverseEvent
+
+  """
+  The banner and its night variant, the image (its logo) and the watermark of a universe (P-5): the rights
+  of its showcase; clear removes a part. Returns the universe.
+  """
+  setUniverseIdentity(universe: String!, input: UniverseIdentityInput!, requestId: ID!): Universe
+
+  """
+  The profile of a universe (P-5): the owner and the admins of a private universe (or of one of its
+  sub-universes), the leadership of a public one with its showcase; a field not given stays. Returns the
+  universe.
+  """
+  setUniverseProfile(universe: String!, input: UniverseProfileInput!, requestId: ID!): Universe
+
+  """
+  The universe territory of a public universe of the first level, of any field (its showcase, by its
+  leadership). Returns the universe.
+  """
+  setUniverseTerritory(universe: String!, input: UniverseTerritoryInput!, requestId: ID!): Universe
+
+  """
+  Creates a private universe (P-5): humans and delegated agents allowed "joinPrivateUniverses" (for their
+  operator); never an agent operator itself. Returns the creation: the universe, or the DNS proof to publish
+  for an own domain.
+  """
+  createPrivateUniverse(input: PrivateUniverseInput!, requestId: ID!): PrivateUniverseCreation
+
+  """
+  Answers an invitation to a private universe (C-4): accept true joins it, with conditionsVersion the
+  version of the conditions accepted (CONDITIONS_NOT_ACCEPTED, ALREADY_MEMBER, BANNED_FROM_UNIVERSE,
+  MEMBER_TIER_FULL, NON_PAYING_MEMBERS_LIMIT); accept false declines it. Returns the universe.
+  """
+  answerUniverseInvitation(universe: String!, accept: Boolean!, conditionsVersion: Int, requestId: ID!): Universe
+
+  """
+  The owner or an admin bans an account from a private universe (banned true) or lifts the ban (C-9).
+  PUBLIC_UNIVERSE_OPEN_TO_EVERYONE, CONFLICT. Returns the universe.
+  """
+  setUniverseBan(universe: String!, accountId: ID!, banned: Boolean!, requestId: ID!): Universe
+
+  """
+  A drawn juror accepts (accept true) or declines its draw for the appeal of a sanction, before its answer
+  date. Returns the jury duty.
+  """
+  answerJuryDraw(accept: Boolean!, sanctionId: ID!, requestId: ID!): JuryDuty
+
+  """
+  The leadership answers a question asked to it, or changes its answer. Returns the question.
+  """
+  answerLeadershipQuestion(questionId: ID!, text: String!, requestId: ID!): LeadershipQuestion
+
+  """
+  The sanctioned account appeals a sanction (sanctionId) before appealableUntil, its name published with the
+  appeal or not (publishName). Returns the sanction with its appeal.
+  """
+  appealSanction(sanctionId: ID!, publishName: Boolean, requestId: ID!): Sanction
+
+  """
+  The leadership appoints a moderator of a public universe (from the governance level "town"). Returns the
+  governance of the universe.
+  """
+  appointModerator(accountId: ID!, universe: String!, requestId: ID!): UniverseGovernance
+
+  """
+  A resident asks the leadership of a public universe a question (QUESTIONS_NEED_LEADERSHIP without
+  leadership). Returns the question.
+  """
+  askLeadership(text: String!, universe: String!, requestId: ID!): LeadershipQuestion
+
+  """
+  The author of a proposal refused when filed asks the platform team to review the refusal (since v50.1.0,
+  D-23), once.
+  """
+  askProposalRefusalReview(proposalId: ID!, requestId: ID!): ProposalRefusal
+
+  """
+  A juror who accepted asks, for the jury, the two platform AI agents to review the sanction against
+  the charter, one for it and one against it (universe-moderation.feature): once per appeal; their
+  reasoning in the duties of the jurors within a minute, then published with the decision. Not a
+  juror who accepted, of the jury sitting: NOT_A_JUROR.
+  """
+  askSanctionReviews(sanctionId: ID!, requestId: ID!): JuryDuty
+
+  """
+  Always refused: a proposal is never amended (it is withdrawn and filed again).
+  """
+  changeProposal(proposalId: ID!, text: String, requestId: ID!): Proposal
+
+  """
+  The leadership decides an appeal it has to decide: confirmed, reduced (reducedToDays) or cancelled, with its
+  reasons. Returns the sanction.
+  """
+  decideUniverseAppeal(outcome: AppealOutcome!, reasons: String!, reducedToDays: Int, sanctionId: ID!, universe: String!, requestId: ID!): Sanction
+
+  """
+  A moderator of a public universe bans an account from posting there for days, citing an article of the
+  charter when asked. Returns the sanction.
+  """
+  givePostingBan(accountId: ID!, article: Int, days: Int!, universe: String!, requestId: ID!): Sanction
+
+  """
+  The leadership gives a sub-universe a governance of its own: an account and its powers (announcements,
+  moderation, pinned posts). Returns the governance of the universe.
+  """
+  giveSubUniverseGovernance(accountId: ID!, powers: [SubUniversePower!]!, universe: String!, requestId: ID!): UniverseGovernance
+
+  """
+  Delegated voting: a resident lends its votes in a universe to another resident (at most once every 6 hours:
+  VOTES_LENT_RECENTLY, errorInfo.until; VOTES_REFUSED, the vote requirement codes for both). Returns its
+  votes.
+  """
+  lendVotes(accountId: ID!, universe: String!, requestId: ID!): MyVote
+
+  """
+  A moderator of the universe removes a message of a debate (messageId), citing an article of the charter: a
+  sanction DEBATE_MESSAGE_REMOVAL. Returns the sanction.
+  """
+  removeDebateMessage(article: Int, messageId: ID!, name: String!, universe: String!, requestId: ID!): Sanction
+
+  """
+  A moderator of the universe removes a post (postId), citing the article of the charter it applies: a
+  sanction POST_REMOVAL. Returns the sanction. Since v78.1.0 (platform-ai-agents.feature): a post of the system
+  account (a conversation starter) is removed the same way, written against no account and never appealed
+  (appealableUntil: its createdAt).
+  """
+  removePostAsModerator(article: Int, postId: ID!, requestId: ID!): Sanction
+
+  """
+  Since v78.1.0 (platform-ai-agents.feature): the moderation of the universe (as removePostAsModerator) removes a
+  text of a platform AI agent off-charter, with or without a report, citing the article of the charter it
+  applies (SANCTION_ARTICLE_REQUIRED, REPORT_ARTICLE_INVALID): agentText and proposalId (PROPOSAL_SUMMARY,
+  VOTE_MINUTES), or agentText, postId and imageId (AUTOMATIC_ALT). A conversation starter is a post:
+  removePostAsModerator. The text is no longer shown (null in its field; a record PROPOSAL_REJECTED stays in the
+  governance history), its reports are answered CONTENT_REMOVED, no account is sanctioned and nothing is
+  appealed. Not the caller's moderation: MODERATOR_ONLY; no such text, or already removed:
+  PLATFORM_AGENT_TEXT_NOT_FOUND. Returns the entry of the moderation log (PLATFORM_AGENT_TEXT_REMOVAL).
+  """
+  removePlatformAgentText(agentText: PlatformAgentText!, proposalId: ID, postId: ID, imageId: ID, article: Int, requestId: ID!): ModerationLogEntry
+
+  """
+  The author of an adopted action proposal declares its project done (G-18: was reportProjectDone; "report" is
+  kept for reports). Returns the proposal.
+  """
+  declareProjectDone(proposalId: ID!, requestId: ID!): Proposal
+
+  """
+  The appellant changes whether its name is published with its appeal, until the decision (since v50.1.0,
+  D-26). Returns the sanction.
+  """
+  setAppealPublishName(sanctionId: ID!, publishName: Boolean!, requestId: ID!): Sanction
+
+  """
+  A resident chooses its backup delegate in a universe (accountId; null: none). Returns its votes.
+  """
+  setBackupDelegate(accountId: ID, universe: String!, requestId: ID!): MyVote
+
+  """
+  The leadership, or without leadership the residents, set the status of a project (in progress, done) with a
+  note. Returns the proposal.
+  """
+  setProjectStatus(note: String!, proposalId: ID!, status: ProjectStatus!, requestId: ID!): Proposal
+
+  """
+  A resident accepts (accept true) or refuses the votes lent to it, in a universe or everywhere (everywhere
+  true). VOTES_ACCEPT_BLOCKED. Returns its votes.
+  """
+  setVoteReception(accept: Boolean!, everywhere: Boolean, universe: String!, requestId: ID!): MyVote
+
+  """
+  A resident supports a proposal waiting for support (proposalId). Returns the proposal.
+  """
+  supportProposal(proposalId: ID!, requestId: ID!): Proposal
+
+  """
+  A juror votes on the appeal of a sanction: an outcome with its reasons (reducedToDays for a reduction), or
+  dismiss. Returns the jury duty.
+  """
+  voteAsJuror(dismiss: Boolean, outcome: AppealOutcome, reasons: String, reducedToDays: Int, sanctionId: ID!, requestId: ID!): JuryDuty
+
+  """
+  A resident votes on the feed removal review of a post while it is open (48 hours); the vote changes until
+  its end.
+  """
+  voteOnFeedRemovalReview(postId: ID!, vote: FeedRemovalVote!, requestId: ID!): FeedRemovalReview
+
+  """
+  A resident who can vote votes on an open proposal (proposalId): yes true or false, or for a candidate of a
+  second round. VOTE_LENT, the vote requirement codes. Returns the proposal.
+  """
+  voteOnProposal(candidate: ID, proposalId: ID!, yes: Boolean, requestId: ID!): Proposal
+
+  """
+  A juror withdraws from the jury of an appeal before its vote. Returns the jury duty.
+  """
+  withdrawFromJury(sanctionId: ID!, requestId: ID!): JuryDuty
+
+  """
+  Its author withdraws a proposal before its vote opens (proposalId). Returns the proposal.
+  """
+  withdrawProposal(proposalId: ID!, requestId: ID!): Proposal
+
+  """
+  A resident takes back the votes it lent in a universe (CONFLICT when they changed meanwhile). Returns its
+  votes.
+  """
+  withdrawVotes(universe: String!, requestId: ID!): MyVote
+
+  """
+  Likes a question to the leadership (liked true) or takes the like back (C-2). QUESTIONS_NEED_LEADERSHIP,
+  QUESTION_ARCHIVED, QUESTION_NOT_FOUND. Returns the question.
+  """
+  setLeadershipQuestionLike(questionId: ID!, liked: Boolean!, requestId: ID!): LeadershipQuestion
+
+  """
+  Files a proposal in a public universe (G-12): by the leadership (open at once) or a resident (waiting for
+  support); withdrawn by its author before its vote opens; never amended. Returns the proposal.
+  """
+  fileProposal(input: FileProposalInput!, requestId: ID!): Proposal
+
+  """
+  Reports a content (C-1): a post or a reply, a message, a group chat, a theme, a layout, a locatable
+  resident, the banner, the territory, a custom page or the search words of a universe, a platform search
+  word. reason and article as the target allows (REPORT_REASON_NOT_ALLOWED, REPORT_ARTICLE_REQUIRED,
+  REPORT_ARTICLE_INVALID, REPORT_ARTICLE_NOT_ALLOWED, REPORT_OWN_CONTENT, REPORT_TARGET_NOT_ALLOWED).
+  Returns the report.
+  """
+  report(target: ReportTargetInput!, reason: ReportReason!, article: Int, requestId: ID!): Report
+
+  """
+  The moderation keeps a reported content (G-3): its reports are answered "no action" (deleting the content
+  answers them "content removed"). ONLY_MODERATION_READS_REPORTS, REPORT_NOT_FOUND, REPORT_TARGET_NOT_ALLOWED
+  (a target other than POST or CHANNEL_MESSAGE, for instance an appearance queue). Returns the content as
+  it stays in its queue; null once no report waits.
+  """
+  dismissReports(target: ReportTargetInput!, requestId: ID!): ReportedContent
+
+  """
+  Copies a layout of the catalog as a new layout (as: its name) in a universe of the caller (targetUniverse),
+  or as a studio draft. LAYOUT_NOT_IN_CATALOG, LAYOUT_NAME_TAKEN. Returns the copy.
+  """
+  copyLayout(as: String!, name: String!, targetUniverse: String, universe: String!, requestId: ID!): LayoutCopy
+
+  """
+  Copies a theme of the catalog as a new theme (as: its name) in a universe of the caller (targetUniverse), or
+  as a personal theme when targetUniverse is absent (the theme answered has no universe).
+  THEME_NOT_IN_CATALOG. Returns the copy.
+  """
+  copyTheme(as: String!, name: String!, targetUniverse: String, universe: String!, requestId: ID!): Theme
+
+  """
+  Deletes a layout of a universe: it leaves the catalog; the universes that use it keep their copy until they
+  change (deleted true on their reference). Returns the layout, deleted.
+  """
+  deleteLayout(name: String!, universe: String!, requestId: ID!): Layout
+
+  """
+  Deletes a personal theme the caller saved. True once done.
+  """
+  deletePersonalTheme(name: String!, requestId: ID!): Boolean
+
+  """
+  Deletes a studio draft of the caller. True once done.
+  """
+  deleteStudioDraft(draftId: ID!, requestId: ID!): Boolean
+
+  """
+  Deletes a theme of a universe: it leaves the catalog; those that use it keep it until they change (deleted
+  true on their reference). Returns the theme, deleted.
+  """
+  deleteTheme(name: String!, universe: String!, requestId: ID!): Theme
+
+  """
+  The governance of a universe removes one of its custom pages. Returns the page, removed.
+  """
+  deleteUniversePage(name: String!, universe: String!, requestId: ID!): PageOfUniverse
+
+  """
+  Ends the draft preview of the caller on a universe. Returns the universe (myDraftPreview null).
+  """
+  endDraftPreview(universe: String!, requestId: ID!): Universe
+
+  """
+  Ends the universe theme trial of a universe before its end: its universe theme comes back. Returns the
+  universe.
+  """
+  endUniverseThemeTrial(universe: String!, requestId: ID!): Universe
+
+  """
+  Imports a file of custom pages (exportUniversePages) into a universe as studio drafts, one per page. Returns
+  the drafts.
+  """
+  importUniversePages(file: AWSJSON!, universe: String!, requestId: ID!): [StudioDraft!]
+
+  """
+  Moves a custom page of a universe before another (before: null, to the end). Returns the pages in their
+  order.
+  """
+  moveUniversePage(before: String, name: String!, universe: String!, requestId: ID!): [PageOfUniverse!]
+
+  """
+  Publishes a custom page in a universe: a new page, or the next version of the page of that name
+  (PAGE_VERSION_CONFLICT when it changed since the editor opened it). The page codes. Returns the page.
+  """
+  publishUniversePage(page: AWSJSON!, universe: String!, requestId: ID!): PageOfUniverse
+
+  """
+  Removes the reader retouches of the caller in a universe, on a device (the calling one by default). True
+  once done.
+  """
+  resetLayoutRetouches(device: String, universe: String!, requestId: ID!): Boolean
+
+  """
+  Saves a personal theme of the caller (its document), to apply later. Returns the theme saved.
+  """
+  savePersonalTheme(theme: AWSJSON!, requestId: ID!): SavedTheme
+
+  """
+  Saves a studio draft (its kind and document): a new one (draftId absent) or a draft of the caller. Returns
+  the draft.
+  """
+  saveStudioDraft(document: AWSJSON!, draftId: ID, kind: StudioDraftKind!, universe: String, requestId: ID!): StudioDraft
+
+  """
+  Sets the reader retouches of the caller on a layout of a universe, on a device (the calling one by default),
+  when the universe allows them. Returns the retouches.
+  """
+  setLayoutRetouches(device: String, layout: LayoutRefInput!, retouches: [LayoutRetouchInput!]!, universe: String!, requestId: ID!): LayoutRetouches
+
+  """
+  The governance of a universe hides a page from its readers (hidden true) or shows it again. Returns the
+  page.
+  """
+  setUniversePageHidden(hidden: Boolean!, name: String!, universe: String!, requestId: ID!): PageOfUniverse
+
+  """
+  Previews a studio draft on its universe for the caller only, until endsAt. Returns the preview.
+  """
+  startDraftPreview(draftId: ID!, requestId: ID!): DraftPreview
+
+  """
+  Universe theme trials and draft previews (since v54.0.0, contracts/themes.md § Universe theme trials and
+  draft previews):
+  a theme draft tried on its universe for 24 hours (who may make it the universe theme at once), ended by any
+  member of the
+  leadership (the owner and the admins of a private universe); a theme draft previewed by its author alone for
+  24 hours.
+  """
+  startUniverseThemeTrial(draftId: ID!, requestId: ID!): UniverseThemeTrial
+
+  """
+  Publishes a theme in a universe (C-12): a theme whose name is new in the universe, or the next version of
+  the theme of that name, by its creator only (THEME_NOT_CREATOR). The theme codes (THEME_FORMAT_INVALID,
+  THEME_FIELD_INVALID, THEME_GRADIENT_INVALID, THEME_IMAGE_TOO_LARGE, THEME_WORDMARK_RATIO…). Returns the
+  theme.
+  """
+  publishTheme(universe: String!, document: AWSJSON!, requestId: ID!): Theme
+
+  """
+  Tries a theme of the catalog for 24 hours (theme given) or ends the try (null) (C-2): the theme that comes
+  back is formerTheme. Returns the personal theme.
+  """
+  setTriedTheme(theme: ThemeRefInput, requestId: ID!): PersonalTheme
+
+  """
+  Changes the personal theme of the caller (P-5); a field not given stays. Returns the personal theme.
+  """
+  setPersonalTheme(input: PersonalThemeInput!, requestId: ID!): PersonalTheme
+
+  """
+  Publishes a layout in a universe (C-12): a layout whose name is new in the universe, or the next version
+  of the layout of that name, by its creator only (LAYOUT_NOT_CREATOR). The layout codes
+  (LAYOUT_FORMAT_INVALID, LAYOUT_NAME_INVALID,
+  LAYOUTS_PUBLISHED_LIMIT, CANVAS_ITEMS_LIMIT…). Returns the layout.
+  """
+  publishLayout(universe: String!, document: AWSJSON!, requestId: ID!): Layout
+
+  """
+  Publishes a studio draft in its universe (G-11): its kind says what is made (LAYOUT, PAGE, THEME), with
+  the rights of that kind; without leadership, the proposal filed. STUDIO_DRAFT_NOT_FOUND,
+  STUDIO_DRAFT_KIND_INVALID, and the codes of the layout, the page or the theme.
+  """
+  useStudioDraft(draftId: ID!, requestId: ID!): StudioDraftUse
+
+  """
+  The recipient answers a request to connect through Nearby (nearbyRequestId): accept true connects the two
+  accounts. Returns the request.
+  """
+  answerNearbyConnection(accept: Boolean!, nearbyRequestId: ID!, requestId: ID!): NearbyRequest
+
+  """
+  The caller stops Nearby: its nearby token no longer works and its requests waiting end. True once done.
+  """
+  leaveNearby(requestId: ID!): Boolean
+
+  """
+  The app sends the nearby tokens it saw around, with their closeness (G-18: was reportNearbySightings;
+  "report" is kept for reports). Returns the persons close by.
+  """
+  recordNearbySightings(sightings: [NearbySightingInput!]!, requestId: ID!): [NearbyPerson!]
+
+  """
+  Asks to connect with the account of a nearby token seen around (NEARBY_RATE_LIMITED: 10 in any 10 minutes).
+  Returns the request.
+  """
+  requestNearbyConnection(token: String!, requestId: ID!): NearbyRequest
+
+  """
+  The sharer's last 1 to 3 positions (every 15 seconds at most: the surplus is dropped, false).
+  """
+  sendLivePositions(points: [PositionInput!]!, shareId: ID!): Boolean
+
+  """
+  The map cell of a locatable resident follows its position, once every 15 minutes at most.
+  """
+  updateLocatableCell(universe: String!, point: PointInput!, requestId: ID!): Locatable
+
+  """
+  The nearby token of the caller to advertise (P-2, G-13: was nearbyToken), valid until expiresAt
+  (contracts/nearby.md).
+  """
+  createNearbyToken(requestId: ID!): ConnectionToken
+
+  """
+  A resident makes itself locatable in a public universe (locatable true: for an activity and 15 to 480
+  minutes, its point becoming a map cell at once) or stops (false) (C-13). ACTIVITY_TOO_LONG,
+  LOCATABLE_DURATION_INVALID, LOCATABLE_LIMIT; locatable true without activity, point or minutes:
+  INVALID_REQUEST. Returns the locatable resident; null once stopped.
+  """
+  setLocatable(universe: String!, locatable: Boolean!, activity: String, point: PointInput, minutes: Int, requestId: ID!): Locatable
+
+  """
+  A human starts a live share (sharing true) in a conversation or a group chat (discussion), for 15 to 1,440
+  minutes, until an event it attends that ends within 24 hours, or until 15 minutes after a meet-up; or
+  stops one (sharing false, shareId) (C-13). discussion missing with sharing true, or shareId missing with
+  sharing false: INVALID_REQUEST. NOT_CONNECTED, LIVE_SHARE_TOO_LONG, EVENT_NOT_ATTENDED,
+  MEET_UP_NOT_PARTICIPANT, MEET_UP_SHARE_NOT_OPEN, LIVE_SHARE_NOT_FOUND, LIVE_SHARE_ENDED. Returns the live
+  share; null once stopped.
+  """
+  setLiveShare(sharing: Boolean!, discussion: DiscussionRefInput, shareId: ID, minutes: Int, untilEventId: ID, untilMeetUpId: ID, requestId: ID!): LiveShare
+
+  """
+  At the end (already one: unchanged); 20 at most (FAVORITE_UNIVERSES_LIMIT); never the root
+  universe (FAVORITE_ROOT_UNIVERSE); a private universe, its members only (FAVORITE_PRIVATE_MEMBERS_ONLY).
+  """
+  addFavoriteUniverse(universe: String!, requestId: ID!): FavoriteUniverses
+
+  """
+  The interests the person adds (100 at most), held at once, even removed in the last 90 days; one of
+  a special category with its consent (SPECIAL_CATEGORY_CONSENT_REQUIRED otherwise, nothing added).
+  INTEREST_INVALID; a delegated agent: DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  addInterests(interests: [InterestInput!]!, requestId: ID!): InterestProfile
+
+  """
+  Once, while fieldChoiceOffered: 1 to 3 fields (FIELD_CHOICES_COUNT beyond), or an empty list to skip;
+  "consented": the fields of a special category whose consent is given (SPECIAL_CATEGORY_CONSENT_REQUIRED
+  otherwise, nothing chosen). A delegated agent: DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  chooseFields(consented: [UniverseField!], fields: [UniverseField!]!, requestId: ID!): InterestProfile
+
+  """
+  The interests and chosen fields given (each not inferred again for 90 days; a special category
+  choice with its consent: the withdrawal); null: the whole profile, the consents and the 90 days of
+  every interest removed before. INTEREST_INVALID; a delegated agent: DELEGATED_AGENT_NOT_ALLOWED.
+  Usage category OTHER.
+  """
+  forgetInterests(interests: [InterestInput!], requestId: ID!): InterestProfile
+
+  """
+  Before the favorite "before" (null: last); one that is not a favorite: FAVORITE_UNIVERSE_NOT_FOUND.
+  """
+  moveFavoriteUniverse(before: String, universe: String!, requestId: ID!): FavoriteUniverses
+
+  """
+  The clips the app played (50 at most: CLIP_PLAYS_TOO_MANY), every 5 minutes and when it goes to the
+  background; nothing counted for a delegated agent. Usage category READING.
+  """
+  recordClipPlays(plays: [ClipPlayInput!]!): Boolean
+
+  """
+  Removes a universe from the favorite universes of the caller. Returns the favorite universes.
+  """
+  removeFavoriteUniverse(universe: String!, requestId: ID!): FavoriteUniverses
+
+  """
+  Turns the alerts of a favorite universe on or off. Returns the favorite universes.
+  """
+  setUniverseAlerts(alerts: Boolean!, universe: String!, requestId: ID!): FavoriteUniverses
+
+  """
+  The pick is no longer offered, on any device.
+  """
+  skipFavoriteUniverses(requestId: ID!): FavoriteUniverses
+
+  """
+  The caller says it is not interested (notInterested true) in a post, an author, a tag of a post or a
+  universe, or takes it back (false) (C-2): a target that does not match scope (POST and TAG: postId; AUTHOR:
+  accountId; UNIVERSE: universe): INVALID_REQUEST; NOT_INTERESTED_TAG_INVALID, POST_NOT_FOUND for a post the
+  caller
+  cannot read; a delegated agent: DELEGATED_AGENT_NOT_ALLOWED. Returns what is recorded; null once taken
+  back.
+  """
+  setNotInterested(input: NotInterestedInput!, notInterested: Boolean!, requestId: ID!): NotInterested
+
+  """
+  Changes the personal settings of the caller by section (C-6, G-5); a section or a field not given stays.
+  The codes of each section (NOTIFICATION_CATEGORY_MANDATORY, TRANSLATION_LANGUAGES_INVALID, the nearby
+  label codes, since v80.4.0 the codes of the frame document, FRAME_DOCUMENT_MISSING); a delegated agent: DELEGATED_AGENT_NOT_ALLOWED for its operator's own settings. Returns
+  every setting.
+  """
+  setSettings(input: SettingsInput!, requestId: ID!): Settings
+
+  """
+  Marks read (C-5): a discussion up to its latest message received (read receipts follow), notifications
+  by their ids (100 at most) or all of them, on every device of the account (real-time
+  "notifications.read"). Returns what changed.
+  """
+  markRead(target: ReadTargetInput!, requestId: ID!): ReadState
+
+  """
+  A device of the account receives the push notifications (registered true; again at every start of the
+  app) or no longer (false) (C-2). token: the APNs device token (hex), the FCM registration token, or the
+  Web Push subscription (JSON); environment: iOS only; timeZone: the IANA time zone of the device, its
+  do-not-disturb hours follow it (TIME_ZONE_INVALID). registered true without platform: INVALID_REQUEST. A
+  token belongs to one account. Returns true.
+  """
+  setPushDevice(token: String!, registered: Boolean!, platform: PushPlatform, environment: PushEnvironment, appVersion: String, locale: String, timeZone: String, requestId: ID!): Boolean
+
+  """
+  The Stripe Customer Portal (payment methods, invoices), back to "returnPath". Errors: SUBSCRIPTION_NOT_FOUND
+  (never paid), RETURN_PATH_INVALID.
+  """
+  openBillingPortal(returnPath: String, requestId: ID!): PaymentPage
+
+  """
+  A Stripe Checkout session paying a gift code of "months" (1, 3 or 12) of "tier" (X2, X10) once;
+  the code is made when Stripe confirms the payment (myGiftCodes); back to "returnPath" (default
+  /me/gift-codes). Errors: GIFT_CODE_NOT_OFFERED (no price), PROVIDER_NOT_AVAILABLE, RETURN_PATH_INVALID,
+  GIFT_CODE_LIMIT_REACHED (since specs v61.0.0: a payer holds at most 500 euros, or 500 US dollars, of
+  unused gift codes, the accounts paying with the same card counting as one payer).
+  """
+  buyGiftCode(currency: String, months: Int!, returnPath: String, tier: PaidTier!, requestId: ID!): PaymentPage
+
+  """
+  A larger plan applies at once, the difference paid pro rata for the rest of the paid period
+  (PAYMENT_FAILED: unchanged); a smaller one from the end of the paid period, without refund, the
+  delegated agents beyond it deactivated then; the plan in force again cancels a smaller one
+  scheduled. Errors: PLAN_NOT_OFFERED, SUBSCRIPTION_NOT_FOUND, SUBSCRIPTION_PAST_DUE.
+  """
+  changeOperatorPlan(delegatedAgents: Int!, requestId: ID!): OperatorPlan
+
+  """
+  The owner changes a tier: a rise applies 30 days later, a decrease at once. Errors: as
+  offerSubscriptionTier, SUBSCRIPTION_TIER_NOT_FOUND.
+  """
+  changeSubscriptionTier(input: SubscriptionTierOfferInput!, tierId: ID!, universe: String!, requestId: ID!): SubscriptionTier
+
+  """
+  The owner offers a subscription tier (at most 3). Errors: ONLY_OWNER_OFFERS_SUBSCRIPTION_TIERS,
+  SUBSCRIPTION_TIERS_LIMIT, TIER_PRICE_OUT_OF_RANGE, TIER_PRICE_REQUIRED, CURRENCY_NOT_SUPPORTED.
+  """
+  offerSubscriptionTier(input: SubscriptionTierOfferInput!, universe: String!, requestId: ID!): SubscriptionTier
+
+  """
+  The reader uses a gift code, on the web or in the apps: its tier for its months; since specs
+  v60.0.0 a gift code of the paid tier in force extends its paid period, one of a higher tier
+  applies at once and the paid period in progress resumes after it; since v61.2.0 one of a lower
+  tier waits for the end of the paid period in progress ("next"), and an automatic renewal is paused
+  during the period the gift code gives. Returns the subscription in force. Errors:
+  GIFT_CODE_NOT_FOUND, GIFT_CODE_ALREADY_USED, GIFT_CODE_EXPIRED, GIFT_CODE_REFUNDED,
+  SUBSCRIPTION_EXISTS (a renewal waiting for its payment; a paid period already following the one in force).
+  """
+  redeemGiftCode(code: String!, requestId: ID!): PaidSubscription
+
+  """
+  Its payer asks for the refund of an unused gift code within 14 days of the purchase. Errors:
+  GIFT_CODE_NOT_FOUND, GIFT_CODE_ALREADY_USED, REFUND_PERIOD_OVER.
+  """
+  refundGiftCode(code: String!, requestId: ID!): GiftCode
+
+  """
+  Off: the subscription ends at "paidUntil" (no refund); on again before then: it renews. Errors:
+  SUBSCRIPTION_NOT_FOUND. The argument is "enabled" (contracts/payments.md says "on", which AppSync refuses as
+  a name).
+  """
+  setAutomaticRenewal(enabled: Boolean!, requestId: ID!): PaidSubscription
+
+  """
+  The subscriber chooses the billing day of a subscription paid by card (once per paid period).
+  Errors: BILLING_DAY_INVALID, BILLING_DAY_NOT_AVAILABLE, BILLING_DAY_ALREADY_CHANGED (errorInfo
+  changeableFrom), BILLING_DAY_PAYMENT_FAILED, SUBSCRIPTION_NOT_FOUND.
+  """
+  setBillingDay(input: BillingDayChoiceInput!, subscription: SubscriptionRefInput!, requestId: ID!): BillingDay
+
+  """
+  Off: the plan ends at "paidUntil" (no refund); on again before then: it renews. Errors:
+  SUBSCRIPTION_NOT_FOUND.
+  """
+  setOperatorPlanRenewal(enabled: Boolean!, requestId: ID!): OperatorPlan
+
+  """
+  Off: the subscription ends at "paidUntil", without refund; on again before then: it renews. Errors:
+  SUBSCRIPTION_NOT_FOUND.
+  """
+  setTierSubscriptionRenewal(enabled: Boolean!, universe: String!, requestId: ID!): TierSubscription
+
+  """
+  A Stripe Checkout session for the plan of "delegatedAgents" (10, 100, 1,000 or, since specs
+  v61.0.0, any multiple of 1,000, paid by blocks of 1,000), for "interval"
+  (MONTH by default; YEAR, 10 times the monthly price, since specs v60.0.0): the command-line
+  client opens "url" in the browser; the plan starts when Stripe confirms the payment (webhook),
+  at once over a period paid with x402 (not refunded); a plan of more than 10,000 rises by 1,000
+  delegated agents each hour beyond 10,000 (delegatedAgentAllowance). Errors: PLAN_NOT_OFFERED (another
+  number), SUBSCRIPTION_EXISTS (a plan is live: changeOperatorPlan), PROVIDER_NOT_AVAILABLE,
+  CURRENCY_NOT_SUPPORTED, RETURN_PATH_INVALID, INSTANT_PAYMENT_NOT_ALLOWED (a delegated agent).
+  """
+  startOperatorPlan(currency: String, delegatedAgents: Int!, interval: BillingInterval, returnPath: String, requestId: ID!): PaymentPage
+
+  """
+  A Stripe Checkout session (a subscription, the reader as payer and beneficiary): the app opens
+  "url", Stripe comes back to "returnPath" (default /me/subscription) with "?checkout=success" or
+  "cancel". The subscription starts when Stripe confirms the payment (webhook), never from the
+  return page. Errors: SUBSCRIPTION_EXISTS, PROVIDER_NOT_AVAILABLE, CURRENCY_NOT_SUPPORTED,
+  RETURN_PATH_INVALID.
+  """
+  startSubscription(automaticRenewal: Boolean!, currency: String, interval: BillingInterval!, returnPath: String, tier: PaidTier!, requestId: ID!): PaymentPage
+
+  """
+  A subscription to a tier, on the web (a Checkout of the payment provider): the membership starts
+  when the payment is confirmed, never from the return page; without the express consent, the access
+  and the first payment 14 days later ("accessFrom"). Errors: JOINS_BY_SUBSCRIPTION_ONLY (not joined by
+  subscription), SUBSCRIPTION_TIER_NOT_FOUND, BANNED_FROM_UNIVERSE, TIER_SUBSCRIPTION_EXISTS,
+  CONDITIONS_NOT_ACCEPTED, DELEGATED_AGENT_CANNOT_SUBSCRIBE, CURRENCY_NOT_SUPPORTED, PROVIDER_NOT_AVAILABLE,
+  RETURN_PATH_INVALID.
+  """
+  startTierSubscription(input: TierSubscriptionStartInput!, universe: String!, requestId: ID!): PaymentPage
+
+  """
+  The verification of the seller by the payment provider (Stripe Connect), in the browser (valid 5 minutes).
+  Errors: IDENTITY_ALREADY_VERIFIED, PROVIDER_NOT_AVAILABLE, RETURN_PATH_INVALID.
+  """
+  verifySellerIdentity(returnPath: String, requestId: ID!): PaymentPage
+
+  """
+  The owner withdraws a tier: its paying members keep it until the end of their paid period. Errors:
+  ONLY_OWNER_OFFERS_SUBSCRIPTION_TIERS, LAST_SUBSCRIPTION_TIER, SUBSCRIPTION_TIER_NOT_FOUND.
+  """
+  withdrawSubscriptionTier(tierId: ID!, universe: String!, requestId: ID!): SubscriptionTier
+}

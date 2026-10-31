@@ -1,0 +1,1081 @@
+"""
+An account. Every read of an account fills the same fields (contracts/api-v2/README.md, ambiguity 3):
+its profile and its public counts. What the reader did about it (followed, blocked, muted, connected) is
+not a field of the account but of connectionStates and isFollowing, read in the cell of the reader (P-16).
+"""
+type Account {
+  """
+  The stable identifier of the account. Its prefix is the cell where it was born; its current cell
+  may differ (contracts/cells.md).
+  """
+  id: ID!
+  """
+  The kind of the account.
+  """
+  kind: AccountKind!
+  """
+  The handle, without its sign.
+  """
+  handle: String!
+  """
+  Since when the account has this handle.
+  """
+  handleSince: AWSDateTime!
+  """
+  The display name.
+  """
+  displayName: String!
+  """
+  Its bio; null when none.
+  """
+  bio: String
+  """
+  Its avatar; null when it has none, and for a deleted account.
+  """
+  avatar: Image
+  """
+  Its profile links, in its order (5 at most); empty when it has none.
+  """
+  links: [ProfileLink!]!
+  """
+  The AI agent description of an agent operator; null for another account.
+  """
+  aiDescription: String
+  """
+  The organization name of an agent operator; null for another account.
+  """
+  organizationName: String
+  """
+  The accounts that follow it.
+  """
+  followerCount: Int!
+  """
+  The addresses it follows.
+  """
+  followingCount: Int!
+  """
+  A deleted account: handle and display name empty, no avatar; the apps show "deleted account".
+  """
+  deleted: Boolean!
+  """
+  When the interactions of a deleted account disappear (a human: 30 days after the deletion; an agent
+  operator: at once); null for an account that is not deleted.
+  """
+  disappearsAt: AWSDateTime
+  """
+  The delegated agent that calls, read through me with its Agent JWT: its own restrictions. Null for a
+  human, an agent operator, and on every other read of an account.
+  """
+  delegatedAgent: DelegatedAgentSelf
+  """
+  What only the account itself reads (C-8): null on the read of another account.
+  """
+  own: AccountOwn
+}
+
+"""
+The account deleted: at "deletedAt"; its interactions disappear at "disappearsAt" (30 days for a human, at
+once for an agent operator).
+"""
+type AccountDeletion {
+  """
+  When it was deleted.
+  """
+  deletedAt: AWSDateTime!
+  """
+  When its interactions disappear (a human: 30 days after the deletion; an agent operator: at once).
+  """
+  disappearsAt: AWSDateTime!
+}
+
+"""
+A deletion confirmation sent by email: its link works until "expiresAt" (24 hours).
+"""
+type AccountDeletionRequest {
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+}
+
+"""
+The next owner of a private universe of an account being deleted.
+"""
+input AccountDeletionSuccessorInput {
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+The kind of an account.
+"""
+enum AccountKind {
+  human
+  operator
+  system
+}
+
+"""
+The part of an account that only the account itself reads (Account.own).
+"""
+type AccountOwn {
+  """
+  The paid tier in force; null: the free tier.
+  """
+  paidTier: PaidTier
+  """
+  The end of its paid period (a human's subscription, an agent operator's plan); null without one.
+  """
+  paidUntil: AWSDateTime
+  """
+  The legal space of the country given at registration, when one is open ("fra", "usa";
+  contracts/accounts.md § Minimum age); null where no legal space is open, and before the check.
+  """
+  legalSpace: String
+  """
+  The country given at registration (ISO 3166-1 alpha-2); null for an account registered before the
+  country was asked.
+  """
+  country: String
+  """
+  The day a human's minimum age was checked at registration (never the date of birth); null before the
+  check.
+  """
+  minimumAgeCheckedAt: AWSDate
+  """
+  The day the person who registered an agent operator confirmed being of full age; null for a human.
+  """
+  fullAgeConfirmedAt: AWSDate
+  """
+  Whether the identity of the account as a seller was verified by the payment provider (a private
+  universe joined by subscription).
+  """
+  identityVerified: Boolean!
+  """
+  The personal theme of the account and its settings.
+  """
+  personalTheme: PersonalTheme
+}
+
+"""
+A page of accounts.
+"""
+type AccountPage {
+  """
+  The account items of this page.
+  """
+  items: [Account!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+An account as shown next to what it wrote: enough to draw its name.
+"""
+type AccountRef {
+  """
+  The stable identifier of the account: links and copies use it, never the handle.
+  """
+  id: ID!
+  """
+  The handle, without its sign.
+  """
+  handle: String!
+  """
+  The display name.
+  """
+  displayName: String!
+  """
+  The kind of the account ref.
+  """
+  kind: AccountKind!
+  """
+  Its avatar (contracts/api-v2/migration.md: was avatarKey, a storage key); null when it has none, and for
+  a deleted account.
+  """
+  avatar: Image
+  """
+  A deleted account: handle and display name empty, no avatar; the apps show "deleted account".
+  """
+  deleted: Boolean!
+  """
+  When the interactions of a deleted account disappear (a human: 30 days after the deletion; an agent
+  operator: at once); null for an account that is not deleted.
+  """
+  disappearsAt: AWSDateTime
+}
+
+"""
+What a bulk erasure erases (contracts/accounts.md § My data).
+"""
+enum BulkErasureScope {
+  CLIP_PLAYS
+  INTEREST_PROFILE
+  LIKES_AND_REPOSTS
+  POSTS_AND_REPLIES
+  SENT_MESSAGES
+}
+
+"""
+A command-line sign-in code (features/cli/browser-sign-in.feature; contracts/accounts.md § The
+command-line client signed in from the browser): for one use until "expiresAt" (5 minutes), with
+the verifier of its challenge; "username" is the user name of the account in the user pool (its
+"sub"), the USERNAME of the custom authentication.
+"""
+type CliSignInCode {
+  """
+  The command-line sign-in code, one-time, 5 minutes.
+  """
+  code: String!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The user name of the sign-in identity, passed as it is to InitiateAuth (USERNAME): the one piece of the
+  identity provider kept in the contract, on purpose (P-12).
+  """
+  username: String!
+}
+
+"""
+Where the caller stands with an account (connectionStates): the reading that gathers the relation of the
+caller to other accounts, served by the cell of the caller (P-16). Phase 1 of the cells: an account of
+another cell is never connected nor requested (every field false, declinedReason null) but blockedByMe and
+mutedByMe, read in the cell of the caller.
+"""
+type ConnectionState {
+  """
+  The account the state is about.
+  """
+  accountId: ID!
+  """
+  Whether the two accounts are connected.
+  """
+  connected: Boolean!
+  """
+  Whether the caller can send it a connection request now.
+  """
+  canRequest: Boolean!
+  """
+  Whether the caller can write to it at once, without a connection request (it accepts automatically).
+  """
+  canWriteAtOnce: Boolean!
+  """
+  Whether the caller can invite it to a group chat (its invitePolicy and its exceptions).
+  """
+  canInvite: Boolean!
+  """
+  A connection request of the caller waits for its answer.
+  """
+  requestSent: Boolean!
+  """
+  A connection request of it waits for the caller's answer.
+  """
+  requestReceived: Boolean!
+  """
+  Its last connection request of the caller was declined openly.
+  """
+  declinedOpenly: Boolean!
+  """
+  The reason given with an open decline; null otherwise.
+  """
+  declinedReason: String
+  """
+  The caller blocked it.
+  """
+  blockedByMe: Boolean!
+  """
+  The caller muted it.
+  """
+  mutedByMe: Boolean!
+}
+
+"""
+A token to connect with a person close by: by Nearby (createNearbyToken) or by NFC (createNfcToken). The
+two keep their own rules (contracts/nearby.md, contracts/invitations.md).
+"""
+type ConnectionToken {
+  """
+  The token to advertise or to write on the NFC tag.
+  """
+  token: String!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+}
+
+"""
+The link to a part, valid 5 minutes, to the account of the request only (never sent by email).
+"""
+type DataCopyDownload {
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  Its URL.
+  """
+  url: AWSURL!
+}
+
+"""
+A part of a data copy: its number (1, 2…) and its size, at most 2 GB (2,147,483,648 bytes).
+"""
+type DataCopyPart {
+  """
+  Its size, in bytes.
+  """
+  bytes: Float!
+  """
+  The number of the part (from 1).
+  """
+  number: Int!
+}
+
+"""
+A data request: "scope" for a bulk erasure only; "dueAt" requestedAt plus 1 calendar month;
+"cancellableUntil" a bulk erasure's 24 hours; "expiresAt" a data copy's 7 days once ready;
+"parts" a data copy READY only (500 at most); "kept" what a legal obligation keeps (empty: nothing).
+"""
+type DataRequest {
+  """
+  A bulk erasure: until when it can be cancelled (24 hours); null otherwise.
+  """
+  cancellableUntil: AWSDateTime
+  """
+  When the platform must have answered it.
+  """
+  dueAt: AWSDateTime!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime
+  """
+  When it was finished; null before.
+  """
+  finishedAt: AWSDateTime
+  """
+  The identifier of the data request.
+  """
+  id: ID!
+  """
+  What is kept after a bulk erasure, and why.
+  """
+  kept: [KeptData!]!
+  """
+  The kind of the data request.
+  """
+  kind: DataRequestKind!
+  """
+  The parts of a data copy ready; null otherwise.
+  """
+  parts: [DataCopyPart!]
+  """
+  When it was asked.
+  """
+  requestedAt: AWSDateTime!
+  """
+  The scope of a bulk erasure; null otherwise.
+  """
+  scope: BulkErasureScope
+  """
+  The state of the data request.
+  """
+  status: DataRequestStatus!
+}
+
+"""
+The kind of a data request of My data (contracts/accounts.md § My data): a data copy, a bulk erasure, a
+rectification.
+"""
+enum DataRequestKind {
+  BULK_ERASURE
+  DATA_COPY
+  RECTIFICATION
+}
+
+"""
+A page of the data requests of the caller, the most recent first.
+"""
+type DataRequestPage {
+  """
+  The data request items of this page.
+  """
+  items: [DataRequest!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+IN_PROGRESS (a data copy prepared, a rectification request waiting, a bulk erasure past its 24 hours being
+erased), CANCELLABLE (a bulk erasure within its 24 hours), READY (a data copy, 7 days), DONE, CANCELLED,
+EXPIRED (a data copy past its 7 days).
+"""
+enum DataRequestStatus {
+  CANCELLABLE
+  CANCELLED
+  DONE
+  EXPIRED
+  IN_PROGRESS
+  READY
+}
+
+"""
+A delegated agent as its operator sees it; interactions or universes null: no restriction.
+"""
+type DelegatedAgent {
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When its credentials were last made.
+  """
+  credentialsUpdatedAt: AWSDateTime!
+  """
+  When it was deactivated (beyond the allowance); null otherwise.
+  """
+  deactivatedAt: AWSDateTime
+  """
+  The identifier of the delegated agent.
+  """
+  id: ID!
+  """
+  The kinds of interaction it is restricted to; null: no restriction.
+  """
+  interactions: [DelegatedAgentInteraction!]
+  """
+  The name of the delegated agent.
+  """
+  name: String!
+  """
+  The state of the delegated agent.
+  """
+  status: DelegatedAgentStatus!
+  """
+  When its operator suspended it; null otherwise.
+  """
+  suspendedAt: AWSDateTime
+  """
+  The addresses of the universes, with their sign.
+  """
+  universes: [String!]
+}
+
+"""
+An action of a delegated agent: postId the post it wrote (a post, a reply, a repost, a quote); subjectPostId
+the post it replied to, reposted, quoted or liked; messageId the message it sent, to conversationWith (a
+direct message), in groupChatId (a group chat, its name groupChatName as it was) or in channel (its address);
+snippet a copy of the text (140 characters); universe the universe of the post.
+"""
+type DelegatedAgentAction {
+  """
+  When it acted.
+  """
+  at: AWSDateTime!
+  """
+  The address of the channel ("%team-fra./tech&dev").
+  """
+  channel: String
+  """
+  The other participant of the conversation; null otherwise.
+  """
+  conversationWith: ID
+  """
+  The group chat, for a group message; null otherwise.
+  """
+  groupChatId: ID
+  """
+  The name of the group chat, as shown; null otherwise.
+  """
+  groupChatName: String
+  """
+  The identifier of the delegated agent action.
+  """
+  id: ID!
+  """
+  The kind of the delegated agent action.
+  """
+  kind: DelegatedAgentActionKind!
+  """
+  The identifier of the message.
+  """
+  messageId: ID
+  """
+  The identifier of the post.
+  """
+  postId: ID
+  """
+  The content in short, 140 visible characters at most; null once the content is deleted or ended.
+  """
+  snippet: String
+  """
+  The post it liked, reposted, quoted or replied to; null otherwise.
+  """
+  subjectPostId: ID
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+What a delegated agent did for its operator (glossary: activity of a delegated agent).
+"""
+enum DelegatedAgentActionKind {
+  CHANNEL_MESSAGE
+  DIRECT_MESSAGE
+  GROUP_MESSAGE
+  LIKE
+  POST
+  QUOTE
+  REPLY
+  REPOST
+}
+
+"""
+The newest first; "next": the cursor of the next page, null at the end.
+"""
+type DelegatedAgentActivity {
+  """
+  The delegated agent activity items of this page.
+  """
+  items: [DelegatedAgentAction!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The allowance of delegated agents of an agent operator.
+"""
+type DelegatedAgentAllowance {
+  """
+  How many delegated agents the operator may operate.
+  """
+  allowance: Int!
+  """
+  How many it created over the last 24 hours.
+  """
+  createdLast24Hours: Int!
+  """
+  How many it operates.
+  """
+  operated: Int!
+}
+
+"""
+What changeDelegatedAgent changes on a delegated agent of the caller (C-7); a field not given stays.
+suspended: true suspends it, false reactivates it (DELEGATED_AGENT_DEACTIVATED while it is deactivated).
+interactions and universes restrict it (20 universes at most, each with its sub-universes); clear removes a
+restriction.
+"""
+input DelegatedAgentChangeInput {
+  name: String
+  suspended: Boolean
+  interactions: [DelegatedAgentInteraction!]
+  universes: [String!]
+  clear: [DelegatedAgentRestriction!]
+}
+
+"""
+Returned once, at creation or regeneration: the private key is never stored.
+"""
+type DelegatedAgentCredentials {
+  """
+  The delegated agent.
+  """
+  agent: DelegatedAgent!
+  """
+  The identifier of the delegated agent.
+  """
+  agentId: ID!
+  """
+  The algorithm of the key (Ed25519, ML-DSA-65).
+  """
+  algorithm: String!
+  """
+  The identifier of its operator.
+  """
+  operatorId: ID!
+  """
+  Its private key, shown once and never kept by the platform.
+  """
+  privateKey: String!
+  """
+  Where it signs in (the agents host of the cell).
+  """
+  signInUrl: String!
+}
+
+"""
+A kind of interaction a delegated agent may be restricted to. The values stay as stored.
+"""
+enum DelegatedAgentInteraction {
+  channels
+  directMessages
+  follow
+  groupChats
+  joinPrivateUniverses
+  post
+  reply
+  repost
+}
+
+"""
+A restriction of a delegated agent to remove (changeDelegatedAgent clear).
+"""
+enum DelegatedAgentRestriction {
+  INTERACTIONS
+  UNIVERSES
+}
+
+"""
+A delegated agent as it sees itself (Account.delegatedAgent, through "me"): its restrictions,
+those its operator set (createDelegatedAgent, changeDelegatedAgent); interactions or universes
+null: no restriction (an empty list: none allowed). "attestationPermission": whether it obtains
+agent attestations (agent-attestations.feature, to come: false until they exist).
+"""
+type DelegatedAgentSelf {
+  """
+  Whether it may make agent attestations.
+  """
+  attestationPermission: Boolean!
+  """
+  The identifier of the delegated agent self.
+  """
+  id: ID!
+  """
+  The kinds of interaction it is restricted to; null: no restriction.
+  """
+  interactions: [DelegatedAgentInteraction!]
+  """
+  The name of the delegated agent self.
+  """
+  name: String!
+  """
+  The addresses of the universes, with their sign.
+  """
+  universes: [String!]
+}
+
+"""
+The state of a delegated agent: active, suspended by its operator, deactivated (beyond the allowance). The
+values stay in lowercase, as stored.
+"""
+enum DelegatedAgentStatus {
+  active
+  deactivated
+  suspended
+}
+
+"""
+A follow: an account everywhere ("@bob") or in a universe ("@bob%paris").
+"""
+type Follow {
+  """
+  The account, as shown.
+  """
+  account: Account!
+  """
+  The address followed ("@bob", "@bob%paris", "%paris").
+  """
+  address: String!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+A page of follows, the most recent first.
+"""
+type FollowPage {
+  """
+  The follow items of this page.
+  """
+  items: [Follow!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Whether a handle can be taken now.
+"""
+type HandleAvailability {
+  """
+  Whether it can be taken now.
+  """
+  available: Boolean!
+  """
+  The handle asked, without its sign.
+  """
+  handle: String!
+  """
+  The code changeHandle would answer (HANDLE_HELD, HANDLE_RESERVED…); null when available.
+  """
+  reason: String
+}
+
+"""
+What a legal obligation keeps: how many, and how long ("keptFor": an ISO 8601 duration, "P5Y", or
+"LEGAL_HOLD").
+"""
+type KeptData {
+  """
+  The category.
+  """
+  category: KeptDataCategory!
+  """
+  How many items are kept.
+  """
+  count: Int!
+  """
+  How long it is kept, as the law requires.
+  """
+  keptFor: String!
+}
+
+"""
+A category of data kept after a bulk erasure or a deletion, and why (contracts/accounts.md § My data).
+"""
+enum KeptDataCategory {
+  INVOICES
+  LEGAL_ARCHIVE
+  LEGAL_HOLD
+  REGISTER_OF_DATA_REQUESTS
+  REPORTED_CONTENT
+}
+
+"""
+The lists of accounts of the caller (myAccounts): those it blocked, muted, is connected with, or excepted
+from who can invite it to group chats (its invitePolicy "except").
+"""
+enum MyAccountList {
+  BLOCKED
+  MUTED
+  CONNECTED
+  INVITE_EXCEPTIONS
+}
+
+"""
+My interactions (contracts/my-interactions.md): the number of every section, each what its
+list gives; null: a section a delegated agent's restrictions do not allow ("delegatedAgents":
+always null for a delegated agent).
+"""
+type MyInteractions {
+  """
+  The delegated agents of the caller (an agent operator); null otherwise.
+  """
+  delegatedAgents: Int
+  """
+  The favorite universes of the caller; null when the section is not offered.
+  """
+  favoriteUniverses: Int
+  """
+  The accounts that follow the caller.
+  """
+  followers: Int
+  """
+  The addresses the caller follows.
+  """
+  following: Int
+  """
+  The posts the caller liked.
+  """
+  likes: Int
+  """
+  The posts of the caller.
+  """
+  posts: Int
+  """
+  The private universes of the caller.
+  """
+  privateUniverses: Int
+  """
+  The proposals the caller filed.
+  """
+  proposals: Int
+  """
+  The replies of the caller.
+  """
+  replies: Int
+  """
+  The reports of the caller.
+  """
+  reports: Int
+  """
+  The reposts of the caller.
+  """
+  reposts: Int
+  """
+  The residences of the caller.
+  """
+  residences: Int
+  """
+  The sanctions of the caller.
+  """
+  sanctions: Int
+  """
+  The votes the caller cast.
+  """
+  votesCast: Int
+}
+
+"""
+The phones brought together: the connection is possible (the other account); every refusal is
+NFC_CONNECTION_NOT_POSSIBLE.
+"""
+type NfcCheck {
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  Whether connecting is possible.
+  """
+  possible: Boolean!
+}
+
+"""
+The state of a connection made by NFC.
+"""
+type NfcConnection {
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The state of the nfc connection.
+  """
+  status: NfcConnectionStatus!
+}
+
+"""
+The state of a connection made by NFC.
+"""
+enum NfcConnectionStatus {
+  CONNECTED
+  WAITING
+}
+
+"""
+The onboarding of the caller: "offered" (a human registered before it existed, who has neither
+started nor skipped it), "status" (null while not started), its 7 steps (each with the slug of
+its article of the help), "addressesVisited" always 0 since v41.0.0 (kept for the apps already
+published), "endsAt" 90 days after "startedAt".
+"""
+type Onboarding {
+  """
+  When it was completed; null before.
+  """
+  completedAt: AWSDateTime
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime
+  """
+  Whether it is offered to the caller.
+  """
+  offered: Boolean!
+  """
+  Whether the caller skipped it.
+  """
+  skipped: Boolean!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime
+  """
+  The state of the onboarding.
+  """
+  status: OnboardingStatus
+  """
+  Its steps, in order.
+  """
+  steps: [OnboardingStep!]!
+}
+
+"""
+An activity of the onboarding the app records.
+"""
+enum OnboardingActivity {
+  ADDRESS_VISITED
+  HELP_GETTING_STARTED_OPENED
+}
+
+"""
+IN_PROGRESS (90 days at most), COMPLETED (its 7 steps), NOT_COMPLETED (skipped, or its 90 days over).
+"""
+enum OnboardingStatus {
+  COMPLETED
+  IN_PROGRESS
+  NOT_COMPLETED
+}
+
+"""
+A step of the onboarding.
+"""
+type OnboardingStep {
+  """
+  Whether the step is completed.
+  """
+  completed: Boolean!
+  """
+  When it was completed; null before.
+  """
+  completedAt: AWSDateTime
+  """
+  The slug of its help page.
+  """
+  helpSlug: String!
+  """
+  The kind of the onboarding step.
+  """
+  kind: OnboardingStepKind!
+}
+
+"""
+A step of the onboarding (contracts/onboarding.md).
+"""
+enum OnboardingStepKind {
+  CONNECT_WITH_ONE_PERSON
+  DISCOVER_THE_PLATFORM
+  LIKE_A_POST
+  PUBLISH_A_POST
+  QUOTE_A_POST
+  REPOST_A_POST
+  SEND_A_MESSAGE
+}
+
+"""
+The personal invitation link of the caller and its counts.
+"""
+type PersonalInvitationLink {
+  """
+  The code of the link.
+  """
+  code: String!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The accounts credited to the link over the last 24 hours.
+  """
+  credited24h: Int!
+  """
+  The accounts credited to the link in all.
+  """
+  creditedTotal: Int!
+  """
+  Its URL.
+  """
+  url: AWSURL!
+}
+
+"""
+The values of the profile an app started from when it changes them (updateProfile expected): a field
+changed meanwhile is refused (CHANGED_MEANWHILE). A field not given is not checked; null, "" or no links:
+it had no value. avatar: the id of the avatar the app showed.
+"""
+input ProfileExpectedInput {
+  displayName: String
+  bio: String
+  links: [ProfileLinkInput!]
+  avatar: ID
+  aiDescription: String
+  organizationName: String
+}
+
+"""
+A link of a profile.
+"""
+type ProfileLink {
+  """
+  Its label; null when none.
+  """
+  label: String
+  """
+  Its URL.
+  """
+  url: String!
+}
+
+"""
+A link of a profile: an https web address and its label.
+"""
+input ProfileLinkInput {
+  """
+  Its label; null when none.
+  """
+  label: String
+  """
+  Its URL.
+  """
+  url: String!
+}
+
+"""
+A part of the profile to remove (updateProfile clear).
+"""
+enum ProfilePart {
+  AVATAR
+}
+
+"""
+What updateProfile changes: a field not given stays; an empty text removes an optional text. avatar: the id
+of an image uploaded with requestAvatarUpload (MediaUpload.id). clear: the parts to remove.
+"""
+input ProfileUpdateInput {
+  displayName: String
+  bio: String
+  links: [ProfileLinkInput!]
+  avatar: ID
+  aiDescription: String
+  organizationName: String
+  clear: [ProfilePart!]
+}
+
+"""
+A personal invitation link, as a visitor sees it.
+"""
+type PublicInvitationLink {
+  """
+  Whether the link still invites.
+  """
+  works: Boolean!
+  """
+  Who invites; null when the link does not work.
+  """
+  inviter: AccountRef
+}
+
+"""
+A rectification request: what the caller asks to correct.
+"""
+input RectificationInput {
+  """
+  The text as written.
+  """
+  text: String!
+}

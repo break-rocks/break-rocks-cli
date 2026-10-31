@@ -70,12 +70,13 @@ const startCommand = apiCommand<Started>({
   prepare: async (i, ctx) => {
     requirePlanOperator(ctx);
     const interval = (i.interval as string | undefined) ?? 'MONTH';
-    const data = await api<{ me: { paidUntil: string | null }; myOperatorPlan: OperatorPlan | null; operatorPlanOffer: Offer | null }>(ctx, `query($c: String, $i: BillingInterval) { me { paidUntil } myOperatorPlan { delegatedAgents status } operatorPlanOffer(currency: $c, interval: $i) ${OFFER} }`, { c: i.currency ?? null, i: interval });
+    const data = await api<{ me: { own: { paidUntil: string | null } | null }; myOperatorPlan: OperatorPlan | null; operatorPlanOffer: Offer | null }>(ctx, `query($c: String, $i: BillingInterval) { me { own { paidUntil } } myOperatorPlan { delegatedAgents status } operatorPlanOffer(currency: $c, interval: $i) ${OFFER} }`, { c: i.currency ?? null, i: interval });
     const agents = i.agents as number;
     const price = data.operatorPlanOffer?.prices.find((p) => p.delegatedAgents === agents && p.interval === interval && (!i.currency || p.currency === String(i.currency).toUpperCase()));
     if (price) ctx.notice(`The plan of ${agents} delegated agents costs ${money(price.amount, price.currency)} ${per(interval)}.`);
     else ctx.notice(`The offer lists no price for ${agents} delegated agents ${per(interval)}: the platform answers (beyond 1,000, a multiple of 1,000 is priced by blocks of 1,000).`);
-    const x402PaidUntil = !data.myOperatorPlan && data.me.paidUntil && Date.parse(data.me.paidUntil) > ctx.now() ? data.me.paidUntil : undefined;
+    const mePaidUntil = data.me.own?.paidUntil ?? null;
+    const x402PaidUntil = !data.myOperatorPlan && mePaidUntil && Date.parse(mePaidUntil) > ctx.now() ? mePaidUntil : undefined;
     if (x402PaidUntil) ctx.notice(`Your period paid with x402 runs until ${day(x402PaidUntil)}: the plan takes over at once, and that period is not refunded.`);
     return { ...i, _price: price, _x402: x402PaidUntil, _interval: interval };
   },

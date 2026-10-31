@@ -1,0 +1,363 @@
+"""
+The media of a post or a message where only a copy of its text is shown (a notification, a
+report): its images (up to 4) or its clip, never both; or its voice message (on its own).
+"""
+type ContentMedia {
+  """
+  Whether it is an arrival notice.
+  """
+  arrival: Boolean!
+  """
+  Whether it has a clip.
+  """
+  clip: Boolean!
+  """
+  Its number of images.
+  """
+  images: Int!
+  """
+  Whether it is the marker of a live share.
+  """
+  liveShare: Boolean!
+  """
+  Whether it is a meet-up.
+  """
+  meetUp: Boolean!
+  """
+  Whether it is a place.
+  """
+  place: Boolean!
+  """
+  Whether it is a voice message.
+  """
+  voice: Boolean!
+}
+
+"""
+A report as its author sees it (myReports, report).
+"""
+type Report {
+  """
+  The identifier of the report.
+  """
+  id: ID!
+  """
+  What was reported.
+  """
+  target: ReportTargetRef!
+  """
+  The reason given.
+  """
+  reason: ReportReason!
+  """
+  The article cited: required with CHARTER_ARTICLE, optional with PLATFORM_RULES; null otherwise.
+  """
+  article: Int
+  """
+  Where it went: the moderation of the universe (off-charter), or the platform team (the law and the
+  platform rules; every report of a message or a group chat).
+  """
+  sentTo: ReportDestination!
+  """
+  The content as reported, 140 visible characters at most (a group chat: its name); null once the content
+  is deleted or has ended.
+  """
+  snippet: String
+  """
+  The media of the content reported, as counts (no media itself); null when it had none.
+  """
+  media: ContentMedia
+  """
+  The state of the report.
+  """
+  status: ReportStatus!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  When the status left RECEIVED; null before.
+  """
+  decidedAt: AWSDateTime
+}
+
+"""
+The moderation of the universe (a private universe: its owner and admins), or the platform team.
+"""
+enum ReportDestination {
+  PLATFORM_TEAM
+  UNIVERSE_MODERATION
+}
+
+"""
+A content reported and waiting for a decision, in a review queue (never who reported it).
+"""
+type ReportedContent {
+  """
+  What was reported.
+  """
+  target: ReportTargetRef!
+  """
+  The post reported (target POST); null otherwise.
+  """
+  post: Post
+  """
+  The message reported (target CHANNEL_MESSAGE); null otherwise.
+  """
+  message: Message
+  """
+  The reports since the last decision.
+  """
+  reportCount: Int!
+  """
+  Their reasons, the highest count first, ties by the name of the reason; no zero.
+  """
+  reasons: [ReportReasonCount!]!
+  """
+  The articles of the charter cited, in increasing order.
+  """
+  articles: [Int!]!
+  """
+  When it was first reported since the last decision.
+  """
+  firstReportAt: AWSDateTime!
+  """
+  When it was last reported.
+  """
+  lastReportAt: AWSDateTime!
+}
+
+"""
+A page of reported content, the most recently reported first.
+"""
+type ReportedContentPage {
+  """
+  The reported content items of this page.
+  """
+  items: [ReportedContent!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A text of a platform AI agent that is reported (PLATFORM_AGENT_TEXT, since v77.1.0, D-213): the proposal
+summary or the vote minutes of a proposal; since v78.0.0 (D-214), the automatic alternative text of an image
+of a post (AUTOMATIC_ALT); no other text of a platform AI agent (a conversation starter is a POST; the
+subtitles of a clip, automatic or corrected, transcribe what its author says and are reported with the POST;
+an alternative text is the text of the author, a POST); once removed, it is no longer shown and no account is
+sanctioned for it. Since v78.1.0, the moderation of the universe removes one off-charter, with or without a
+report, with removePlatformAgentText.
+"""
+enum PlatformAgentText {
+  AUTOMATIC_ALT
+  PROPOSAL_SUMMARY
+  VOTE_MINUTES
+}
+
+"""
+The kind of a report: off-charter (to the moderation of the universe), or the law and the platform rules (to
+the platform team).
+"""
+enum ReportKind {
+  OFF_CHARTER
+  PLATFORM
+}
+
+"""
+A page of the reports of the caller, the most recent first.
+"""
+type ReportPage {
+  """
+  The report items of this page.
+  """
+  items: [Report!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The review queues of reported content (reportedContent): the posts of a universe reported off-charter
+(POSTS, its moderation), the appearance of a universe (APPEARANCE: its theme, layouts, banner, territory,
+custom pages; its leadership or its owner and admins), the messages of a channel (CHANNEL, its channel
+moderators or the moderators of a public universe).
+"""
+enum ReportQueue {
+  POSTS
+  APPEARANCE
+  CHANNEL
+}
+
+"""
+Reports (docs/architecture.md § Signalements; features/governance/universe-reputation.feature,
+moderation/platform-rules.feature, direct-messages.feature, group-chat-messages.feature).
+Off-charter in the universe of a post (OFF_TOPIC, SPAM_OR_FLOOD, CHARTER_ARTICLE with its
+"article"), to the moderation of the universe (a private universe: OFF_TOPIC and SPAM_OR_FLOOD
+only, it has no charter; the root universe: none); ILLEGAL or PLATFORM_RULES (an "article" of
+the platform rules, optional), to the platform team. A message or a group chat: the platform team only.
+"""
+enum ReportReason {
+  CHARTER_ARTICLE
+  ILLEGAL
+  MISLEADING
+  OFF_TOPIC
+  PLATFORM_RULES
+  SPAM_OR_FLOOD
+  WRONG_NAME
+}
+
+"""
+How many reports gave a reason.
+"""
+type ReportReasonCount {
+  """
+  How many reports gave it.
+  """
+  count: Int!
+  """
+  A reason given.
+  """
+  reason: ReportReason!
+}
+
+"""
+RECEIVED: acknowledged, waiting for a decision; CONTENT_REMOVED: removed (by moderation or its author);
+NO_ACTION: reviewed and kept.
+"""
+enum ReportStatus {
+  CONTENT_REMOVED
+  NO_ACTION
+  RECEIVED
+}
+
+"""
+What a report is about (contracts/reports.md).
+"""
+enum ReportTarget {
+  CHANNEL_MESSAGE
+  DIRECT_MESSAGE
+  GROUP_CHAT
+  GROUP_MESSAGE
+  LAYOUT
+  LOCATABLE
+  PLATFORM_AGENT_TEXT
+  PLATFORM_SEARCH_WORD
+  POST
+  THEME
+  UNIVERSE_BANNER
+  UNIVERSE_PAGE
+  UNIVERSE_SEARCH_WORDS
+  UNIVERSE_TERRITORY
+}
+
+"""
+What is reported, as an argument (report, dismissReports): its kind and the fields of that kind; a field
+of that kind missing, or a field of another kind given: INVALID_REQUEST.
+- POST: postId (a post or a reply).
+- DIRECT_MESSAGE: discussion { accountId } and messageId. GROUP_MESSAGE: discussion { groupChatId } and
+  messageId.
+CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { groupChatId }.
+- THEME: universe, name (the theme), themePart (THEME by default). LAYOUT: universe, name.
+- UNIVERSE_BANNER, UNIVERSE_TERRITORY: universe. UNIVERSE_PAGE: universe, name (the custom page), block
+(one of its free blocks, or none for the whole page).
+- LOCATABLE: universe, accountId (the locatable resident).
+- UNIVERSE_SEARCH_WORDS: universe. PLATFORM_SEARCH_WORD: universe, word (contracts/reports.md).
+- PLATFORM_AGENT_TEXT (since v77.1.0, D-213, platform-ai-agents.feature): agentText and proposalId (the
+  proposal summary or the vote minutes of the proposal), or, since v78.0.0 (D-214), agentText, postId and
+  imageId (AUTOMATIC_ALT); reported as a post of its universe. A conversation starter is a POST; the subtitles
+  of a clip are reported with their POST, which copies them, and the alternative texts of its images, with the
+  report as they are.
+"""
+input ReportTargetInput {
+  kind: ReportTarget!
+  agentText: PlatformAgentText
+  proposalId: ID
+  postId: ID
+  imageId: ID
+  messageId: ID
+  discussion: DiscussionRefInput
+  universe: String
+  name: String
+  themePart: ThemeReportPart
+  block: String
+  accountId: ID
+  word: String
+}
+
+"""
+What was reported, as the API names it: the same fields as ReportTargetInput, those of its kind set.
+"""
+type ReportTargetRef {
+  """
+  The kind of the report target ref.
+  """
+  kind: ReportTarget!
+  """
+  The text of a platform AI agent reported (PLATFORM_AGENT_TEXT); null otherwise.
+  """
+  agentText: PlatformAgentText
+  """
+  The proposal of a proposal summary or of vote minutes reported; null otherwise.
+  """
+  proposalId: ID
+  """
+  The image of an automatic alternative text reported (since v78.0.0); null otherwise.
+  """
+  imageId: ID
+  """
+  The identifier of the post.
+  """
+  postId: ID
+  """
+  The identifier of the message.
+  """
+  messageId: ID
+  """
+  The discussion of a message or a group chat reported; null otherwise.
+  """
+  discussion: DiscussionRef
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+  """
+  The name of the report target ref.
+  """
+  name: String
+  """
+  The part of a theme reported; null otherwise.
+  """
+  themePart: ThemeReportPart
+  """
+  The free block of a custom page reported; null for the whole page.
+  """
+  block: String
+  """
+  The identifier of the account.
+  """
+  accountId: ID
+  """
+  The word.
+  """
+  word: String
+}
+
+"""
+The part of a theme reported: the theme itself, or one of its images, its stickers.
+TIME_COLUMN and CHANNEL_HEADER since v48.0.0 (the image slots of the format 2); an image part removed by the
+platform team leaves its slot empty.
+"""
+enum ThemeReportPart {
+  BACKGROUND
+  BANNER
+  CHANNEL_HEADER
+  PATTERN
+  STICKERS
+  TEXTURE
+  THEME
+  TIME_COLUMN
+  WORDMARK
+}

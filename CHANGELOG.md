@@ -1,9 +1,90 @@
 # Changelog
 
 All notable changes of break-rocks-cli. The format follows [Keep a Changelog](https://keepachangelog.com/);
-the contract is the GraphQL schema of the platform (`schema/schema.graphql`). The scope was decided on 2026-10-23.
+the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope was decided on 2026-10-23.
 
 ## [Unreleased]
+
+## [0.12.0] - 2026-10-31
+
+**Breaking.** The CLI moves to API v2 of the platform, entirely, with no way back to API v1. The
+behaviors do not change; the form of the API does, and so do **the JSON outputs** (`--json`, the MCP
+tools) of many commands: scripts that read them must be checked. The names of the commands stay.
+
+### Changed
+
+- **The contract** is the versioned copy of the SDL of API v2, `schema/api-v2/*.graphql` (12 files, one
+  per domain). `scripts/gen-schema-lib.mjs` reads it with the `graphql` package (the files in the order of
+  their names; the `"""` descriptions and the comments are not fields; the AppSync scalars, which the
+  contract does not declare, are declared); `npm run update:schema -- <path>` copies the `.graphql` files
+  of `contracts/api-v2/` of a checkout of the specifications (or of a folder) and regenerates
+  `src/api/schema.generated.ts`.
+- **The endpoint** is the key `graphql` of the cell in the cell map (`https://api.<cell>.<env>.break.rocks/graphql`).
+  A cell without it does not serve API v2 yet: `API_V2_UNAVAILABLE` (exit 3); `BREAKROCKS_API_URL` names
+  the endpoint meanwhile, and alone it keeps the rest of the cell map.
+- **A human signs the requests with its id token** (API v2 answers `SIGN_IN_REQUIRED` to an access
+  token); operators and delegated agents keep their agent token.
+- **Every write sends a `requestId`**, a UUIDv7 made by the CLI when `--request-id` is absent (a write
+  played again with it is done once); the id of a post, a reply, a quote, a repost or a message is
+  `<cell>-<requestId>`. The commands that are one operation offer `--request-id`.
+- **The operations renamed or merged**, under the same commands: `like`/`unlike` (`setLike`),
+  `dislike`/`undislike` (`setDislike`), `not-interested` (`setNotInterested`, its input flattened:
+  `--scope`, `--post-id`, `--account`, `--universe`, `--tag`), `follow`/`unfollow` (`setFollow`),
+  `block`/`unblock` (`setBlock`), `mute`/`unmute` (`setMute`), `posts pin`/`unpin` (`setPinnedPost`),
+  `moderation ban`/`lift-ban` (`setUniverseBan`), `moderation hide-reply`/`unhide-reply`
+  (`setReplyHidden`), `moderation dismiss-reports` (`dismissReports`, target `POST`), `moderation
+  reports`/`appearance-reports` (`reportedContent`, queues `POSTS` and `APPEARANCE`), `governance
+  history` (`governanceMoments`), `governance record` (`governanceRecords`), `governance my-vote`
+  (`myStandingIn`, its `vote`), `groups accept`/`decline` (`answerGroupChatInvitation`: the id of the
+  group chat), `groups admin-add`/`admin-remove` (`setGroupChatAdmin`), `connections accept`/`decline`
+  (`answerConnectionRequest`), `connections list` (`myAccounts` `CONNECTED`), `connections state`
+  (`connectionStates`), `messaging settings show|set` (`mySettings`, `setSettings`, its messaging part),
+  `theme try`/`undo-try` (`setTriedTheme`), `studio make-theme|make-layout|make-page` (`useStudioDraft`),
+  `layouts publish-version` (`publishLayout`, as `layouts publish`), `theme publish` (`publishTheme`
+  makes the next version; `--version` kept, changes nothing), `universes list` and `explore area`
+  (`exploreUniverses(by)`), `explore --happening` (the time column: `timeColumn`), `accounts show <id>`
+  (`account`), `notifications --mark-read` (`markRead`), `agents suspend|reactivate|rename|restrict`
+  (`changeDelegatedAgent`; `--any-interaction`, `--any-universe` clear a restriction).
+- **The messages are discussions**: `dm`, `groups send` and `channels send` send `sendMessage` to an
+  account, a group chat or a channel; `dm read`, `groups read` and `channels read` read `messages`;
+  `dm delete` sends `deleteMessage`. A message is a `Message` (`discussion`, `author`, `deletedBy`…), a
+  page a `MessagePage`. `channels send` takes a text, images, a clip, a link like `groups send`.
+- **`report`** sends `report` with its target (`ReportTargetInput`); new targets `page` (`%u/name`,
+  `--block`) and `territory`. `universes page report` and `universes territory report` likewise.
+- **The inputs of API v2** are flattened into options: `universes create-private`, `events create`,
+  `proposals file` (the fields of its change: `--territory`, `--channel-action`, `--clear`…;
+  `--no-territory` is `--clear TERRITORY`), `theme personal set` (`--clear ACCENT` in place of
+  `--remove-accent`), `theme apply`, `layouts apply`, `governance territory` (`--clear` in place of
+  `--remove`), `messaging settings set` (`--agent-requests answer|accept|decline`…, the values of API v2).
+- **The media** go through `requestMediaUpload` with their media destination: a post in its universe
+  (`--in`, the universe of the post replied to or quoted), a direct message, a group chat, a channel, a
+  theme.
+- **The answers** of API v2: a toggle answers its object in its new state (`block` a `ConnectionState`,
+  `follow` a `Follow`, `unfollow` `null` once stopped), `universes join` a `UniverseJoined`, an account its
+  `avatar` (an `Image`, no `avatarKey`) and, for itself, `own` (`whoami` and `capabilities` keep its
+  fields flat, as before); the default selections leave out the navigable fields (`Universe.posts`).
+- **The real time**: `--watch` listens to `discussion.message` (and `discussion.messages` in a public
+  channel) and ignores the events of API v1 (`dm.message`, `group.message`, `channel.message`); `watch`
+  leases the Event API channels (`eventChannels`) of `posts list`, `feed` and, new, `channels read --watch`.
+
+### Added
+
+- `studio use <draft id>`: use any draft of the studio (`useStudioDraft`).
+- `channels read --watch`, `--since`, `--limit`, `--all` as the other readings of messages.
+- A command whose definition names an argument, a field or a positional its operation does not have
+  fails at load time (and in the tests).
+
+### Fixed
+
+- `--watch` hands control back within a second of `--duration`: the WebSocket of the Event API, closed
+  by the CLI, was kept open by Node until the server answered the close handshake (70 to 90 s); the
+  process now exits after a short grace (`exitWhenDone`).
+- `universes show` reads `Universe.conditionsAccepted` again (the backend answers it, in dev, staging and
+  production).
+
+### Removed
+
+- `schema/schema.graphql` (API v1) and its line-based parser.
 
 ## [0.11.2] - 2026-10-30
 

@@ -12,6 +12,7 @@ import type { Context } from '../context.js';
 import { CliError, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, list, object, openObject, str } from '../schema.js';
+import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
 
 export const PAGES_FORMAT = 'break-rocks-layout/3';
@@ -107,7 +108,7 @@ export const pagePublish: Command<FileInput, Page> = {
   run: async (ctx, i) => {
     const page = pageOfDocument(readJsonFile(ctx, i.file), i.name);
     try {
-      return (await api<{ publishUniversePage: Page }>(ctx, `mutation($u: String!, $p: AWSJSON!) { publishUniversePage(universe: $u, page: $p) ${PAGE} }`, { u: i.universe, p: JSON.stringify(page) })).publishUniversePage;
+      return (await api<{ publishUniversePage: Page }>(ctx, `mutation($u: String!, $p: AWSJSON!, $r: ID!) { publishUniversePage(universe: $u, page: $p, requestId: $r) ${PAGE} }`, { u: i.universe, p: JSON.stringify(page), r: uuidv7(ctx.now()) })).publishUniversePage;
     } catch (error) { throw explainPageRefusal(error); }
   },
   text: pageText, quiet: (p) => p.name,
@@ -146,8 +147,10 @@ export const pageDelete = apiCommand({
   name: 'universes page delete', summary: 'Delete a custom page, its versions and its free blocks (deleteUniversePage)', kind: 'mutation', op: 'deleteUniversePage', positionals: ['universe', 'name'],
   descriptions: u, confirm: (i) => `Delete the page ${i.name} of ${i.universe}, its versions and the images of its blocks?`, examples: ['breakrocks universes page delete %paris market --yes'],
 });
+const TARGET_FIELDS = ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'universe', 'name', 'themePart', 'block', 'accountId', 'word'];
 export const pageReport = apiCommand({
-  name: 'universes page report', summary: 'Report a custom page or one of its free blocks (reportUniversePage)', kind: 'mutation', op: 'reportUniversePage', positionals: ['universe', 'page'],
+  name: 'universes page report', summary: 'Report a custom page or one of its free blocks (report UNIVERSE_PAGE)', kind: 'mutation', op: 'report', flatten: ['target'], positionals: ['target.universe', 'target.name'],
+  fixed: { 'target.kind': 'UNIVERSE_PAGE' }, hide: TARGET_FIELDS.filter((f) => !['universe', 'name', 'block'].includes(f)).map((f) => `target.${f}`), rename: { 'target.name': 'page' }, require: ['universe', 'page'],
   description: 'In a public universe OFF_TOPIC, SPAM_OR_FLOOD and CHARTER_ARTICLE go to its moderation, ILLEGAL and PLATFORM_RULES to the platform team; in a private universe ILLEGAL and PLATFORM_RULES only. A base page is not reported (REPORT_TARGET_INVALID).',
   descriptions: { universe: u.universe, page: 'The name of the page', block: 'The id of a free block of the page (absent: the page)' }, depth: 1,
   examples: ['breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES'],
@@ -186,14 +189,14 @@ export const pagesImport: Command<{ universe: string; file: string }, Draft[]> =
   run: async (ctx, { universe, file }) => {
     const doc = readJsonFile(ctx, file);
     try {
-      return (await api<{ importUniversePages: Draft[] }>(ctx, 'mutation($u: String!, $f: AWSJSON!) { importUniversePages(universe: $u, file: $f) { id kind universe savedAt } }', { u: universe, f: JSON.stringify(doc) })).importUniversePages;
+      return (await api<{ importUniversePages: Draft[] }>(ctx, 'mutation($u: String!, $f: AWSJSON!, $r: ID!) { importUniversePages(universe: $u, file: $f, requestId: $r) { id kind universe savedAt } }', { u: universe, f: JSON.stringify(doc), r: uuidv7(ctx.now()) })).importUniversePages;
     } catch (error) { throw explainPageRefusal(error); }
   },
   text: (r) => (r.length ? [...r.map((d) => `${d.id}  ${d.kind} ${d.universe ?? ''}  ${d.savedAt}`), '', 'Publish one: breakrocks studio make-page <draft id>'].join('\n') : '(no draft)'),
 };
 
 export const studioMakePage = apiCommand({
-  name: 'studio make-page', summary: 'Publish a page draft as the custom page of its universe (makeUniversePage)', kind: 'mutation', op: 'makeUniversePage', positionals: ['draftId'],
-  descriptions: { draftId: 'The id of the draft (of kind PAGE)' }, select: PAGE, examples: ['breakrocks studio make-page <draft id>'],
+  name: 'studio make-page', summary: 'Publish a page draft as the custom page of its universe (useStudioDraft)', kind: 'mutation', op: 'useStudioDraft', positionals: ['draftId'],
+  descriptions: { draftId: 'The id of the draft (of kind PAGE)' }, select: `{ page ${PAGE} }`, map: (d) => (d as { page?: unknown } | null)?.page ?? null, examples: ['breakrocks studio make-page <draft id>'],
 });
 

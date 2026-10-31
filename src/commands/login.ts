@@ -15,6 +15,7 @@ import { CliError, cliRefusal, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, object, openObject, str } from '../schema.js';
 import { agentFromEnv, api, credentialsOf, forgetSession, humanSession, readSession, saveSession, signIn } from '../session.js';
+import { uuidv7 } from '../ids.js';
 import { graphql } from '../transport.js';
 
 type LoginInput = { email?: string; passwordStdin?: boolean; code?: string; cell?: string; browser?: boolean; open?: boolean; port?: number; timeout?: number };
@@ -50,7 +51,7 @@ async function finishHuman(ctx: Context, profile: Profile, cell: string, pool: U
   const at = await endpoints(ctx, { env: profile.env, cell });
   let me: { id: string; kind: string; handle: string } | null;
   try {
-    me = (await graphql<{ me: { id: string; kind: string; handle: string } | null }>(ctx, at.api, tokens.accessToken, '{ me { id kind handle } }')).me;
+    me = (await graphql<{ me: { id: string; kind: string; handle: string } | null }>(ctx, at.api, tokens.idToken, '{ me { id kind handle } }')).me;
     if (!me) throw cliRefusal('ACCOUNT_NOT_FOUND', 'The user pool signed in an account the API does not know');
   } catch (error) {
     if (tokens.refreshToken) await revokeToken(ctx, pool, tokens.refreshToken).catch(() => undefined);
@@ -163,7 +164,7 @@ export const logout: Command<{ everywhere?: boolean }, LogoutResult> = {
     if (!session) return { profile: ctx.profileName, signedOut: false, everywhere: false, revoked: false, note: 'No session on this device' };
     if (session.kind === 'human') {
       if (everywhere) {
-        await api(ctx, 'mutation { signOutEverywhere }');
+        await api(ctx, 'mutation($r: ID!) { signOutEverywhere(requestId: $r) }', { r: uuidv7(ctx.now()) });
         forgetSession(ctx);
         return { profile: ctx.profileName, kind: 'human', signedOut: true, everywhere: true, revoked: true };
       }

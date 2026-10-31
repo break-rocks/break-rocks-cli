@@ -2,7 +2,9 @@
 // reads the cell map of the environment (`https://apps[.<env>].break.rocks/config/cells.json`), kept
 // 5 minutes in its cache, then takes the home cell of the account (the profile's, else the prefix of
 // its id, "eu-…"), else the cell of the country at registration (byCountry), else the default cell.
-// BREAKROCKS_API_URL and BREAKROCKS_AGENTS_URL replace them (a personal sandbox, a test).
+// The GraphQL API is API v2, the key `graphql` of the cell (contracts/cells.md); a cell without it does
+// not serve API v2 yet (API_V2_UNAVAILABLE). BREAKROCKS_API_URL and BREAKROCKS_AGENTS_URL replace them
+// (a personal sandbox, a test).
 import type { UserPool } from './cognito.js';
 import type { Context } from './context.js';
 import type { Environment, Profile } from './config.js';
@@ -13,7 +15,7 @@ import { request } from './transport.js';
 export const APPS_HOSTS: Record<Environment, string> = { dev: 'https://apps.dev.break.rocks', staging: 'https://apps.staging.break.rocks', prod: 'https://apps.break.rocks' };
 export const CELL_MAP_SECONDS = 300;
 
-export type Cell = { region: string; api: string; agents: string; media?: string; realtime?: string; events?: string; auth?: UserPool };
+export type Cell = { region: string; graphql?: string; agents: string; media?: string; realtime?: string; events?: string; auth?: UserPool };
 export type CellMap = { version: number; publishedAt?: string; default: string; cells: Record<string, Cell>; byCountry?: Record<string, string> };
 export type Endpoints = { env: Environment; cell: string; region?: string; api: string; agents: string; media?: string; events?: string; realtime?: string; auth?: UserPool };
 
@@ -49,7 +51,9 @@ export async function endpoints(ctx: Context, profile: Profile, country?: string
   const cell = profile.cell ?? cellOfId(profile.operatorId ?? profile.accountId) ?? (country ? map.byCountry?.[country.toUpperCase()] : undefined) ?? map.default;
   const found = map.cells[cell];
   if (!found) throw cliRefusal('CELL_UNKNOWN', `The cell "${cell}" is not in the cell map of ${profile.env}`, { cell });
-  return { env: profile.env, cell, region: found.region, api: api ?? found.api, agents: (agents ?? `${found.agents}/v1`).replace(/\/+$/, ''), media: found.media, events: eventsOverride ?? found.events, realtime: realtimeOverride ?? found.realtime, ...(found.auth ? { auth: found.auth } : {}) };
+  const graphql = api ?? found.graphql;
+  if (!graphql) throw networkError('API_V2_UNAVAILABLE', `The cell "${cell}" of ${profile.env} does not serve API v2 yet (no "graphql" in its cell map): BREAKROCKS_API_URL names it meanwhile`, { cell });
+  return { env: profile.env, cell, region: found.region, api: graphql, agents: (agents ?? `${found.agents}/v1`).replace(/\/+$/, ''), media: found.media, events: eventsOverride ?? found.events, realtime: realtimeOverride ?? found.realtime, ...(found.auth ? { auth: found.auth } : {}) };
 }
 
 // The directory of the environment: the cell of an email, for a

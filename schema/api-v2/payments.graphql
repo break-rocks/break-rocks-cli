@@ -1,0 +1,784 @@
+"""
+The billing day of a subscription paid by card (contracts/payments.md § The billing day): its day (and month
+for a yearly subscription), the next due date, a change waiting for the next paid period.
+"""
+type BillingDay {
+  """
+  When the billing day can be changed again (once per paid period); null when it can now.
+  """
+  changeableFrom: AWSDateTime
+  """
+  The day of the month (1 to 28).
+  """
+  day: Int!
+  """
+  The billing day before a pause (a universe being deleted); null otherwise.
+  """
+  dayBeforePause: Int
+  """
+  The month (1 to 12), for a yearly subscription; null otherwise.
+  """
+  month: Int
+  """
+  The next payment.
+  """
+  nextDueDate: AWSDateTime!
+  """
+  A change of the billing day waiting for the next paid period; null when none.
+  """
+  pending: PendingBillingDay
+}
+
+"""
+A billing day chosen: the day (1 to 28), the month for a yearly subscription, and whether the days not covered
+are settled now.
+"""
+input BillingDayChoiceInput {
+  """
+  The day of the month (1 to 28).
+  """
+  day: Int!
+  """
+  The month (1 to 12), for a yearly subscription; null otherwise.
+  """
+  month: Int
+  settleNow: Boolean
+}
+
+"""
+Whether a new billing day comes earlier, later or the same day in the paid period.
+"""
+enum BillingDayDirection {
+  EARLIER
+  LATER
+  SAME
+}
+
+"""
+What a billing day would cost (billingDayOffer): the days counted over the period, the days already paid
+deducted, when it is charged.
+"""
+type BillingDayOffer {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  When the days not covered are charged, settled now or with the next invoice; null when nothing is charged.
+  """
+  chargedAt: AWSDateTime
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The days not covered, charged.
+  """
+  days: Int!
+  """
+  The days already paid deducted.
+  """
+  deductedDays: Int!
+  """
+  Whether the new billing day comes earlier, later or the same.
+  """
+  direction: BillingDayDirection!
+  """
+  The start of the period charged.
+  """
+  from: AWSDateTime!
+  """
+  The days of the paid period.
+  """
+  periodDays: Int!
+  """
+  Whether the days not covered can be settled now.
+  """
+  settleNowAvailable: Boolean!
+  """
+  The end of the period charged (the new billing day).
+  """
+  to: AWSDateTime!
+}
+
+"""
+How often a subscription is paid: monthly or yearly.
+"""
+enum BillingInterval {
+  MONTH
+  YEAR
+}
+
+"""
+The extra usage credit of a delegated agent (glossary "extra usage credit", since v55.6.0): the
+usage units it paid beyond its requests when a payment was raised to the least amount settled,
+used by its next requests beyond its quota; "expiresAt": the end of the lot that ends first
+(each payment's units are kept 30 days from it).
+"""
+type ExtraUsageCredit {
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The units of paid extra usage left.
+  """
+  units: Int!
+}
+
+"""
+A gift code its payer bought: "code" and its "link" to give; valid until "expiresAt" (12 months
+from "purchasedAt"); refunded on request while unused until "refundableUntil" (14 days).
+"""
+type GiftCode {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The gift code.
+  """
+  code: String!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The link that redeems it.
+  """
+  link: String!
+  """
+  The number of months.
+  """
+  months: Int!
+  """
+  When it was bought.
+  """
+  purchasedAt: AWSDateTime!
+  """
+  Until when it can be refunded while unused.
+  """
+  refundableUntil: AWSDateTime!
+  """
+  The state of the gift code.
+  """
+  status: GiftCodeStatus!
+  """
+  The tier.
+  """
+  tier: PaidTier!
+  """
+  When it was redeemed; null before.
+  """
+  usedAt: AWSDateTime
+}
+
+"""
+The price of a gift code of "months" of "tier", paid once ("amount" in the minor unit).
+"""
+type GiftCodePrice {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The number of months.
+  """
+  months: Int!
+  """
+  The tier.
+  """
+  tier: PaidTier!
+}
+
+"""
+Since specs v59.0.0 (D-160 (6)): features/billing/gift-codes.feature; contracts/payments.md § Prices
+(the price of a gift code is not set yet: none is offered); docs/architecture.md § Billing with Stripe.
+"""
+enum GiftCodeStatus {
+  EXPIRED
+  REFUNDED
+  UNUSED
+  USED
+}
+
+"""
+The paid period that follows the one in force (since specs v61.2.0, gift-codes.feature): "tier"
+from "from" (the end of the paid period in force) until "paidUntil"; "automaticRenewal": a
+subscription renewed automatically that resumes, its renewal paused until then.
+"""
+type NextPaidPeriod {
+  """
+  Whether it renews automatically at the end of the paid period.
+  """
+  automaticRenewal: Boolean!
+  """
+  When the next paid period starts.
+  """
+  from: AWSDateTime!
+  """
+  The kind of the next paid period.
+  """
+  kind: NextPaidPeriodKind!
+  """
+  The end of the paid period.
+  """
+  paidUntil: AWSDateTime!
+  """
+  The tier.
+  """
+  tier: PaidTier!
+}
+
+"""
+What follows the paid period in force (since specs v61.2.0): RESUMED, a paid period that resumes after a gift
+code of a higher paid tier; GIFT_CODE, a gift code of a lower paid tier waiting for its end.
+"""
+enum NextPaidPeriodKind {
+  GIFT_CODE
+  RESUMED
+}
+
+"""
+The plan of an agent operator paid by instant payment: "delegatedAgents" its allowance while
+"paidUntil" is ahead; "nextDelegatedAgents" a smaller plan chosen, from "nextFrom" (the end of
+the paid period); monthly or yearly ("interval", since specs v60.0.0), renewed automatically unless
+"automaticRenewal" is off.
+"""
+type OperatorPlan {
+  """
+  Whether it renews automatically at the end of the paid period.
+  """
+  automaticRenewal: Boolean!
+  """
+  Its billing day (since specs v72.1.0, D-192).
+  """
+  billingDay: BillingDay
+  """
+  The number of delegated agents.
+  """
+  delegatedAgents: Int!
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+  """
+  The delegated agents of the next paid period, when changed; null otherwise.
+  """
+  nextDelegatedAgents: Int
+  """
+  When the change applies; null otherwise.
+  """
+  nextFrom: AWSDateTime
+  """
+  The end of the paid period.
+  """
+  paidUntil: AWSDateTime!
+  """
+  The identifier of the payer (a payer is a card).
+  """
+  payerId: ID!
+  """
+  The payment provider.
+  """
+  provider: String!
+  """
+  The state of the operator plan.
+  """
+  status: SubscriptionStatus!
+}
+
+"""
+The plans of an agent operator offered: the prices, the price of each block beyond (blockPrice), and the
+payment providers of the operator's country (x402 left out).
+"""
+type OperatorPlanOffer {
+  """
+  The price of each block of delegated agents beyond the prices listed; null when none.
+  """
+  blockPrice: OperatorPlanPrice
+  """
+  The prices.
+  """
+  prices: [OperatorPlanPrice!]!
+  """
+  The payment providers offered.
+  """
+  providers: [String!]!
+}
+
+"""
+Since specs v59.0.0 (D-160 (3)): subscriptions.feature, the rule of the plans of 10, 100, 1,000 or
+(since v61.0.0) any multiple of 1,000 delegated agents paid by instant payment; contracts/payments.md §
+Prices; docs/architecture.md
+§ Billing with Stripe. Agent operators only (their session); a delegated agent pays with x402 only.
+"amount" in the minor unit of the currency (4000 = 40.00 USD), for a month or, since specs v60.0.0, a year
+("interval").
+"""
+type OperatorPlanPrice {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The number of delegated agents.
+  """
+  delegatedAgents: Int!
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+}
+
+"""
+A subscription (contracts/payments.md names it "Subscription", the name of the root type of
+GraphQL subscriptions: PaidSubscription here). "paidUntil": the end of the current paid
+period; "automaticRenewal" false: it ends then. "next" (since specs v61.2.0): the paid period
+that follows it, null when none does.
+"""
+type PaidSubscription {
+  """
+  Whether it renews automatically at the end of the paid period.
+  """
+  automaticRenewal: Boolean!
+  """
+  Its billing day (since specs v72.1.0, D-192): a subscription paid by card; null for a paid period given by a
+  gift code.
+  """
+  billingDay: BillingDay
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: NextPaidPeriod
+  """
+  The end of the paid period.
+  """
+  paidUntil: AWSDateTime!
+  """
+  The identifier of the payer (a payer is a card).
+  """
+  payerId: ID!
+  """
+  The payment provider.
+  """
+  provider: String!
+  """
+  The state of the paid subscription.
+  """
+  status: SubscriptionStatus!
+  """
+  The tier.
+  """
+  tier: PaidTier!
+}
+
+"""
+A paid tier of a human (contracts/payments.md § Subscriptions of humans with Stripe): X2, X10.
+"""
+enum PaidTier {
+  X10
+  X2
+}
+
+"""
+A page of the payment provider to open in the browser (Checkout, the Customer Portal, the identity check of
+a seller), until expiresAt (G-15: was CheckoutStart).
+"""
+type PaymentPage {
+  """
+  Its URL.
+  """
+  url: String!
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  startTierSubscription without the express consent: the day the access opens and the first payment is
+  made, 14 days after the subscription; null otherwise.
+  """
+  accessFrom: AWSDateTime
+}
+
+"""
+The billing day of a subscription paid by card (since specs v72.1.0, D-192; billing-day.feature):
+"day" of the month of the due date (1 to 28 once chosen), "month" the anniversary of a yearly one,
+the next due date, a later day waiting for it ("pending"), "changeableFrom" while a change is not
+accepted yet, "dayBeforePause" the day before a deletion of the universe (TIER_SUBSCRIPTION).
+"""
+type PendingBillingDay {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The day of the month (1 to 28).
+  """
+  day: Int!
+  """
+  The month (1 to 12), for a yearly subscription; null otherwise.
+  """
+  month: Int
+}
+
+"""
+The seller identity of the owner (verified by the payment provider): the name of the person or of the company,
+its country (ISO 3166-1 alpha-2), its email address of contact, a company's registration number.
+"""
+type SellerIdentity {
+  """
+  The country of the seller (ISO 3166-1 alpha-2).
+  """
+  country: String!
+  """
+  The email address.
+  """
+  email: String!
+  """
+  The name of the seller identity.
+  """
+  name: String!
+  """
+  Its registration number; null when none.
+  """
+  registrationNumber: String
+}
+
+"""
+A kind of subscription: a paid tier of a human, the plan of an agent operator, a subscription tier of a
+private universe.
+"""
+enum SubscriptionKind {
+  OPERATOR_PLAN
+  PAID_TIER
+  TIER_SUBSCRIPTION
+}
+
+"""
+The subscriptions of humans offered: the prices, and the payment providers of the reader's country
+(payment-providers.json), then x402 when offered to humans.
+"""
+type SubscriptionOffer {
+  """
+  The prices.
+  """
+  prices: [SubscriptionPrice!]!
+  """
+  The payment providers offered.
+  """
+  providers: [String!]!
+}
+
+"""
+A price of a paid tier: the amount in the minor unit of the currency (400 = 4.00 EUR), per interval.
+"""
+type SubscriptionPrice {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+  """
+  The tier.
+  """
+  tier: PaidTier!
+}
+
+"""
+A subscription of the caller, by its kind (and its universe for a tier subscription).
+"""
+input SubscriptionRefInput {
+  """
+  The kind of the subscription ref input.
+  """
+  kind: SubscriptionKind!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+The state of a subscription.
+"""
+enum SubscriptionStatus {
+  ACTIVE
+  ENDED
+  PAST_DUE
+}
+
+"""
+A subscription tier: its prices (1 or 2: MONTH, YEAR), its perks, the rises announced, "withdrawnAt" once
+withdrawn.
+"""
+type SubscriptionTier {
+  """
+  The identifier of the subscription tier.
+  """
+  id: ID!
+  """
+  The name of the subscription tier.
+  """
+  name: String!
+  """
+  Its tier perks.
+  """
+  perks: [TierPerk!]!
+  """
+  Its price changes announced.
+  """
+  priceChanges: [TierPriceChange!]!
+  """
+  The prices.
+  """
+  prices: [TierPrice!]!
+  """
+  When it was withdrawn; null otherwise.
+  """
+  withdrawnAt: AWSDateTime
+}
+
+"""
+A subscription tier to offer or to change: its name, currency, monthly and yearly amounts, perks.
+"""
+input SubscriptionTierOfferInput {
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  monthlyAmount: Int
+  """
+  The name of the subscription tier offer input.
+  """
+  name: String!
+  perks: [TierPerk!]!
+  yearlyAmount: Int
+}
+
+"""
+Since specs v68.3.0 (D-186 to D-191): features/universes/private-universe-by-subscription.feature;
+contracts/private-universes.md § Private universes joined by subscription, contracts/payments.md
+§ Subscription tiers of private universes; docs/architecture.md § Private universes joined by
+subscription. The tiers are the owner's (posts function); the subscription, the seller and the
+billing day the payment provider's (billing function).
+The tier perks of the list of the social platform.
+"""
+enum TierPerk {
+  EARLY_ACCESS_TO_POSTS
+  RESERVED_CHANNELS
+  RESERVED_POSTS
+  TIER_BADGE
+}
+
+"""
+A price of a subscription tier, "amount" in the minor unit, taxes included (500 = 5.00 EUR).
+"""
+type TierPrice {
+  """
+  The amount, in the smallest unit of the currency (cents).
+  """
+  amount: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+}
+
+"""
+A rise of a price, announced 30 days before "appliesAt" (a decrease applies at once).
+"""
+type TierPriceChange {
+  """
+  When it applies.
+  """
+  appliesAt: AWSDateTime!
+  """
+  The price.
+  """
+  price: TierPrice!
+}
+
+"""
+A paying member's subscription to a tier: its price kept until the end of the paid period; "accessFrom" the
+start of the access (14 days later without the express consent).
+"""
+type TierSubscription {
+  """
+  When the access opens.
+  """
+  accessFrom: AWSDateTime!
+  """
+  Whether it renews automatically at the end of the paid period.
+  """
+  automaticRenewal: Boolean!
+  """
+  Its billing day; null before its first payment.
+  """
+  billingDay: BillingDay
+  """
+  The end of the paid period.
+  """
+  paidUntil: AWSDateTime!
+  """
+  The price.
+  """
+  price: TierPrice!
+  """
+  The state of the tier subscription.
+  """
+  status: SubscriptionStatus!
+  """
+  The tier.
+  """
+  tier: SubscriptionTier!
+  """
+  When the subscriber waived the withdrawal period by consenting to the access at once; null otherwise.
+  """
+  withdrawalWaivedAt: AWSDateTime
+}
+
+"""
+A tier subscription to start: the tier, its interval, the conditions accepted, the express consent to the
+access at once, the renewal.
+"""
+input TierSubscriptionStartInput {
+  """
+  Whether it renews automatically at the end of the paid period.
+  """
+  automaticRenewal: Boolean!
+  conditionsVersion: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String
+  immediateAccessConsent: Boolean!
+  """
+  How often it is paid: monthly or yearly.
+  """
+  interval: BillingInterval!
+  returnPath: String
+  tierId: ID!
+}
+
+"""
+The caller's usage against each limit; "quota" null for an agent operator (none); "tier" null
+for an agent operator. "byCategory": always the six categories, in the order of the enum, 0
+when unused; their "hour" add up to hour.used, their "quota" to quota.used (the minute: no split).
+"extraCredit" (since v55.6.0): a delegated agent's extra usage credit, null without credit.
+"""
+type Usage {
+  """
+  The usage of each category.
+  """
+  byCategory: [UsageByCategory!]!
+  """
+  The paid extra usage left; null when none.
+  """
+  extraCredit: ExtraUsageCredit
+  """
+  The usage of the current hour.
+  """
+  hour: UsageWindow!
+  """
+  The usage of the current minute.
+  """
+  minute: UsageWindow!
+  """
+  The usage of the quota of 24 hours; null without a quota.
+  """
+  quota: UsageWindow
+  """
+  The usage tier; null for the default.
+  """
+  tier: UsageTier
+}
+
+"""
+The usage units of one category in the hour and in the quota; "quota" null for an agent operator (none).
+"""
+type UsageByCategory {
+  """
+  The category.
+  """
+  category: UsageCategory!
+  """
+  The usage of the current hour.
+  """
+  hour: Int!
+  """
+  Its quota of 24 hours; null without one.
+  """
+  quota: Int
+}
+
+"""
+What the requests did (glossary "usage category"): posting, reading, media, messaging, social, other.
+"""
+enum UsageCategory {
+  MEDIA
+  MESSAGING
+  OTHER
+  POSTING
+  READING
+  SOCIAL
+}
+
+"""
+A usage tier (contracts/payments.md § Usage limits): X1 the default, X2, X10, X100.
+"""
+enum UsageTier {
+  X1
+  X10
+  X100
+  X2
+}
+
+"""
+One limit: the usage units used against it, and when it resets (the quota: when the next hour of usage leaves
+it).
+"""
+type UsageWindow {
+  """
+  The units allowed in the window.
+  """
+  limit: Int!
+  """
+  When the window resets.
+  """
+  resetAt: AWSDateTime!
+  """
+  The units used.
+  """
+  used: Int!
+}

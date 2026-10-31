@@ -10,14 +10,15 @@ import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
+import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
 import { describeTerritory } from './geo.js';
 import { WATCH_PROPERTIES, watchItems, type LiveSource, type WatchInput } from '../watch.js';
 
-/** The Event API channels of a reading, from watchLive (its lease: 10 minutes, renewed by --watch). */
-export const liveOf = (ctx: Context, address: string | null, types: string[]): LiveSource => ({
-  channels: async () => ((await api<{ watchLive: { channels: { channel: string }[] } | null }>(ctx, 'mutation($a: String) { watchLive(address: $a) { channels { channel shard } until } }', { a: address })).watchLive?.channels ?? []).map((c) => c.channel),
-  matches: (e) => types.includes(e.type),
+/** The Event API channels of a reading, from watch (its lease: 10 minutes, renewed by --watch): an address, or a channel of a private universe. */
+export const liveOf = (ctx: Context, target: { address?: string | null; channel?: string }, types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({
+  channels: async () => ((await api<{ watch: { eventChannels: { eventChannel: string }[] } | null }>(ctx, 'mutation($a: String, $c: String) { watch(address: $a, channel: $c) { eventChannels { eventChannel shard } until } }', { a: target.address ?? null, c: target.channel ?? null })).watch?.eventChannels ?? []).map((c) => c.eventChannel),
+  matches: (e) => types.includes(e.type) && match(e),
 });
 /** The channel of the account: /users/<account id>. */
 export const accountChannel = (types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({ channels: async (id) => [`/users/${id}`], matches: (e) => types.includes(e.type) && match(e) });
@@ -83,7 +84,7 @@ export const postsList: Command<ListInput, unknown> = {
   output: postsOutput, args: { positionals: ['address'] },
   run: async (ctx, input) => {
     const read = async (after: string | null) => (await api<{ posts: Page<Post> }>(ctx, `query($a: String!, $after: String, $f: PostsFilter, $l: Int) { posts(address: $a, after: $after, filter: $f, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address, after, f: input.filter ?? null, l: input.limit ?? null })).posts;
-    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id, liveOf(ctx, input.address, ['posts.new']));
+    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id, liveOf(ctx, { address: input.address }, ['posts.new']));
     return readPosts(ctx, read, input);
   },
   text: (r) => renderPosts(r),
@@ -103,8 +104,8 @@ export const postsShow: Command<{ id: string; thread?: boolean; reposts?: boolea
   output: openObject({ post: outputSchema('Post', 1), thread: outputSchema('Thread', 2), reposts: postsOutput }), args: { positionals: ['id'] },
   run: async (ctx, { id, thread, replies, reposts }) => {
     const parts = [`post(id: $id) ${POST}`];
-    if (thread || replies) parts.push(`thread(id: $id) { root { id } items ${POST} next }`);
-    if (reposts) parts.push(`reposts(id: $id) ${PAGE_OF_POSTS}`);
+    if (thread || replies) parts.push(`thread(postId: $id) { root { id } items ${POST} next }`);
+    if (reposts) parts.push(`reposts(postId: $id) ${PAGE_OF_POSTS}`);
     return api(ctx, `query($id: ID!) { ${parts.join(' ')} }`, { id });
   },
   quiet: () => undefined,
@@ -130,7 +131,7 @@ export const feed: Command<FeedInput, unknown> = {
     const read = input.clips
       ? async (after: string | null) => (await api<{ clipFeed: Page<Post> }>(ctx, `query($a: String, $after: String, $l: Int) { clipFeed(address: $a, after: $after, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address ?? null, after, l: input.limit ?? null })).clipFeed
       : async (after: string | null) => (await api<{ timeline: Page<Post> }>(ctx, `query($after: String) { timeline(after: $after) ${PAGE_OF_POSTS} }`, { after })).timeline;
-    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id, input.clips ? liveOf(ctx, input.address ?? null, ['posts.new']) : liveOf(ctx, null, ['timeline.new']));
+    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id, input.clips ? liveOf(ctx, { address: input.address ?? null }, ['posts.new']) : liveOf(ctx, {}, ['timeline.new']));
     return readPosts(ctx, read, input);
   },
   text: (r) => ((r as { count?: number }).count !== undefined ? `${(r as { count: number }).count} new post(s)` : renderPosts(r)),
@@ -167,11 +168,11 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
     const t = r.theme as { name?: string; version?: number; creator?: { handle: string }; imageSlots?: Record<string, { url?: string | null } | null> } | undefined;
     const slots = t?.imageSlots ? Object.entries(t.imageSlots).filter(([, v]) => v?.url).map(([k, v]) => `  ${k}: ${v!.url}`) : [];
     return [`${u.name}${u.private ? ' (private)' : ''}`, `field: ${u.field ?? '-'}   residents: ${u.residentCount ?? '-'}   members: ${u.memberCount ?? '-'}`,
-      `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : u.theme}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
+      `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : '-'}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
       ...slots,
       ...(u.themeTrial ? [`theme trial: the draft ${(u.themeTrial as { draftId: string }).draftId} v${(u.themeTrial as { version: number }).version} until ${(u.themeTrial as { endsAt: string }).endsAt}${(u.themeTrial as { startedBy?: { handle: string } }).startedBy ? `, started by @${(u.themeTrial as { startedBy: { handle: string } }).startedBy.handle}` : ''}`] : []),
       ...(u.myDraftPreview ? [`my draft preview: the draft ${(u.myDraftPreview as { draftId: string }).draftId} v${(u.myDraftPreview as { version: number }).version} until ${(u.myDraftPreview as { endsAt: string }).endsAt}`] : []),
-      `layout: ${u.layoutRef?.name ?? u.defaultLayout ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
+      `layout: ${u.layoutRef?.name ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
       `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,
       `proposals waiting for support: ${u.proposalsWaitingSupport ?? '-'}`,
       `pages: ${((u.pages ?? []) as { name: string; hidden?: boolean }[]).map((p) => `${p.name}${p.hidden ? ' (hidden)' : ''}`).join(', ') || '-'}`,
@@ -192,14 +193,15 @@ export const universesList: Command<{ field?: string; language?: string; recent?
   output: { description: 'The list asked: an Explore page (items, next), or the recent universes' },
   run: async (ctx, i) => {
     if ([i.field, i.language, i.recent, i.active, i.new, i.closeToLevel, i.whereFollowed, i.mine].filter(Boolean).length > 1) throw usageError('INVALID_INPUT', 'One list at a time');
-    if (i.field) return (await api<Record<string, unknown>>(ctx, `query($f: UniverseField!) { universesByField(field: $f) ${EXPLORE_PAGE} }`, { f: i.field })).universesByField;
-    if (i.language) return (await api<Record<string, unknown>>(ctx, `query($l: String!) { universesInLanguage(language: $l) ${EXPLORE_PAGE} }`, { l: i.language })).universesInLanguage;
+    const explore = async (by: string, vars: { field?: string; language?: string } = {}) => (await api<Record<string, unknown>>(ctx, `query($by: ExploreBy!, $f: UniverseField, $l: String) { exploreUniverses(by: $by, field: $f, language: $l) ${EXPLORE_PAGE} }`, { by, f: vars.field ?? null, l: vars.language ?? null })).exploreUniverses;
+    if (i.field) return explore('FIELD', { field: i.field });
+    if (i.language) return explore('LANGUAGE', { language: i.language });
     if (i.recent) return (await api<Record<string, unknown>>(ctx, `{ recentUniverses ${selection('SubUniverse', 1)} }`)).recentUniverses;
-    if (i.new) return (await api<Record<string, unknown>>(ctx, `{ newUniverses ${EXPLORE_PAGE} }`)).newUniverses;
-    if (i.closeToLevel) return (await api<Record<string, unknown>>(ctx, `{ universesCloseToLevel ${EXPLORE_PAGE} }`)).universesCloseToLevel;
-    if (i.whereFollowed) return (await api<Record<string, unknown>>(ctx, `{ whereFollowedAccountsPost ${EXPLORE_PAGE} }`)).whereFollowedAccountsPost;
+    if (i.new) return explore('NEW');
+    if (i.closeToLevel) return explore('CLOSE_TO_LEVEL');
+    if (i.whereFollowed) return explore('WHERE_FOLLOWED_ACCOUNTS_POST');
     if (i.mine) return (await api<Record<string, unknown>>(ctx, `{ myUniverses ${selection('MyUniversePage', 2)} }`)).myUniverses;
-    return (await api<Record<string, unknown>>(ctx, `{ activeUniverses ${selection('ActiveUniversePage', 2)} }`)).activeUniverses;
+    return explore('ACTIVE');
   },
 };
 
@@ -211,7 +213,7 @@ export const universesSub = apiCommand({
 
 export const explore: Command<{ trending?: boolean; forYou?: boolean; happening?: string; accounts?: boolean; suggestions?: string; language?: string; kind?: 'POSTS' | 'CLIPS' }, unknown> = {
   name: 'explore', summary: 'Explore: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow',
-  description: 'One at a time: --trending (trendingTags), --for-you (recommendations, --language, --kind), --happening %u (happeningNow), --accounts (accountsToFollow), --suggestions <text> (suggestions); suggestedPosts by default.',
+  description: 'One at a time: --trending (trendingTags), --for-you (recommendations, --language, --kind), --happening %u (its time column: timeColumn), --accounts (accountsToFollow), --suggestions <text> (suggestions); suggestedPosts by default.',
   examples: ['breakrocks explore', 'breakrocks explore --trending', 'breakrocks explore --for-you --language fr', 'breakrocks explore --happening %france'],
   input: object({
     trending: bool('Trending tags'), forYou: bool('Recommendations (For you)'), happening: str('What happens now in this universe'), accounts: bool('Accounts to follow'),
@@ -221,7 +223,7 @@ export const explore: Command<{ trending?: boolean; forYou?: boolean; happening?
   run: async (ctx, i) => {
     if (i.trending) return (await api<Record<string, unknown>>(ctx, `{ trendingTags ${selection('TrendingTagPage', 2)} }`)).trendingTags;
     if (i.forYou) return (await api<Record<string, unknown>>(ctx, `query($k: RecommendationKind!, $l: String!) { recommendations(kind: $k, language: $l) ${selection('RecommendationPage', 2)} }`, { k: i.kind ?? 'POSTS', l: i.language ?? 'en' })).recommendations;
-    if (i.happening) return (await api<Record<string, unknown>>(ctx, `query($u: String!) { happeningNow(universe: $u) ${selection('HappeningNow', 1)} }`, { u: i.happening })).happeningNow;
+    if (i.happening) return (await api<Record<string, unknown>>(ctx, `query($u: String!) { timeColumn(universe: $u) ${selection('TimeColumn', 2)} }`, { u: i.happening })).timeColumn;
     if (i.accounts) return (await api<Record<string, unknown>>(ctx, `{ accountsToFollow ${selection('AccountToFollowPage', 2)} }`)).accountsToFollow;
     if (i.suggestions !== undefined) return (await api<Record<string, unknown>>(ctx, `query($t: String!) { suggestions(text: $t) ${selection('Suggestion', 1)} }`, { t: i.suggestions })).suggestions;
     return (await api<Record<string, unknown>>(ctx, `{ suggestedPosts ${PAGE_OF_POSTS} }`)).suggestedPosts;
@@ -259,7 +261,7 @@ export const accountsShow: Command<{ account: string }, unknown> = {
   run: async (ctx, { account }) => {
     const r = account.startsWith('@')
       ? (await api<{ accountByHandle: unknown }>(ctx, `query($h: String!) { accountByHandle(handle: $h) ${ACCOUNT} }`, { h: account.slice(1) })).accountByHandle
-      : (await api<{ accountById: unknown }>(ctx, `query($id: ID!) { accountById(id: $id) ${ACCOUNT} }`, { id: account })).accountById;
+      : (await api<{ account: unknown }>(ctx, `query($id: ID!) { account(id: $id) ${ACCOUNT} }`, { id: account })).account;
     if (!r) throw usageError('ACCOUNT_NOT_FOUND', `No account ${account}`);
     return r;
   },
@@ -291,7 +293,7 @@ export const notifications: Command<{ unread?: boolean; markRead?: boolean; afte
     }
     const shown = input.unread ? items.filter((n) => !n.read) : items;
     let marked: number | undefined;
-    if (input.markRead && shown.some((n) => !n.read)) marked = (await api<{ markNotificationsRead: number }>(ctx, 'mutation($ids: [ID!]) { markNotificationsRead(ids: $ids) }', { ids: shown.filter((n) => !n.read).map((n) => n.id) })).markNotificationsRead;
+    if (input.markRead && shown.some((n) => !n.read)) marked = (await api<{ markRead: { notificationsMarked: number | null } | null }>(ctx, 'mutation($t: ReadTargetInput!, $r: ID!) { markRead(target: $t, requestId: $r) { notificationsMarked unreadNotifications } }', { t: { notificationIds: shown.filter((n) => !n.read).map((n) => n.id) }, r: uuidv7(ctx.now()) })).markRead?.notificationsMarked ?? 0;
     return { items: shown, next, unread, ...(marked !== undefined ? { marked } : {}) };
   },
 };

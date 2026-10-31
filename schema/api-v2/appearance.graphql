@@ -1,0 +1,1174 @@
+"""
+The layout that applies (appliedLayout): its reference, the layout with its document as served ("retouched":
+with the reader retouches of the device on top).
+"""
+type AppliedLayout {
+  """
+  The layout.
+  """
+  layout: Layout!
+  """
+  The universe the layout comes from, when inherited from a universe above; null otherwise.
+  """
+  of: String
+  """
+  The layout that applies, as a reference.
+  """
+  ref: LayoutRef!
+  """
+  Whether the reader retouches of the device change it.
+  """
+  retouched: Boolean!
+  """
+  Where the layout comes from: the switcher, the universe, its field, the platform.
+  """
+  source: AppliedLayoutSource!
+}
+
+"""
+Where the layout that applies comes from: the layout switcher of the device, the universe (its default layout,
+its own or of a universe above: "of"), its field ("of": the field), the platform ("feed first").
+"""
+enum AppliedLayoutSource {
+  FIELD
+  PLATFORM
+  SWITCHER
+  UNIVERSE
+}
+
+"""
+The display mode chosen on one device.
+"""
+type DeviceDisplayMode {
+  """
+  The device (its identifier, the header x-device-id).
+  """
+  device: String!
+  """
+  The display mode.
+  """
+  displayMode: DisplayMode!
+}
+
+"""
+The display mode: automatic, day, dim, night.
+"""
+enum DisplayMode {
+  AUTOMATIC
+  DAY
+  DIM
+  NIGHT
+}
+
+"""
+A draft preview (since v54.0.0): the studio draft of a theme served to its author alone on "universe" for 24
+hours, as a trial.
+"""
+type DraftPreview {
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON!
+  """
+  The identifier of the studio draft.
+  """
+  draftId: ID!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+A layout of the layout catalog (contracts/layouts.md): its document (break-rocks-layout), its name in its
+universe, its version, its screenshots.
+"""
+type Layout {
+  """
+  The field collection it belongs to; null when none.
+  """
+  collection: UniverseField
+  """
+  What it was copied from; null otherwise.
+  """
+  copiedFrom: LayoutRef
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its creator, as shown.
+  """
+  creator: AccountRef
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean!
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON!
+  """
+  The name of the layout.
+  """
+  name: String!
+  """
+  Whether it is a platform layout.
+  """
+  platform: Boolean!
+  """
+  The version of the widget registry it was checked against (contracts/layouts.md).
+  """
+  registryVersion: Int!
+  """
+  Its screenshots.
+  """
+  screenshots: Screenshots
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+  """
+  The number of universes that use it.
+  """
+  universeCount: Int!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+A canvas of a layout, by breakpoint.
+"""
+enum LayoutCanvasKind {
+  DESKTOP
+  PHONE
+  TABLET
+}
+
+"""
+A page of the layout catalog.
+"""
+type LayoutCatalogPage {
+  """
+  The layout catalog items of this page.
+  """
+  items: [Layout!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The result of checking a layout document before it is published: the document as it would be kept, and the
+refusals.
+"""
+type LayoutCheck {
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON
+  """
+  What would be refused; empty when it can be published.
+  """
+  refusals: [LayoutRefusal!]!
+}
+
+"""
+A copy of a layout: published in its target ("layout"), or kept as a studio draft ("draft").
+"""
+type LayoutCopy {
+  """
+  The studio draft made, for a copy as a draft; null otherwise.
+  """
+  draft: StudioDraft
+  """
+  The layout.
+  """
+  layout: Layout
+}
+
+"""
+The layouts (since v48.0.0, contracts/layouts.md): a layout document "break-rocks-layout/1" as
+served ("document": its three canvases, the derived ones with "derived", completed for
+"registryVersion", the version of the widget registry), its 3 screenshots (desktop, tablet,
+phone; drawn after the publication: null meanwhile), the universes that use it. "platform": a
+platform layout of %root (feed-first, village-square, studio, agora, feed-first-private,
+studio-private, and hud since v69.0.0). As an argument (LayoutRefInput): { universe, name }, "version" and
+"deleted" ignored.
+"""
+type LayoutRef {
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean!
+  """
+  The name of the layout ref.
+  """
+  name: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int
+}
+
+"""
+A layout by its universe and its name (and a version).
+"""
+input LayoutRefInput {
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean
+  """
+  The name of the layout ref input.
+  """
+  name: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int
+}
+
+"""
+A refusal of checkLayout: its code (LAYOUT_*), where ("canvases.phone.items[3]"; a derived canvas
+"canvases.phone(derived)"), the widget concerned.
+"""
+type LayoutRefusal {
+  """
+  The code of the refusal (contracts/errors.md § Theme surfaces and layouts).
+  """
+  code: String!
+  """
+  The limit passed, for a refusal of a limit; null otherwise.
+  """
+  limit: Int
+  """
+  Where in the document; null for the document as a whole.
+  """
+  path: String
+  """
+  The widget refused; null otherwise.
+  """
+  widget: String
+}
+
+"""
+A reader retouch (stage 4): a widget of the layout stowed or shown on a canvas, or another widget variant its
+place allows (as an argument: LayoutRetouchInput).
+"""
+type LayoutRetouch {
+  """
+  The canvas retouched.
+  """
+  canvas: LayoutCanvasKind!
+  """
+  The widget shown or stowed; null for a change of variant only.
+  """
+  state: LayoutRetouchState
+  """
+  The widget variant chosen; null when unchanged.
+  """
+  variant: String
+  """
+  The widget.
+  """
+  widget: String!
+}
+
+"""
+The reader retouches of the calling device for a layout of a universe.
+"""
+type LayoutRetouches {
+  """
+  The device (its identifier, the header x-device-id).
+  """
+  device: String!
+  """
+  The layout.
+  """
+  layout: LayoutRef!
+  """
+  The retouches.
+  """
+  retouches: [LayoutRetouch!]!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+}
+
+"""
+A reader retouch: a widget of a canvas shown or stowed, or in another variant.
+"""
+input LayoutRetouchInput {
+  canvas: LayoutCanvasKind!
+  state: LayoutRetouchState
+  """
+  Its variant.
+  """
+  variant: String
+  """
+  The widget.
+  """
+  widget: String!
+}
+
+"""
+A widget shown or stowed by a reader retouch.
+"""
+enum LayoutRetouchState {
+  SHOWN
+  STOWED
+}
+
+"""
+A page of a universe (contracts/layouts.md § The pages of a universe): a base page or a custom page, its
+document, its place in the main menu.
+"""
+type PageOfUniverse {
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON
+  """
+  Whether it is hidden.
+  """
+  hidden: Boolean!
+  """
+  Its icon in the main menu; null for the default one.
+  """
+  icon: String
+  """
+  The kind of the page of universe.
+  """
+  kind: PageOfUniverseKind!
+  """
+  When it was last published; null for a base page never changed.
+  """
+  modifiedAt: AWSDateTime
+  """
+  The name of the page of universe.
+  """
+  name: String!
+  """
+  Its place among the custom pages; null for a base page.
+  """
+  order: Int
+  """
+  Whether it was removed.
+  """
+  removed: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its URL.
+  """
+  url: AWSURL!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int
+}
+
+"""
+The pages of a universe (since v49.10.0, contracts/layouts.md § The pages of a universe): its base
+pages (HOME, the page of a universe; GOVERNANCE; AGENDA, MEMBERS and ABOUT) and its custom pages.
+"name": the keyword of a base page, or the name of a custom page; "url": /u/<path>, /u/<path>/p/<name>;
+"document" (a custom page read with pageOfUniverse): its entry of "pages[]" of the format
+"break-rocks-layout/3" as served, its three canvases with the derived ones, its blocks with their
+served fields; "removed": removed by a platform measure. Not UniversePage: the …Page types are pages of
+results.
+NOW (since v69.0.0, D-188): the now page, /u/<path>/p/now, never hidden; appliedLayout(page: NOW) answers
+LAYOUT_PAGE_INVALID until its layout is composed.
+"""
+enum PageOfUniverseKind {
+  ABOUT
+  AGENDA
+  CUSTOM
+  GOVERNANCE
+  HOME
+  MEMBERS
+  NOW
+}
+
+"""
+The personal theme of an account (personal-theme.feature): "theme" the one shown now (tried,
+chosen, or Socle; a removed theme: Socle); while a try lasts (until "tryEndsAt", 24 hours),
+"triedTheme" and "formerTheme" (the one that comes back); the display mode (night while never
+chosen), "deviceDisplayMode" the one of the calling device (the header "x-device-id" when read
+as Account.personalTheme; the argument "device" of setPersonalTheme), "deviceDisplayModes" all;
+the accent as chosen and raised to AA against the night and day backgrounds of its theme.
+"""
+type PersonalTheme {
+  """
+  The accent color.
+  """
+  accent: String
+  """
+  The accent raised to AA against the day background of its theme.
+  """
+  accentDay: String
+  """
+  The accent raised to AA against the night background of its theme.
+  """
+  accentNight: String
+  """
+  The density.
+  """
+  density: ThemeDensity!
+  """
+  The display mode of the calling device; null: the display mode of the account.
+  """
+  deviceDisplayMode: DisplayMode
+  """
+  The display mode of each device that has one.
+  """
+  deviceDisplayModes: [DeviceDisplayMode!]!
+  """
+  The display mode.
+  """
+  displayMode: DisplayMode!
+  """
+  While a try lasts, the theme that comes back; null otherwise.
+  """
+  formerTheme: ThemeRef
+  """
+  The motion.
+  """
+  motion: ThemeMotion!
+  """
+  Whether the personal theme replaces the universe themes everywhere.
+  """
+  myThemeEverywhere: Boolean!
+  """
+  The transparency of the posts.
+  """
+  postTransparency: PostTransparency!
+  """
+  Whether a readable typeface replaces the typefaces of the themes.
+  """
+  readableTypeface: Boolean!
+  """
+  The number of personal themes saved.
+  """
+  savedCount: Int!
+  """
+  Whether the sounds are on.
+  """
+  sounds: Boolean!
+  """
+  The scale of the text.
+  """
+  textScale: Float!
+  """
+  The theme.
+  """
+  theme: ThemeRef!
+  """
+  The theme tried; null when no try lasts.
+  """
+  triedTheme: ThemeRef
+  """
+  When the try ends (24 hours); null when no try lasts.
+  """
+  tryEndsAt: AWSDateTime
+}
+
+"""
+The personal theme to change (setPersonalTheme); a field not given stays. device: the device whose display
+mode is set (deviceDisplayMode). clear removes a part.
+"""
+input PersonalThemeInput {
+  theme: ThemeRefInput
+  displayMode: DisplayMode
+  device: String
+  deviceDisplayMode: DisplayMode
+  accent: String
+  textScale: Float
+  density: ThemeDensity
+  motion: ThemeMotion
+  sounds: Boolean
+  readableTypeface: Boolean
+  myThemeEverywhere: Boolean
+  postTransparency: PostTransparency
+  clear: [PersonalThemePart!]
+}
+
+"""
+A part of the personal theme to remove (setPersonalTheme clear): the accent, the display mode of the
+device.
+"""
+enum PersonalThemePart {
+  ACCENT
+  DEVICE_DISPLAY_MODE
+}
+
+"""
+The post transparency of a personal theme (since v54.0.0, personal-theme.feature): OPAQUE (100), THEME (the
+default), MORE (20 points less), LIQUID (40 points less).
+"""
+enum PostTransparency {
+  LIQUID
+  MORE
+  OPAQUE
+  THEME
+}
+
+"""
+A personal theme saved by the account (at most 50): the theme object, its corrected tokens, its original for a
+copy.
+"""
+type SavedTheme {
+  """
+  What it was copied from; null otherwise.
+  """
+  copiedFrom: ThemeRef
+  """
+  The colors the platform raised to reach the contrast, as paths of the document.
+  """
+  corrected: [String!]!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its image slots (format 2).
+  """
+  imageSlots: ThemeImageSlots
+  """
+  Its images, in order; empty when none.
+  """
+  images: ThemeImages!
+  """
+  The name of the saved theme.
+  """
+  name: String!
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+A screenshot at a breakpoint: url the day variant, urlNight the night one; widths the widths served
+(url + "/<width>.webp"), empty for an SVG.
+"""
+type Screenshot {
+  """
+  Its URL.
+  """
+  url: String!
+  """
+  The URL of its night variant.
+  """
+  urlNight: String
+  """
+  The widths served, in pixels (url + "/<width>.webp").
+  """
+  widths: [Int!]!
+}
+
+"""
+The screenshots of a theme or a layout at the three breakpoints (G-10).
+"""
+type Screenshots {
+  """
+  At the phone breakpoint; null when not made.
+  """
+  phone: Screenshot
+  """
+  At the tablet breakpoint; null when not made.
+  """
+  tablet: Screenshot
+  """
+  At the desktop breakpoint; null when not made.
+  """
+  desktop: Screenshot
+}
+
+"""
+A studio draft (at most 50 per account, themes and layouts together): read by its account and, with a
+universe, by the governance of that universe.
+"""
+type StudioDraft {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON!
+  """
+  The identifier of the studio draft.
+  """
+  id: ID!
+  """
+  The kind of the studio draft.
+  """
+  kind: StudioDraftKind!
+  """
+  When it was last saved.
+  """
+  savedAt: AWSDateTime!
+  """
+  After saveStudioDraft (since v54.0.0): what its universe theme trial and its draft preview serve; null
+  otherwise or when neither runs.
+  """
+  served: StudioDraftServed
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+}
+
+"""
+PAGE since v49.10.0: a custom page of a universe being edited (an entry of "pages[]" of the format
+"break-rocks-layout/3"; its universe required).
+"""
+enum StudioDraftKind {
+  LAYOUT
+  PAGE
+  THEME
+}
+
+"""
+What a theme draft on trial or in preview serves after a save (since v54.0.0, theme-studio.feature):
+"version" the one served now; "kept" when the save was refused by the validation of a publication
+("refusal": its error code), the readers keeping the last valid version.
+"""
+type StudioDraftServed {
+  """
+  Whether the draft is kept after it was served.
+  """
+  kept: Boolean!
+  """
+  Whether it is in a draft preview.
+  """
+  preview: Boolean!
+  """
+  Why it could not be served (a code); null otherwise.
+  """
+  refusal: String
+  """
+  Whether it is in a universe theme trial.
+  """
+  trial: Boolean!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+What useStudioDraft made of a studio draft (G-11): the kind of the draft says what is made (a layout, a
+custom page, a theme), with the proposal filed when the universe has no leadership to set it at once (null
+when set at once).
+"""
+type StudioDraftUse {
+  """
+  The layout.
+  """
+  layout: Layout
+  """
+  The page.
+  """
+  page: PageOfUniverse
+  """
+  The theme.
+  """
+  theme: Theme
+  """
+  The proposal.
+  """
+  proposal: Proposal
+}
+
+"""
+A theme of the theme catalog: "theme" the theme object as published (contracts/themes.md § The
+theme object; its contrast raised to AA), "corrected" the tokens raised ("night.text"…);
+"collection" the field of a collection of the platform (in "%root"), "official" Socle and the
+official themes.
+"""
+type Theme {
+  """
+  The number of accounts that use it.
+  """
+  accountCount: Int!
+  """
+  The field collection it belongs to; null when none.
+  """
+  collection: UniverseField
+  """
+  A copy: its original ("deleted": deleted by its creator, removed or gone). "deleted": deleted by its creator
+  (out of the catalog, still applied where it is).
+  """
+  copiedFrom: ThemeRef
+  """
+  The colors the platform raised to reach the contrast, as paths of the document.
+  """
+  corrected: [String!]!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its creator, as shown.
+  """
+  creator: AccountRef!
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean!
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  Since v48.0.0 (contracts/themes.md § Format 2): "document" the theme as stored and served, in the
+  format "break-rocks-theme/2" (the same as "theme", which serves it too), "format" its format, its
+  typefaces (title and accent), its image slots with the URLs of their variants ("removed": the
+  platform team removed that image, the slot is empty).
+  """
+  document: AWSJSON!
+  """
+  The format of its document (1, or 2 since v48.0.0).
+  """
+  format: String!
+  """
+  Its image slots (format 2).
+  """
+  imageSlots: ThemeImageSlots!
+  """
+  Its images (banner, background image, wordmark, texture, pattern) with the URLs of their variants; since
+  v48.0.0 the banner, the background and the texture are the image slots pageHeader, page and cardTexture.
+  """
+  images: ThemeImages!
+  """
+  The name of the theme.
+  """
+  name: String!
+  """
+  Whether it is an official theme of the platform.
+  """
+  official: Boolean!
+  """
+  Since v48.3.0: the page of a universe at the three breakpoints (a desktop, a tablet, a phone), in
+  both variants, generated at publication too; null for a theme published before and not drawn again.
+  """
+  pageScreenshots: Screenshots
+  """
+  The 3 screenshots generated at publication (the page of a universe, a post, a conversation): night variant;
+  "screenshotsDay": day variant.
+  """
+  screenshots: [String!]!
+  """
+  Its screenshots in the day variant (format 1).
+  """
+  screenshotsDay: [String!]!
+  """
+  Its typefaces.
+  """
+  typography: ThemeTypography!
+  """
+  Its universe; null for a personal theme of the account (a copy saved by copyTheme).
+  """
+  universe: String
+  """
+  The universes and the accounts that use it now, each counted once.
+  """
+  universeCount: Int!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+A theme of the catalog with the rule of its ranking ("reason": OFFICIAL, COLLECTION_<field>,
+MOST_USED, NEWEST, IN_YOUR_UNIVERSES; CREATOR, the themes of a creator, since v48.2.0), its
+counts, and its screenshots in "variant".
+"""
+type ThemeCatalogItem {
+  """
+  The number of accounts that use it.
+  """
+  accountCount: Int!
+  """
+  Why it is in the catalog at its place (official, used in the universes of the caller…).
+  """
+  reason: String!
+  """
+  Its screenshots.
+  """
+  screenshots: [String!]!
+  """
+  The theme.
+  """
+  theme: Theme!
+  """
+  The number of universes that use it.
+  """
+  universeCount: Int!
+  """
+  The variant shown in the catalog (day or night).
+  """
+  variant: ThemeVariant!
+}
+
+"""
+The order of the theme catalog and the layout catalog.
+"""
+enum ThemeCatalogOrder {
+  IN_YOUR_UNIVERSES
+  MOST_USED
+  NEWEST
+}
+
+"""
+A page of the theme catalog.
+"""
+type ThemeCatalogPage {
+  """
+  The theme catalog items of this page.
+  """
+  items: [ThemeCatalogItem!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The density of the personal theme.
+"""
+enum ThemeDensity {
+  AIRY
+  DENSE
+  NORMAL
+}
+
+"""
+An image of a theme (G-10: one type for the images and the image slots): url + "/<width>.webp", a width
+among widths; urlNight and widthsNight the night variant (the same image without one); removed by the
+platform team (no URL, the slot empty).
+"""
+type ThemeImage {
+  """
+  Its URL.
+  """
+  url: String
+  """
+  The URL of its night variant.
+  """
+  urlNight: String
+  """
+  The widths served, in pixels (url + "/<width>.webp").
+  """
+  widths: [Int!]!
+  """
+  The widths of its night variant.
+  """
+  widthsNight: [Int!]!
+  """
+  Whether it was removed.
+  """
+  removed: Boolean!
+}
+
+"""
+The images of a theme of format 1.
+"""
+type ThemeImages {
+  """
+  Its background.
+  """
+  background: ThemeImage
+  """
+  Its banner.
+  """
+  banner: ThemeImage
+  """
+  Its pattern.
+  """
+  pattern: ThemeImage
+  """
+  Its texture.
+  """
+  texture: ThemeImage
+  """
+  Its wordmark.
+  """
+  wordmark: ThemeImage
+}
+
+"""
+The image slots of a theme of format 2 (since v48.0.0).
+"""
+type ThemeImageSlots {
+  """
+  The texture of the cards.
+  """
+  cardTexture: ThemeImage
+  """
+  The header of the channels.
+  """
+  channelHeader: ThemeImage
+  """
+  The page.
+  """
+  page: ThemeImage
+  """
+  The header of the page.
+  """
+  pageHeader: ThemeImage
+  """
+  The background of the time column.
+  """
+  timeColumn: ThemeImage
+}
+
+"""
+The motion of the personal theme.
+"""
+enum ThemeMotion {
+  FULL
+  NONE
+  REDUCED
+}
+
+"""
+A theme as a universe or an account refers to it: { universe, name } ("universe" null: a personal
+theme of the account), its current version (a new version reaches its users), "deleted": deleted
+by its creator and still applied. A theme removed by the moderation is served as Socle. As an
+argument (ThemeRefInput): { universe, name }, "version" and "deleted" ignored.
+"""
+type ThemeRef {
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean!
+  """
+  The name of the theme ref.
+  """
+  name: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int
+}
+
+"""
+A theme by its universe and its name (and a version).
+"""
+input ThemeRefInput {
+  """
+  Whether it is deleted.
+  """
+  deleted: Boolean
+  """
+  The name of the theme ref input.
+  """
+  name: String!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int
+}
+
+"""
+The typefaces of a theme: its title typeface and its accent typeface.
+"""
+type ThemeTypography {
+  """
+  The accent color.
+  """
+  accent: String
+  """
+  Its title.
+  """
+  title: String!
+}
+
+"""
+What a theme of the catalog is used for: a personal theme or a universe theme.
+"""
+enum ThemeUse {
+  PERSONAL
+  UNIVERSE
+}
+
+"""
+The variant of a theme: day or night.
+"""
+enum ThemeVariant {
+  DAY
+  NIGHT
+}
+
+"""
+Themes (themes.feature; contracts/themes.md). A title typeface approved by the social platform
+(Google Fonts, free: OFL-1.1 or Apache-2.0), with its category and scripts.
+"""
+type Typeface {
+  """
+  Its category (serif, sans-serif, display…).
+  """
+  category: String!
+  """
+  Its license.
+  """
+  license: String!
+  """
+  The name of the typeface.
+  """
+  name: String!
+  """
+  The scripts it covers.
+  """
+  scripts: [String!]!
+  """
+  Where the typeface is served from.
+  """
+  source: AWSURL!
+}
+
+"""
+A universe theme trial (since v54.0.0, contracts/themes.md § Universe theme trials and draft
+previews): the studio draft of a theme served to every reader of "universe" (and of its
+sub-universes that take its theme) for 24 hours, validated as at publication: "document" the
+theme object (format 2, its scrims and text scrims computed) with "imageMeta" (the widths of its
+images by upload id); "version" changes at each valid save (the key of the caches).
+"""
+type UniverseThemeTrial {
+  """
+  Its document (JSON), as published.
+  """
+  document: AWSJSON!
+  """
+  The identifier of the studio draft.
+  """
+  draftId: ID!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+  """
+  Who started it, as shown.
+  """
+  startedBy: AccountRef!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  Its version, which grows at each publication.
+  """
+  version: Int!
+}
+
+"""
+The watermark of a universe (universe-identity.feature): its universe image (LOGO) or a text (the name of the
+universe by default); as an argument: WatermarkInput.
+"""
+type Watermark {
+  """
+  The kind of the watermark.
+  """
+  kind: WatermarkKind!
+  """
+  Its orientation.
+  """
+  orientation: WatermarkOrientation!
+  """
+  The text as written.
+  """
+  text: String
+}
+
+"""
+What the watermark of a universe shows: its logo or a text.
+"""
+enum WatermarkKind {
+  LOGO
+  TEXT
+}
+
+"""
+The orientation of a watermark.
+"""
+enum WatermarkOrientation {
+  HORIZONTAL
+  VERTICAL
+}
+
+"""
+A watermark: a logo or a text, and its orientation.
+"""
+input WatermarkSettingInput {
+  """
+  The kind of the watermark setting input.
+  """
+  kind: WatermarkKind!
+  """
+  Its orientation.
+  """
+  orientation: WatermarkOrientation
+  """
+  The text as written.
+  """
+  text: String
+}

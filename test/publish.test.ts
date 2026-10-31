@@ -44,11 +44,12 @@ function scripted(handlers: Record<string, Handler>, extra: Parameters<typeof ha
 }
 const png = (w: number, h: number) => { const b = Buffer.alloc(64); Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13]).copy(b); b.write('IHDR', 12, 'ascii'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
 const upload = (_v: unknown, n: number) => ({ id: `up-${n}`, url: 'https://s3.test/bucket', fields: JSON.stringify({ key: `k-${n}`, policy: 'p' }) });
+const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const post = (v: Record<string, unknown>) => ({ id: 'post-1', text: v.text, images: (v.images as unknown[] | null) ?? [] });
 
 describe('post', () => {
   it('sends its images with the presigned POST, then the post again while they are processed, with the same requestId', async () => {
-    const { h, calls, uploads } = scripted({ requestImageUpload: upload, createPost: (v, n) => { if (n === 1) throw new Error('IMAGE_NOT_READY'); return post(v); } });
+    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, createPost: (v, n) => { if (n === 1) throw new Error('IMAGE_NOT_READY'); return post(v); } });
     writeFileSync(join(h.dir, 'a.png'), png(800, 600));
     const exit = await h.run('post', 'Le stade #foot', '--in', '%paris', '--image', join(h.dir, 'a.png'), '--alt', 'Le stade', '--json');
     expect(h.values, JSON.stringify(h.values)).toHaveLength(1);
@@ -58,7 +59,10 @@ describe('post', () => {
     expect(sent.length).toBe(2);
     expect(sent[0].variables).toMatchObject({ text: 'Le stade #foot', universe: '%paris', images: [{ id: 'up-1', alt: 'Le stade' }] });
     expect(sent[1].variables.requestId).toBe(sent[0].variables.requestId);
-    expect(calls.find((c) => c.field === 'requestImageUpload')!.variables).toEqual({ t: 'image/png', s: 64 });
+    expect(String(sent[0].variables.requestId)).toMatch(UUID_V7);
+    const media = calls.find((c) => c.field === 'requestMediaUpload')!.variables;
+    expect(media.i).toEqual({ kind: 'IMAGE', contentType: 'image/png', size: 64, destination: 'POST', address: '%paris' });
+    expect(String(media.r)).toMatch(UUID_V7);
     expect(h.slept).toEqual([2000]);
     expect(last(h)).toMatchObject({ id: 'post-1' });
   });
@@ -89,22 +93,27 @@ describe('post', () => {
 
 describe('the interactions', () => {
   it('resolve an @handle to the id of the account, and send the arguments of the contract', async () => {
-    const { h, calls } = scripted({ accountByHandle: () => ({ id: 'eu-alice' }), block: (v) => ({ id: v.accountId, handle: 'alice' }), likePost: (v) => ({ id: v.id, likeCount: 1 }) });
+    const { h, calls } = scripted({ accountByHandle: () => ({ id: 'eu-alice' }), setBlock: (v) => ({ accountId: v.accountId, blockedByMe: v.blocked }), setLike: (v) => ({ id: v.postId, likeCount: 1 }) });
     expect(await h.run('block', '@alice', '--json')).toBe(0);
-    expect(calls.find((c) => c.field === 'block')!.variables).toEqual({ accountId: 'eu-alice' });
+    expect(calls.find((c) => c.field === 'setBlock')!.variables).toMatchObject({ accountId: 'eu-alice', blocked: true, requestId: expect.stringMatching(UUID_V7) });
+    expect(await h.run('unblock', '@alice', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toMatchObject({ accountId: 'eu-alice', blocked: false });
     expect(await h.run('like', 'p1', '--quiet')).toBe(0);
     expect(h.lines.pop()).toBe('p1');
+    expect(calls.at(-1)!.variables).toMatchObject({ postId: 'p1', liked: true });
   });
   it('ask a confirmation for what cannot be undone', async () => {
-    const { h, calls } = scripted({ deletePost: (v) => ({ id: v.id }) });
+    const { h, calls } = scripted({ deletePost: (v) => ({ id: v.postId }) });
     expect(await h.run('posts', 'delete', 'p1', '--json')).toBe(2);
     expect(calls).toEqual([]);
     expect(await h.run('posts', 'delete', 'p1', '--yes', '--json')).toBe(0);
   });
   it('report a theme by its address, with its reason and its part', async () => {
-    const { h, calls } = scripted({ reportTheme: () => ({ id: 'r1' }) });
+    const { h, calls } = scripted({ report: () => ({ id: 'r1' }) });
     expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--json')).toBe(0);
-    expect(calls[0].variables).toEqual({ universe: '%paris', name: 'stade-nuit', part: 'BANNER', reason: 'ILLEGAL', article: null });
+    expect(calls[0].variables).toMatchObject({ t: { kind: 'THEME', universe: '%paris', name: 'stade-nuit', themePart: 'BANNER' }, reason: 'ILLEGAL', article: null, r: expect.stringMatching(UUID_V7) });
+    expect(await h.run('report', 'channel-message', 'm1', '--channel', '%club~general', '--reason', 'SPAM_OR_FLOOD', '--json')).toBe(0);
+    expect(calls[1].variables.t).toEqual({ kind: 'CHANNEL_MESSAGE', discussion: { channel: '%club~general' }, messageId: 'm1' });
   });
 });
 
@@ -133,7 +142,7 @@ describe('--watch', () => {
 
 describe('batch', () => {
   it('runs the lines in order, each with its requestId; stops at the first refusal unless --continue', async () => {
-    const { h, calls } = scripted({ likePost: (v) => { if (v.id === 'bad') throw new Error('POST_NOT_FOUND'); return { id: v.id }; }, replyTo: (v) => ({ id: `r-${v.requestId}` }) });
+    const { h, calls } = scripted({ setLike: (v) => { if (v.postId === 'bad') throw new Error('POST_NOT_FOUND'); return { id: v.postId }; }, replyTo: (v) => ({ id: `r-${v.requestId}` }) });
     const file = join(h.dir, 'a.jsonl');
     writeFileSync(file, ['{"command": "like", "input": {"id": "p1"}}', '{"command": "like", "input": {"id": "bad"}}', '{"argv": ["reply", "p1", "Bien vu"], "requestId": "5b0c3f6e-6d2f-4c7e-9a43-0f1c2b3d4e5f"}'].join('\n'));
     expect(await h.run('batch', '--file', file, '--json')).toBe(1);
@@ -155,13 +164,14 @@ describe('theme publish', () => {
     imageSlots: { timeColumn: { day: 'time-column-day.png' }, cardTexture: { day: 'card-texture-day.png' }, page: null },
   };
   it('sends each image the JSON names, replaces it with its upload id, then publishes', async () => {
-    const { h, calls, uploads } = scripted({ requestImageUpload: upload, publishTheme: (v) => ({ name: JSON.parse(String(v.t)).name, version: 1 }) });
+    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ name: JSON.parse(String(v.t)).name, version: 1 }) });
     const dir = join(h.dir, 't'); mkdirSync(dir);
     writeFileSync(join(dir, 'theme.json'), JSON.stringify(doc));
     writeFileSync(join(dir, 'time-column-day.png'), png(1080, 1440));
     writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(0);
     expect(uploads.length).toBe(2);
+    expect(calls.filter((c) => c.field === 'requestMediaUpload').map((c) => (c.variables.i as { destination: string }).destination)).toEqual(['THEME', 'THEME']);
     const published = calls.find((c) => c.field === 'publishTheme')!.variables;
     expect(published.u).toBe('%paris');
     const sent = JSON.parse(String(published.t));
@@ -171,14 +181,14 @@ describe('theme publish', () => {
   });
   it('keeps the opacities, removes the scrims and the text scrims, and tells what the platform corrected with the value kept', async () => {
     const served = { night: { palette: { text: '#F2F4F8' }, surfaces: { badge: { opacity: 100 }, postCard: { secondaryText: '#B0B4BA' } } } };
-    const { h, calls } = scripted({ requestImageUpload: upload, publishThemeVersion: (v) => ({ universe: v.u, name: v.n, version: 2, corrected: ['night.text', 'night.surfaces.badge.opacity', 'night.surfaces.postCard.secondaryText'], document: JSON.stringify({ variants: served }) }) });
+    const { h, calls } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 2, corrected: ['night.text', 'night.surfaces.badge.opacity', 'night.surfaces.postCard.secondaryText'], document: JSON.stringify({ variants: served }) }) });
     const dir = join(h.dir, 't'); mkdirSync(dir);
     const transparent = { ...doc, surfaceOpacity: 85, textBackdrop: 'block', textScrims: { postCard: {} }, scrims: { page: {} }, variants: { ...doc.variants, night: { ...doc.variants.night, surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } };
     writeFileSync(join(dir, 'theme.json'), JSON.stringify(transparent));
     writeFileSync(join(dir, 'time-column-day.png'), png(1080, 1440));
     writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version', '--json')).toBe(0);
-    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishThemeVersion')!.variables.t));
+    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishTheme')!.variables.t));
     expect(sent).toMatchObject({ surfaceOpacity: 85, textBackdrop: 'block', variants: { night: { surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } });
     expect(sent.textScrims).toBeUndefined();
     expect(sent.scrims).toBeUndefined();
@@ -200,32 +210,47 @@ describe('theme trials, draft previews and the post transparency', () => {
   it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(postTransparency)', async () => {
     const { h, calls } = scripted({
       startUniverseThemeTrial: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, startedAt: '2026-10-27T10:00:00.000Z', endsAt: '2026-10-28T10:00:00.000Z', startedBy: { id: 'eu-1', handle: 'alice', displayName: 'Alice' } }),
-      endUniverseThemeTrial: () => true, startDraftPreview: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, endsAt: '2026-10-28T10:00:00.000Z' }), endDraftPreview: () => true,
-      setPersonalTheme: (v) => ({ postTransparency: v.postTransparency }),
+      endUniverseThemeTrial: () => ({ name: '%paris' }), startDraftPreview: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, endsAt: '2026-10-28T10:00:00.000Z' }), endDraftPreview: () => ({ name: '%paris' }),
+      setPersonalTheme: (v) => ({ postTransparency: (v.input as { postTransparency?: string }).postTransparency }),
     });
     expect(await h.run('studio', 'try', 'd-1')).toBe(0);
     expect(h.all()).toMatch(/%paris: trial of the draft d-1 \(v1\) until 2026-10-28T10:00:00.000Z/);
     expect(calls.at(-1)!.query).not.toContain('document');
     expect(await h.run('studio', 'end-try', '%paris', '--json')).toBe(0);
-    expect(calls.at(-1)!.variables).toEqual({ universe: '%paris' });
+    expect(calls.at(-1)!.variables).toEqual({ universe: '%paris', requestId: expect.stringMatching(UUID_V7) });
     expect(await h.run('studio', 'preview', 'd-1', '--json')).toBe(0);
     expect(await h.run('studio', 'end-preview', '%paris', '--json')).toBe(0);
     expect(calls.map((c) => c.field)).toEqual(['startUniverseThemeTrial', 'endUniverseThemeTrial', 'startDraftPreview', 'endDraftPreview']);
     expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'LIQUID', '--json')).toBe(0);
-    expect(calls.at(-1)!.variables).toEqual({ postTransparency: 'LIQUID' });
+    expect(calls.at(-1)!.variables).toEqual({ input: { postTransparency: 'LIQUID' }, requestId: expect.stringMatching(UUID_V7) });
     expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'CLEAR', '--json')).toBe(2);
   });
 });
 
 describe('messages', () => {
-  it('sends a direct message to an @handle with its image and a UUIDv7 as its id', async () => {
-    const { h, calls, uploads } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), requestImageUpload: upload, sendDirectMessage: (v) => ({ id: v.id, text: v.text }) });
+  it('sends a direct message to an @handle with its image and a UUIDv7 as its requestId (sendMessage to { accountId })', async () => {
+    const { h, calls, uploads } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), requestMediaUpload: upload, sendMessage: (v) => ({ id: `eu-${v.requestId}`, text: (v.input as { text: string }).text }) });
     writeFileSync(join(h.dir, 'a.png'), png(100, 100));
     expect(await h.run('dm', '@bob', 'Bonjour', '--image', join(h.dir, 'a.png'), '--json')).toBe(0);
-    const sent = calls.find((c) => c.field === 'sendDirectMessage')!.variables;
-    expect(sent).toMatchObject({ accountId: 'eu-bob', text: 'Bonjour', images: [{ id: 'up-1' }] });
-    expect(String(sent.id)).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    const sent = calls.find((c) => c.field === 'sendMessage')!.variables;
+    expect(sent.input).toMatchObject({ to: { accountId: 'eu-bob' }, text: 'Bonjour', images: [{ id: 'up-1' }] });
+    expect(String(sent.requestId)).toMatch(UUID_V7);
+    expect((calls.find((c) => c.field === 'requestMediaUpload')!.variables.i as { destination: string }).destination).toBe('DIRECT_MESSAGE');
     expect(uploads.length).toBe(1);
+    expect(last(h)).toMatchObject({ id: `eu-${sent.requestId}` });
+  });
+  it('sends and reads the messages of a group chat and of a channel as discussions', async () => {
+    const page = (v: Record<string, unknown>) => ({ items: [{ id: 'm1', createdAt: '2026-10-23T10:00:00.000Z', text: 'x' }], next: null, discussion: v.d });
+    const { h, calls } = scripted({ sendMessage: (v) => ({ id: `eu-${v.requestId}` }), messages: page });
+    expect(await h.run('groups', 'send', 'g1', 'Salut', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables.input).toMatchObject({ to: { groupChatId: 'g1' }, text: 'Salut' });
+    expect(await h.run('channels', 'send', '%club~general', 'Salut', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables.input).toMatchObject({ to: { channel: '%club~general' }, text: 'Salut' });
+    expect(await h.run('channels', 'read', '%club~general', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables.d).toEqual({ channel: '%club~general' });
+    expect(await h.run('groups', 'read', 'g1', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables.d).toEqual({ groupChatId: 'g1' });
+    expect(last(h)).toMatchObject({ items: [{ id: 'm1' }] });
   });
   it('creates a group chat and tells the invitations refused', async () => {
     const { h, calls } = scripted({ accountByHandle: (v) => ({ id: `eu-${v.h}` }) });
@@ -243,7 +268,7 @@ describe('messages', () => {
   it('sets an ephemeral conversation by its duration', async () => {
     const { h, calls } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), setConversationEphemeral: () => true });
     expect(await h.run('dm', 'ephemeral', '@bob', '24h', '--json')).toBe(0);
-    expect(calls.find((c) => c.field === 'setConversationEphemeral')!.variables).toEqual({ a: 'eu-bob', d: 'HOURS_24' });
+    expect(calls.find((c) => c.field === 'setConversationEphemeral')!.variables).toEqual({ a: 'eu-bob', d: 'HOURS_24', r: expect.stringMatching(UUID_V7) });
   });
 });
 

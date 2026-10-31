@@ -1,0 +1,1018 @@
+"""
+An arrival (a message of kind ARRIVAL): the name of the arrival zone, nothing else of it.
+"""
+type Arrival {
+  """
+  The name of the arrival zone, 1 to 100 visible characters; nothing else of the zone.
+  """
+  zoneName: String!
+}
+
+"""
+An arrival notice to send: the name of the arrival zone the app entered (1 to 100 visible characters).
+"""
+input ArrivalInput {
+  zoneName: String!
+}
+
+"""
+Channels of the private universes (features/channels/; docs/architecture.md § Channels). A
+channel is designated by its address: its universe followed by "&" and its name
+("%team-fra./tech&dev"), without an account or a tag.
+A channel as a member sees it: "joined" (listed among its channels, notifications on),
+"unread" (messages since it last read it, for a channel joined; 0 otherwise), "muted",
+"mentionsMuted"; "moderator": the caller is a channel moderator of it; "moderates": a channel
+moderator, the owner or an admin. "slowModeSeconds": 0 (none), 10, 60 or 300.
+"retentionDays": how long its messages are kept (30 days by default since specs v60.0.0; 7 days until v59).
+A public channel (since v50.1.0, public-channels.feature): "%paris&market", read by everyone,
+kept 7 days, its channel window served by messages; no channel moderator ("moderator"
+false, "moderates": a moderator of the universe); "general" false, but for "&general" of a public universe
+(since v76.0.0, D-208: opened by the platform at "village", first of the channels and of the pinned
+channels, neither archived nor deleted but below "village", not joined by default).
+"""
+type Channel {
+  """
+  Its address, with its signs ("%team-fra./tech&dev").
+  """
+  address: String!
+  """
+  Whether delegated agents are forbidden to write in it.
+  """
+  agentsForbidden: Boolean!
+  """
+  Whether it is archived: read only.
+  """
+  archived: Boolean!
+  """
+  When it was archived; null otherwise.
+  """
+  archivedAt: AWSDateTime
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Whether it is the general channel of its universe, which stays: in a private universe every member joins
+  it; in a public universe (since v76.0.0, D-208) it is offered to each new resident.
+  """
+  general: Boolean!
+  """
+  The identifier of the channel.
+  """
+  id: ID!
+  """
+  Whether the caller joined it.
+  """
+  joined: Boolean!
+  """
+  Since v49.9.0: its last message the caller may read (read with channel and the pinned channels; null
+  elsewhere, and when it has none).
+  """
+  lastMessage: Message
+  """
+  Whether the caller muted its mentions too.
+  """
+  mentionsMuted: Boolean!
+  """
+  Whether the caller moderates it (a channel moderator, the owner, an admin; a moderator of a public
+  universe).
+  """
+  moderates: Boolean!
+  """
+  Whether the caller is a channel moderator of it.
+  """
+  moderator: Boolean!
+  """
+  Whether the caller muted it.
+  """
+  muted: Boolean!
+  """
+  The name of the channel.
+  """
+  name: String!
+  """
+  How long its messages are kept, in days (the channel message retention; a public channel: its channel
+  window).
+  """
+  retentionDays: Int!
+  """
+  The slow mode: the seconds a member waits between two messages; 0 when off.
+  """
+  slowModeSeconds: Int!
+  """
+  The address of the universe, with its sign ("%paris").
+  """
+  universe: String!
+  """
+  The unread messages or items.
+  """
+  unread: Int!
+}
+
+"""
+The activity of a channel since the last visit of the reader (UniverseNews.activeChannels): the channel, its
+messages since, its last messages.
+"""
+type ChannelActivity {
+  """
+  The channel of the universe (its address in Channel.address).
+  """
+  channel: Channel!
+  """
+  Its last messages.
+  """
+  lastMessages: [Message!]!
+  """
+  Its messages since the last visit.
+  """
+  messages: Int!
+}
+
+"""
+The channels of a level (or of every level) of a private universe, by name; "count": its channels across its
+levels (100 at most); "membersCreate": the members create channels.
+"""
+type ChannelList {
+  """
+  The channels of the whole universe, archived ones included.
+  """
+  count: Int!
+  """
+  The channel list items of this page.
+  """
+  items: [Channel!]!
+  """
+  Whether the members may create channels (false by default).
+  """
+  membersCreate: Boolean!
+}
+
+"""
+What a channel proposal does to a public channel.
+"""
+enum ChannelProposalAction {
+  OPEN
+  ARCHIVE
+  UNARCHIVE
+  DELETE
+}
+
+"""
+A writing ban in force: until when, and who gave it.
+"""
+type ChannelWritingBan {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  Who gave it, as shown.
+  """
+  by: AccountRef!
+  """
+  Until when.
+  """
+  until: AWSDateTime!
+}
+
+"""
+A connection request, as the caller sees it: sent or received, its messages, its status.
+"""
+type ConnectionRequest {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The reason given with an open decline; null otherwise.
+  """
+  declinedReason: String
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The messages of the request, the oldest first.
+  """
+  messages: [RequestMessage!]!
+  """
+  Whether the caller muted it.
+  """
+  mutedByMe: Boolean!
+  """
+  The state of the connection request.
+  """
+  status: ConnectionRequestStatus!
+}
+
+"""
+A page of connection requests, the most recent first.
+"""
+type ConnectionRequestPage {
+  """
+  The connection request items of this page.
+  """
+  items: [ConnectionRequest!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The answer to a connection request; a sender sees one declined silently as waiting.
+"""
+enum ConnectionRequestStatus {
+  ACCEPTED
+  ACCEPTED_AUTOMATICALLY
+  DECLINED_OPENLY
+  DECLINED_SILENTLY
+  WAITING
+}
+
+"""
+What a discussion is: a conversation (the direct messages between two connected accounts), a group chat
+or a channel. "Discussion" is a word of the API only, never of the specs: one name for the three places
+where a message is written (api-design.md P-3, G-1).
+"""
+enum DiscussionKind {
+  CONVERSATION
+  GROUP_CHAT
+  CHANNEL
+}
+
+"""
+A discussion as the API names it: its kind, and the one field of that kind.
+"""
+type DiscussionRef {
+  """
+  The kind of the discussion ref.
+  """
+  kind: DiscussionKind!
+  """
+  The other participant of a conversation; null otherwise.
+  """
+  account: AccountRef
+  """
+  The group chat; null otherwise.
+  """
+  groupChat: GroupRef
+  """
+  The address of the channel ("%team-fra./tech&dev"); null otherwise.
+  """
+  channel: String
+}
+
+"""
+A discussion as an argument: exactly one of accountId (the conversation with that account), groupChatId
+(a group chat) or channel (the address of a channel, "%team-fra./tech&dev"). None or several:
+DISCUSSION_TARGET_INVALID.
+"""
+input DiscussionRefInput {
+  accountId: ID
+  groupChatId: ID
+  channel: String
+}
+
+"""
+The new messages of a conversation or a group chat ephemeral (24 hours, 7 days) or not (OFF: kept 1 year).
+"""
+enum EphemeralDuration {
+  DAYS_7
+  HOURS_24
+  OFF
+}
+
+"""
+A group chat as one of its members sees it ("myRole", "muted", "mentionsMuted": the caller's).
+"""
+type GroupChat {
+  """
+  Whether only the admins write (announcement mode).
+  """
+  announcement: Boolean!
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its creator.
+  """
+  creatorId: ID!
+  """
+  Its description; null when none.
+  """
+  description: String
+  """
+  The setting of its new messages (set by its admins: setGroupChatEphemeral).
+  """
+  ephemeral: EphemeralDuration!
+  """
+  The identifier of the group chat.
+  """
+  id: ID!
+  """
+  Since v47.1.0 (contracts/map.md): its meeting point, set by a member (an admin in announcement mode), kept
+  24 hours (until "meetingPointUntil").
+  """
+  meetingPoint: Place
+  """
+  Until when its meeting point is kept (24 hours); null when none.
+  """
+  meetingPointUntil: AWSDateTime
+  """
+  The number of members.
+  """
+  memberCount: Int!
+  """
+  Whether every member may invite (otherwise the admins only).
+  """
+  membersCanInvite: Boolean!
+  """
+  Whether the caller muted its mentions too.
+  """
+  mentionsMuted: Boolean!
+  """
+  Whether the caller muted it.
+  """
+  muted: Boolean!
+  """
+  The role of the caller; null when none.
+  """
+  myRole: GroupRole
+  """
+  The name of the group chat.
+  """
+  name: String!
+}
+
+"""
+The values of a group chat the app started from when it changes them (changeGroupChat expected): a field
+changed meanwhile is refused (CHANGED_MEANWHILE).
+"""
+input GroupChatExpectedInput {
+  """
+  Whether only the admins write (announcement mode).
+  """
+  announcement: Boolean
+  """
+  Its description; null when none.
+  """
+  description: String
+  membersCanInvite: Boolean
+  """
+  The name of the group chat expected input.
+  """
+  name: String
+}
+
+"""
+An event of the timeline: "actorId" did it ("target": the member removed; "name": created or renamed to).
+"""
+type GroupEvent {
+  """
+  The member who acted.
+  """
+  actorId: ID!
+  """
+  The name of the group chat, for created and renamed; null otherwise.
+  """
+  name: String
+  """
+  The member the event is about (joined, removed), as shown; null otherwise.
+  """
+  target: AccountRef
+  """
+  The identifier of the account it is about; null otherwise.
+  """
+  targetId: ID
+  """
+  What happened.
+  """
+  type: GroupEventType!
+}
+
+"""
+An event of the timeline of a group chat. The values stay in lowercase, as stored.
+"""
+enum GroupEventType {
+  created
+  joined
+  left
+  removed
+  renamed
+}
+
+"""
+An invitation to a group chat, as the inviter or the invitee sees it.
+"""
+type GroupInvitation {
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  The reason given with an open decline; null otherwise.
+  """
+  declinedReason: String
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The group chat, as shown.
+  """
+  group: GroupRef!
+  """
+  Who is invited, as shown.
+  """
+  invitee: AccountRef!
+  """
+  Who invited, as shown.
+  """
+  inviter: AccountRef!
+  """
+  The state of the group invitation.
+  """
+  status: GroupInvitationStatus!
+}
+
+"""
+A page of invitations to group chats, the most recent first.
+"""
+type GroupInvitationPage {
+  """
+  The group invitation items of this page.
+  """
+  items: [GroupInvitation!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+The answer to an invitation; an inviter sees one declined silently as waiting.
+"""
+enum GroupInvitationStatus {
+  ACCEPTED
+  DECLINED_OPENLY
+  DECLINED_SILENTLY
+  EXPIRED
+  WAITING
+}
+
+"""
+A member of a group chat and its role.
+"""
+type GroupMember {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  Its role.
+  """
+  role: GroupRole!
+}
+
+"""
+Group chats (features/group-chats/).
+Display copy of a group chat where it is referenced; the identifier decides.
+"""
+type GroupRef {
+  """
+  The identifier of the group ref.
+  """
+  id: ID!
+  """
+  The number of members.
+  """
+  memberCount: Int!
+  """
+  The name of the group ref.
+  """
+  name: String!
+}
+
+"""
+The role of a member of a group chat. The values stay in lowercase, as stored.
+"""
+enum GroupRole {
+  admin
+  member
+}
+
+"""
+A conversation ("account") or a group chat ("group"); "mutedByMe": the account, or the group chat, muted.
+"""
+type InboxItem {
+  """
+  The account, as shown.
+  """
+  account: AccountRef
+  """
+  The group chat, as shown; null otherwise.
+  """
+  group: GroupRef
+  """
+  The kind of the inbox item.
+  """
+  kind: InboxItemKind!
+  """
+  When its last message was sent.
+  """
+  lastAt: AWSDateTime!
+  """
+  Whether the caller sent its last message.
+  """
+  lastFromMe: Boolean!
+  """
+  What the last message is, set with "lastText" by every message and by the deletion for both
+  of the last one; null when there is no message yet (a group chat just joined), or on an item
+  whose last message came before 2026-10-15.
+  """
+  lastKind: InboxLastKind
+  """
+  The text of its last message; empty for a voice message, a deleted one and the other contents.
+  """
+  lastText: String!
+  """
+  Whether the caller muted it.
+  """
+  mutedByMe: Boolean!
+  """
+  The unread messages or items.
+  """
+  unread: Boolean!
+}
+
+"""
+What an inbox item is: a conversation or a group chat.
+"""
+enum InboxItemKind {
+  CONVERSATION
+  GROUP_CHAT
+}
+
+"""
+What the last message of an inbox item is: TEXT (a text only), IMAGES (with images), CLIP (with
+a clip), VOICE (a voice message, "lastText" empty), DELETED (deleted for both: "lastText" empty).
+"""
+enum InboxLastKind {
+  ARRIVAL
+  CLIP
+  DELETED
+  IMAGES
+  LIVE_SHARE
+  MEET_UP
+  PLACE
+  TEXT
+  VOICE
+}
+
+"""
+The inbox: the conversations and group chats of the caller, the most recent message first.
+"""
+type InboxPage {
+  """
+  The inbox items of this page.
+  """
+  items: [InboxItem!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  The conversations and group chats with an unread message (not the messages; a muted group chat only when
+  it mentions the caller).
+  """
+  unread: Int!
+  """
+  The connection requests and the invitations to group chats received, waiting for an answer.
+  """
+  requests: Int!
+}
+
+"""
+A channel of the real-time updates to subscribe to, on the Event API of "shard" (custom.events.shards).
+"""
+type LiveChannel {
+  """
+  The channel of the Event API to subscribe to, as realtime.md names it: a channel of the real time, never the
+  address of a channel of a universe (P-10).
+  """
+  eventChannel: String!
+  """
+  The shard of the Event API that carries it (technical: the real time is technical by nature, G-14).
+  """
+  shard: String!
+}
+
+"""
+The marker a live share leaves in its conversation or group chat (a message of kind LIVE_SHARE): "endsAt" its
+end, or when it ended; "ended" once over.
+"""
+type LiveShareMarker {
+  """
+  Whether the live share ended.
+  """
+  ended: Boolean!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  The identifier of the live share marker.
+  """
+  id: ID!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+}
+
+"""
+The Event API channels of a reading, leased until "until": call watch again every 5
+minutes while reading. The keys to filter the events of a combined address: "universeKey"
+(null: across the platform), "tagKeys" (all of them), "accountId" (null: any author).
+"""
+type LiveWatch {
+  """
+  The identifier of the account.
+  """
+  accountId: ID
+  """
+  The channels of the Event API to subscribe to.
+  """
+  eventChannels: [LiveChannel!]!
+  """
+  The keys of the tags of a combined address, to filter the events.
+  """
+  tagKeys: [String!]!
+  """
+  The key of the universe of a combined address, to filter the events; null: across the platform.
+  """
+  universeKey: String
+  """
+  Until when.
+  """
+  until: AWSDateTime!
+}
+
+"""
+A meet-up (a message of kind MEET_UP): its place, its time, its title (none: null), cancelled,
+its last change of place, time or title, and the answers of its participants the caller sees
+(its author first; never across a block).
+"""
+type MeetUp {
+  """
+  The answers of the participants the caller sees (never across a block).
+  """
+  answers: [MeetUpAnswer!]!
+  """
+  The time of the meet-up.
+  """
+  at: AWSDateTime!
+  """
+  Whether it is cancelled.
+  """
+  cancelled: Boolean!
+  """
+  When it was last changed; null when never.
+  """
+  changedAt: AWSDateTime
+  """
+  The place of the meet-up.
+  """
+  place: Place!
+  """
+  Its title, 1 to 100 visible characters; null when none.
+  """
+  title: String
+}
+
+"""
+An answer of a participant, and when it was given (its author: ACCEPTED when it was sent).
+"""
+type MeetUpAnswer {
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The answer of the participant.
+  """
+  answer: MeetUpAnswerKind!
+  """
+  When it answered.
+  """
+  at: AWSDateTime!
+}
+
+"""
+The answer to a meet-up.
+"""
+enum MeetUpAnswerKind {
+  ACCEPTED
+  DECLINED
+}
+
+"""
+A meet-up to send or to change: the whole place, time and title.
+"""
+input MeetUpInput {
+  place: PlaceInput!
+  at: AWSDateTime!
+  title: String
+}
+
+"""
+A message of a conversation, a group chat or a channel: one type for the three (G-1). The fields of a
+content that does not exist in a discussion are always null there (a meet-up in a channel). A message
+deleted for everyone keeps its place with deleted true, its text empty and its contents null.
+"""
+type Message {
+  """
+  Its identifier: "<cell>-<requestId>", the cell of the discussion and the requestId of the sendMessage (or
+  the requestConnection) that created it, a UUIDv7 dated by the app (R-1, contracts/cells.md § Which cell
+  to call, contracts/messages.md § Message identifiers). Never compare identifiers to order messages:
+  compare createdAt.
+  """
+  id: ID!
+  """
+  The discussion of the message.
+  """
+  discussion: DiscussionRef!
+  """
+  Its author, as shown next to it; for an event, the member who acted.
+  """
+  author: AccountRef!
+  """
+  The kind of the message.
+  """
+  kind: MessageKind!
+  """
+  The text as written (to change it); empty for a voice message, a place, a meet-up, an arrival, a live
+  share marker, an event, and once deleted.
+  """
+  text: String!
+  """
+  The text as shown, its signs resolved (contracts/text.md).
+  """
+  display: String!
+  """
+  The zones of display: links, mentions, formatting (contracts/text.md).
+  """
+  spans: [TextSpan!]!
+  """
+  Its images, in order (4 at most); empty when it has none.
+  """
+  images: [Image!]!
+  """
+  Its clip; null when none.
+  """
+  clip: Clip
+  """
+  A voice message, sent alone (no text, image, clip nor link).
+  """
+  voice: Voice
+  """
+  The preview of its link, when the sender accepted it (contracts/messages.md § Link previews).
+  """
+  link: LinkPreview
+  """
+  A place sent (a conversation or a group chat): no text; null once deleted.
+  """
+  place: Place
+  """
+  A meet-up (a conversation or a group chat): no text; its answers are those the caller sees; null once
+  deleted.
+  """
+  meetUp: MeetUp
+  """
+  An arrival notice (a conversation or a group chat): no text; null once deleted.
+  """
+  arrival: Arrival
+  """
+  The marker of a live share (a conversation or a group chat): no text; null once deleted.
+  """
+  liveShare: LiveShareMarker
+  """
+  The event of the timeline of a group chat, for kind event; null otherwise.
+  """
+  event: GroupEvent
+  """
+  The message it responds to, in the same discussion; null otherwise.
+  """
+  respondsTo: ID
+  """
+  The delegated agent that wrote it for its operator; null for a message written by the author itself.
+  """
+  via: PostVia
+  """
+  Its language (ISO 639-1), detected when sent and changed; null when none was detected, and once
+  deleted.
+  """
+  language: String
+  """
+  Whether it mentions "@channel" (a channel of a private universe); false elsewhere.
+  """
+  mentionsChannel: Boolean!
+  """
+  When the platform received it: the order of the messages, and of the read receipts (ReadMark.upToAt).
+  """
+  createdAt: AWSDateTime!
+  """
+  When its text was last changed; null when never.
+  """
+  changedAt: AWSDateTime
+  """
+  When it disappears: 1 year after it was sent, the ephemeral duration in force when it was sent, or the
+  channel message retention (a channel).
+  """
+  expiresAt: AWSDateTime!
+  """
+  Deleted for everyone: text empty, contents null.
+  """
+  deleted: Boolean!
+  """
+  Who deleted it for everyone; null while it is not deleted.
+  """
+  deletedBy: MessageDeletedBy
+  """
+  The caller deleted it for itself: returned by messageChanges only, without text, so that the app drops
+  it; never in a page of messages.
+  """
+  deletedForMe: Boolean!
+  """
+  A message of a connection request still waiting for an answer (a conversation); false elsewhere.
+  """
+  pending: Boolean!
+}
+
+"""
+Who deleted a message for everyone: its author, a group chat admin, or a moderator (of a channel, or the
+moderation of a public universe).
+"""
+enum MessageDeletedBy {
+  AUTHOR
+  ADMIN
+  MODERATOR
+}
+
+"""
+What a message is: a message written by its author, or an event of the timeline of a group chat
+(created, joined, left, removed, renamed: see event). The values stay in lowercase, as stored.
+"""
+enum MessageKind {
+  message
+  event
+}
+
+"""
+A page of the messages of a discussion, the newest first (messages), or of its changes, the oldest
+change first (messageChanges).
+"""
+type MessagePage {
+  """
+  The message items of this page.
+  """
+  items: [Message!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  The discussion read.
+  """
+  discussion: DiscussionRef!
+  """
+  The ephemeral setting of the new messages of a conversation or a group chat, as every participant sees
+  it; null for a channel.
+  """
+  ephemeral: EphemeralDuration
+  """
+  Up to which message the other participants read the discussion: the other participant of a conversation
+  (at most one), the other members of a group chat; empty when unknown, when the caller or the reader
+  turned read receipts off, and in a channel.
+  """
+  reads: [ReadMark!]!
+  """
+  The group chat, as the caller sees it (a group chat); null otherwise.
+  """
+  groupChat: GroupChat
+  """
+  The channel, as the caller sees it (a channel); null otherwise.
+  """
+  channel: Channel
+}
+
+"""
+A read receipt: "account" read the conversation or the group chat up to the message "upTo",
+received by the platform at "upToAt": every message whose "createdAt" (when the platform
+received it) is at or before "upToAt" is read; at "readAt". Shown only when both the reader
+and the caller keep read receipts on.
+"""
+type ReadMark {
+  """
+  The account, as shown.
+  """
+  account: AccountRef!
+  """
+  When it read.
+  """
+  readAt: AWSDateTime!
+  """
+  The latest message it read.
+  """
+  upTo: ID!
+  """
+  When the platform received that message (its createdAt): every message received at or before is read.
+  """
+  upToAt: AWSDateTime!
+}
+
+"""
+What markRead changed.
+"""
+type ReadState {
+  """
+  The discussion marked read; null for notifications.
+  """
+  discussion: DiscussionRef
+  """
+  When the platform marked it.
+  """
+  readAt: AWSDateTime!
+  """
+  The number of notifications marked read (0 when they were read already); null for a discussion.
+  """
+  notificationsMarked: Int
+  """
+  The number of unread notifications left; null for a discussion.
+  """
+  unreadNotifications: Int
+}
+
+"""
+What markRead marks: exactly one of a discussion (read up to its latest message received), notifications
+by their ids, or every notification (allNotifications true). None or several: INVALID_REQUEST.
+"""
+input ReadTargetInput {
+  discussion: DiscussionRefInput
+  notificationIds: [ID!]
+  allNotifications: Boolean
+}
+
+"""
+A message of a connection request.
+"""
+type RequestMessage {
+  """
+  When it was sent.
+  """
+  at: AWSDateTime!
+  """
+  The text as shown, its signs resolved (contracts/text.md).
+  """
+  display: String!
+  """
+  The identifier of the request message.
+  """
+  id: ID!
+  """
+  The text as written.
+  """
+  text: String!
+}
+
+"""
+A message to send (sendMessage): its discussion and one content. A voice message is sent alone
+(VOICE_ALONE); a place, a meet-up and an arrival notice are sent without text, in a conversation or a group
+chat only, each with the refusals it has (contracts/messages.md, contracts/map.md).
+"""
+input SendMessageInput {
+  to: DiscussionRefInput!
+  text: String
+  respondsTo: ID
+  images: [ImageAttachmentInput!]
+  clip: ID
+  voice: ID
+  link: String
+  place: PlaceInput
+  meetUp: MeetUpInput
+  arrival: ArrivalInput
+  """
+  A conversation: unblocks the account first (the caller blocked it), as requestConnection does.
+  """
+  unblock: Boolean
+}
