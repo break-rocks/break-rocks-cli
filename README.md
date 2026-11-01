@@ -320,6 +320,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `messages unreact` | Remove your reaction from a message of a universe discussion (unreactToMessage; one you did not add: nothing changes) | `breakrocks messages unreact <message id> 👍` |
 | `messages thread` | The thread replies of a message of a universe discussion, the oldest first (threadMessages; --all) | `breakrocks messages thread <message id>` |
 | `messages reply-thread` | Reply in the thread of a message of a universe discussion (replyInThread) | `breakrocks messages reply-thread <message id> --text "Bonne idée"` |
+| `messages delete` | Delete a message of a universe discussion, a channel or a group chat, for everyone (--for-me: for yourself only) (deleteMessage) (confirmation: `--yes`) | `breakrocks messages delete <message id> --channel %paris&general --yes` |
 | `themes list` | The theme catalog: by field, creator, order, universe, text (themeCatalog) | `breakrocks themes list --field SPORT` |
 | `themes show` | The page of a theme: screenshots, palette, typefaces, images, origin, use | `breakrocks themes show %test-village-multisport/sport-gabriel-04` |
 | `themes gallery` | The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day) | `breakrocks themes gallery %paris` |
@@ -463,7 +464,9 @@ lisent sont à revoir.
   (`changeDelegatedAgent`).
 - **Les messages** : une conversation, un groupe et un canal sont une *discussion* de l'API ; `dm`,
   `groups send` et `channels send` font `sendMessage`, `dm read`, `groups read` et `channels read` lisent
-  `messages`, `dm delete` fait `deleteMessage`. Un message est un `Message` (`discussion`, `author`,
+  `messages`, `dm delete` et `messages delete <id> (--channel %u&nom | --group <id> | --with @compte) [--for-me]` font
+  `deleteMessage` (confirmation `--yes`, `--dry-run` ; l'auteur supprime son message, et la même mutation laisse
+  l'admin d'un groupe ou le modérateur d'un canal supprimer celui d'un autre, la plateforme tranche). Un message est un `Message` (`discussion`, `author`,
   `deletedBy`…) ; une page de messages, une `MessagePage`.
 - **`requestId`** : toute écriture en porte un, un UUIDv7 fait par le CLI quand `--request-id` manque
   (rejoué, rien n'est fait deux fois) ; l'id d'un post, d'une réponse, d'une citation, d'un repost ou

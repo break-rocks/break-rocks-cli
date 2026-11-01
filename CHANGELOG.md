@@ -5,6 +5,12 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-01
+
+### Added
+
+- `messages delete <messageId>` (`deleteMessage`): the author deletes their own message in a universe discussion or any channel (`--channel %paris&general`), a group chat (`--group <id>`) or a conversation (`--with @handle`); `--for-me` hides it for yourself only. It needs `--yes` (`"yes": true` as an MCP tool) and offers `--dry-run`. The help says that the same mutation lets a group chat admin or a channel moderator delete the message of another for everyone.
+
 ## [0.15.0] - 2026-11-01
 
 Specs v83.1.0 (schema/api-v2 updated; the backend serves it in dev and staging).

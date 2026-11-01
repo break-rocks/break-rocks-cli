@@ -3,6 +3,7 @@
 // reply is a write: --dry-run tells what would be sent, nothing more. The refusals are the platform's.
 import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
+import { usageError } from '../errors.js';
 
 type Silence = { until?: string | null; always?: boolean } | null;
 export type DiscussionView = {
@@ -89,4 +90,25 @@ export const messagesReplyThread = apiCommand({
   kind: 'mutation', op: 'replyInThread', positionals: ['messageId'], descriptions: message, select: MESSAGE, dry: true,
   text: (r) => { const m = r as { id?: string; threadRoot?: string | null } | null; return m ? `${m.id} replied in the thread of ${m.threadRoot ?? '?'}` : '(none)'; },
   examples: ['breakrocks messages reply-thread <message id> --text "Bonne idée"'],
+});
+
+/** The text of a deleteMessage answer: the message as the caller sees it now. */
+const deleteText = (r: unknown) => {
+  const m = r as { id?: string; deleted?: boolean; deletedBy?: string | null; deletedForMe?: boolean } | null;
+  return m ? `${m.id}: ${m.deleted ? `deleted${m.deletedBy ? ` (by ${String(m.deletedBy).toLowerCase()})` : ''}` : m.deletedForMe ? 'deleted for you' : 'not deleted'}` : '(none)';
+};
+export const messagesDelete = apiCommand({
+  name: 'messages delete', summary: 'Delete a message of a universe discussion, a channel or a group chat, for everyone (--for-me: for yourself only) (deleteMessage)',
+  description: 'Name the discussion with exactly one of --channel (a channel or a universe discussion: %paris&general), --group (a group chat id) or --with (a conversation: @handle or id). You delete your own message; the same mutation also lets a group chat admin or a channel moderator delete the message of another for everyone (the platform decides: MESSAGE_NOT_AUTHOR otherwise). --for-me hides it for you only, whoever wrote it. Irreversible: asks for --yes. --dry-run tells what would be sent.',
+  kind: 'mutation', op: 'deleteMessage', flatten: ['discussion'], positionals: ['messageId'], select: MESSAGE, dry: true,
+  rename: { 'discussion.groupChatId': 'group', 'discussion.accountId': 'with' },
+  descriptions: { messageId: 'The message', channel: 'The channel or universe discussion that holds it (%paris&general, %paris~velo)', group: 'The group chat that holds it (its id)', with: 'The other account of the conversation that holds it: @handle or its id', forMe: 'Delete it for yourself only (it stays for the others)' },
+  prepare: (i) => {
+    const targets = ['channel', 'group', 'with'].filter((k) => i[k] !== undefined);
+    if (targets.length !== 1) throw usageError('DISCUSSION_TARGET_INVALID', 'Name the discussion with exactly one of --channel, --group or --with');
+    return i;
+  },
+  confirm: (i) => `Delete the message ${String(i.messageId)}${i.forMe ? ' for yourself' : ' for everyone'}?`,
+  text: deleteText,
+  examples: ['breakrocks messages delete <message id> --channel %paris&general --yes', 'breakrocks messages delete <message id> --group <group id> --for-me --yes', 'breakrocks messages delete <message id> --channel %paris&general --dry-run'],
 });

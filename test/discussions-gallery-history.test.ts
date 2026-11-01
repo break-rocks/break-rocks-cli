@@ -181,10 +181,44 @@ describe('the universe visit history', () => {
 describe('MCP', () => {
   it('exposes every new command as a tool, "yes" only on the destructive one', () => {
     const all = tools();
-    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'themes_gallery', 'themes_star', 'themes_unstar', 'themes_starred', 'themes_try', 'themes_untry', 'themes_trials', 'universes_theme_history', 'universes_theme_restore', 'universes_theme_follow', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_visit', 'settings_history_pause'].map((n) => `breakrocks_${n}`);
+    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'messages_delete', 'themes_gallery', 'themes_star', 'themes_unstar', 'themes_starred', 'themes_try', 'themes_untry', 'themes_trials', 'universes_theme_history', 'universes_theme_restore', 'universes_theme_follow', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_visit', 'settings_history_pause'].map((n) => `breakrocks_${n}`);
     for (const n of names) expect(all.map((t) => t.name), n).toContain(n);
     expect(all.find((t) => t.name === 'breakrocks_universes_history_clear')!.inputSchema.properties).toHaveProperty('yes');
     expect(all.find((t) => t.name === 'breakrocks_universes_history_remove')!.inputSchema.properties).not.toHaveProperty('yes');
     for (const n of ['messages_react', 'messages_unreact', 'messages_reply_thread', 'themes_star', 'themes_try', 'universes_visit', 'universes_history_clear', 'settings_history_pause']) expect(all.find((t) => t.name === `breakrocks_${n}`)!.inputSchema.properties, n).toHaveProperty('dryRun');
+  });
+});
+
+describe('messages delete', () => {
+  const answer = { id: 'eu-m1', deleted: true, deletedBy: 'AUTHOR', deletedForMe: false };
+  it('needs --yes, then deletes in a channel (a universe discussion), a group chat or a conversation', async () => {
+    const { h, calls } = scripted({ deleteMessage: answer });
+    expect(await h.run('messages', 'delete', 'eu-m1', '--channel', '%paris&general', '--json')).toBe(2);
+    expect(last<{ error: { code: string } }>(h).error.code).toBe('CONFIRMATION_REQUIRED');
+    expect(calls).toHaveLength(0);
+    expect(await h.run('messages', 'delete', 'eu-m1', '--channel', '%paris&general', '--yes')).toBe(0);
+    expect(calls[0]).toMatchObject({ field: 'deleteMessage', variables: { discussion: { channel: '%paris&general' }, messageId: 'eu-m1' } });
+    expect(calls[0].variables.forMe).toBeUndefined();
+    expect(String(calls[0].variables.requestId)).toMatch(UUID_V7);
+    expect(h.lines.at(-1)).toBe('eu-m1: deleted (by author)');
+    expect(await h.run('messages', 'delete', 'eu-m1', '--group', 'g1', '--for-me', '--yes', '--json')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ discussion: { groupChatId: 'g1' }, forMe: true });
+    expect(await h.run('messages', 'delete', 'eu-m1', '--with', 'eu-acc', '--yes', '--quiet')).toBe(0);
+    expect(calls[2].variables).toMatchObject({ discussion: { accountId: 'eu-acc' } });
+  });
+  it('--dry-run sends nothing and asks nothing; the discussion is exactly one of three', async () => {
+    const { h, calls } = scripted({ deleteMessage: answer });
+    expect(await h.run('messages', 'delete', 'eu-m1', '--channel', '%paris&general', '--dry-run', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ dryRun: true, operation: 'deleteMessage', variables: { discussion: { channel: '%paris&general' }, messageId: 'eu-m1' } });
+    expect(await h.run('messages', 'delete', 'eu-m1', '--yes', '--json')).toBe(2);
+    expect(last<{ error: { code: string } }>(h).error.code).toBe('DISCUSSION_TARGET_INVALID');
+    expect(await h.run('messages', 'delete', 'eu-m1', '--channel', '%paris&general', '--group', 'g1', '--yes', '--json')).toBe(2);
+    expect(calls).toHaveLength(0);
+  });
+  it('is an MCP tool that needs "yes", and says moderators may delete others\' messages', () => {
+    const t = tools().find((x) => x.name === 'breakrocks_messages_delete')!;
+    expect(t.inputSchema.properties).toHaveProperty('yes');
+    expect(t.description).toContain('moderator');
+    expect(t.inputSchema.properties).toHaveProperty('dryRun');
   });
 });

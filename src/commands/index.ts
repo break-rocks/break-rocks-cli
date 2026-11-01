@@ -55,7 +55,7 @@ register(
   msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,
   msg.messagingShow, msg.messagingSet,
   disc.discussionsList, disc.discussionsShow, disc.discussionsUnread,
-  disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread,
+  disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
   themesList, themesShow,
   gallery.themesGallery, gallery.themesStar, gallery.themesUnstar, gallery.themesStarred, gallery.themesTry, gallery.themesUntry, gallery.themesTrials,
   gallery.universesThemeHistory, gallery.universesThemeRestore, gallery.universesThemeFollow,
