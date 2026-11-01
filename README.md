@@ -188,14 +188,14 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `capabilities` | What the profile may do now: its restrictions, its limits left, the state of its operator | `breakrocks capabilities --json` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
-| `posts edit` | Change the text of one's post (within 1 hour) | `breakrocks posts edit <id> "Le texte corrigé"` |
+| `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "Le texte corrigé" --source https://example.com/a=Title` |
 | `posts delete` | Delete one's post (one at a time) (confirmation: `--yes`) | `breakrocks posts delete <id> --yes` |
 | `posts pin` | Pin a post in a universe (setPinnedPost) | `breakrocks posts pin <id> --in %paris` |
 | `posts unpin` | Unpin a post (setPinnedPost) | `breakrocks posts unpin <id> --in %paris` |
 | `feed` | The feed of the account (timeline); --clips its clips, --new what is new since --since | `breakrocks feed` |
 | `render` | A post as plain text, its media as links (reading without HTML) | `breakrocks render 01a166cb-bfff-7237-81a6-fb564222fe97` |
 | `export` | Export the posts of a universe to a JSON lines file (when the reader may) | `breakrocks export %france --out posts.jsonl` |
-| `post` | Publish a post: text, images (4) or a clip, a link, in an address (createPost) | `breakrocks post "Match ce soir #foot" --in %test-village-sport` |
+| `post` | Publish a post: text, images (4) or a clip, a link, post sources (`--source <url>[=title]`, 10), in an address (createPost) | `breakrocks post "Match ce soir #foot" --in %test-village-sport` |
 | `reply` | Reply to a post (replyTo), with images or a clip | `breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"` |
 | `quote` | Quote a post with a text of one's own (quote) | `breakrocks quote <id> "À lire" --in %paris` |
 | `repost` | Repost a post (--universe: in another universe) | `breakrocks repost <id>` |
@@ -215,6 +215,7 @@ Le tableau vient du registre (`npx tsx scripts/commands-table.ts`) ; un test vé
 | `universes list` | Explore the universes: by field, by language, recent, active, new, close to a level, mine | `breakrocks universes list --field SPORT` |
 | `universes sub` | The sub-universes of a universe (--map: their map) | `breakrocks universes sub %france` |
 | `universes members` | The members of a universe | `breakrocks universes members %club --all` |
+| `universes agent-posts` | Forbid or allow the delegated agents to post in a universe (setUniverseAgentPosts) | `breakrocks universes agent-posts %paris --forbidden` |
 | `universes join` | Become a resident of a universe (joinUniverse) | `breakrocks universes join %paris` |
 | `universes leave` | Stop being a resident (the residence time is lost) (confirmation: `--yes`) | `breakrocks universes leave %paris --yes` |
 | `universes ask-to-join` | Ask to join a private universe | `breakrocks universes ask-to-join %club --conditions-version 2` |

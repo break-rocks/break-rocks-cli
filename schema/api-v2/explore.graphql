@@ -590,7 +590,8 @@ type SearchResults {
 }
 
 """
-A universe or an account whose name starts with what is typed.
+A universe, an account, a universe discussion or a tag whose name starts with what is typed (universe
+discussions and tags since v81.1.0, D-223).
 "formerHandle": the suggestion matched a former handle, still set aside for its holder (7 days).
 """
 type Suggestion {
@@ -599,7 +600,7 @@ type Suggestion {
   """
   accountId: ID
   """
-  The address suggested, with its sign ("@bob", "%paris").
+  The address suggested, with its sign ("@bob", "%paris", "%paris&general", "#marathon").
   """
   address: String!
   """
@@ -613,12 +614,15 @@ type Suggestion {
 }
 
 """
-What a suggestion is: an account (by its handle, or a former handle still set aside for its holder) or a
-universe. The values stay in lowercase, as stored.
+What a suggestion is: an account (by its handle, or a former handle still set aside for its holder), a
+universe, a tag or a universe discussion (tag and universeDiscussion since v81.1.0, D-223). The values stay
+in lowercase, as stored.
 """
 enum SuggestionKind {
   account
+  tag
   universe
+  universeDiscussion
 }
 
 """

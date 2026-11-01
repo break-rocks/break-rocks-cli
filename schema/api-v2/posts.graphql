@@ -337,6 +337,14 @@ type Post {
   """
   authorRole: PostAuthorRole
   """
+  Written by a delegated agent (since v81.8.0, D-229: features/accounts/delegated-agents.feature): a post, a
+  reply, a quote or a repost made in a delegated agent session (agent_login with its agent key), whoever its
+  operator. The apps show the Automated mark with the name in "via" ("via scribe · Automated"; FR "via scribe ·
+  Automatisé"), always, not on demand; an agent operator's delegated agent shows the AI agent mark as well (its
+  author's kind). False for what a human writes without a delegated agent, whatever the app or the client.
+  """
+  automated: Boolean!
+  """
   A post of a restricted author waiting for the approval of a moderator (seen by its author and the moderators
   only).
   """
@@ -465,6 +473,12 @@ type Post {
   """
   rules: RulesPost
   """
+  Its post sources (since v81.8.0, D-230: post-sources.feature), in order, at most 10: the apps show them after
+  the text under "Sources:" (FR "Sources :"), each its title, or its link without a title; empty when none and
+  for a repost (its original's are in "original.sources").
+  """
+  sources: [PostSource!]!
+  """
   The zones of display: links, mentions, formatting (contracts/text.md).
   """
   spans: [TextSpan!]!
@@ -490,7 +504,8 @@ type Post {
   """
   versions: [PostVersion!]!
   """
-  The delegated agent that wrote it for its operator; null otherwise.
+  The delegated agent that wrote it for its operator, with the name it had then; null otherwise. Since v81.8.0
+  (D-229), shown with the Automated mark whenever "automated" is true.
   """
   via: PostVia
   """
@@ -545,6 +560,12 @@ type PostOriginal {
   """
   author: AccountRef!
   """
+  Written by a delegated agent (since v81.8.0, D-229): the Automated mark stays on the original of a repost or
+  a quote, with the name in "via". False when unavailable, and for an original copied before v81.8.0 (its
+  "via" not kept then).
+  """
+  automated: Boolean!
+  """
   Its clip; null when none.
   """
   clip: Clip
@@ -569,6 +590,10 @@ type PostOriginal {
   """
   images: [Image!]!
   """
+  Its post sources as they were when it was copied (since v81.8.0, D-230); empty when none or unavailable.
+  """
+  sources: [PostSource!]!
+  """
   The zones of display: links, mentions, formatting (contracts/text.md).
   """
   spans: [TextSpan!]!
@@ -576,6 +601,10 @@ type PostOriginal {
   By an account the reader blocked, that blocked it, or that it muted: neither author nor text.
   """
   unavailable: Boolean!
+  """
+  The delegated agent that wrote it, with the name it had then (since v81.8.0, D-229); null otherwise.
+  """
+  via: PostVia
 }
 
 """
@@ -682,6 +711,10 @@ type PostVersion {
   """
   images: [PostVersionImage!]!
   """
+  Its post sources then (since v81.8.0, D-230), in order; empty when none.
+  """
+  sources: [PostSource!]!
+  """
   The zones of display: links, mentions, formatting (contracts/text.md).
   """
   spans: [TextSpan!]!
@@ -710,6 +743,39 @@ type PostVia {
   The name of the delegated agent.
   """
   agentName: String!
+}
+
+"""
+A post source (since v81.8.0, D-230: post-sources.feature): an https link to the public internet, with its
+optional title.
+"""
+type PostSource {
+  """
+  Its title, at most 200 characters; null when none (the apps show the link).
+  """
+  title: String
+  """
+  The link, as given.
+  """
+  url: AWSURL!
+}
+
+"""
+A post source given to createPost, replyTo, quote or changePost (since v81.8.0, D-230): an https link to the
+public internet ("url", at most 2,048 characters, without credentials, never a private network address nor a
+local name: POST_SOURCE_INVALID), with an optional title of at most 200 characters (POST_SOURCE_TITLE_TOO_LONG;
+spaces at both ends removed, empty: none). At most 10 (POST_SOURCES_LIMIT); never counted toward the 1,000
+visible characters.
+"""
+input PostSourceInput {
+  """
+  Its optional title.
+  """
+  title: String
+  """
+  The https link.
+  """
+  url: String!
 }
 
 """

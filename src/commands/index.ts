@@ -36,7 +36,7 @@ register(
   read.feed, read.render, read.exportPosts,
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
-  read.universesShow, read.universesList, read.universesSub, publish.universesMembers, publish.universesJoin, publish.universesLeave, publish.universesAskToJoin,
+  read.universesShow, read.universesList, read.universesSub, publish.universesMembers, publish.universesAgentPosts, publish.universesJoin, publish.universesLeave, publish.universesAskToJoin,
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,

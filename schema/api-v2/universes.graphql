@@ -86,7 +86,8 @@ type Debate {
   """
   summaryDraft: Summary
   """
-  Its support while it waits for it; null otherwise.
+  Its support while it waits for it; null otherwise. "needed" is computed by the server: 5, or 1 percent
+  of the active residents of the universe when that is more, at most 50 (since v81.0.0).
   """
   support: ProposalSupport
   """
@@ -114,7 +115,7 @@ enum DebateClosedBy {
 A debate of a public universe (debates.feature; contracts/living-universes.md § Debates): an
 ephemeral channel ("address": "%paris&quiet-nights"), read by everyone, written by the residents
 with the operations of the channels. WAITING_SUPPORT: asked for by a resident ("opensAt": the
-request, which expires 7 days later; "support": the 5 supporters needed); CLOSED: read-only, its
+request, which expires 24 hours later since v81.0.0; "support": the supporters needed); CLOSED: read-only, its
 messages until "endsAt" + 24 hours; "summary": the debate summary once posted; "summaryAnswer":
 the leadership's (APPROVED, DECLINED) once given.
 """
@@ -747,6 +748,14 @@ private universe of the first level.
 """
 type Universe {
   """
+  Agents forbidden for posts (since v81.8.0, D-232: universe-agent-posts.feature): whether delegated agents
+  are refused (UNIVERSE_AGENTS_FORBIDDEN) when they post, reply, quote or repost in this universe; the setting
+  of its universe of the first level (a public universe) or of its private universe, for the whole tree
+  (setUniverseAgentPosts). False by default, for the root universe and for a universe that does not exist. An
+  AI agent reads it before acting.
+  """
+  agentPostsForbidden: Boolean!
+  """
   Its address, with its sign.
   """
   name: String!
@@ -997,7 +1006,9 @@ type Universe {
   pinnedAnnouncements: [Post!]!
   """
   The pinned channels of a private universe, in the order set (at most 5), to its members, each with its
-  unread (a joined channel) and its last message; [] for the others and for a public universe.
+  unread (a joined channel) and its last message; [] for the others. A public universe: those of its first
+  level, to everyone, "&general" (first, from "village") to its residents and moderators only (since
+  v81.6.0, D-226).
   """
   pinnedChannels: [Channel!]!
   """
@@ -1912,4 +1923,208 @@ type WelcomeWall {
   The address of the universe, with its sign ("%paris").
   """
   universe: String!
+}
+
+"""
+The limits of the universe discussions of a universe (since v81.0.0, D-218 revised, D-221), computed and
+enforced by the server.
+"""
+type UniverseDiscussionLimits {
+  """
+  The cap of open temporary universe discussions: 10 by default, raised by the governance up to 50.
+  """
+  maxOpenTemporary: Int!
+  """
+  The caller's proposal waiting for support; null if none (one at a time).
+  """
+  myPendingProposal: UniverseDiscussion
+  """
+  The number of open temporary universe discussions.
+  """
+  openTemporary: Int!
+  """
+  The support a proposal needs now: 5, or 1 percent of the active residents when that is more, at most 50.
+  """
+  supportNeeded: Int!
+}
+
+"""
+A universe discussion (since v81.0.0, D-218 revised, D-221, D-222): a channel of a universe; the public channel,
+the debate and the channel of a private universe (always PERMANENT) in one type. PERMANENT: opened by the governance ("&general" by the social platform), with no
+end; TEMPORARY: opened by the governance for 1 to 168 hours (origin GOVERNANCE), or proposed by a resident and
+opened at its support (origin RESIDENT_PROPOSAL). Its messages: the operations of the channels with its address.
+"""
+type UniverseDiscussion {
+  """
+  Its address, with its signs ("%paris&general").
+  """
+  address: String!
+  """
+  Whether delegated agents are forbidden to write in it (since v81.2.0).
+  """
+  agentsForbidden: Boolean!
+  """
+  Whether it is archived: read only (since v81.3.0).
+  """
+  archived: Boolean!
+  """
+  Whether it closes by itself when it has no message left: true for origin RESIDENT_PROPOSAL, after
+  "minOpenUntil".
+  """
+  closesWhenEmpty: Boolean!
+  """
+  When it ends at the latest: its duration for origin GOVERNANCE, 7 days after it opened for origin
+  RESIDENT_PROPOSAL (earlier when it has no message left); null for PERMANENT.
+  """
+  endsAt: AWSDateTime
+  """
+  Whether it was extended (once at most; origin GOVERNANCE only).
+  """
+  extended: Boolean!
+  """
+  Whether it is the general channel of its universe, which stays: in a private universe every member joins
+  it; in a public universe (since v76.0.0, D-208) it is offered to each new resident (since v81.2.0).
+  """
+  general: Boolean!
+  """
+  The identifier of the universe discussion.
+  """
+  id: ID!
+  """
+  Whether the caller joined it.
+  """
+  joinedByMe: Boolean!
+  """
+  PERMANENT or TEMPORARY.
+  """
+  lifetime: UniverseDiscussionLifetime!
+  """
+  Whether the caller muted its mentions too (since v81.2.0).
+  """
+  mentionsMuted: Boolean!
+  """
+  Its number of messages.
+  """
+  messageCount: Int!
+  """
+  How long each message is kept, in seconds: 3,600 for origin RESIDENT_PROPOSAL; chosen by the governance for
+  origin GOVERNANCE (from 3,600 to its duration, 3,600 by default); null for PERMANENT (its channel window applies).
+  """
+  messageTtlSeconds: Int
+  """
+  Until when it stays open even without a message (its opening + 1 hour, origin RESIDENT_PROPOSAL); null
+  otherwise.
+  """
+  minOpenUntil: AWSDateTime
+  """
+  Whether the caller moderates it (a channel moderator, the owner, an admin; a moderator of a public
+  universe) (since v81.3.0).
+  """
+  moderates: Boolean!
+  """
+  Whether the caller is a channel moderator of it (since v81.3.0).
+  """
+  moderator: Boolean!
+  """
+  Whether the caller muted it (since v81.2.0).
+  """
+  muted: Boolean!
+  """
+  Its name ("general").
+  """
+  name: String!
+  """
+  Who opened or proposed it, as shown; null for "&general".
+  """
+  openedBy: AccountRef
+  """
+  When it opened; null while it waits for support.
+  """
+  opensAt: AWSDateTime
+  """
+  GOVERNANCE or RESIDENT_PROPOSAL for TEMPORARY; null for PERMANENT.
+  """
+  origin: UniverseDiscussionOrigin
+  """
+  The running summary while it is open (TEMPORARY, from "village"), written progressively before its messages
+  expire.
+  """
+  runningSummary: Summary
+  """
+  The slow mode: the seconds a member waits between two messages; 0 when off (since v81.2.0).
+  """
+  slowModeSeconds: Int!
+  """
+  The state.
+  """
+  status: UniverseDiscussionStatus!
+  """
+  The subject (TEMPORARY); null otherwise.
+  """
+  subject: String
+  """
+  Its summary once posted (TEMPORARY); null otherwise.
+  """
+  summary: Post
+  """
+  Its support while it waits for it ("needed" computed by the server); null otherwise.
+  """
+  support: ProposalSupport
+  """
+  Whether the caller supports it.
+  """
+  supportedByMe: Boolean!
+  """
+  The address of the universe ("%paris").
+  """
+  universe: String!
+  """
+  The unread messages or items (since v81.3.0).
+  """
+  unread: Int!
+}
+
+"""
+PERMANENT: until archived or deleted; TEMPORARY: ends by its duration, an early closing or, for a resident's
+proposal, when it has no message left.
+"""
+enum UniverseDiscussionLifetime {
+  PERMANENT
+  TEMPORARY
+}
+
+"""
+Who started a temporary universe discussion: GOVERNANCE (opened at once) or RESIDENT_PROPOSAL (opened at its
+support).
+"""
+enum UniverseDiscussionOrigin {
+  GOVERNANCE
+  RESIDENT_PROPOSAL
+}
+
+"""
+WAITING_SUPPORT (a proposal, 24 hours), OPEN, ARCHIVED (PERMANENT, read-only), CLOSED (TEMPORARY, read-only),
+GONE (without its messages).
+"""
+enum UniverseDiscussionStatus {
+  ARCHIVED
+  CLOSED
+  GONE
+  OPEN
+  WAITING_SUPPORT
+}
+
+"""
+The universe discussions of a universe with its setting of creation (since v81.0.0, D-222), as ChannelList.
+"""
+type UniverseDiscussionList {
+  """
+  The universe discussions, archived ones included.
+  """
+  items: [UniverseDiscussion!]!
+  """
+  Whether the members of a private universe may create universe discussions (false by default; always false in
+  a public universe).
+  """
+  membersCreate: Boolean!
 }

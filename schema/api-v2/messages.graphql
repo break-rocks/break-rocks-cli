@@ -28,7 +28,8 @@ A public channel (since v50.1.0, public-channels.feature): "%paris&market", read
 kept 7 days, its channel window served by messages; no channel moderator ("moderator"
 false, "moderates": a moderator of the universe); "general" false, but for "&general" of a public universe
 (since v76.0.0, D-208: opened by the platform at "village", first of the channels and of the pinned
-channels, neither archived nor deleted but below "village", not joined by default).
+channels, neither archived nor deleted but below "village", not joined by default; since v81.5.0, D-225:
+one per universe of the first level at every governance level, for its residents only, never archived).
 """
 type Channel {
   """
@@ -103,6 +104,11 @@ type Channel {
   The address of the universe, with its sign ("%paris").
   """
   universe: String!
+  """
+  The id of the matching UniverseDiscussion (since v81.2.0), to go from one model to the other while Channel is
+  deprecated; null when there is none.
+  """
+  universeDiscussionId: ID
   """
   The unread messages or items.
   """
@@ -524,6 +530,10 @@ type InboxItem {
   """
   group: GroupRef
   """
+  The address of the universe discussion ("%paris&general") the caller joined or wrote in (kind UNIVERSE_DISCUSSION, since v81.0.0, D-218 revised); null otherwise.
+  """
+  universeDiscussion: String
+  """
   The kind of the inbox item.
   """
   kind: InboxItemKind!
@@ -561,6 +571,7 @@ What an inbox item is: a conversation or a group chat.
 enum InboxItemKind {
   CONVERSATION
   GROUP_CHAT
+  UNIVERSE_DISCUSSION
 }
 
 """
@@ -752,6 +763,10 @@ type Message {
   The discussion of the message.
   """
   discussion: DiscussionRef!
+  """
+  The quick poll it carries (sendQuickPoll, since v81.1.0, D-224); null otherwise.
+  """
+  quickPoll: QuickPoll
   """
   Its author, as shown next to it; for an event, the member who acted.
   """
@@ -998,7 +1013,8 @@ type RequestMessage {
 """
 A message to send (sendMessage): its discussion and one content. A voice message is sent alone
 (VOICE_ALONE); a place, a meet-up and an arrival notice are sent without text, in a conversation or a group
-chat only, each with the refusals it has (contracts/messages.md, contracts/map.md).
+chat only, each with the refusals it has (contracts/messages.md, contracts/map.md); since v81.1.0 (D-224), a
+place is also sent in a universe discussion, a meet-up and an arrival notice still not.
 """
 input SendMessageInput {
   to: DiscussionRefInput!
@@ -1015,4 +1031,32 @@ input SendMessageInput {
   A conversation: unblocks the account first (the caller blocked it), as requestConnection does.
   """
   unblock: Boolean
+}
+
+"""
+A quick poll of a discussion (since v81.1.0, D-224): a question and its choices, open 24 hours after it is
+sent; not a poll of the governance.
+"""
+type QuickPoll {
+  """
+  The question.
+  """
+  question: String!
+  """
+  The choices, in their order.
+  """
+  choices: [String!]!
+  """
+  The number of picks of each choice, in the order of the choices; null until the caller picked a choice or
+  the quick poll closed.
+  """
+  totals: [Int!]
+  """
+  The index of the choice of the caller; null when none.
+  """
+  myChoice: Int
+  """
+  When it closes: 24 hours after it was sent.
+  """
+  closesAt: AWSDateTime!
 }

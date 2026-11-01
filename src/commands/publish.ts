@@ -20,7 +20,46 @@ import { BOUNDARY_ID, territoryChoice } from './geo.js';
 const POST = selection('Post', 1);
 const REPLY_POLICIES = ['everyone', 'following', 'mentioned', 'nobody'];
 
-export type ComposeInput = { text?: string; file?: string; image?: string[]; alt?: string[]; video?: string; link?: string; requestId?: string; dryRun?: boolean };
+export type ComposeInput = { text?: string; file?: string; image?: string[]; alt?: string[]; video?: string; link?: string; source?: string[]; requestId?: string; dryRun?: boolean };
+
+/** At most 10 post sources (specs v81.8.0, D-230), each a title of at most 200 characters. */
+export const MAX_POST_SOURCES = 10;
+const MAX_SOURCE_TITLE = 200;
+export type PostSourceInput = { url: string; title?: string };
+
+/**
+ * A --source "<url>[=title]": the title after the first "=" that is not part of the query of the link (in
+ * "https://a.example/x?k=v=Title", the second "=" of its last parameter). Checked as the platform checks it:
+ * an https link (POST_SOURCE_INVALID), a title of at most 200 characters (POST_SOURCE_TITLE_TOO_LONG); the
+ * public internet is the platform's to check.
+ */
+export function parseSource(raw: string): PostSourceInput {
+  const value = raw.trim();
+  const query = value.indexOf('?');
+  let at: number;
+  if (query < 0) at = value.indexOf('=');
+  else {
+    const last = Math.max(value.lastIndexOf('&'), query);
+    const pair = value.indexOf('=', last + 1);
+    at = pair < 0 ? -1 : value.indexOf('=', pair + 1);
+  }
+  const url = (at < 0 ? value : value.slice(0, at)).trim();
+  const title = at < 0 ? '' : value.slice(at + 1).trim();
+  let ok = false;
+  try { ok = new URL(url).protocol === 'https:'; } catch { ok = false; }
+  if (!ok) throw usageError('POST_SOURCE_INVALID', `A post source is an https link: ${url || raw}`);
+  if ([...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(title)].length > MAX_SOURCE_TITLE) throw usageError('POST_SOURCE_TITLE_TOO_LONG', `The title of a post source has at most ${MAX_SOURCE_TITLE} characters`);
+  return { url, ...(title ? { title } : {}) };
+}
+
+/** The post sources of --source (none given: undefined). */
+export function sourcesOf(given: string[] | undefined): PostSourceInput[] | undefined {
+  if (!given?.length) return undefined;
+  if (given.length > MAX_POST_SOURCES) throw usageError('POST_SOURCES_LIMIT', `A post has at most ${MAX_POST_SOURCES} post sources`);
+  return given.map(parseSource);
+}
+
+const sourceProp = list('A post source, "<url>" or "<url>=<title>" (an https link, a title of 200 characters at most; 10 at most; repeat --source). Not counted in the 1,000 characters', { type: 'string' }, { maxItems: MAX_POST_SOURCES });
 export const composeProps = {
   text: str('The text (tags and mentions in it: #sport, @alice); "-" reads stdin'),
   file: str('Read the text from this file ("-": stdin)'),
@@ -28,6 +67,7 @@ export const composeProps = {
   alt: list('The alternative text of each image, in the order of --image (repeat --alt)', { type: 'string' }, { maxItems: MAX_POST_IMAGES }),
   video: str('A video file (the clip of the post: MP4, MOV or WebM, 512 MB at most)'),
   link: str('A link (https)'),
+  source: sourceProp,
   requestId: str('An idempotency key (a UUIDv7): sent again, it is made once (one is made when absent)', { pattern: '^[0-9a-fA-F-]{36}$' }),
   dryRun: bool('Check everything and tell what would be sent, without sending'),
 };
@@ -44,7 +84,7 @@ async function textOf(ctx: Context, input: ComposeInput): Promise<string> {
   return input.text ?? '';
 }
 
-export type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; requestId: string };
+export type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; sources?: PostSourceInput[]; requestId: string };
 
 /** Everything checked before anything is sent (POST_EMPTY, POST_TOO_MANY_IMAGES, POST_IMAGES_AND_CLIP, the media). */
 export async function plan(ctx: Context, input: ComposeInput, requireText = false): Promise<Plan> {
@@ -55,13 +95,14 @@ export async function plan(ctx: Context, input: ComposeInput, requireText = fals
   const video = input.video ? checkVideo(ctx, input.video) : undefined;
   if (video && images.length) throw usageError('POST_IMAGES_AND_CLIP', 'A post has images or a clip, not both');
   if (!text.trim() && !images.length && !video && (requireText || !input.link)) throw usageError('POST_EMPTY', 'A post has a text or media');
-  return { text, images, ...(video ? { video } : {}), ...(input.link ? { link: input.link } : {}), requestId: input.requestId ?? uuidv7(ctx.now()) };
+  const sources = sourcesOf(input.source);
+  return { text, images, ...(video ? { video } : {}), ...(input.link ? { link: input.link } : {}), ...(sources ? { sources } : {}), requestId: input.requestId ?? uuidv7(ctx.now()) };
 }
 
 export const dryRunOf = (p: Plan, extra: Record<string, unknown>) => ({
   dryRun: true, ...extra, text: p.text, requestId: p.requestId,
   images: p.images.map((i) => ({ file: i.name, type: i.type, bytes: i.bytes, width: i.width, height: i.height, alt: i.alt ?? null })),
-  ...(p.video ? { video: { file: p.video.name, type: p.video.type, bytes: p.video.bytes } } : {}), ...(p.link ? { link: p.link } : {}),
+  ...(p.video ? { video: { file: p.video.name, type: p.video.type, bytes: p.video.bytes } } : {}), ...(p.link ? { link: p.link } : {}), ...(p.sources ? { sources: p.sources } : {}),
 });
 
 /** The media of a plan sent for [target]: the arguments images and clip of the mutation. */
@@ -91,8 +132,8 @@ export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; a
     const p = await plan(ctx, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? null });
-    const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null };
-    return whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip) ${POST} }`, vars)).createPost, wait(p));
+    const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
+    return whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).createPost, wait(p));
   },
   quiet: (r) => (r as { id?: string }).id,
 };
@@ -104,8 +145,8 @@ export const reply: Command<ComposeInput & { id: string }, unknown> = {
     const p = await plan(ctx, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'replyTo', id: input.id });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: await universeOfPost(ctx, p, input.id) });
-    const vars = { postId: input.id, text: p.text, link: p.link ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null };
-    return whileProcessing(ctx, async () => (await api<{ replyTo: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $link: String, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID) { replyTo(postId: $postId, text: $text, link: $link, requestId: $requestId, images: $images, clip: $clip) ${POST} }`, vars)).replyTo, wait(p));
+    const vars = { postId: input.id, text: p.text, link: p.link ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
+    return whileProcessing(ctx, async () => (await api<{ replyTo: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $link: String, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { replyTo(postId: $postId, text: $text, link: $link, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).replyTo, wait(p));
   },
   quiet: (r) => (r as { id?: string }).id,
 };
@@ -118,8 +159,8 @@ export const quote: Command<ComposeInput & { id: string; in?: string; replyPolic
     const p = await plan(ctx, input, true);
     if (input.dryRun) return dryRunOf(p, { operation: 'quote', id: input.id, universe: input.in ?? null });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? await universeOfPost(ctx, p, input.id) });
-    const vars = { postId: input.id, text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null };
-    return whileProcessing(ctx, async () => (await api<{ quote: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID) { quote(postId: $postId, text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, requestId: $requestId, images: $images, clip: $clip) ${POST} }`, vars)).quote, wait(p));
+    const vars = { postId: input.id, text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
+    return whileProcessing(ctx, async () => (await api<{ quote: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { quote(postId: $postId, text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).quote, wait(p));
   },
   quiet: (r) => (r as { id?: string }).id,
 };
@@ -133,7 +174,19 @@ export const dislike = apiCommand({ name: 'dislike', summary: 'Dislike a post (s
 export const undislike = apiCommand({ name: 'undislike', summary: 'Take back a dislike (setDislike)', kind: 'mutation', op: 'setDislike', fixed: { disliked: false }, ...onPost, examples: ['breakrocks undislike <id>'], depth: 1 });
 export const notInterested = apiCommand({ name: 'not-interested', summary: 'Not interested in a post, its author, a tag or its universe (setNotInterested)', kind: 'mutation', op: 'setNotInterested', fixed: { notInterested: true }, positionals: ['input.postId'], rename: { 'input.accountId': 'account' }, descriptions: { scope: 'What is not interesting: POST, AUTHOR, TAG or UNIVERSE', postId: 'The post', account: 'The account (scope AUTHOR, without a post): @handle or its id', universe: 'The universe (scope UNIVERSE, without a post)', tag: 'The tag, for the scope TAG' }, examples: ['breakrocks not-interested <id> --scope AUTHOR'] });
 
-export const postsEdit = apiCommand({ name: 'posts edit', summary: 'Change the text of one\'s post (within 1 hour)', kind: 'mutation', op: 'changePost', ...onPost, positionals: ['postId', 'text'], examples: ['breakrocks posts edit <id> "Le texte corrigé"'], depth: 1 });
+export const postsEdit = apiCommand({
+  name: 'posts edit', summary: 'Change the text of one\'s post and its post sources (within 1 hour)', kind: 'mutation', op: 'changePost', ...onPost, positionals: ['postId', 'text'],
+  description: 'The text replaces the former one. --source replaces the post sources (repeat it; the whole list wanted); --no-sources removes them; neither keeps them.',
+  extra: { source: sourceProp, noSources: bool('Remove the post sources') },
+  prepare: (i) => {
+    const { source, noSources, ...rest } = i as Record<string, unknown> & { source?: string[]; noSources?: boolean };
+    if (noSources && source?.length) throw usageError('INVALID_INPUT', '--source or --no-sources, not both');
+    if (noSources) rest.sources = [];
+    else if (source?.length) rest.sources = sourcesOf(source);
+    return rest;
+  },
+  examples: ['breakrocks posts edit <id> "Le texte corrigé"', 'breakrocks posts edit <id> "Le pont rouvre" --source "https://example.com/pont=Avis de la mairie"'], depth: 1,
+});
 export const postsDelete = apiCommand({ name: 'posts delete', summary: 'Delete one\'s post (one at a time)', kind: 'mutation', op: 'deletePost', ...onPost, confirm: (i) => `Delete the post ${i.id}?`, examples: ['breakrocks posts delete <id> --yes'], depth: 1 });
 export const postsPin = apiCommand({ name: 'posts pin', summary: 'Pin a post in a universe (setPinnedPost)', kind: 'mutation', op: 'setPinnedPost', fixed: { pinned: true }, positionals: ['postId'], rename: { universe: 'in' }, descriptions: { in: 'The universe (%name)' }, examples: ['breakrocks posts pin <id> --in %paris'], depth: 1 });
 export const postsUnpin = apiCommand({ name: 'posts unpin', summary: 'Unpin a post (setPinnedPost)', kind: 'mutation', op: 'setPinnedPost', fixed: { pinned: false }, positionals: ['postId'], rename: { universe: 'in' }, descriptions: { in: 'The universe (%name)' }, examples: ['breakrocks posts unpin <id> --in %paris'], depth: 1 });
@@ -158,6 +211,12 @@ export const universesInvite = apiCommand({ name: 'universes invite', summary: '
 export const conditionsSet = apiCommand({ name: 'universes conditions set', summary: 'Set the conditions of a private universe', kind: 'mutation', op: 'setUniverseConditions', positionals: ['universe', 'text'], descriptions: u, examples: ['breakrocks universes conditions set %club "Respect et bonne humeur"'] });
 export const conditionsShow = apiCommand({ name: 'universes conditions show', summary: 'The conditions of a universe (a version)', kind: 'query', op: 'universeConditions', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes conditions show %club'] });
 export const conditionsAccept = apiCommand({ name: 'universes conditions accept', summary: 'Accept the conditions of a universe', kind: 'mutation', op: 'acceptUniverseConditions', positionals: ['universe'], descriptions: { ...u, conditionsVersion: 'The version accepted' }, examples: ['breakrocks universes conditions accept %club --conditions-version 2'] });
+export const universesAgentPosts = apiCommand({
+  name: 'universes agent-posts', summary: 'Forbid or allow the delegated agents to post in a universe and its sub-universes (setUniverseAgentPosts)', kind: 'mutation', op: 'setUniverseAgentPosts', positionals: ['universe'],
+  description: 'Set on the universe of the first level of a public universe by its leadership, on a private universe by its owner or an admin; never by a delegated agent. Read it with breakrocks universes show (agentPostsForbidden) before acting as an agent.',
+  descriptions: { ...u, forbidden: 'true: delegated agents cannot post, reply, quote nor repost there (UNIVERSE_AGENTS_FORBIDDEN); false: allowed' },
+  examples: ['breakrocks universes agent-posts %paris --forbidden', 'breakrocks universes agent-posts %paris --no-forbidden'], depth: 1,
+});
 export const universesMembers = apiCommand({ name: 'universes members', summary: 'The members of a universe', kind: 'query', op: 'universeMembers', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes members %club --all'] });
 
 export const proposalsFile = apiCommand({

@@ -29,6 +29,14 @@ type LivePosition {
   """
   secondsToMeetingPoint: Int
   """
+  The time to arrival at the place of the meet-up the live share is for, in seconds (0 to 86,400), computed by the sharer's app; null when unknown or when the live share is not for a meet-up. Kept with the last position only.
+  """
+  secondsToMeetUp: Int
+  """
+  How the sharer travels to the meet-up (FOOT or BICYCLE); null with secondsToMeetUp.
+  """
+  meetUpMode: RouteMode
+  """
   The live share.
   """
   shareId: ID!
@@ -303,6 +311,14 @@ input PositionInput {
   lat: Float!
   lon: Float!
   secondsToMeetingPoint: Int
+  """
+  The time to arrival at the place of the meet-up, in seconds, 0 to 86,400; only for the live share of a meet-up. Out of range, or without meetUpMode, POSITIONS_INVALID.
+  """
+  secondsToMeetUp: Int
+  """
+  How the sharer travels to the meet-up: FOOT or BICYCLE only. Any other value, POSITIONS_INVALID.
+  """
+  meetUpMode: RouteMode
 }
 
 """

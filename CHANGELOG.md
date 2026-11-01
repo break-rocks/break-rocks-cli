@@ -5,6 +5,18 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-01
+
+### Added
+
+- `--source <url>[=title]` (repeatable, 10 at most) on `post`, `reply`, `quote` and `posts edit`: the post sources of specs v81.8.0 (D-230), not counted in the 1,000 characters; `posts edit --no-sources` removes them, neither keeps them.
+- `universes agent-posts <universe> --forbidden | --no-forbidden`: agents forbidden for posts (`setUniverseAgentPosts`, D-232); read it with `universes show` (`agentPostsForbidden`).
+- Both exposed as MCP tools.
+
+### Changed
+
+- The contract `schema/api-v2` follows specs v81.8.0 (`Post.automated`, `Post.sources`, `Universe.agentPostsForbidden`, D-229).
+
 ## [0.12.2] - 2026-10-31
 
 ### Security

@@ -51,9 +51,9 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect(parseSdl(readContract(source))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    // The descriptions ("""…""") are not fields: Query holds the 139 reads of API v2, Mutation its 228 writes.
-    expect(Object.keys(GENERATED.query).length).toBe(139);
-    expect(Object.keys(GENERATED.mutation).length).toBe(228);
+    // The descriptions ("""…""") are not fields: Query holds the 146 reads of API v2, Mutation its 253 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(146);
+    expect(Object.keys(GENERATED.mutation).length).toBe(253);
     expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(12);
   });
   it('takes a requestId on every mutation but the four ephemeral signals', () => {

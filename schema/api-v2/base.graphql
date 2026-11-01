@@ -278,26 +278,26 @@ type Query {
   A channel by its address ("%team-fra./tech&dev"), as the caller sees it: a member of the private universe,
   or anyone for a public channel. CHANNEL_NOT_FOUND.
   """
-  channel(channel: String!): Channel
+  channel(channel: String!): Channel @deprecated(reason: "Use universeDiscussion (since v81.0.0).")
 
   """
   The channel moderators of a channel of a private universe (a public channel has none: its universe
   moderators moderate it). Its bound is not written yet (README.md § To settle).
   """
-  channelModerators(channel: String!): [AccountRef!]
+  channelModerators(channel: String!): [AccountRef!] @deprecated(reason: "Use universeDiscussionModerators (since v81.0.0).")
 
   """
   The writing bans in force in a channel, for its channel moderators, the owner and the admins (a public
   channel: the moderators of the universe). Its bound is not written yet (README.md § To settle).
   """
-  channelWritingBans(channel: String!): [ChannelWritingBan!]
+  channelWritingBans(channel: String!): [ChannelWritingBan!] @deprecated(reason: "Use universeDiscussionWritingBans (since v81.0.0).")
 
   """
   The channels of a level of a private universe (universe: "%team-fra./tech"), or of every level (allLevels
   true), for its members; the public channels of a public universe, for everyone. Members only in a private
   universe, even in an exposed part; never an agent operator itself.
   """
-  channels(allLevels: Boolean, universe: String!): ChannelList
+  channels(allLevels: Boolean, universe: String!): ChannelList @deprecated(reason: "Use universeDiscussions (since v81.0.0).")
 
   """
   The connection requests of the caller: received (sent absent or false) or sent (sent true), the most recent
@@ -357,13 +357,59 @@ type Query {
   One debate of a universe by its name, whatever its status (GONE: the debate without its messages);
   CHANNEL_NOT_FOUND when there is none.
   """
-  debate(name: String!, universe: String!): Debate
+  debate(name: String!, universe: String!): Debate @deprecated(reason: "Use universeDiscussion (since v81.0.0).")
 
   """
   The debates of a universe (a sub-universe lists its own): open first, then waiting for support, then closed.
   Its bound is not written yet (README.md § To settle).
   """
-  debates(universe: String!): [Debate!]
+  debates(universe: String!): [Debate!] @deprecated(reason: "Use universeDiscussions (since v81.0.0).")
+
+  """
+  One universe discussion by its address ("%paris&general"), permanent or temporary, whatever its status
+  (since v81.0.0, D-221); CHANNEL_NOT_FOUND when there is none, or when the caller may not read it (a private
+  universe they are not a member of).
+  """
+  universeDiscussion(address: String!): UniverseDiscussion
+
+  """
+  The moderators of a universe discussion of a private universe, by its id (since v81.0.0, D-222), as
+  channelModerators.
+  """
+  universeDiscussionModerators(id: ID!): [AccountRef!]
+
+  """
+  The writing bans in force in a universe discussion, by its id, to its moderators (since v81.0.0, D-222), as
+  channelWritingBans.
+  """
+  universeDiscussionWritingBans(id: ID!): [ChannelWritingBan!]
+
+  """
+  The active members of a universe discussion, by its id, for "/who" (since v81.1.0, D-223, D-224): the accounts
+  that wrote in it in the last 24 hours, the most recent writer first, at most 50.
+  """
+  universeDiscussionActiveMembers(id: ID!): [AccountRef!]
+
+  """
+  The pinned messages of a group chat or a universe discussion (since v81.1.0, D-224), the most recently pinned
+  first, at most 3.
+  """
+  pinnedMessages(discussion: DiscussionRefInput!): [Message!]
+
+  """
+  The universe discussions of a universe (a sub-universe lists its own; allLevels true: every level, as channels): in a private universe, its channels, all
+  PERMANENT, for its members (D-222); in a public universe, as the focus discussions shows them: "&general" first, the other permanent ones in the order of the leadership, then the open temporary
+  ones, then those waiting for support (since v81.0.0). Since v81.5.0 (D-225), the "&general" of the universe of the first level is first at every level for its
+  residents, joined or not, never listed to anyone else; before its first message its id is "ud1." of its address and "general". Its bound is not written yet (README.md § To settle).
+  """
+  universeDiscussions(allLevels: Boolean, universe: String!): UniverseDiscussionList
+
+  """
+  The limits of the universe discussions of a universe: the support a proposal needs, the cap of open temporary
+  ones and the caller's proposal waiting for support (since v81.0.0).
+  """
+  universeDiscussionLimits(universe: String!): UniverseDiscussionLimits
+
 
   """
   The join requests waiting in a private universe joined by request, for its owner and admins, the oldest
@@ -869,8 +915,9 @@ type Query {
   search(after: String, hiddenReplies: Boolean, limit: Int, order: SearchOrder, query: String!): SearchResults
 
   """
-  The accounts and universes whose name starts with what is typed (text), to complete an address. Its bound is
-  not written yet (README.md § To settle).
+  The accounts, universes, universe discussions and tags whose name starts with what is typed (text), with its
+  sign, to complete an address in the address bar and in the composer (universe discussions and tags since
+  v81.1.0, D-223). Its bound is not written yet (README.md § To settle).
   """
   suggestions(text: String!): [Suggestion!]
 
@@ -1159,19 +1206,23 @@ type Mutation {
   former texts). images (since v78.0.0, D-214, automatic-alternative-text.feature): the alternative texts of
   its images to change (id: Image.id; alt: its new text, none to erase it), the others unchanged; within the
   same edit window, the post then shown as changed, versions keeping the former alternative texts
-  (PostVersion.images); IMAGE_NOT_FOUND (not an image of the post), IMAGE_ALT_TOO_LONG. Returns the post.
+  (PostVersion.images); IMAGE_NOT_FOUND (not an image of the post), IMAGE_ALT_TOO_LONG. sources (since v81.8.0,
+  D-230): its post sources, the whole list wanted ([] removes them; null keeps them), within the same edit
+  window, the former ones kept with its versions (PostVersion.sources); not for a repost. Returns the post.
   """
-  changePost(images: [ImageAttachmentInput!], postId: ID!, text: String!, requestId: ID!): Post
+  changePost(images: [ImageAttachmentInput!], postId: ID!, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
 
   """
   Posts a text, images (at most 4) or a clip (never both: POST_IMAGES_AND_CLIP), or both a text and media, in
   a universe (universe: a posting address; none: the personal space). clip: a video uploaded with
   requestMediaUpload (VIDEO); images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
-  the author accepted; replyPolicy: who can reply; announcement: an announcement of the leadership. requestId
-  is the idempotency key, and the post is "<cell>-<requestId>" (Post.id). The posting codes
-  (contracts/errors.md). Returns the post.
+  the author accepted; replyPolicy: who can reply; announcement: an announcement of the leadership; sources
+  (since v81.8.0, D-230): its post sources (PostSourceInput), at most 10, outside the 1,000 visible
+  characters. requestId is the idempotency key, and the post is "<cell>-<requestId>" (Post.id). The posting
+  codes (contracts/errors.md); a delegated agent in a universe that forbids agents for posts:
+  UNIVERSE_AGENTS_FORBIDDEN (since v81.8.0, D-232). Returns the post.
   """
-  createPost(announcement: Boolean, clip: ID, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, text: String!, universe: String, requestId: ID!): Post
+  createPost(announcement: Boolean, clip: ID, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   The author deletes its post (or the moderation, which answers its reports "content removed"). Returns the
@@ -1187,18 +1238,22 @@ type Mutation {
 
   """
   Quotes a post (postId) with a text and media, in a universe; requestId is the idempotency key, and the quote
-  is "<cell>-<requestId>" (Post.id). Returns the quote.
+  is "<cell>-<requestId>" (Post.id); sources as createPost (since v81.8.0); UNIVERSE_AGENTS_FORBIDDEN for a
+  delegated agent where its universe forbids agents for posts. Returns the quote.
   """
-  quote(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, text: String!, universe: String, requestId: ID!): Post
+  quote(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   Replies to a post or a reply (postId) with a text and media; requestId is the idempotency key, and the reply
-  is "<cell>-<requestId>" (Post.id). Returns the reply.
+  is "<cell>-<requestId>" (Post.id); sources as createPost (since v81.8.0); UNIVERSE_AGENTS_FORBIDDEN for a
+  delegated agent where the universe of the thread forbids agents for posts. Returns the reply.
   """
-  replyTo(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, text: String!, requestId: ID!): Post
+  replyTo(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
 
   """
-  Reposts a post (postId), in its universe or in another one the caller may post in. Returns the repost.
+  Reposts a post (postId), in its universe or in another one the caller may post in; UNIVERSE_AGENTS_FORBIDDEN
+  for a delegated agent where the universe of the repost forbids agents for posts (since v81.8.0). Returns the
+  repost.
   """
   repost(postId: ID!, universe: String, requestId: ID!): Post
 
@@ -1303,7 +1358,7 @@ type Mutation {
   """
   The owner and the admins; the members too when allowed (setChannelCreation). "name": with or without "&".
   """
-  createChannel(name: String!, universe: String!, requestId: ID!): Channel
+  createChannel(name: String!, universe: String!, requestId: ID!): Channel @deprecated(reason: "Use openUniverseDiscussion (since v81.0.0).")
 
   """
   Creates a group chat with a name, a description and the accounts invited at once (invite: 19 at most, the
@@ -1317,7 +1372,7 @@ type Mutation {
   The owner or an admin deletes a channel of a private universe, with its messages (the general channel
   stays). True once done.
   """
-  deleteChannel(channel: String!, requestId: ID!): Boolean
+  deleteChannel(channel: String!, requestId: ID!): Boolean @deprecated(reason: "Use deleteUniverseDiscussion (since v81.0.0).")
 
   """
   Deletes a conversation on the side of the caller only (the other participant keeps it). True once done.
@@ -1334,12 +1389,12 @@ type Mutation {
   """
   A member of a private universe joins one of its channels. Returns the channel.
   """
-  joinChannel(channel: String!, requestId: ID!): Channel
+  joinChannel(channel: String!, requestId: ID!): Channel @deprecated(reason: "Use joinUniverseDiscussion (since v81.0.0).")
 
   """
   The caller leaves a channel it joined (the general channel stays joined). Returns the channel.
   """
-  leaveChannel(channel: String!, requestId: ID!): Channel
+  leaveChannel(channel: String!, requestId: ID!): Channel @deprecated(reason: "Use leaveUniverseDiscussion (since v81.0.0).")
 
   """
   The caller leaves a group chat; when the last admin leaves, the member who joined first becomes admin. True
@@ -1352,23 +1407,23 @@ type Mutation {
   name at that level, or an address), null: last; "&general" stays first (CHANNEL_GENERAL_FIRST, since
   v76.0.0), and moving "&general" itself changes nothing.
   """
-  moveChannel(before: String, name: String!, universe: String!, requestId: ID!): Channel
+  moveChannel(before: String, name: String!, universe: String!, requestId: ID!): Channel @deprecated(reason: "Use moveUniverseDiscussion (since v81.0.0).")
 
   """
   The leadership of a public universe of the first level opens a channel in it or in one of its
   public sub-universes ("universe"), from the governance level "village" (CHANNEL_LEVEL_TOO_LOW),
   10 at most across its levels, archived ones included (PUBLIC_CHANNELS_LIMIT), its name free among
   the channels and the debates of the level (CHANNEL_NAME_TAKEN); LEADERSHIP_ONLY otherwise, or a
-  channel proposal (fileProposal, kind CHANNEL). A private universe: as createChannel.
+  channel proposal (fileProposal, kind CHANNEL). A private universe: as createChannel. For a public universe, prefer openUniverseDiscussion (since v81.0.0).
   """
-  openChannel(name: String!, universe: String!, requestId: ID!): Channel
+  openChannel(name: String!, universe: String!, requestId: ID!): Channel @deprecated(reason: "Use openUniverseDiscussion (since v81.0.0).")
 
   """
   A moderator of the universe removes a message of a public channel, citing "article" of the charter
   (SANCTION_ARTICLE_REQUIRED, MODERATOR_ONLY): a sanction CHANNEL_MESSAGE_REMOVAL, in the moderation
   log and appealed; the message shows "deleted by a moderator". Its author deletes it with deleteMessage.
   """
-  removeChannelMessage(article: Int, channel: String!, messageId: ID!, requestId: ID!): ModerationLogEntry
+  removeChannelMessage(article: Int, channel: String!, messageId: ID!, requestId: ID!): ModerationLogEntry @deprecated(reason: "Use removeUniverseDiscussionMessage (since v81.0.0).")
 
   """
   Either of two connected accounts ends their connection, without telling the other: the
@@ -1393,19 +1448,19 @@ type Mutation {
   """
   The owner and the admins forbid delegated agents in a channel (or allow them again).
   """
-  setChannelAgents(channel: String!, forbidden: Boolean!, requestId: ID!): Channel
+  setChannelAgents(channel: String!, forbidden: Boolean!, requestId: ID!): Channel @deprecated(reason: "Use setUniverseDiscussionAgents (since v81.0.0).")
 
   """
   The owner and the admins let the members create channels (false by default). Returns the channels of the
   universe with membersCreate.
   """
-  setChannelCreation(membersCreate: Boolean!, universe: String!, requestId: ID!): ChannelList
+  setChannelCreation(membersCreate: Boolean!, universe: String!, requestId: ID!): ChannelList @deprecated(reason: "Use setUniverseDiscussionCreation (since v81.0.0).")
 
   """
   A channel moderator, the owner or an admin sets the slow mode of a channel: seconds 10, 60 or 300; 0 turns
   it off. Returns the channel.
   """
-  setChannelSlowMode(channel: String!, seconds: Int!, requestId: ID!): Channel
+  setChannelSlowMode(channel: String!, seconds: Int!, requestId: ID!): Channel @deprecated(reason: "Use setUniverseDiscussionSlowMode (since v81.0.0).")
 
   """
   Either participant, while connected (NOT_CONNECTED otherwise), makes the new messages of the
@@ -1432,7 +1487,7 @@ type Mutation {
   address, at most 5 ([] unpins every channel); the universe as it is now. In a public universe, the
   leadership; its "&general" first (CHANNEL_GENERAL_FIRST, since v76.0.0).
   """
-  setPinnedChannels(channels: [String!]!, universe: String!, requestId: ID!): Universe
+  setPinnedChannels(channels: [String!]!, universe: String!, requestId: ID!): Universe @deprecated(reason: "Use setPinnedUniverseDiscussions (since v81.0.0).")
 
   """
   An admin steps down to member; when the last admin steps down, the member who joined first becomes admin.
@@ -1520,20 +1575,20 @@ type Mutation {
   Archives a channel (archived true) or unarchives it (C-2): the channel managers of a private universe
   (CHANNEL_MANAGERS_ONLY); the general channel stays (CHANNEL_GENERAL_STAYS). Returns the channel.
   """
-  setChannelArchived(channel: String!, archived: Boolean!, requestId: ID!): Channel
+  setChannelArchived(channel: String!, archived: Boolean!, requestId: ID!): Channel @deprecated(reason: "Use setUniverseDiscussionArchived (since v81.0.0).")
 
   """
   Mutes a joined channel (muted true; mentions true mutes its mentions of the caller too) or unmutes it
   (C-2). CHANNEL_NOT_JOINED. Returns the channel.
   """
-  setChannelMuted(channel: String!, muted: Boolean!, mentions: Boolean, requestId: ID!): Channel
+  setChannelMuted(channel: String!, muted: Boolean!, mentions: Boolean, requestId: ID!): Channel @deprecated(reason: "Use setUniverseDiscussionMuted (since v81.0.0).")
 
   """
   The owner or an admin of a private universe names a member channel moderator (moderator true) or removes
   the role (C-9). CHANNEL_MODERATORS_MANAGERS_ONLY, NOT_A_MEMBER, PUBLIC_CHANNEL_NO_MODERATORS. Returns the
   channel.
   """
-  setChannelModerator(channel: String!, accountId: ID!, moderator: Boolean!, requestId: ID!): Channel
+  setChannelModerator(channel: String!, accountId: ID!, moderator: Boolean!, requestId: ID!): Channel @deprecated(reason: "Use setUniverseDiscussionModerator (since v81.0.0).")
 
   """
   A channel moderator, the owner or an admin gives a member a writing ban (banned true, for hours 1, 24 or
@@ -1542,7 +1597,7 @@ type Mutation {
   WRITING_BAN_NOT_ALLOWED, SANCTION_ARTICLE_REQUIRED; banned true without hours: INVALID_REQUEST. Returns the
   writing ban in force; null once lifted.
   """
-  setWritingBan(channel: String!, accountId: ID!, banned: Boolean!, hours: Int, article: Int, requestId: ID!): ChannelWritingBan
+  setWritingBan(channel: String!, accountId: ID!, banned: Boolean!, hours: Int, article: Int, requestId: ID!): ChannelWritingBan @deprecated(reason: "Use setUniverseDiscussionWritingBan (since v81.0.0).")
 
   """
   The Event API channels of a reading, leased until until (G-14): an address and a thread
@@ -1566,7 +1621,7 @@ type Mutation {
   The leadership, within 24 hours of the end: approved, the summary is posted at once (or as soon as it is
   written); declined, never.
   """
-  answerDebateSummary(approve: Boolean!, name: String!, universe: String!, requestId: ID!): Post
+  answerDebateSummary(approve: Boolean!, name: String!, universe: String!, requestId: ID!): Post @deprecated(reason: "Use answerUniverseDiscussionSummary (since v81.0.0).")
 
   """
   The owner or an admin of a private universe answers the join request of an account: accept true makes it a
@@ -1622,7 +1677,7 @@ type Mutation {
   """
   Its opener or the leadership closes a debate before its end. Returns the debate.
   """
-  closeDebate(name: String!, universe: String!, requestId: ID!): Debate
+  closeDebate(name: String!, universe: String!, requestId: ID!): Debate @deprecated(reason: "Use closeUniverseDiscussion (since v81.0.0).")
 
   """
   Creates a poll in a public universe: the leadership at once, a resident at the support of 5 residents.
@@ -1655,7 +1710,7 @@ type Mutation {
   """
   Its opener or the leadership extends a debate by hours, once (extended). Returns the debate.
   """
-  extendDebate(hours: Int!, name: String!, universe: String!, requestId: ID!): Debate
+  extendDebate(hours: Int!, name: String!, universe: String!, requestId: ID!): Debate @deprecated(reason: "Use extendUniverseDiscussion (since v81.0.0).")
 
   """
   The owner or an admin hides the exposed parts of a private universe again. Returns the universe.
@@ -1688,13 +1743,16 @@ type Mutation {
   markLanding(universe: String!, requestId: ID!): UniverseStanding
 
   """
-  Debates (debates.feature): opened by the leadership, or asked for by a resident who can vote and
-  opened at the support of 5 residents who can vote (7 days); "hours" 1 to 168 (24 by default); 3
-  open at most per universe; extended once (168 hours in all) or closed early by the leadership or
-  whoever asked for it; the leadership approves or declines the summary within 24 hours of the end.
+  Debates (debates.feature): opened by the leadership when it wants, "hours" 1 to 168 (24 by default);
+  since v81.0.0 (D-218 revised), a topic proposed by a resident who can vote ("hours" ignored), at most one
+  waiting per resident (DEBATE_PROPOSAL_PENDING), opened at the support of 5 residents who can vote or 1
+  percent of the active residents when more, at most 50, expiring after 24 hours; its messages kept 1 hour,
+  open at least 1 hour, closed by itself when it has no message left; 10 open at most per universe (up to 50), a cap
+  the leadership raises (setUniverseDiscussionCap); extended once (168 hours in all) or closed early by the leadership
+  or whoever proposed it; the leadership approves or declines the summary within 24 hours of the end.
   Their messages: the operations of the channels with the debate's address.
   """
-  openDebate(hours: Int, name: String!, subject: String!, universe: String!, requestId: ID!): Debate
+  openDebate(hours: Int, name: String!, subject: String!, universe: String!, requestId: ID!): Debate @deprecated(reason: "Use openUniverseDiscussion or proposeUniverseDiscussion (since v81.0.0).")
 
   """
   A resident picks a choice of an open poll (pollId), again to change it. Returns the poll.
@@ -1761,6 +1819,16 @@ type Mutation {
   setUniverseSearchWords(universe: String!, words: [String!]!, requestId: ID!): Universe
 
   """
+  Agents forbidden for posts (since v81.8.0, D-232: universe-agent-posts.feature): forbids (true) or allows
+  (false) the delegated agents to post, reply, quote and repost in a universe and its whole universe tree. A
+  public universe: set on its universe of the first level (a sub-universe given: its first level), by its
+  leadership (UNIVERSE_GOVERNED otherwise); a private universe: by its owner or an admin
+  (ONLY_OWNER_OR_ADMINS_EDIT_PROFILE); a delegated agent: DELEGATED_AGENT_NOT_ALLOWED; the root universe:
+  UNIVERSE_GOVERNED. Returns the universe (Universe.agentPostsForbidden).
+  """
+  setUniverseAgentPosts(forbidden: Boolean!, universe: String!, requestId: ID!): Universe
+
+  """
   In order (at most 10); an empty list removes them.
   """
   setUniverseSuccessors(accountIds: [ID!]!, universe: String!, requestId: ID!): Universe
@@ -1768,7 +1836,172 @@ type Mutation {
   """
   A resident supports a debate waiting for support. Returns the debate.
   """
-  supportDebate(name: String!, universe: String!, requestId: ID!): Debate
+  supportDebate(name: String!, universe: String!, requestId: ID!): Debate @deprecated(reason: "Use supportUniverseDiscussion (since v81.0.0).")
+
+  """
+  The governance opens a universe discussion (since v81.0.0, D-221; in a private universe, D-222: PERMANENT only,
+  by the owner and the admins, the members too when allowed, as createChannel): PERMANENT (as openChannel in a public
+  universe: from "village", 10 across its levels, PUBLIC_CHANNELS_LIMIT) or TEMPORARY with "subject", "hours"
+  1 to 168 (24 by default; UNIVERSE_DISCUSSION_DURATION) and "messageTtlSeconds" from 3,600 to the duration
+  (3,600 by default; UNIVERSE_DISCUSSION_TTL_INVALID otherwise), not closed by itself before its end; LEADERSHIP_ONLY otherwise; UNIVERSE_DISCUSSIONS_LIMIT at the cap of open temporary
+  ones; CHANNEL_NAME_TAKEN. Returns it.
+  """
+  openUniverseDiscussion(hours: Int, lifetime: UniverseDiscussionLifetime!, messageTtlSeconds: Int, name: String!, subject: String, universe: String!, requestId: ID!): UniverseDiscussion
+
+  """
+  A resident who can vote proposes a topic (since v81.0.0): a temporary universe discussion waiting for the
+  support of 5 residents who can vote, or 1 percent of the active residents when more, at most 50, computed by
+  the server; one waiting per resident (UNIVERSE_DISCUSSION_PROPOSAL_PENDING); it expires after 24 hours. Open,
+  its messages are kept 1 hour, it stays open at least 1 hour, then closes when it has no message left, 7 days
+  after it opened at the latest; never extended.
+  """
+  proposeUniverseDiscussion(name: String!, subject: String!, universe: String!, requestId: ID!): UniverseDiscussion
+
+  """
+  A resident who can vote supports a proposal (UNIVERSE_DISCUSSION_PROPOSAL_EXPIRED after 24 hours;
+  UNIVERSE_DISCUSSIONS_LIMIT at the cap). Returns it.
+  """
+  supportUniverseDiscussion(id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  The governance extends a temporary universe discussion it opened (origin GOVERNANCE) by hours, once, 168
+  hours in all (UNIVERSE_DISCUSSION_DURATION, UNIVERSE_DISCUSSION_EXTENDED_ALREADY; UNIVERSE_DISCUSSION_NOT_EXTENDABLE
+  for origin RESIDENT_PROPOSAL; UNIVERSE_DISCUSSION_NOT_OPEN; LEADERSHIP_ONLY). Returns it.
+  """
+  extendUniverseDiscussion(id: ID!, hours: Int!, requestId: ID!): UniverseDiscussion
+
+  """
+  The governance or the resident who proposed it closes a temporary universe discussion early
+  (UNIVERSE_DISCUSSION_OPENER_ONLY, UNIVERSE_DISCUSSION_NOT_OPEN). Returns it.
+  """
+  closeUniverseDiscussion(id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  The leadership, within 24 hours of the end of a temporary universe discussion, approves or declines its
+  summary (UNIVERSE_DISCUSSION_SUMMARY_ANSWERED when already answered or after the 24 hours).
+  """
+  answerUniverseDiscussionSummary(id: ID!, approve: Boolean!, requestId: ID!): Post
+
+  """
+  The governance raises the cap of open temporary universe discussions of its universe, from 10 up to 50
+  (UNIVERSE_DISCUSSIONS_CAP_INVALID otherwise; LEADERSHIP_ONLY). Returns the limits.
+  """
+  setUniverseDiscussionCap(maxOpenTemporary: Int!, universe: String!, requestId: ID!): UniverseDiscussionLimits
+
+  """
+  Archives or unarchives a permanent universe discussion by its id (since v81.0.0, D-222), with the rights of
+  setChannelArchived; UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.2.0). Returns it.
+  """
+  setUniverseDiscussionArchived(archived: Boolean!, id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  Sets the pinned universe discussions of a universe by their ids, in order (since v81.0.0, D-222), with the
+  rules of setPinnedChannels; UNIVERSE_DISCUSSION_PERMANENT_ONLY when an id is a temporary one (since v81.2.0).
+  Returns the universe.
+  """
+  setPinnedUniverseDiscussions(ids: [ID!]!, universe: String!, requestId: ID!): Universe
+
+  """
+  Moves a permanent universe discussion before another ("before": its id; null: last), with the rules of
+  moveChannel (since v81.0.0, D-222); UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.2.0).
+  Returns it.
+  """
+  moveUniverseDiscussion(before: ID, id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  Sets the slow mode of a universe discussion, with the rules of setChannelSlowMode (since v81.0.0, D-222).
+  Returns it.
+  """
+  setUniverseDiscussionSlowMode(id: ID!, seconds: Int!, requestId: ID!): UniverseDiscussion
+
+  """
+  Gives or lifts a writing ban in a universe discussion, with the rules of setWritingBan (since v81.0.0,
+  D-222). Returns the ban.
+  """
+  setUniverseDiscussionWritingBan(accountId: ID!, article: Int, banned: Boolean!, hours: Int, id: ID!, requestId: ID!): ChannelWritingBan
+
+  """
+  A moderator removes a message of a universe discussion (messageId), citing an article of the charter: a
+  sanction CHANNEL_MESSAGE_REMOVAL, or DEBATE_MESSAGE_REMOVAL in a temporary one (since v81.0.0, D-222).
+  Returns the moderation log entry.
+  """
+  removeUniverseDiscussionMessage(article: Int, id: ID!, messageId: ID!, requestId: ID!): ModerationLogEntry
+
+  """
+  Pins (pinned true) or unpins a message (messageId) of a group chat or a universe discussion, with "/pin"
+  (since v81.1.0, D-223, D-224): in a group chat its group chat admins (GROUP_ADMINS_ONLY otherwise), in a
+  universe discussion of a public universe its moderators (MODERATOR_ONLY otherwise), of a private universe its
+  channel moderators, owner and admins (CHANNEL_MANAGERS_ONLY otherwise); at most 3 pinned messages (PINNED_MESSAGES_FULL); never in a
+  conversation (DISCUSSION_TARGET_INVALID). Returns the pinned messages, the most recently pinned first.
+  """
+  setPinnedMessage(discussion: DiscussionRefInput!, messageId: ID!, pinned: Boolean!, requestId: ID!): [Message!]
+
+  """
+  Silences a discussion for the caller (silenced true) or ends its silence, with "/silence" (since v81.1.0,
+  D-224): its messages stay readable, without notifications; "hours" 1, 8 or 24, null for always
+  (SILENCE_DURATION_INVALID otherwise); "hours" is ignored when silenced is false. Not muting an account.
+  Returns true.
+  """
+  setDiscussionSilence(discussion: DiscussionRefInput!, hours: Int, silenced: Boolean!, requestId: ID!): Boolean
+
+  """
+  Sends a quick poll in a discussion, with "/poll" (since v81.1.0, D-224): any participant, in a conversation,
+  a group chat or a universe discussion; 2 to 10 choices (QUICK_POLL_CHOICES_INVALID); a question of 1 visible character at least
+  (QUICK_POLL_QUESTION_EMPTY); closed 24 hours after it is
+  sent; not a poll of the governance.
+  Returns the message that carries it.
+  """
+  sendQuickPoll(choices: [String!]!, discussion: DiscussionRefInput!, question: String!, requestId: ID!): Message
+
+  """
+  Picks a choice (its index from 0) of an open quick poll (messageId), or changes it; QUICK_POLL_CLOSED after
+  24 hours; QUICK_POLL_CHOICE_INVALID for an index that is not one of its choices; MESSAGE_NOT_FOUND for a
+  caller who is not a participant of its discussion. Returns the message that carries it.
+  """
+  pickQuickPollChoice(choice: Int!, messageId: ID!, requestId: ID!): Message
+
+  """
+  Deletes an archived permanent universe discussion by its id, with the rules of deleteChannel (since v81.0.0,
+  D-222); UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.3.0). Returns true.
+  """
+  deleteUniverseDiscussion(id: ID!, requestId: ID!): Boolean
+
+  """
+  Joins a universe discussion by its id, with the rules of joinChannel (since v81.0.0, D-222);
+  UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.2.0). Returns it.
+  """
+  joinUniverseDiscussion(id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  Leaves a universe discussion by its id, with the rules of leaveChannel (since v81.0.0, D-222);
+  UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.2.0). Returns it.
+  """
+  leaveUniverseDiscussion(id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  Forbids or allows the delegated agents in a universe discussion, with the rules of setChannelAgents (since
+  v81.0.0, D-222); UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since v81.2.0). Returns it.
+  """
+  setUniverseDiscussionAgents(forbidden: Boolean!, id: ID!, requestId: ID!): UniverseDiscussion
+
+  """
+  Lets the members of a private universe create its universe discussions or not, with the rules of
+  setChannelCreation (since v81.0.0, D-222). Returns its universe discussions with "membersCreate".
+  """
+  setUniverseDiscussionCreation(membersCreate: Boolean!, universe: String!, requestId: ID!): UniverseDiscussionList
+
+  """
+  Mutes or unmutes a universe discussion for the caller ("mentions": the mentions still told), with the rules
+  of setChannelMuted (since v81.0.0, D-222). Returns it.
+  """
+  setUniverseDiscussionMuted(id: ID!, mentions: Boolean, muted: Boolean!, requestId: ID!): UniverseDiscussion
+
+  """
+  Names or removes a moderator of a universe discussion of a private universe, with the rules of
+  setChannelModerator (since v81.0.0, D-222); UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one (since
+  v81.2.0). Returns it.
+  """
+  setUniverseDiscussionModerator(accountId: ID!, id: ID!, moderator: Boolean!, requestId: ID!): UniverseDiscussion
 
   """
   A resident supports a poll waiting for support (pollId). Returns the poll.
@@ -1919,7 +2152,7 @@ type Mutation {
   A moderator of the universe removes a message of a debate (messageId), citing an article of the charter: a
   sanction DEBATE_MESSAGE_REMOVAL. Returns the sanction.
   """
-  removeDebateMessage(article: Int, messageId: ID!, name: String!, universe: String!, requestId: ID!): Sanction
+  removeDebateMessage(article: Int, messageId: ID!, name: String!, universe: String!, requestId: ID!): Sanction @deprecated(reason: "Use removeUniverseDiscussionMessage (since v81.0.0), which returns a ModerationLogEntry instead of a Sanction.")
 
   """
   A moderator of the universe removes a post (postId), citing the article of the charter it applies: a

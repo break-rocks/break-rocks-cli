@@ -727,6 +727,11 @@ type Settings {
   since v80.0.0).
   """
   universeFrame: UniverseFrameSettings!
+  """
+  The language of the slash commands (since v81.1.0, D-224), a language code; null: the language of the app.
+  The apps turn a localized name into its English name before any call; the API knows the English names only.
+  """
+  commandLanguage: String
 }
 
 """
@@ -755,6 +760,11 @@ input SettingsInput {
   document of the custom mode (since v80.4.0).
   """
   universeFrame: UniverseFrameSettingsInput
+  """
+  The language of the slash commands (since v81.1.0, D-224); clear COMMAND_LANGUAGE goes back to the language
+  of the app.
+  """
+  commandLanguage: String
   clear: [SettingsPart!]
 }
 
@@ -770,6 +780,7 @@ enum SettingsPart {
   DO_NOT_DISTURB
   DEVICE_FRAME_MODE
   FRAME
+  COMMAND_LANGUAGE
 }
 
 """
