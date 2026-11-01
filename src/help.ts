@@ -26,7 +26,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
   universes: 'Universes: the page, Explore, residence, favorites, private universes, the universe territory, the pages', explore: 'Explore, and the universes of an area of the map', places: 'The places search', map: 'The cartography: the shapes of the boundaries', 'time-column': 'The time column', live: 'The live line',
   accounts: 'Accounts and their links', notifications: 'Notifications', events: 'Events', proposals: 'Proposals and votes', debates: 'Debates', polls: 'Polls',
-  channels: 'Channels', themes: 'The theme catalog', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file',
+  channels: 'Channels', discussions: 'Universe discussions: list, page, unread', messages: 'Reactions and threads of the messages of a universe discussion', settings: 'Personal settings: the universe visit history', themes: 'The theme catalog', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file',
   inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',
   moderation: 'Moderation of a universe', governance: 'Governance of a universe',
 };

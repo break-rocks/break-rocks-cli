@@ -123,7 +123,11 @@ type ChannelActivity {
   """
   The channel of the universe (its address in Channel.address).
   """
-  channel: Channel!
+  channel: Channel! @deprecated(reason: "Use discussion (since v83.0.0, D-245).")
+  """
+  The universe discussion (since v83.0.0, D-245; replaces channel).
+  """
+  discussion: UniverseDiscussion!
   """
   Its last messages.
   """
@@ -847,6 +851,29 @@ type Message {
   """
   createdAt: AWSDateTime!
   """
+  The reactions to it with their counts (since v83.0.0, D-245; a universe discussion), by count, then by first
+  use; 20 distinct emoji at most; empty elsewhere and when none.
+  """
+  reactions: [MessageReactionCount!]!
+  """
+  The reactions the caller gave it (since v83.0.0); empty when none.
+  """
+  myReactions: [String!]!
+  """
+  The number of its thread replies (since v83.0.0, D-245; a universe discussion), those not yet expired nor
+  deleted; 0 when none, and for a thread reply.
+  """
+  threadReplyCount: Int!
+  """
+  When its last thread reply was sent (since v83.0.0); null when none.
+  """
+  lastThreadReplyAt: AWSDateTime
+  """
+  For a thread reply, the message whose thread it is in (since v83.0.0); null otherwise. A thread reply is
+  never in a page of messages, only in threadMessages.
+  """
+  threadRoot: ID
+  """
   When its text was last changed; null when never.
   """
   changedAt: AWSDateTime
@@ -872,6 +899,20 @@ type Message {
   A message of a connection request still waiting for an answer (a conversation); false elsewhere.
   """
   pending: Boolean!
+}
+
+"""
+A reaction to a message and how many accounts gave it (since v83.0.0; free emoji since v83.1.0).
+"""
+type MessageReactionCount {
+  """
+  The emoji: exactly one emoji grapheme.
+  """
+  reaction: String!
+  """
+  How many accounts gave it.
+  """
+  count: Int!
 }
 
 """
@@ -928,7 +969,12 @@ type MessagePage {
   """
   The channel, as the caller sees it (a channel); null otherwise.
   """
-  channel: Channel
+  channel: Channel @deprecated(reason: "Use universeDiscussion (since v83.0.0, D-245).")
+  """
+  The universe discussion, as the caller sees it (a channel; since v83.0.0, D-245, replaces channel); null
+  otherwise.
+  """
+  universeDiscussion: UniverseDiscussion
 }
 
 """

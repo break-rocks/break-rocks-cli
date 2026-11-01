@@ -171,6 +171,8 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
       `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : '-'}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
       ...slots,
       ...(u.themeTrial ? [`theme trial: the draft ${(u.themeTrial as { draftId: string }).draftId} v${(u.themeTrial as { version: number }).version} until ${(u.themeTrial as { endsAt: string }).endsAt}${(u.themeTrial as { startedBy?: { handle: string } }).startedBy ? `, started by @${(u.themeTrial as { startedBy: { handle: string } }).startedBy.handle}` : ''}`] : []),
+      ...(u.themeHeldVersion ? [`theme frozen at version ${String(u.themeHeldVersion)} (universes theme-follow)`] : []),
+      ...(u.myGalleryTrial ? [`my gallery trial: until ${(u.myGalleryTrial as { endsAt?: string }).endsAt ?? '?'} (themes untry)`] : []),
       ...(u.myDraftPreview ? [`my draft preview: the draft ${(u.myDraftPreview as { draftId: string }).draftId} v${(u.myDraftPreview as { version: number }).version} until ${(u.myDraftPreview as { endsAt: string }).endsAt}`] : []),
       `layout: ${u.layoutRef?.name ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
       `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,

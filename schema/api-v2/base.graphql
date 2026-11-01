@@ -326,7 +326,14 @@ type Query {
   The channels the caller joined in a private universe, at every level, the most recently active first, with
   their unread. Its bound is not written yet (README.md § To settle).
   """
-  myChannels(universe: String!): [Channel!]
+  myChannels(universe: String!): [Channel!] @deprecated(reason: "Use myUniverseDiscussions (since v83.0.0, D-245).")
+
+  """
+  The universe discussions the caller joined in a universe, at every level, the most recently active first, with
+  their unread (since v83.0.0, D-245; replaces myChannels, for a public universe too). 100 at most (10 channels and
+  the temporary universe discussions per level).
+  """
+  myUniverseDiscussions(universe: String!): [UniverseDiscussion!]
 
   """
   The messages of a discussion (G-1), the newest first: a conversation (either participant), a group chat
@@ -410,6 +417,22 @@ type Query {
   """
   universeDiscussionLimits(universe: String!): UniverseDiscussionLimits
 
+  """
+  The universe discussions with unread messages for the caller (since v83.0.0, D-245), across every universe it
+  is a resident or a member of, public and private, joined or written in, the one with the most recent message
+  first; a silenced or muted one included (its silence and muted state tell it). limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myUnreadDiscussions(after: String, limit: Int): UniverseDiscussionPage
+
+  """
+  The thread replies of a message of a universe discussion (since v83.0.0, D-245), the oldest first, as messages
+  reads them (blocks, deletions): the replies only, not the message itself. A message with no thread: an empty
+  page. Same access as messages on its discussion; MESSAGE_NOT_FOUND. limit: from 1 to 100 (50 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  threadMessages(messageId: ID!, after: String, limit: Int): MessagePage
+
 
   """
   The join requests waiting in a private universe joined by request, for its owner and admins, the oldest
@@ -434,6 +457,16 @@ type Query {
   default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
   myUniverses(after: String, limit: Int): MyUniversePage
+
+  """
+  The universe visit history of the caller (since v83.0.0, D-247; not recentUniverses, the recent universes of
+  Explore), synced on the account: one entry per universe, its
+  most recent visit first, 50 at most kept; a sub-universe with its universe of the first level (parent). A
+  private universe the caller left, or that was deleted, is not listed. Empty while nothing was recorded; the
+  entries kept while the history is paused (Settings.universeHistoryPaused) are still listed. limit: from 1 to
+  50 (10 by default; LIMIT_INVALID otherwise).
+  """
+  universeHistory(limit: Int): [RecentUniverse!]
 
   """
   The own domains the caller asked for and whose DNS proof is still waiting, with the record to publish; each
@@ -777,7 +810,24 @@ type Query {
   (personal or universe theme) and variant, in the order asked, those matching query. limit: from 1 to 100 (50
   by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
-  themeCatalog(after: String, limit: Int, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant): ThemeCatalogPage
+  themeCatalog(after: String, limit: Int, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant, highContrast: Boolean): ThemeCatalogPage
+
+  """
+  The themes the caller starred (starTheme, since v81.11.0, D-244), the most recent first, 50 at most; reason
+  SAVED. limit: from 1 to 50 (50 by default; LIMIT_INVALID otherwise).
+  """
+  starredThemes(after: String, limit: Int, variant: ThemeVariant): ThemeCatalogPage
+
+  """
+  The gallery trials of the caller that run (since v81.11.0, D-244), one per universe at most, 20 at most.
+  """
+  myGalleryTrials: [GalleryTrial!]
+
+  """
+  The universe theme history of a universe (since v81.11.0, D-244), the most recent first, one year; read by
+  who may set its theme (THEME_SET_NOT_ALLOWED otherwise). limit: from 1 to 50 (20 by default).
+  """
+  universeThemeHistory(universe: String!, after: String, limit: Int): UniverseThemeHistoryPage
 
   """
   The last position of each live share asked (20 at most) the caller may see.
@@ -1738,7 +1788,8 @@ type Mutation {
 
   """
   The apps mark each landing of the account in a universe. Returns where the caller stands there: landedBefore
-  false at its first landing.
+  false at its first landing. Since v83.0.0 (D-247), it also records the universe in the universe visit history
+  of the caller, unless it is paused.
   """
   markLanding(universe: String!, requestId: ID!): UniverseStanding
 
@@ -2002,6 +2053,49 @@ type Mutation {
   v81.2.0). Returns it.
   """
   setUniverseDiscussionModerator(accountId: ID!, id: ID!, moderator: Boolean!, requestId: ID!): UniverseDiscussion
+
+  """
+  Adds the caller's reaction to a message of a universe discussion (since v83.0.0, D-245; a free emoji since
+  v83.1.0): reaction is exactly one emoji grapheme (REACTION_INVALID otherwise); one reaction per emoji and per
+  account (adding it again changes nothing), several emoji per account; at most 20 distinct emoji per message
+  (REACTION_EMOJI_LIMIT for a 21st). Who may read and write the discussion (the access codes of sendMessage); MESSAGE_NOT_FOUND (a deleted message too). Returns the message
+  (reactions, myReactions).
+  """
+  reactToMessage(messageId: ID!, reaction: String!, requestId: ID!): Message
+
+  """
+  Removes the caller's reaction from a message (since v83.0.0, D-245); one it did not add: nothing changes.
+  REACTION_INVALID, MESSAGE_NOT_FOUND. Returns the message.
+  """
+  unreactToMessage(messageId: ID!, reaction: String!, requestId: ID!): Message
+
+  """
+  Replies in the thread of a message of a universe discussion (since v83.0.0, D-245): the reply is a message of
+  that discussion (its id "<cell>-<requestId>"), shown in the thread only, kept as the messages of the
+  discussion (UniverseDiscussion.messageTtlSeconds, from its own sending); a thread has one level: a reply to a
+  thread reply goes to the thread of its root message. The rules of sendMessage apply (slow mode, writing ban,
+  delegated agents, MESSAGE_TOO_LONG at 2,000 visible characters); MESSAGE_NOT_FOUND; THREAD_NOT_ALLOWED outside a
+  universe discussion. Returns the reply (threadRoot set).
+  """
+  replyInThread(messageId: ID!, text: String!, requestId: ID!): Message
+
+  """
+  Records a visit of more than 10 seconds to a universe in the universe visit history of the caller (since v83.0.0,
+  D-247): sent once by the app after 10 seconds on the universe; deduplicated by the server per account and
+  universe within 10 minutes (a repeat changes nothing). A landing is recorded by markLanding without it.
+  Nothing is recorded while the history is paused. Returns true when recorded, false when deduplicated or paused.
+  """
+  recordUniverseVisit(universe: String!, requestId: ID!): Boolean
+
+  """
+  Removes one universe from the universe visit history of the caller (since v83.0.0, D-247). True, also when absent.
+  """
+  removeRecentUniverse(universe: String!, requestId: ID!): Boolean
+
+  """
+  Clears the universe visit history of the caller (since v83.0.0, D-247). True.
+  """
+  clearRecentUniverses(requestId: ID!): Boolean
 
   """
   A resident supports a poll waiting for support (pollId). Returns the poll.
@@ -2397,6 +2491,46 @@ type Mutation {
   back is formerTheme. Returns the personal theme.
   """
   setTriedTheme(theme: ThemeRefInput, requestId: ID!): PersonalTheme
+
+  """
+  Stars a theme of the catalog (since v81.11.0, D-244): 50 at most (STARRED_THEME_LIMIT); THEME_NOT_IN_CATALOG.
+  Starring it again changes nothing. Returns the theme.
+  """
+  starTheme(theme: ThemeRefInput!, requestId: ID!): Theme
+
+  """
+  Unstars a theme (since v81.11.0). True once done, also when it was not starred.
+  """
+  unstarTheme(theme: ThemeRefInput!, requestId: ID!): Boolean
+
+  """
+  Starts a gallery trial (since v81.11.0, D-244) on a universe the caller can read, for the caller alone, for 24
+  hours: a theme of the catalog, a layout of the catalog, or both (GALLERY_TRIAL_EMPTY when neither);
+  THEME_NOT_IN_CATALOG, LAYOUT_NOT_IN_CATALOG, GALLERY_TRIAL_LIMIT (20 universes at once). Replaces the gallery
+  trial of the caller on that universe. Returns the trial.
+  """
+  startGalleryTrial(universe: String!, theme: ThemeRefInput, layout: LayoutRefInput, requestId: ID!): GalleryTrial
+
+  """
+  Ends the gallery trial of the caller on a universe, theme and layout together (since v81.11.0). Returns the
+  universe (myGalleryTrial null).
+  """
+  endGalleryTrial(universe: String!, requestId: ID!): Universe
+
+  """
+  Restores an entry of the universe theme history (since v81.11.0, D-244): the universe holds that theme at that
+  version (Universe.themeHeldVersion), by who may set its theme (universe-theme.feature; THEME_SET_NOT_ALLOWED),
+  or files a proposal without leadership. THEME_HISTORY_ENTRY_NOT_FOUND, THEME_NOT_RESTORABLE.
+  """
+  restoreUniverseTheme(universe: String!, entryId: ID!, requestId: ID!): UniverseThemeRestore
+
+  """
+  Ends the frozen version of a universe (since v83.0.0, D-244 follow-up): its universe theme follows the latest
+  version of its theme again (Universe.themeHeldVersion null), by who may set its theme (THEME_SET_NOT_ALLOWED),
+  or files a proposal without leadership. A universe that is not frozen: nothing changes. THEME_NOT_RESTORABLE
+  when its theme was removed by the moderation.
+  """
+  followThemeUpdates(universe: String!, requestId: ID!): UniverseThemeRestore
 
   """
   Changes the personal theme of the caller (P-5); a field not given stays. Returns the personal theme.

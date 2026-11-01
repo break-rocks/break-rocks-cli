@@ -16,6 +16,9 @@ import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack 
 import { walletBalance, walletFaucet, walletSet, walletShow } from './wallet.js';
 import { batch } from './batch.js';
 import * as msg from './messaging.js';
+import * as disc from './discussions.js';
+import * as gallery from './gallery.js';
+import * as history from './history.js';
 import * as geo from './geo.js';
 import { governanceCommands, governancePin, governancePinned, moderationCommands } from './moderation.js';
 import * as pages from './pages.js';
@@ -51,7 +54,12 @@ register(
   msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
   msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,
   msg.messagingShow, msg.messagingSet,
+  disc.discussionsList, disc.discussionsShow, disc.discussionsUnread,
+  disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread,
   themesList, themesShow,
+  gallery.themesGallery, gallery.themesStar, gallery.themesUnstar, gallery.themesStarred, gallery.themesTry, gallery.themesUntry, gallery.themesTrials,
+  gallery.universesThemeHistory, gallery.universesThemeRestore, gallery.universesThemeFollow,
+  history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themeTry, themeUndoTry, themePersonalSet, themePersonalClear, themeExport, themeShots, themeCopy, themeDelete,
   ...layoutCommands, ...studioCommands, pages.studioMakePage,

@@ -48,6 +48,8 @@ export type ApiDef<O = unknown> = {
   select?: string;
   /** A confirmation before the request (an irreversible action). */
   confirm?: (input: Record<string, unknown>) => string;
+  /** A write that offers --dry-run: it tells the operation and the variables it would send, and sends nothing (no confirmation either). */
+  dry?: true;
   /** The answer turned into the command's (default: the field of the operation). */
   map?: (data: unknown, input: Record<string, unknown>) => O;
   text?: (result: O) => string;
@@ -183,6 +185,7 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
     properties.all = { type: 'boolean', description: 'Follow the pages to the end (bounded by --max)' };
     properties.max = { type: 'integer', minimum: 1, maximum: 100, default: 10, description: 'Pages at most with --all' };
   }
+  if (def.dry) properties.dryRun = { type: 'boolean', description: 'Tell what would be sent (the operation and its variables), without sending anything' };
   Object.assign(properties, def.extra ?? {});
   checkDef(def as ApiDef<unknown>, op, properties);
   const required = [...views.filter((v) => v.required).map((v) => v.property), ...(def.require ?? [])];
@@ -201,6 +204,7 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
       // A flattened input that is required is sent, even empty (its fields optional).
       for (const key of def.flatten ?? ['input']) if (!key.includes('.') && op.args[key]?.endsWith('!') && vars[key] === undefined) vars[key] = {};
       if ('requestId' in op.args && vars.requestId === undefined) vars.requestId = uuidv7(ctx.now());
+      if (def.dry && given.dryRun) return { dryRun: true, operation: op.name, variables: vars } as O;
       if (def.confirm) await ctx.confirm(def.confirm(given));
       const doc = documentOf(op, Object.keys(vars).concat(paged && given.all ? ['after'] : []), def.select ?? selection(typeRef(op.type).name, depth));
       const data = paged && given.all
@@ -208,11 +212,14 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
         : await api<Record<string, unknown>>(ctx, doc, vars);
       return (def.map ? def.map(data[op.name], given) : data[op.name]) as O;
     },
-    ...(def.text ? { text: def.text } : {}),
+    ...(def.text ? { text: (r: O) => (def.dry && isObject(r) && r.dryRun === true ? dryRunText(r) : def.text!(r)) } : {}),
     quiet: def.quiet ?? ((r: O) => (isObject(r) && typeof r.id === 'string' ? r.id : undefined)),
   };
 }
 
+
+/** The text of a --dry-run answer: the operation and its variables. */
+const dryRunText = (r: Record<string, unknown>) => [`${String(r.operation)} (dry run: nothing sent)`, JSON.stringify(r.variables)].join('\n');
 
 /** The flag of a property ("accountId" → --account-id), and back. */
 export const flagOf = (property: string) => `--${kebab(property)}`;

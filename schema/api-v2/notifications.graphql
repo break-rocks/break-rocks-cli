@@ -713,6 +713,11 @@ type Settings {
   """
   nearbyLabel: String
   """
+  Whether the universe visit history is paused (since v83.0.0, D-247): nothing new is recorded, the entries kept
+  stay; false by default.
+  """
+  universeHistoryPaused: Boolean!
+  """
   The subtitles setting (automatic-subtitles.feature, since v78.0.0, D-214): whether the subtitles of every clip
   are shown as it plays, automatic or corrected; off by default; kept with the account, and on the device by
   the apps.
@@ -747,6 +752,10 @@ input SettingsInput {
   handle.
   """
   nearbyLabel: String
+  """
+  Pauses (true) or resumes (false) the universe visit history (since v83.0.0, D-247).
+  """
+  universeHistoryPaused: Boolean
   """
   The subtitles setting (since v78.0.0, D-214).
   """

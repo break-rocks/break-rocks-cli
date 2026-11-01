@@ -51,9 +51,9 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect(parseSdl(readContract(source))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    // The descriptions ("""…""") are not fields: Query holds the 146 reads of API v2, Mutation its 253 writes.
-    expect(Object.keys(GENERATED.query).length).toBe(146);
-    expect(Object.keys(GENERATED.mutation).length).toBe(253);
+    // The descriptions ("""…""") are not fields: Query holds the 153 reads of API v2, Mutation its 265 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(153);
+    expect(Object.keys(GENERATED.mutation).length).toBe(265);
     expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(12);
   });
   it('takes a requestId on every mutation but the four ephemeral signals', () => {
@@ -95,7 +95,7 @@ function sample(s: JsonSchema, name: string): unknown {
 const SAMPLES: Record<string, Record<string, unknown>> = {
   post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, 'channels send': { channel: '%x~a', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
-  'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x~a'] },
+  'themes try': { universe: '%x', theme: '%x/name' }, 'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x~a'] },
 };
 
 describe('every command', () => {

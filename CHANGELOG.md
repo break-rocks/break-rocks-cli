@@ -5,6 +5,23 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-01
+
+Specs v83.1.0 (schema/api-v2 updated; the backend serves it in dev and staging).
+
+### Added
+
+- Discussions (D-245): `discussions list <universe>`, `discussions show <address>` and `discussions unread` (`myUnreadDiscussions`) show `presentCount`, `silence`, `mentionedMe` and `messageTtlSeconds` (a line each in text, the fields in `--json`).
+- Messages of a universe discussion (D-245): `messages react <id> <emoji>`, `messages unreact <id> <emoji>`, `messages thread <id>` (`threadMessages`, `--all`) and `messages reply-thread <id> --text` (`replyInThread`).
+- Theme gallery (D-244): `themes gallery <universe>` (`--high-contrast`, `--night` or `--day`), `themes star|unstar|starred`, `themes try <universe> --theme [--layout]` (`startGalleryTrial`), `themes untry <universe>`, `themes trials`; `universes theme-history`, `universes theme-restore <universe> <entryId>` and `universes theme-follow`.
+- Universe visit history (D-247): `universes history`, `universes history remove <universe>`, `universes history clear` (needs `--yes`), `settings history-pause on|off`, and `universes visit <universe>` (`recordUniverseVisit`), the only command that records a visit: no other command does it implicitly.
+- `--dry-run` on these writes (reactions, thread reply, stars, trials, theme restore and follow, history, pause, visit): the operation and its variables are written, nothing is sent or asked.
+- Every command above is also an MCP tool; `universes show` tells a frozen theme version and a gallery trial.
+
+### Changed
+
+- `messaging settings set` no longer offers `--universe-history-paused` (it is `settings history-pause`).
+
 ## [0.14.2] - 2026-11-01
 
 ### Fixed

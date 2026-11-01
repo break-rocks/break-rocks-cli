@@ -804,6 +804,11 @@ type Theme {
   """
   screenshotsDay: [String!]!
   """
+  Since v81.11.0 (D-244): its contrast level, AA for every published theme (raised at publication), AAA for a
+  high-contrast theme (7:1 for body text, 4.5:1 for large text and controls, in both variants).
+  """
+  contrastLevel: ThemeContrastLevel!
+  """
   Its typefaces.
   """
   typography: ThemeTypography!
@@ -836,9 +841,18 @@ type ThemeCatalogItem {
   """
   accountCount: Int!
   """
+  Since v81.11.0 (D-244): the 6 colors of its palette in "variant", in this order: background, surface, text,
+  primary, accent, link (hex "#RRGGBB").
+  """
+  palette: [String!]!
+  """
   Why it is in the catalog at its place (official, used in the universes of the caller…).
   """
   reason: String!
+  """
+  Since v81.11.0 (D-244): whether the caller starred it (starTheme).
+  """
+  starred: Boolean!
   """
   Its screenshots.
   """
@@ -861,6 +875,12 @@ type ThemeCatalogItem {
 The order of the theme catalog and the layout catalog.
 """
 enum ThemeCatalogOrder {
+  """
+  Since v81.11.0 (D-244, theme-gallery.feature): the theme gallery or the layout gallery of "universe" (required,
+  GALLERY_UNIVERSE_REQUIRED otherwise): its field collection (its field layout), then the universal collection
+  (the platform layouts), then the rest by the most used; reasons COLLECTION_<field>, UNIVERSAL, MOST_USED.
+  """
+  GALLERY
   IN_YOUR_UNIVERSES
   MOST_USED
   NEWEST
@@ -1171,4 +1191,100 @@ input WatermarkSettingInput {
   The text as written.
   """
   text: String
+}
+
+"""
+The contrast level of a theme (since v81.11.0, D-244, theme-gallery.feature).
+"""
+enum ThemeContrastLevel {
+  AA
+  AAA
+}
+
+"""
+A gallery trial (since v81.11.0, D-244, theme-gallery.feature): a theme of the catalog, a layout of the
+catalog, or both, served to the caller alone on "universe" for 24 hours, ended in one call (endGalleryTrial).
+For the caller: after a draft preview, before a universe theme trial and "my theme everywhere".
+"""
+type GalleryTrial {
+  """
+  The universe it is tried on, with its sign ("%gaming").
+  """
+  universe: String!
+  """
+  The theme tried; null when only a layout is tried.
+  """
+  theme: ThemeRef
+  """
+  The theme object served (format 2, as published); null when only a layout is tried.
+  """
+  themeDocument: AWSJSON
+  """
+  The layout tried; null when only a theme is tried.
+  """
+  layout: LayoutRef
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+  """
+  When it ends: startedAt + 24 hours.
+  """
+  endsAt: AWSDateTime!
+}
+
+"""
+An entry of the universe theme history (since v81.11.0, D-244): a universe theme the universe had, at the
+version it had, the most recent first, kept one year.
+"""
+type UniverseThemeHistoryEntry {
+  """
+  The identifier of the entry (restoreUniverseTheme).
+  """
+  id: ID!
+  """
+  The theme and its version then.
+  """
+  theme: ThemeRef!
+  """
+  When it became the universe theme.
+  """
+  setAt: AWSDateTime!
+  """
+  When it stopped being the universe theme; null for the current one.
+  """
+  endedAt: AWSDateTime
+  """
+  Whether it can be restored (false: removed by the moderation, deleted, or no longer readable).
+  """
+  restorable: Boolean!
+}
+
+"""
+A page of the universe theme history.
+"""
+type UniverseThemeHistoryPage {
+  """
+  The entries of this page.
+  """
+  items: [UniverseThemeHistoryEntry!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+What restoreUniverseTheme made (since v81.11.0): the universe, its theme held at the version restored, or
+the proposal filed when the universe has no leadership (null when set at once).
+"""
+type UniverseThemeRestore {
+  """
+  The universe.
+  """
+  universe: Universe
+  """
+  The proposal filed; null when set at once.
+  """
+  proposal: Proposal
 }

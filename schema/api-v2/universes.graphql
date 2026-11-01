@@ -253,7 +253,12 @@ type LiveLine {
   """
   The open debate with the most messages; null when none.
   """
-  debate: Debate
+  debate: Debate @deprecated(reason: "Use discussion (since v83.0.0, D-245).")
+  """
+  The open temporary universe discussion with the most messages (since v83.0.0, D-245; replaces debate); null when
+  none.
+  """
+  discussion: UniverseDiscussion
   """
   The universe event of the day; null when none.
   """
@@ -948,6 +953,16 @@ type Universe {
   universe(name) only.
   """
   myDraftPreview: DraftPreview
+  """
+  The gallery trial of the caller on this universe (since v81.11.0, D-244), while it runs; null otherwise.
+  """
+  myGalleryTrial: GalleryTrial
+  """
+  Since v81.11.0 (D-244): the version its universe theme is frozen at after restoreUniverseTheme (the apps show
+  "Frozen version · Follow updates"); null: it follows the latest version of its theme (followThemeUpdates, since
+  v83.0.0, or setting the theme again, clears it).
+  """
+  themeHeldVersion: Int
   """
   The caller's join request waiting (a non-member), or null.
   """
@@ -1999,6 +2014,11 @@ type UniverseDiscussion {
   """
   lifetime: UniverseDiscussionLifetime!
   """
+  Whether an unread message of it mentions the caller (since v83.0.0, D-245): its handle, or "@channel" in a
+  private universe; false once read.
+  """
+  mentionedMe: Boolean!
+  """
   Whether the caller muted its mentions too (since v81.2.0).
   """
   mentionsMuted: Boolean!
@@ -2008,7 +2028,11 @@ type UniverseDiscussion {
   messageCount: Int!
   """
   How long each message is kept, in seconds: 3,600 for origin RESIDENT_PROPOSAL; chosen by the governance for
-  origin GOVERNANCE (from 3,600 to its duration, 3,600 by default); null for PERMANENT (its channel window applies).
+  origin GOVERNANCE (from 3,600 to its duration, 3,600 by default). Since v83.0.0 (D-245), filled for PERMANENT
+  too: "&general" of a public universe by the number of residents of its universe now (D-225: 604,800 below 50,
+  259,200 below 1,000, 86,400 below 100,000, 21,600 from 100,000; a message keeps the lifetime of its sending);
+  another public channel 604,800; a channel of a private universe its channel message retention. Null only while
+  it waits for support.
   """
   messageTtlSeconds: Int
   """
@@ -2030,6 +2054,13 @@ type UniverseDiscussion {
   """
   muted: Boolean!
   """
+  The approximate number of residents (members, in a private universe) reading it now (since v83.0.0, D-245):
+  the live readers of its watch leases, counted per 5-minute window and rounded (exact to 10, then to 2
+  significant digits); refreshed at most every 30 seconds, live by the event discussion.presence
+  (contracts/realtime.md). 0 when nobody reads it.
+  """
+  presentCount: Int!
+  """
   Its name ("general").
   """
   name: String!
@@ -2050,6 +2081,10 @@ type UniverseDiscussion {
   expire.
   """
   runningSummary: Summary
+  """
+  The silence of the caller on it (since v83.0.0, D-245; "/silence", setDiscussionSilence); null when not silenced.
+  """
+  silence: DiscussionSilence
   """
   The slow mode: the seconds a member waits between two messages; 0 when off (since v81.2.0).
   """
@@ -2112,6 +2147,56 @@ enum UniverseDiscussionStatus {
   GONE
   OPEN
   WAITING_SUPPORT
+}
+
+"""
+A page of universe discussions (myUnreadDiscussions, since v83.0.0).
+"""
+type UniverseDiscussionPage {
+  """
+  The universe discussions of this page.
+  """
+  items: [UniverseDiscussion!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+A silence of a discussion for the caller (since v83.0.0, D-245): until a date (1, 8 or 24 hours), or always.
+"""
+type DiscussionSilence {
+  """
+  When it ends; null when always.
+  """
+  until: AWSDateTime
+  """
+  Whether it lasts until the caller ends it.
+  """
+  always: Boolean!
+}
+
+"""
+An entry of the universe visit history of an account (since v83.0.0, D-247).
+"""
+type RecentUniverse {
+  """
+  The address of the universe ("%paris/velo").
+  """
+  universe: String!
+  """
+  Its universe of the first level for a sub-universe ("%paris"); null otherwise.
+  """
+  parent: String
+  """
+  Whether it is a private universe.
+  """
+  private: Boolean!
+  """
+  Its most recent visit: a landing (markLanding) or a visit of more than 10 seconds (recordUniverseVisit).
+  """
+  visitedAt: AWSDateTime!
 }
 
 """
