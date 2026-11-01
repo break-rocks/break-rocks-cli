@@ -5,6 +5,12 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-01
+
+### Fixed
+
+- The global option `--agent <name>` before the command (`breakrocks --agent herald whoami`) was ignored and its value taken as the command; it now parses like `--profile` and `--env`.
+
 ## [0.14.1] - 2026-11-01
 
 ### Fixed

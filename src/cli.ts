@@ -35,6 +35,9 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--version': if (tokens.some((x) => !x.startsWith('-'))) tokens.push(t); else flags.version = true; break;
       case '--fields': flags.fields = value().split(',').map((f) => f.trim()).filter(Boolean); break;
       case '--profile': flags.profile = value(); break;
+      // --agent before the command is the global one (its value is not the command); after it,
+      // takeAgentFlag decides (a command may have an option "agent" of its own).
+      case '--agent': if (tokens.some((x) => !x.startsWith('-'))) { tokens.push(t); if (inline === undefined && argv[i + 1] !== undefined) tokens.push(argv[++i]); } else flags.agent = value(); break;
       case '--env': {
         // "--env dev|staging|prod" is the environment; a bare --env is left to the command (wallet set --env).
         const v = inline ?? argv[i + 1];

@@ -37,6 +37,11 @@ describe('a local agent', () => {
     expect(json).toMatchObject({ agentId: created.agentId, env: 'dev', keyStorage: 'keychain' });
     expect(await h.run('whoami', '--agent', 'herald', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId });
+    // Before the command, like --profile and --env: its value is not taken as the command.
+    expect(await h.run('--agent', 'herald', 'whoami', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId });
+    expect(await h.run('--agent=herald', '--env', 'dev', 'whoami', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId });
     expect(await h.run('agents', 'local', '--json')).toBe(0);
     expect(last<unknown[]>(h)).toEqual([expect.objectContaining({ name: 'herald', agentId: created.agentId, keyStorage: 'keychain' })]);
     expect(h.all()).not.toContain('PRIVATE KEY');
