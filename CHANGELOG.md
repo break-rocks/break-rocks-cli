@@ -13,7 +13,7 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ### Changed
 
-- CI builds the single executable on every system and runs `--version`, `doctor --help`, `schema all` and `operator keygen`, as the release workflow does.
+- CI builds the single executable on every system and runs `--version`, `doctor --help`, `schema all` and `theme prompt`, close to what the release workflow does.
 
 ## [0.14.0] - 2026-11-01
 

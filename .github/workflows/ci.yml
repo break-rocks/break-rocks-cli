@@ -60,7 +60,7 @@ jobs:
           test "$("$bin" --version)" = "$(node -p "require('./package.json').version")"
           "$bin" doctor --help > /dev/null
           "$bin" schema all --json > /dev/null
-          "$bin" --env dev operator keygen --json | grep -q fingerprint
+          "$bin" theme prompt --field sport --mood "stadium at night" --name stade-nuit --universe %football | grep -q 'break-rocks-theme/2'
       - name: The completion scripts
         shell: bash
         env:
