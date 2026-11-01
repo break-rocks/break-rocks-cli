@@ -5,6 +5,16 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-01
+
+### Fixed
+
+- The single executable stopped at start with `TypeError: Class2 is not a constructor` (0.13.0 and 0.14.0 were never released): since the zod override of 0.12.2, the MCP SDK (loaded at start) and `@x402/*` (loaded on demand) share one zod, and esbuild wrapped it in lazy initialisers that the eager code never ran. `scripts/build-sea.mjs` now gives the x402 side its own bundled copy of zod.
+
+### Changed
+
+- CI builds the single executable on every system and runs `--version`, `doctor --help`, `schema all` and `operator keygen`, as the release workflow does.
+
 ## [0.14.0] - 2026-11-01
 
 ### Added

@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 
@@ -18,6 +18,29 @@ const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const windows = process.platform === 'win32', mac = process.platform === 'darwin';
 const name = `breakrocks-${process.platform === 'win32' ? 'windows' : process.platform}-${process.arch}${windows ? '.exe' : ''}`;
 
+// zod is shared (one 4.6.7 since the npm overrides of 0.12.2) between the MCP SDK, imported at
+// start, and @x402/*, imported lazily (await import). esbuild then wraps the zod modules in lazy
+// initialisers that the eager MCP code never runs ("Class2 is not a constructor" at start). The
+// x402 side gets its own copy of zod (same files, a ?x402 suffix): the eager copy stays eager.
+const lazyZodCopy = {
+  name: 'lazy-zod-copy',
+  setup(b) {
+    b.onResolve({ filter: /^[^.]|^\./ }, async (args) => {
+      if (args.pluginData?.skip) return undefined;
+      const fromX402 = /[\\/]node_modules[\\/]@x402[\\/]/.test(args.importer) && /^zod(\/|$)/.test(args.path);
+      const fromCopy = args.pluginData?.x402zod === true;
+      if (!fromX402 && !fromCopy) return undefined;
+      const r = await b.resolve(args.path, { kind: args.kind, importer: args.importer, resolveDir: args.resolveDir, pluginData: { skip: true } });
+      if (r.errors.length) return { errors: r.errors };
+      return { path: r.path, suffix: '?x402', pluginData: { x402zod: true } };
+    });
+    b.onLoad({ filter: /[\\/]node_modules[\\/]zod[\\/].*\.c?js$/ }, async (args) => {
+      if (args.suffix !== '?x402') return undefined;
+      return { contents: readFileSync(args.path, 'utf8'), loader: 'js', resolveDir: dirname(args.path), pluginData: { x402zod: true } };
+    });
+  },
+};
+
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const bundle = join(out, 'breakrocks.cjs');
@@ -26,6 +49,7 @@ await build({
   define: { __BREAKROCKS_VERSION__: JSON.stringify(version), 'import.meta.url': '"file:///breakrocks-sea"' }, legalComments: 'none', logLevel: 'warning',
   // Optional peers that the dependencies load only when present.
   external: ['@cfworker/json-schema'],
+  plugins: [lazyZodCopy],
 });
 const config = join(out, 'sea-config.json');
 const blob = join(out, 'sea-prep.blob');

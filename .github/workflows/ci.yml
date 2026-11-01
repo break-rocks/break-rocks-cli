@@ -50,6 +50,17 @@ jobs:
           node bin/breakrocks.js theme prompt --field sport --mood "stadium at night" --name stade-nuit --universe %football | grep -q 'break-rocks-theme/2'
           node bin/breakrocks.js --env dev operator keygen --json | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!j.fingerprint || JSON.stringify(j).includes('PRIVATE KEY')) process.exit(1)"
           node bin/breakrocks.js nope && exit 1 || test $? -eq 2
+      - name: The single executable answers (the build of the release workflow)
+        shell: bash
+        env:
+          BREAKROCKS_CONFIG_DIR: ${{ runner.temp }}/breakrocks-config
+        run: |
+          npm run build:sea
+          bin="$(ls build/sea/breakrocks-* | grep -v '\.sha256$' | grep -v '\.cjs$' | head -1)"
+          test "$("$bin" --version)" = "$(node -p "require('./package.json').version")"
+          "$bin" doctor --help > /dev/null
+          "$bin" schema all --json > /dev/null
+          "$bin" --env dev operator keygen --json | grep -q fingerprint
       - name: The completion scripts
         shell: bash
         env:
