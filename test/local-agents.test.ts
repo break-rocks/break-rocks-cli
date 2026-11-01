@@ -117,7 +117,17 @@ describe('a local agent', () => {
     expect([0, 1]).toContain(code);
     const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !(name === 'Universe' && f === 'agentPostsForbidden')).map((n) => ({ name: n })), inputFields: null }));
     types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
-    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], operations: [] });
+    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], deprecatedFields: [], operations: [] });
+  });
+
+  it('doctor only warns about the missing fields the contract deprecates', () => {
+    expect(SCHEMA.deprecated).toEqual(expect.arrayContaining(['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel']));
+    const lacking = new Set(['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel', 'Universe.agentPostsForbidden']);
+    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !lacking.has(`${name}.${f}`)).map((n) => ({ name: n })), inputFields: null }));
+    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
+    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], deprecatedFields: ['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel'], operations: [] });
+    const only = types.map((t) => (t.name === 'Universe' ? { ...t, fields: [...t.fields, { name: 'agentPostsForbidden' }] } : t));
+    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types: only } }).fields).toEqual([]);
   });
 });
 

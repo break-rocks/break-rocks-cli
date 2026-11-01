@@ -18,6 +18,10 @@ Specs v83.1.0 (schema/api-v2 updated; the backend serves it in dev and staging).
 - `--dry-run` on these writes (reactions, thread reply, stars, trials, theme restore and follow, history, pause, visit): the operation and its variables are written, nothing is sent or asked.
 - Every command above is also an MCP tool; `universes show` tells a frozen theme version and a gallery trial.
 
+### Fixed
+
+- `doctor`: a field missing on the deployed API that the contract marks `@deprecated` (`ChannelActivity.channel`, `LiveLine.debate`, `MessagePage.channel`, whose replacements dev serves) is a `warn` of the `schema` check, listed in `missingDeprecatedFields`; only a missing field that is not deprecated is a `FAIL`. `schema.generated.ts` carries the list of deprecated fields (`deprecated`).
+
 ### Changed
 
 - `messaging settings set` no longer offers `--universe-history-paused` (it is `settings history-pause`).

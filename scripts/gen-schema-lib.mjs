@@ -20,13 +20,16 @@ export function withScalars(sdl) {
   return `${scalars.join('\n')}\n${sdl}`;
 }
 
-/** The SDL in its compact form: { types: { Name: { k: 'o'|'i'|'e'|'u'|'s', f?: { field: [type, args?] }, v?: [values] } }, query, mutation }. */
+/** The SDL in its compact form: { types: { Name: { k: 'o'|'i'|'e'|'u'|'s', f?: { field: [type, args?] }, v?: [values] } }, query, mutation, deprecated: ['Type.field'] }. */
 export function parse(sdl) {
   const schema = buildSchema(withScalars(sdl));
   const fieldsOf = (type) => Object.fromEntries(Object.values(type.getFields()).map((f) => {
     const args = Object.fromEntries((f.args ?? []).map((a) => [a.name, String(a.type)]));
     return [f.name, Object.keys(args).length ? [String(f.type), args] : [String(f.type)]];
   }));
+  // Type.field of the fields (and "Query.x", "Mutation.y" of the operations) marked @deprecated in the contract.
+  const deprecated = [];
+  const noteDeprecated = (typeName, type) => { for (const f of Object.values(type.getFields())) if (f.deprecationReason !== undefined && f.deprecationReason !== null) deprecated.push(`${typeName}.${f.name}`); };
   const builtIn = new Set(['String', 'Int', 'Float', 'Boolean', 'ID']);
   const types = {};
   for (const type of Object.values(schema.getTypeMap()).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
@@ -35,7 +38,9 @@ export function parse(sdl) {
     else if (isUnionType(type)) types[type.name] = { k: 'u', v: type.getTypes().map((t) => t.name) };
     else if (isScalarType(type)) types[type.name] = { k: 's' };
     else if (isInputObjectType(type)) types[type.name] = { k: 'i', f: fieldsOf(type) };
-    else if (isObjectType(type) || isInterfaceType(type)) types[type.name] = { k: 'o', f: fieldsOf(type) };
+    else if (isObjectType(type) || isInterfaceType(type)) { types[type.name] = { k: 'o', f: fieldsOf(type) }; noteDeprecated(type.name, type); }
   }
-  return { types, query: fieldsOf(schema.getQueryType()), mutation: fieldsOf(schema.getMutationType()) };
+  noteDeprecated(schema.getQueryType().name, schema.getQueryType());
+  noteDeprecated(schema.getMutationType().name, schema.getMutationType());
+  return { types, query: fieldsOf(schema.getQueryType()), mutation: fieldsOf(schema.getMutationType()), deprecated: deprecated.sort() };
 }

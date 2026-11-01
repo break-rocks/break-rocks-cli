@@ -15,7 +15,7 @@ import { VERSION } from '../version.js';
 import { compareVersions, readRelease } from './update.js';
 
 export type Check = { name: string; status: 'ok' | 'warn' | 'fail' | 'skip'; detail: string; code?: string };
-export type DoctorResult = { ok: boolean; version: string; profile: string; agent?: string; env: string; checks: Check[]; missingFields: string[]; missingOperations: string[] };
+export type DoctorResult = { ok: boolean; version: string; profile: string; agent?: string; env: string; checks: Check[]; missingFields: string[]; missingDeprecatedFields: string[]; missingOperations: string[] };
 
 export const NPM_LATEST = 'https://registry.npmjs.org/breakrocks/latest';
 
@@ -33,9 +33,10 @@ type Introspected = { __schema: { queryType: { name: string } | null; mutationTy
 /**
  * What of the contract the deployed schema lacks: its operations ("Query.x", "Mutation.y": only their
  * commands are refused, a warning) and the fields of its types ("Universe.agentPostsForbidden": every
- * command that selects one is refused, a failure).
+ * command that selects one is refused, a failure). A missing field that the contract marks @deprecated
+ * ("ChannelActivity.channel": its replacement is served) is only a warning: `deprecatedFields`.
  */
-export function schemaDrift(deployed: Introspected): { fields: string[]; operations: string[] } {
+export function schemaDrift(deployed: Introspected): { fields: string[]; deprecatedFields: string[]; operations: string[] } {
   const byName = new Map(deployed.__schema.types.map((t) => [t.name, new Set([...(t.fields ?? []), ...(t.inputFields ?? [])].map((f) => f.name))]));
   const missing: string[] = [];
   const compare = (type: string, fields: string[]) => {
@@ -47,7 +48,8 @@ export function schemaDrift(deployed: Introspected): { fields: string[]; operati
   compare(deployed.__schema.mutationType?.name ?? 'Mutation', Object.keys(SCHEMA.mutation));
   const operations = missing.splice(0);
   for (const [name, type] of Object.entries(SCHEMA.types)) if ((type.k === 'o' || type.k === 'i') && type.f) compare(name, Object.keys(type.f));
-  return { fields: missing, operations };
+  const deprecated = new Set(SCHEMA.deprecated ?? []);
+  return { fields: missing.filter((f) => !deprecated.has(f)), deprecatedFields: missing.filter((f) => deprecated.has(f)), operations };
 }
 
 export const doctor: Command<Record<string, never>, DoctorResult> = {
@@ -55,13 +57,13 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
   description: 'Each check is ok, warn, fail or skip; the exit code is 1 when one fails. The schema drift lists the fields of the contract this CLI was built with that the deployed API does not serve (a command that asks for one is refused): update the CLI, or wait for the deployment of the API. With --agent <name>, the local agent and its session.',
   examples: ['breakrocks doctor', 'breakrocks doctor --agent herald --json'],
   input: object({}),
-  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, session, api, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
+  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, session, api, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingDeprecatedFields: list('Type.field of the contract that the API lacks and the contract marks deprecated (a warning)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
   run: async (ctx) => {
     const checks: Check[] = [];
     const add = (c: Check) => { checks.push(c); return c.status !== 'fail'; };
     const failed = (name: string, error: unknown): Check => { const e = asCliError(error); return { name, status: 'fail', detail: e.message, code: e.code }; };
     let env = ctx.flags.env ?? 'prod';
-    let missingFields: string[] = [], missingOperations: string[] = [];
+    let missingFields: string[] = [], missingDeprecatedFields: string[] = [], missingOperations: string[] = [];
 
     const latest = await latestVersion(ctx);
     add(latest === undefined ? { name: 'version', status: 'warn', detail: `${VERSION}; the latest published version could not be read` }
@@ -102,14 +104,16 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
 
     if (session && at) {
       try {
-        ({ fields: missingFields, operations: missingOperations } = schemaDrift(await graphql<Introspected>(ctx, at.api, apiToken(session), INTROSPECTION)));
+        ({ fields: missingFields, deprecatedFields: missingDeprecatedFields, operations: missingOperations } = schemaDrift(await graphql<Introspected>(ctx, at.api, apiToken(session), INTROSPECTION)));
         if (missingOperations.length) add({ name: 'operations', status: 'warn', detail: `The API of ${env} does not serve ${missingOperations.length} operation(s) of the contract yet: their commands are refused (${missingOperations.slice(0, 6).join(', ')}${missingOperations.length > 6 ? ', …' : ''})` });
-        add(missingFields.length ? { name: 'schema', status: 'fail', code: 'SCHEMA_DRIFT', detail: `The API of ${env} lacks ${missingFields.length} field(s) this CLI may ask for: ${missingFields.slice(0, 10).join(', ')}${missingFields.length > 10 ? ', …' : ''}. Update the CLI, or wait for the deployment of the API` }
+        const deprecatedNote = missingDeprecatedFields.length ? `; ${missingDeprecatedFields.length} deprecated field(s) are gone (${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}): their replacements are served` : '';
+        add(missingFields.length ? { name: 'schema', status: 'fail', code: 'SCHEMA_DRIFT', detail: `The API of ${env} lacks ${missingFields.length} field(s) this CLI may ask for: ${missingFields.slice(0, 10).join(', ')}${missingFields.length > 10 ? ', …' : ''}. Update the CLI, or wait for the deployment of the API${deprecatedNote}` }
+          : missingDeprecatedFields.length ? { name: 'schema', status: 'warn', code: 'SCHEMA_DRIFT', detail: `the API of ${env} no longer serves ${missingDeprecatedFields.length} field(s) the contract marks deprecated: ${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}; the commands use their replacements` }
           : { name: 'schema', status: 'ok', detail: `the API of ${env} serves every field of the contract of this CLI` });
       } catch (error) { const e = asCliError(error); add({ name: 'schema', status: 'warn', code: e.code, detail: `introspection refused: ${e.message}` }); }
     } else add({ name: 'schema', status: 'skip', detail: 'needs a session' });
 
-    return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, profile: ctx.profileName, ...(ctx.agentName ? { agent: ctx.agentName } : {}), env, checks, missingFields, missingOperations };
+    return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, profile: ctx.profileName, ...(ctx.agentName ? { agent: ctx.agentName } : {}), env, checks, missingFields, missingDeprecatedFields, missingOperations };
   },
   text: (r) => [...r.checks.map((c) => `${{ ok: 'ok  ', warn: 'warn', fail: 'FAIL', skip: 'skip' }[c.status]}  ${c.name.padEnd(8)} ${c.detail}`), r.ok ? 'All good.' : 'Something fails: see above.'].join('\n'),
   exitCode: (r) => (r.ok ? 0 : 1),
