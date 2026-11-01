@@ -89,7 +89,7 @@ export const messagesReplyThread = apiCommand({
   description: 'The reply is a message of the discussion, shown in the thread only; a thread has one level (a reply to a reply goes to the thread of its root). The rules of a message apply (slow mode, writing ban, delegated agents). --request-id makes it once even when sent again.',
   kind: 'mutation', op: 'replyInThread', positionals: ['messageId'], descriptions: message, select: MESSAGE, dry: true,
   text: (r) => { const m = r as { id?: string; threadRoot?: string | null } | null; return m ? `${m.id} replied in the thread of ${m.threadRoot ?? '?'}` : '(none)'; },
-  examples: ['breakrocks messages reply-thread <message id> --text "Bonne idée"'],
+  examples: ['breakrocks messages reply-thread <message id> --text "Good idea"'],
 });
 
 /** The text of a deleteMessage answer: the message as the caller sees it now. */

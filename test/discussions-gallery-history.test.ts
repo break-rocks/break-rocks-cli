@@ -80,8 +80,8 @@ describe('reactions and threads', () => {
     expect(await h.run('messages', 'thread', 'm1', '--all', '--json')).toBe(0);
     expect(last<{ items: { id: string }[] }>(h).items.map((m) => m.id)).toEqual(['r1', 'r2']);
     expect(calls.filter((c) => c.field === 'threadMessages').map((c) => c.variables.after ?? null)).toEqual([null, 'c1']);
-    expect(await h.run('messages', 'reply-thread', 'm1', '--text', 'Bonne idée', '--request-id', '0198a2b4-0000-7000-8000-000000000001', '--json')).toBe(0);
-    expect(calls.at(-1)).toMatchObject({ field: 'replyInThread', variables: { messageId: 'm1', text: 'Bonne idée', requestId: '0198a2b4-0000-7000-8000-000000000001' } });
+    expect(await h.run('messages', 'reply-thread', 'm1', '--text', 'Good idea', '--request-id', '0198a2b4-0000-7000-8000-000000000001', '--json')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'replyInThread', variables: { messageId: 'm1', text: 'Good idea', requestId: '0198a2b4-0000-7000-8000-000000000001' } });
     expect(await h.run('messages', 'reply-thread', 'm1', '--json')).toBe(2);
     expect(await h.run('messages', 'reply-thread', 'm1', '--text', 'x', '--dry-run', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ dryRun: true, operation: 'replyInThread' });

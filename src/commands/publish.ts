@@ -125,7 +125,7 @@ const composeOutput = outputSchema('Post', 1);
 export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; announcement?: boolean }, unknown> = {
   name: 'post', summary: 'Publish a post: text, images (4) or a clip, a link, in an address (createPost)',
   description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
-  examples: ['breakrocks post "Match ce soir #foot" --in %test-village-sport', 'breakrocks post "Le stade" --in %paris --image stade.jpg --alt "Le stade la nuit"', 'echo "Bonjour" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
+  examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
   input: object({ ...composeProps, in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
   output: composeOutput, args: { positionals: ['text'] },
   run: async (ctx, input) => {
@@ -185,7 +185,7 @@ export const postsEdit = apiCommand({
     else if (source?.length) rest.sources = sourcesOf(source);
     return rest;
   },
-  examples: ['breakrocks posts edit <id> "Le texte corrigé"', 'breakrocks posts edit <id> "Le pont rouvre" --source "https://example.com/pont=Avis de la mairie"'], depth: 1,
+  examples: ['breakrocks posts edit <id> "The corrected text"', 'breakrocks posts edit <id> "The bridge reopens" --source "https://example.com/pont=Notice from the town hall"'], depth: 1,
 });
 export const postsDelete = apiCommand({ name: 'posts delete', summary: 'Delete one\'s post (one at a time)', kind: 'mutation', op: 'deletePost', ...onPost, confirm: (i) => `Delete the post ${i.id}?`, examples: ['breakrocks posts delete <id> --yes'], depth: 1 });
 export const postsPin = apiCommand({ name: 'posts pin', summary: 'Pin a post in a universe (setPinnedPost)', kind: 'mutation', op: 'setPinnedPost', fixed: { pinned: true }, positionals: ['postId'], rename: { universe: 'in' }, descriptions: { in: 'The universe (%name)' }, examples: ['breakrocks posts pin <id> --in %paris'], depth: 1 });
@@ -208,7 +208,7 @@ export const favoriteRemove = apiCommand({ name: 'universes favorite remove', su
 export const favoriteMove = apiCommand({ name: 'universes favorite move', summary: 'Move a favorite universe (before another, or last)', kind: 'mutation', op: 'moveFavoriteUniverse', positionals: ['universe'], descriptions: { ...u, before: 'The favorite to put it before (absent: last)' }, examples: ['breakrocks universes favorite move %paris --before %lyon'] });
 export const universesCreatePrivate = apiCommand({ name: 'universes create-private', summary: 'Create a private universe (hosted name or own domain)', kind: 'mutation', op: 'createPrivateUniverse', descriptions: { hostedName: 'Its name under the hosting of the platform', domain: 'Its own domain (DNS proof)', joinMode: 'How one joins', legalSpace: 'Its legal space (fra…)', memberTier: 'Its tier of members' }, examples: ['breakrocks universes create-private --hosted-name club-echecs --join-mode REQUEST --legal-space fra --member-tier 1'] });
 export const universesInvite = apiCommand({ name: 'universes invite', summary: 'Invite an account (or an email) to a private universe', kind: 'mutation', op: 'inviteToUniverse', positionals: ['universe'], rename: { accountId: 'account' }, descriptions: { ...u, account: 'The account: @handle or its id', email: 'An email, to invite someone without an account' }, examples: ['breakrocks universes invite %club --account @alice'] });
-export const conditionsSet = apiCommand({ name: 'universes conditions set', summary: 'Set the conditions of a private universe', kind: 'mutation', op: 'setUniverseConditions', positionals: ['universe', 'text'], descriptions: u, examples: ['breakrocks universes conditions set %club "Respect et bonne humeur"'] });
+export const conditionsSet = apiCommand({ name: 'universes conditions set', summary: 'Set the conditions of a private universe', kind: 'mutation', op: 'setUniverseConditions', positionals: ['universe', 'text'], descriptions: u, examples: ['breakrocks universes conditions set %club "Respect and good humour"'] });
 export const conditionsShow = apiCommand({ name: 'universes conditions show', summary: 'The conditions of a universe (a version)', kind: 'query', op: 'universeConditions', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes conditions show %club'] });
 export const conditionsAccept = apiCommand({ name: 'universes conditions accept', summary: 'Accept the conditions of a universe', kind: 'mutation', op: 'acceptUniverseConditions', positionals: ['universe'], descriptions: { ...u, conditionsVersion: 'The version accepted' }, examples: ['breakrocks universes conditions accept %club --conditions-version 2'] });
 export const universesAgentPosts = apiCommand({
@@ -235,7 +235,7 @@ export const proposalsFile = apiCommand({
     if (noTerritory) rest.clear = [...new Set([...((rest.clear as string[] | undefined) ?? []), 'TERRITORY'])];
     return rest;
   },
-  examples: ['breakrocks proposals file %paris --kind ACTION --title "Un banc de plus" --text "Place du marché"', 'breakrocks proposals file %paris --kind THEME --title "Un thème" --theme %paris/stade-nuit', 'breakrocks proposals file %paris --kind TERRITORY --title "La ville de Paris" --boundary R7444', 'breakrocks proposals file %marche --kind TERRITORY --title "Le quartier" --circle 48.8566,2.3522 --radius 1km --territory-name "Place du marché"'],
+  examples: ['breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square"', 'breakrocks proposals file %paris --kind THEME --title "A theme" --theme %paris/stade-nuit', 'breakrocks proposals file %paris --kind TERRITORY --title "The city of Paris" --boundary R7444', 'breakrocks proposals file %marche --kind TERRITORY --title "The neighbourhood" --circle 48.8566,2.3522 --radius 1km --territory-name "Market square"'],
 });
 export const proposalsShow = apiCommand({ name: 'proposals show', summary: 'A proposal', kind: 'query', op: 'proposal', positionals: ['id'], examples: ['breakrocks proposals show <id>'] });
 const onProposal = { positionals: ['proposalId'], rename: { proposalId: 'id' }, descriptions: { id: 'The proposal' } };
@@ -253,7 +253,7 @@ export const proposalsVote: Command<{ id: string; choice?: 'for' | 'against'; ca
 };
 export const proposalsWithdraw = apiCommand({ name: 'proposals withdraw', summary: 'Withdraw one\'s proposal', kind: 'mutation', op: 'withdrawProposal', ...onProposal, confirm: (i) => `Withdraw the proposal ${i.id}?`, examples: ['breakrocks proposals withdraw <id> --yes'] });
 
-export const debatesOpen = apiCommand({ name: 'debates open', summary: 'Open a debate in a universe', kind: 'mutation', op: 'openDebate', positionals: ['universe', 'name'], descriptions: { ...u, name: 'Its name (&name)' }, examples: ['breakrocks debates open %paris velo --subject "Des pistes cyclables ?" --hours 48'] });
+export const debatesOpen = apiCommand({ name: 'debates open', summary: 'Open a debate in a universe', kind: 'mutation', op: 'openDebate', positionals: ['universe', 'name'], descriptions: { ...u, name: 'Its name (&name)' }, examples: ['breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48'] });
 export const debatesSupport = apiCommand({ name: 'debates support', summary: 'Support a debate', kind: 'mutation', op: 'supportDebate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates support %paris velo'] });
 export const debatesClose = apiCommand({ name: 'debates close', summary: 'Close a debate', kind: 'mutation', op: 'closeDebate', positionals: ['universe', 'name'], descriptions: u, confirm: (i) => `Close the debate &${i.name} of ${i.universe}?`, examples: ['breakrocks debates close %paris velo --yes'] });
 export const debatesShow = apiCommand({ name: 'debates show', summary: 'A debate', kind: 'query', op: 'debate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates show %paris velo'] });

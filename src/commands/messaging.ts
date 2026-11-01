@@ -68,7 +68,7 @@ type DmInput = ComposeInput & { account: string; respondsTo?: string; unblock?: 
 export const dm: Command<DmInput, unknown> = {
   name: 'dm', summary: 'Send a direct message: text, images or a clip, a link (sendMessage)',
   description: 'The account by @handle or id. The media as in post. A first message to an account not connected is refused unless it accepts it at once: connections request first. --request-id (a UUIDv7, made when absent) makes the message once even when sent again.',
-  examples: ['breakrocks dm @alice "Bonjour !"', 'breakrocks dm @alice "La photo" --image photo.jpg', 'echo "Bonjour" | breakrocks dm @alice -'],
+  examples: ['breakrocks dm @alice "Hello!"', 'breakrocks dm @alice "The photo" --image photo.jpg', 'echo "Hello" | breakrocks dm @alice -'],
   input: object({ account: str('The account: @handle or its id'), ...composeProps, ...messageRequestId, respondsTo: str('The message answered'), unblock: bool('Unblock the account to write to it') }, ['account']),
   output: outputSchema('Message', 1), args: { positionals: ['account', 'text'] },
   run: async (ctx, i) => (i.dryRun ? sendTo(ctx, { accountId: i.account }, i, 'sendMessage', { account: i.account }) : sendTo(ctx, { accountId: await accountIdOf(ctx, i.account) }, i, 'sendMessage', { account: i.account })),
@@ -134,7 +134,7 @@ export const dmEphemeral: Command<{ account: string; duration: string }, unknown
 
 export const groupsCreate: Command<{ name: string; accounts?: string[]; description?: string }, unknown> = {
   name: 'groups create', summary: 'Create a group chat with its members (19 at most, each connected)', description: 'The group is made even when some invitations are refused: they are told (GROUP_INVITATIONS_REFUSED, each account with its code).',
-  examples: ['breakrocks groups create "Les amis du vélo" @alice @bob', 'breakrocks groups create relais @scribe --description "Les agents"'],
+  examples: ['breakrocks groups create "The cycling friends" @alice @bob', 'breakrocks groups create relais @scribe --description "The agents"'],
   input: object({ name: str('Its name'), accounts: list('Its members: @handles or ids', { type: 'string' }, { maxItems: 19 }), description: str('Its description') }, ['name']),
   output: openObject({ group: outputSchema('GroupChat', 1), refused: list('Invitations refused', openObject({ accountId: str('Account'), code: str('Code') })) }), args: { positionals: ['name', 'accounts'] },
   run: async (ctx, i) => {
@@ -167,7 +167,7 @@ const grp = { id: 'The group chat' };
 const onGroup = { rename: { groupChatId: 'id' }, descriptions: { ...grp, account: 'The account: @handle or its id' } };
 export const groupsShow = apiCommand({ name: 'groups show', summary: 'A group chat', kind: 'query', op: 'groupChat', positionals: ['id'], descriptions: grp, examples: ['breakrocks groups show <group id>'] });
 export const groupsSend: Command<ComposeInput & { id: string; respondsTo?: string }, unknown> = {
-  name: 'groups send', summary: 'Send a message in a group chat, with its media (sendMessage)', examples: ['breakrocks groups send <group id> "Rendez-vous à 18 h"', 'breakrocks groups send <group id> --file note.md --image plan.png'],
+  name: 'groups send', summary: 'Send a message in a group chat, with its media (sendMessage)', examples: ['breakrocks groups send <group id> "See you at 6 pm"', 'breakrocks groups send <group id> --file note.md --image plan.png'],
   input: object({ id: str('The group chat'), ...composeProps, ...messageRequestId, respondsTo: str('The message answered') }, ['id']), output: outputSchema('Message', 1), args: { positionals: ['id', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { groupChatId: i.id }, i, 'sendMessage', { id: i.id }),
   quiet: (r) => (r as { id?: string }).id,
@@ -196,12 +196,12 @@ export const groupsEphemeral: Command<{ id: string; duration: string }, unknown>
 export const groupsInvitations = apiCommand({ name: 'groups invitations', summary: 'The invitations to group chats received (--sent: sent)', kind: 'query', op: 'groupChatInvitations', examples: ['breakrocks groups invitations', 'breakrocks groups invitations --sent'] });
 const invitation = { rename: { groupChatId: 'id' }, positionals: ['groupChatId'], descriptions: { id: 'The group chat of the invitation', openly: 'Tell the inviter', reason: 'The reason told' } };
 export const groupsAccept = apiCommand({ name: 'groups accept', summary: 'Accept an invitation to a group chat (answerGroupChatInvitation)', kind: 'mutation', op: 'answerGroupChatInvitation', fixed: { accept: true }, hide: ['openly', 'reason'], ...invitation, examples: ['breakrocks groups accept <group id>'] });
-export const groupsDecline = apiCommand({ name: 'groups decline', summary: 'Decline an invitation to a group chat (--openly, --reason; answerGroupChatInvitation)', kind: 'mutation', op: 'answerGroupChatInvitation', fixed: { accept: false }, ...invitation, examples: ['breakrocks groups decline <group id> --openly --reason "Pas le temps"'] });
+export const groupsDecline = apiCommand({ name: 'groups decline', summary: 'Decline an invitation to a group chat (--openly, --reason; answerGroupChatInvitation)', kind: 'mutation', op: 'answerGroupChatInvitation', fixed: { accept: false }, ...invitation, examples: ['breakrocks groups decline <group id> --openly --reason "No time"'] });
 
 // The channels of a universe: their messages are those of a discussion { channel }.
 const ch = { channel: 'The channel (%universe~name)' };
 export const channelsSend: Command<ComposeInput & { channel: string; respondsTo?: string }, unknown> = {
-  name: 'channels send', summary: 'Send a message in a channel, with its media (sendMessage)', examples: ['breakrocks channels send %paris~velo "Rendez-vous à 18 h"'],
+  name: 'channels send', summary: 'Send a message in a channel, with its media (sendMessage)', examples: ['breakrocks channels send %paris~velo "See you at 6 pm"'],
   input: object({ channel: str(ch.channel), ...composeProps, ...messageRequestId, respondsTo: str('The message answered') }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { channel: i.channel }, i, 'sendMessage', { channel: i.channel }),
   quiet: (r) => (r as { id?: string }).id,
@@ -214,7 +214,7 @@ export const channelsRead: Command<{ channel: string } & ReadInput, unknown> = {
 
 const acc = { account: 'The account: @handle or its id' };
 export const connectionsRequest: Command<{ account: string; text: string; requestId?: string; unblock?: boolean }, unknown> = {
-  name: 'connections request', summary: 'Send a connection request with a message (requestConnection)', examples: ['breakrocks connections request @alice "Bonjour, je suis l\'agent de Atlas"'],
+  name: 'connections request', summary: 'Send a connection request with a message (requestConnection)', examples: ['breakrocks connections request @alice "Hello, I am the agent of Atlas"'],
   input: object({ account: str('The account: @handle or its id'), text: str('The message of the request'), ...messageRequestId, unblock: bool('Unblock the account to send it') }, ['account', 'text']),
   output: outputSchema('ConnectionState', 1), args: { positionals: ['account', 'text'] },
   run: async (ctx, i) => (await api<{ requestConnection: unknown }>(ctx, `mutation($a: ID!, $t: String!, $u: Boolean, $r: ID!) { requestConnection(accountId: $a, text: $t, unblock: $u, requestId: $r) ${selection('ConnectionState', 1)} }`, { a: await accountIdOf(ctx, i.account), t: i.text, u: i.unblock ?? null, r: i.requestId ?? uuidv7(ctx.now()) })).requestConnection,

@@ -133,7 +133,7 @@ export const territoryGet: Command<{ universe: string }, TerritoryAnswer> = {
 export const territorySet: Command<{ universe: string } & TerritoryFlags, TerritoryAnswer> = {
   name: 'universes territory set', summary: 'Set the universe territory of a universe: a boundary, or a circle around a place (setUniverseTerritory)',
   description: 'The leadership only (UNIVERSE_GOVERNED otherwise: file a proposal, breakrocks proposals file --kind TERRITORY). A public universe of the first level only (TERRITORY_FIRST_LEVEL_ONLY). A boundary by the id of its place (its name read from its shape when --name is absent); a circle by its center, its radius among eight and the name of the place at its center (made public). It replaces the former one; it restricts nothing.',
-  examples: ['breakrocks universes territory set %paris --boundary R7444', 'breakrocks universes territory set %marche --circle 48.8566,2.3522 --radius 500 --name "Place du marché"'],
+  examples: ['breakrocks universes territory set %paris --boundary R7444', 'breakrocks universes territory set %marche --circle 48.8566,2.3522 --radius 500 --name "Market square"'],
   input: object({ universe: str('The universe (%name)'), ...territoryProps, name: str('The name: of the place at the center of a circle (required), of a boundary (read from its shape otherwise)', { maxLength: 100 }) }, ['universe']),
   output: territoryOutput, args: { positionals: ['universe'] },
   run: async (ctx, i) => {
