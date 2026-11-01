@@ -2,8 +2,9 @@
 import { register } from '../registry.js';
 import { capabilities, usage, whoami } from './account.js';
 import { agentAttest, agentLogin } from './agent.js';
-import { agentsActivity, agentsCreate, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
+import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
 import { completion } from './completion.js';
+import { doctor } from './doctor.js';
 import { help, schema, version } from './core.js';
 import { login, logout } from './login.js';
 import { mcpCommand } from './mcp.js';
@@ -28,10 +29,10 @@ register(
   login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,
-  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity,
+  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity, agentsLocal, agentsImport, agentsForget,
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
-  whoami, sessionCommand, usage, capabilities,
+  whoami, sessionCommand, usage, capabilities, doctor,
   read.postsList, read.postsShow, publish.postsEdit, publish.postsDelete, publish.postsPin, publish.postsUnpin,
   read.feed, read.render, read.exportPosts,
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,

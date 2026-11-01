@@ -54,7 +54,7 @@ const githubHeaders = (ctx: Context, accept: string): Record<string, string> => 
   return { accept, 'user-agent': `breakrocks/${VERSION}`, 'x-github-api-version': '2022-11-28', ...(token ? { authorization: `Bearer ${token}` } : {}) };
 };
 
-async function readRelease(ctx: Context, version?: string): Promise<Release> {
+export async function readRelease(ctx: Context, version?: string): Promise<Release> {
   const base = (ctx.env.BREAKROCKS_RELEASES_URL ?? RELEASES_API).replace(/\/+$/, '');
   const url = version ? `${base}/tags/v${version.replace(/^v/, '')}` : `${base}/latest`;
   const res = await request(ctx, url, { method: 'GET', headers: githubHeaders(ctx, 'application/vnd.github+json') });

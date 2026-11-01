@@ -102,7 +102,7 @@ describe('the MCP server', () => {
   it('gives the theme prompt as an MCP prompt', async () => {
     const client = await connected(harness());
     const { prompts } = await client.listPrompts();
-    expect(prompts.map((p) => p.name)).toEqual(['theme-prompt']);
+    expect(prompts.map((p) => p.name)).toEqual(['whoami', 'agents', 'login', 'theme-prompt']);
     const p = await client.getPrompt({ name: 'theme-prompt', arguments: { field: 'culture', mood: 'white museum', name: 'musee', universe: '%paris', fonts: 'Playfair Display' } });
     expect((p.messages[0].content as { text: string }).text).toContain('"title": "Playfair Display"');
     await expect(client.getPrompt({ name: 'theme-prompt', arguments: { field: 'x', mood: 'm', name: 'n1', universe: '%p' } })).rejects.toThrow(/THEME_FIELD_INVALID/);

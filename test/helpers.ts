@@ -6,6 +6,13 @@ import '../src/commands/index.js';
 import { run } from '../src/cli.js';
 import type { Io } from '../src/context.js';
 import type { Output } from '../src/output.js';
+import type { Keychain } from '../src/keychain.js';
+
+/** A keychain in memory ([available] false: a device without one); never the one of the system in tests. */
+export function fakeKeychain(available = true): Keychain & { entries: Map<string, string> } {
+  const entries = new Map<string, string>();
+  return { name: 'fake keychain', entries, available: () => available, set: (a, s) => (available ? (entries.set(a, s), true) : false), get: (a) => entries.get(a), delete: (a) => entries.delete(a) };
+}
 
 export function capture() {
   const lines: string[] = []; const errors: string[] = []; const values: unknown[] = [];
@@ -18,7 +25,7 @@ export const tempDir = (label = 'breakrocks-test-') => mkdtempSync(join(tmpdir()
 export type Harness = ReturnType<typeof capture> & { io: Io; dir: string; clock: { now: number }; slept: number[]; run: (...argv: string[]) => Promise<number> };
 
 /** An Io on a new configuration folder, without network unless [fetch] is given, at a clock the test moves. */
-export function harness(options: { fetch?: typeof fetch; env?: Record<string, string>; interactive?: boolean; answers?: string[]; payer?: Io['payer']; cwd?: string } = {}): Harness {
+export function harness(options: { fetch?: typeof fetch; env?: Record<string, string>; interactive?: boolean; answers?: string[]; payer?: Io['payer']; cwd?: string; keychain?: Keychain } = {}): Harness {
   const c = capture();
   const dir = tempDir();
   const clock = { now: Date.parse('2026-10-23T10:00:00.000Z') };
@@ -29,7 +36,7 @@ export function harness(options: { fetch?: typeof fetch; env?: Record<string, st
     fetch: options.fetch ?? (async () => { throw new Error('no network in tests'); }),
     interactive: options.interactive ?? false, ask: async () => answers.shift() ?? '',
     now: () => clock.now, sleep: async (ms) => { slept.push(ms); clock.now += ms; },
-    ...(options.payer ? { payer: options.payer } : {}),
+    ...(options.payer ? { payer: options.payer } : {}), keychain: options.keychain ?? fakeKeychain(false),
   };
   return { ...c, io, dir, clock, slept, run: (...argv: string[]) => run(argv, io) };
 }

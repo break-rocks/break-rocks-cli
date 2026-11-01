@@ -1,9 +1,12 @@
 // agents create|list|show|rename|suspend|reactivate|delete|restrict|regenerate|activity: the
-// delegated agents of the operator signed in. Their private keys are written to a file (0600) and never printed; a delegated agent
-// cannot manage agents, which the CLI says before calling.
-import { existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { checkProfileName, writePrivate } from '../config.js';
+// delegated agents of the operator signed in; agents local|import|forget: the local agents of this
+// device (D-235). A private key goes to the system keychain (or a 0600 file) and is never printed; a
+// delegated agent cannot manage agents, which the CLI says before calling.
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { checkProfileName, isEnvironment, writePrivate } from '../config.js';
+import { privateKeyFrom } from '../keys.js';
+import { checkLocalName, forgetLocalAgent, localAgents, readLocalAgent, requireLocalAgent, saveLocalAgent, type LocalAgent } from '../local-agents.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
@@ -21,7 +24,7 @@ export const agentSchema = openObject({
   universes: { type: ['array', 'null'], items: { type: 'string' }, description: 'The universes allowed, with their sub-universes (null: all)' },
   createdAt: str('Created'), credentialsUpdatedAt: str('Credentials last made'), suspendedAt: { type: ['string', 'null'], description: 'Suspended' }, deactivatedAt: { type: ['string', 'null'], description: 'Deactivated (allowance)' },
 });
-const credentialsSchema = openObject({ agentId: str('The id of the delegated agent'), operatorId: str('The account id of the operator'), algorithm: str('Ed25519'), signInUrl: str('The base address of its sign-in'), keyFile: str('Its private key file (0600)'), profile: str('The profile made for it'), agent: agentSchema });
+const credentialsSchema = openObject({ agentId: str('The id of the delegated agent'), operatorId: str('The account id of the operator'), algorithm: str('Ed25519'), signInUrl: str('The base address of its sign-in'), localAgent: str('The local agent kept on this device (--agent <name>)'), keyStorage: str('keychain or file'), keyFile: str('Its private key file (0600), when not in the keychain'), profile: str('The profile made for it'), agent: agentSchema });
 
 const interactionsSchema = list('The kinds of interaction allowed', { type: 'string', enum: INTERACTIONS });
 const universesSchema = list('The universes allowed (at most 20, each with its sub-universes)', { type: 'string', pattern: '^%\\S+$' }, { maxItems: 20 });
@@ -39,41 +42,45 @@ export async function agentIdOf(ctx: Context, ref: string): Promise<DelegatedAge
   return found;
 }
 
-function keyFileFor(ctx: Context, agentId: string, out?: string) {
-  return out ? resolve(ctx.io.cwd, out) : join(ctx.store.keysDir(ctx.profileName), 'agents', `${agentId}.pem`);
-}
-
 type Credentials = { agentId: string; operatorId: string; algorithm: string; privateKey: string; signInUrl: string; agent: DelegatedAgent };
-type CreatedResult = Omit<Credentials, 'privateKey'> & { keyFile: string; profile?: string };
+type CreatedResult = Omit<Credentials, 'privateKey'> & { localAgent: string; keyStorage: 'keychain' | 'file'; keyFile?: string; profile?: string };
 
-/** Writes the private key of [credentials] and answers them without it; [saveProfile]: a profile of the delegated agent. */
-function keep(ctx: Context, credentials: Credentials, out: string | undefined, saveProfile?: string): CreatedResult {
+/**
+ * Keeps the private key of [credentials] as the local agent [local] (the keychain, else a 0600 file;
+ * [out]: that file) and answers them without it; [saveProfile]: also a profile of the delegated agent.
+ */
+function keep(ctx: Context, credentials: Credentials, local: string, out: string | undefined, saveProfile?: string, createdAt?: string): CreatedResult {
   const { privateKey, ...rest } = credentials;
-  const keyFile = keyFileFor(ctx, credentials.agentId, out);
-  writePrivate(keyFile, privateKey.endsWith('\n') ? privateKey : `${privateKey}\n`);
+  const operator = ctx.profile();
+  const file = out ? resolve(ctx.io.cwd, out) : undefined;
+  if (file) writePrivate(file, privateKey.endsWith('\n') ? privateKey : `${privateKey}\n`);
+  const stored = saveLocalAgent(ctx, { name: local, operatorId: credentials.operatorId, agentId: credentials.agentId, env: operator.env, ...(operator.cell ? { cell: operator.cell } : {}), createdAt: createdAt ?? new Date(ctx.now()).toISOString() }, privateKey, file);
   if (saveProfile) {
-    const operator = ctx.profile();
-    ctx.store.saveProfile(saveProfile, { env: operator.env, ...(operator.cell ? { cell: operator.cell } : {}), kind: 'agent', operatorId: credentials.operatorId, agentId: credentials.agentId, keys: { agent: keyFile } });
+    ctx.store.saveProfile(saveProfile, { env: operator.env, ...(operator.cell ? { cell: operator.cell } : {}), kind: 'agent', operatorId: credentials.operatorId, agentId: credentials.agentId, localAgent: local, ...(stored.keyFile ? { keys: { agent: stored.keyFile } } : {}) });
   }
-  return { ...rest, keyFile, ...(saveProfile ? { profile: saveProfile } : {}) };
+  return { ...rest, localAgent: local, keyStorage: stored.keyStorage, ...(stored.keyFile ? { keyFile: stored.keyFile } : {}), ...(saveProfile ? { profile: saveProfile } : {}) };
 }
 
-export const agentsCreate: Command<{ name: string; interactions?: string[]; universes?: string[]; out?: string; saveProfile?: string }, CreatedResult> = {
-  name: 'agents create', summary: 'Create a delegated agent; its private key is written to a file, never printed',
-  description: 'createDelegatedAgent: its credentials are answered once; the private key goes to --out (0600) or to the configuration folder. --save-profile makes a profile of the delegated agent (agent login --profile <name>).',
-  examples: ['breakrocks agents create herald --out herald.pem', 'breakrocks agents create scribe --interactions post,reply --universes %paris,%lyon --save-profile scribe'],
-  input: object({ name: str('Its name (2 to 32 visible characters)'), interactions: interactionsSchema, universes: universesSchema, out: str('The file of its private key'), saveProfile: str('Make a profile of this name for the delegated agent') }, ['name']),
+const keptText = (r: CreatedResult) => `Delegated agent ${r.agent.name} (${r.agentId}) of ${r.operatorId}\nLocal agent "${r.localAgent}": key in ${r.keyStorage === 'keychain' ? 'the system keychain' : r.keyFile}\nUse it: breakrocks --agent ${r.localAgent} whoami`;
+
+export const agentsCreate: Command<{ name: string; interactions?: string[]; universes?: string[]; out?: string; saveProfile?: string; localName?: string }, CreatedResult> = {
+  name: 'agents create', summary: 'Create a delegated agent and keep it as a local agent; its private key goes to the system keychain, never printed',
+  description: 'createDelegatedAgent: its credentials are answered once; the private key goes to the system keychain (macOS keychain, Secret Service, Windows Credential Manager), else to agents/<name>/key.pem (0600) of the configuration folder, or to --out. The local agent then acts with --agent <name> (or BREAKROCKS_AGENT). --save-profile also makes a profile of the delegated agent.',
+  examples: ['breakrocks agents create herald', 'breakrocks --agent herald post "Hello" --in %news', 'breakrocks agents create scribe --interactions post,reply --universes %paris,%lyon', 'breakrocks agents create herald --out herald.pem'],
+  input: object({ name: str('Its name (2 to 32 visible characters)'), interactions: interactionsSchema, universes: universesSchema, out: str('Keep its private key in this file instead of the keychain'), saveProfile: str('Make a profile of this name for the delegated agent'), localName: str('The name of the local agent, when its name is not one (letters, digits, ".", "_", "-")') }, ['name']),
   output: credentialsSchema, args: { positionals: ['name'] },
-  run: async (ctx, { name, interactions, universes, out, saveProfile }) => {
+  run: async (ctx, { name, interactions, universes, out, saveProfile, localName }) => {
     requireOperator(ctx);
+    const local = checkLocalName(localName ?? name);
+    if (readLocalAgent(ctx.store, local)) throw usageError('LOCAL_AGENT_EXISTS', `A local agent "${local}" is on this device: breakrocks agents forget ${local}, or --local-name`, { agent: local });
     if (saveProfile) { checkProfileName(saveProfile); if (ctx.store.profile(saveProfile)) throw usageError('PROFILE_EXISTS', `The profile "${saveProfile}" exists`, { profile: saveProfile }); }
     if (out && existsSync(resolve(ctx.io.cwd, out))) throw usageError('FILE_EXISTS', `${out} exists`, { path: out });
     // The answer holds a private key: never kept by the platform, a replay creates again (DELEGATED_AGENT_NAME_TAKEN).
     const vars: Record<string, unknown> = { name, ...(interactions ? { interactions } : {}), ...(universes ? { universes } : {}), requestId: uuidv7(ctx.now()) };
     const data = await api<{ createDelegatedAgent: Credentials }>(ctx, `mutation($name: String!, $interactions: [DelegatedAgentInteraction!], $universes: [String!], $requestId: ID!) { createDelegatedAgent(name: $name, interactions: $interactions, universes: $universes, requestId: $requestId) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, vars);
-    return keep(ctx, data.createDelegatedAgent, out, saveProfile);
+    return keep(ctx, data.createDelegatedAgent, local, out, saveProfile, data.createDelegatedAgent.agent.createdAt);
   },
-  quiet: (r) => r.agentId,
+  text: keptText, quiet: (r) => r.agentId,
 };
 
 export const agentsList: Command<Record<string, never>, DelegatedAgent[]> = {
@@ -149,7 +156,7 @@ export const agentsRestrict: Command<{ agent: string; interactions?: string[]; u
 
 export const agentsRegenerate: Command<{ agent: string; out?: string }, CreatedResult> = {
   name: 'agents regenerate', summary: 'Make new credentials for a delegated agent; the former key stops at once',
-  description: 'regenerateDelegatedAgentCredentials: the former key is useless at once and the open sessions of the agent close within 5 seconds. The new private key replaces the file of the agent (or --out).',
+  description: 'regenerateDelegatedAgentCredentials: the former key is useless at once and the open sessions of the agent close within 5 seconds. The new private key replaces the one of its local agent (the keychain or its file; one is made when there is none), or goes to --out.',
   examples: ['breakrocks agents regenerate herald --yes', 'breakrocks agents regenerate herald --out herald.pem --yes'],
   input: object({ agent: agentRef, out: str('The file of its new private key') }, ['agent']), output: credentialsSchema, args: { positionals: ['agent'] }, interactive: true,
   run: async (ctx, { agent, out }) => {
@@ -158,9 +165,10 @@ export const agentsRegenerate: Command<{ agent: string; out?: string }, CreatedR
     await ctx.confirm(`Make new credentials for "${found.name}"? Its current key stops at once.`, { agentId: found.id });
     // The new key replaces the former one; a replay makes yet another key (never kept by the platform).
     const data = await api<{ regenerateDelegatedAgentCredentials: Credentials }>(ctx, `mutation($id: ID!, $r: ID!) { regenerateDelegatedAgentCredentials(agentId: $id, requestId: $r) { agentId operatorId algorithm privateKey signInUrl agent { ${AGENT_FIELDS} } } }`, { id: found.id, r: uuidv7(ctx.now()) });
-    return keep(ctx, data.regenerateDelegatedAgentCredentials, out);
+    const local = localAgents(ctx.store).find((a) => a.agentId === found.id);
+    return keep(ctx, data.regenerateDelegatedAgentCredentials, local?.name ?? checkLocalName(found.name), out ?? (local?.keyStorage === 'file' && !local.keyFile?.startsWith(ctx.store.agentDir(local.name)) ? local.keyFile : undefined), undefined, local?.createdAt);
   },
-  quiet: (r) => r.agentId,
+  text: keptText, quiet: (r) => r.agentId,
 };
 
 type Activity = { items: Record<string, unknown>[]; next: string | null };
@@ -184,4 +192,54 @@ export const agentsActivity: Command<{ agent: string; after?: string; all?: bool
     }
     return { items, next: cursor };
   },
+};
+
+const localSchema = openObject({ name: str('The local agent'), operatorId: str('Its operator'), agentId: str('The delegated agent'), env: str('Its environment'), cell: str('Its home cell'), createdAt: str('Created'), keyStorage: str('keychain or file'), keychain: str('The keychain that holds its key'), keyFile: str('Its key file, when not in the keychain') });
+const localText = (a: LocalAgent) => `${a.name.padEnd(16)} ${a.env.padEnd(8)} operator ${a.operatorId}  agent ${a.agentId}  key: ${a.keyStorage === 'keychain' ? a.keychain ?? 'keychain' : a.keyFile}`;
+
+export const agentsLocal: Command<Record<string, never>, LocalAgent[]> = {
+  name: 'agents local', summary: 'List the local agents of this device: name, ids, environment, where the key is (never the key)',
+  examples: ['breakrocks agents local', 'breakrocks agents local --json'], input: object({}), output: { type: 'array', items: localSchema }, offline: true,
+  run: (ctx) => localAgents(ctx.store),
+  text: (rows) => (rows.length ? rows.map(localText).join('\n') : 'No local agent: breakrocks agents create <name>, or breakrocks agents import <name> --operator … --agent … --key <file>'),
+};
+
+export const agentsImport: Command<{ name: string; operator: string; agent: string; key: string; env?: string; deleteFile?: boolean }, LocalAgent & { fileDeleted: boolean }> = {
+  name: 'agents import', summary: 'Keep a delegated agent of a private key file as a local agent: the key moves to the system keychain',
+  description: 'The key is checked, then stored in the system keychain (a 0600 copy in the configuration folder without one). Then the file is deleted with --delete-file, or when the person answers yes; never otherwise. The environment is --env, else the one of the current profile.',
+  examples: ['breakrocks --env dev agents import herald --operator <operator id> --agent <agent id> --key herald.pem', 'breakrocks agents import herald --operator … --agent … --key herald.pem --delete-file'],
+  input: object({ name: str('The name of the local agent'), operator: str('The account id of the operator'), agent: str('The id of the delegated agent'), key: str('Its private key file (PEM)'), deleteFile: bool('Delete the key file once kept') }, ['name', 'operator', 'agent', 'key']),
+  output: localSchema, args: { positionals: ['name'] }, offline: true,
+  run: async (ctx, { name, operator, agent, key, deleteFile }) => {
+    checkLocalName(name);
+    if (readLocalAgent(ctx.store, name)) throw usageError('LOCAL_AGENT_EXISTS', `A local agent "${name}" is on this device: breakrocks agents forget ${name} first`, { agent: name });
+    const file = resolve(ctx.io.cwd, key);
+    if (!existsSync(file)) throw usageError('KEY_MISSING', `No key at ${key}`, { path: key });
+    const pem = readFileSync(file, 'utf8');
+    privateKeyFrom(pem, key);
+    const env = ctx.flags.env ?? (ctx.agentName ? undefined : ctx.store.profile(ctx.profileName)?.env) ?? 'prod';
+    if (!isEnvironment(env)) throw usageError('ENV_INVALID', `Not an environment: ${env}`);
+    const stored = saveLocalAgent(ctx, { name, operatorId: operator, agentId: agent, env, createdAt: new Date(ctx.now()).toISOString() }, pem);
+    let remove = !!deleteFile;
+    if (!remove && ctx.io.interactive) remove = /^(y|yes|o|oui)$/i.test((await ctx.io.ask(`The key of "${name}" is in ${stored.keyStorage === 'keychain' ? 'the system keychain' : stored.keyFile}. Delete ${key}? [y/N] `)).trim());
+    if (remove) rmSync(file, { force: true });
+    return { ...stored, fileDeleted: remove };
+  },
+  text: (r) => `${localText(r)}${r.fileDeleted ? '\nThe key file was deleted.' : '\nThe key file is still there: delete it once you no longer need it.'}`,
+  quiet: (r) => r.name,
+};
+
+export const agentsForget: Command<{ name: string }, { name: string; agentId: string; keyRemoved: boolean }> = {
+  name: 'agents forget', summary: 'Remove a local agent from this device (its key too); the delegated agent stays',
+  description: 'The local agent, its session and its key on this device are removed; the delegated agent itself is not deleted (agents delete). Without another copy of its key, agents regenerate makes a new one.',
+  examples: ['breakrocks agents forget herald --yes'], input: object({ name: str('The local agent') }, ['name']),
+  output: openObject({ name: str('The local agent'), agentId: str('The delegated agent'), keyRemoved: bool('Its key was removed from this device') }), args: { positionals: ['name'] }, offline: true, interactive: true,
+  run: async (ctx, { name }) => {
+    const agent = requireLocalAgent(ctx.store, name);
+    await ctx.confirm(`Forget the local agent "${name}" (${agent.agentId}) and its key on this device? The delegated agent stays.`, { agent: name });
+    const { keyRemoved } = forgetLocalAgent(ctx, agent);
+    rmSync(ctx.store.sessionFile(`agent.${name}`), { force: true });
+    return { name, agentId: agent.agentId, keyRemoved };
+  },
+  quiet: (r) => r.name,
 };

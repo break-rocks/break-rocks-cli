@@ -7,11 +7,12 @@ import { harness, last } from './helpers.js';
 const POSIX = process.platform !== 'win32';
 
 describe('the configuration folder', () => {
-  it('is BREAKROCKS_CONFIG_DIR, else %APPDATA%\\breakrocks on Windows, else $XDG_CONFIG_HOME/breakrocks, else ~/.config/breakrocks', () => {
+  it('is BREAKROCKS_CONFIG_DIR, else %APPDATA%\\breakrocks on Windows, else $XDG_CONFIG_HOME/breakrocks, else ~/.breakrocks', () => {
     expect(configDir({ BREAKROCKS_CONFIG_DIR: '/tmp/x' }, 'linux')).toMatch(/[\\/]tmp[\\/]x$/);
     expect(configDir({ APPDATA: 'C:\\Users\\a\\AppData\\Roaming' }, 'win32')).toMatch(/AppData.Roaming.breakrocks$/);
     expect(configDir({ XDG_CONFIG_HOME: '/home/a/.cfg' }, 'linux')).toBe(join('/home/a/.cfg', 'breakrocks'));
-    expect(configDir({}, 'darwin')).toMatch(/\.config[\\/]breakrocks$/);
+    expect(configDir({ BREAKROCKS_HOME: '/tmp/h' }, 'linux')).toMatch(/[\\/]tmp[\\/]h$/);
+    expect(configDir({ HOME: '/home/a' }, 'darwin')).toBe(join('/home/a', '.breakrocks'));
   });
 });
 

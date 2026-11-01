@@ -1,6 +1,8 @@
 // What a command runs with: the terminal (or the MCP server), the environment, the network, the
 // configuration of the user and the global options. Tests give fakes for each.
-import { ConfigStore, DEFAULT_PROFILE, configDir, type Environment, type Profile } from './config.js';
+import { ConfigStore, DEFAULT_PROFILE, configDir, migrateConfig, type Environment, type Profile } from './config.js';
+import type { Keychain } from './keychain.js';
+import { profileOfAgent, requireLocalAgent, sessionNameOf } from './local-agents.js';
 import { CliError, EXIT, usageError } from './errors.js';
 import type { Output } from './output.js';
 import type { CodeExchange } from './browser-login.js';
@@ -32,10 +34,14 @@ export type Io = {
   collectWatch?: boolean;
   /** The x402 payer (tests give a fake; by default the wallet of the profile signs with @x402/evm). */
   payer?: Payer;
+  /** The system keychain (tests give a fake; by default the one of the system). */
+  keychain?: Keychain;
 };
 
 export type GlobalFlags = {
   json: boolean; quiet: boolean; fields?: string[]; profile?: string; env?: Environment; yes: boolean; help: boolean; version: boolean;
+  /** A local agent to act as (--agent; else BREAKROCKS_AGENT). */
+  agent?: string;
 };
 export const NO_FLAGS: GlobalFlags = { json: false, quiet: false, yes: false, help: false, version: false };
 
@@ -44,11 +50,16 @@ export class Context {
   readonly flags: GlobalFlags;
   readonly store: ConfigStore;
   readonly profileName: string;
+  /** The local agent the commands act as (--agent, else BREAKROCKS_AGENT unless --profile is given). */
+  readonly agentName?: string;
   constructor(io: Io, flags: GlobalFlags) {
     this.io = io;
     this.flags = flags;
-    this.store = new ConfigStore(configDir(io.env));
-    this.profileName = flags.profile ?? io.env.BREAKROCKS_PROFILE ?? this.store.read().current ?? DEFAULT_PROFILE;
+    const dir = configDir(io.env);
+    migrateConfig(io.env, dir);
+    this.store = new ConfigStore(dir);
+    this.agentName = flags.agent ?? (flags.profile ? undefined : io.env.BREAKROCKS_AGENT?.trim() || undefined);
+    this.profileName = this.agentName ? sessionNameOf(this.agentName) : flags.profile ?? io.env.BREAKROCKS_PROFILE ?? this.store.read().current ?? DEFAULT_PROFILE;
   }
   get env() { return this.io.env; }
   get out() { return this.io.out; }
@@ -56,6 +67,11 @@ export class Context {
 
   /** The profile in use: the one saved, else a new one in production (or the environment of --env). */
   profile(): Profile {
+    if (this.agentName) {
+      const agent = profileOfAgent(requireLocalAgent(this.store, this.agentName));
+      if (this.flags.env && this.flags.env !== agent.env) throw usageError('ENV_MISMATCH', `The local agent "${this.agentName}" is of ${agent.env}, not ${this.flags.env}`, { agent: this.agentName, env: agent.env });
+      return agent;
+    }
     const saved = this.store.profile(this.profileName);
     const wanted = this.flags.env;
     if (!saved) return { env: wanted ?? 'prod' };
@@ -67,7 +83,8 @@ export class Context {
     }
     return saved;
   }
-  saveProfile(profile: Profile): void { this.store.saveProfile(this.profileName, profile); }
+  /** Saves the profile (a local agent is kept in its agent.json, not as a profile). */
+  saveProfile(profile: Profile): void { if (!this.agentName) this.store.saveProfile(this.profileName, profile); }
 
   /** Writes a notice to stderr that a script should see too (with --json; never with --quiet). */
   notice(text: string): void { if (!this.flags.quiet) this.io.out.error(text); }

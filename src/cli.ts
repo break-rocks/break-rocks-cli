@@ -48,6 +48,25 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
   return { flags, tokens };
 }
 
+/**
+ * The global --agent <name> (a local agent) out of [rest], unless the command has an option "agent" of
+ * its own (agent login, agents import, agents show…): then it stays the command's.
+ */
+export function takeAgentFlag(command: AnyCommand, flags: GlobalFlags, rest: string[]): string[] {
+  if (command.input.properties?.agent) return rest;
+  const left: string[] = [];
+  for (let i = 0; i < rest.length; i++) {
+    const t = rest[i];
+    if (t === '--') { left.push(...rest.slice(i)); break; }
+    if (t === '--agent' || t.startsWith('--agent=')) {
+      const v = t.includes('=') ? t.slice(t.indexOf('=') + 1) : rest[++i];
+      if (!v) throw usageError('MISSING_VALUE', '--agent needs the name of a local agent', { option: '--agent' });
+      flags.agent = v;
+    } else left.push(t);
+  }
+  return left;
+}
+
 /** Asks a secret in the terminal without echoing it (raw mode; Ctrl-C cancels), on stderr. */
 function askSecret(question: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -132,9 +151,9 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       throw usageError('UNKNOWN_COMMAND', `Unknown command "${words.join(' ') || tokens[0]}". breakrocks help lists the commands.`, { command: words.join(' ') || tokens[0] });
     }
     const { command } = found;
+    const rest = takeAgentFlag(command, flags, tokens.slice(command.name.split(' ').length));
     const ctx = new Context(io, flags);
     if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(command), commands: [{ name: command.name, summary: command.summary }] });
-    const rest = tokens.slice(command.name.split(' ').length);
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
     const result = await execute(ctx, command, input);
     const exit = writeAnswer(ctx, command, result);

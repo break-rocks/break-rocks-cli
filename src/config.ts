@@ -4,7 +4,7 @@
 // each file written for the user alone (0600 on POSIX; on Windows the folder of the profile of the
 // user, %APPDATA%, is readable by that user only, by its default ACL). No secret is ever written
 // to config.json: a key is a path, a session a file of its own.
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { usageError } from './errors.js';
@@ -35,6 +35,8 @@ export type Profile = {
   registration?: { id: string; expiresAt: string; country: string };
   /** The x402 wallet: a key file of the configuration folder, or the variable BREAKROCKS_WALLET_KEY. */
   wallet?: { source: 'file' | 'env'; file?: string; address: string; maxUsdPerDay: number };
+  /** A local agent (--agent, BREAKROCKS_AGENT): its name; never saved in config.json. */
+  localAgent?: string;
 };
 
 export type ConfigFile = { version: 1; current?: string; profiles: Record<string, Profile> };
@@ -43,13 +45,44 @@ export const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 export const DEFAULT_PROFILE = 'default';
 
 /**
- * The configuration folder: BREAKROCKS_CONFIG_DIR when set; on Windows %APPDATA%\breakrocks; elsewhere
- * $XDG_CONFIG_HOME/breakrocks, else ~/.config/breakrocks.
+ * The configuration folder (D-235): BREAKROCKS_CONFIG_DIR or BREAKROCKS_HOME when set; on Windows
+ * %APPDATA%\breakrocks; $XDG_CONFIG_HOME/breakrocks when XDG_CONFIG_HOME is set; else ~/.breakrocks.
  */
 export function configDir(env: NodeJS.ProcessEnv, platform: NodeJS.Platform = process.platform): string {
   if (env.BREAKROCKS_CONFIG_DIR) return resolve(env.BREAKROCKS_CONFIG_DIR);
+  if (env.BREAKROCKS_HOME) return resolve(env.BREAKROCKS_HOME);
   if (platform === 'win32') return join(env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'breakrocks');
-  return join(env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'breakrocks');
+  if (env.XDG_CONFIG_HOME) return join(env.XDG_CONFIG_HOME, 'breakrocks');
+  return join(env.HOME || homedir(), '.breakrocks');
+}
+
+/** The folder of the versions up to 0.13 (~/.config/breakrocks), where the default folder is now ~/.breakrocks. */
+export const legacyConfigDir = (env: NodeJS.ProcessEnv) => join(env.HOME || homedir(), '.config', 'breakrocks');
+export const MIGRATED_NOTE = 'MIGRATED';
+
+/**
+ * Copies the folder of the versions up to 0.13 into [dir] once: only for the default folder, when the
+ * former one has no MIGRATED note and [dir] has no config.json. A new folder is made aside then renamed
+ * (all or nothing); an existing one (news/ alone) receives the entries it lacks. The former folder is
+ * kept, with the note. Answers whether it copied.
+ */
+export function migrateConfig(env: NodeJS.ProcessEnv, dir: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform === 'win32' || env.BREAKROCKS_CONFIG_DIR || env.BREAKROCKS_HOME || env.XDG_CONFIG_HOME) return false;
+  const legacy = legacyConfigDir(env);
+  if (resolve(legacy) === resolve(dir) || !existsSync(legacy) || existsSync(join(legacy, MIGRATED_NOTE)) || existsSync(join(dir, 'config.json'))) return false;
+  try {
+    if (!existsSync(dir)) {
+      const temporary = `${dir}.${process.pid}.migrating`;
+      rmSync(temporary, { recursive: true, force: true });
+      cpSync(legacy, temporary, { recursive: true, preserveTimestamps: true });
+      renameSync(temporary, dir);
+    } else {
+      for (const entry of readdirSync(legacy)) if (!existsSync(join(dir, entry))) cpSync(join(legacy, entry), join(dir, entry), { recursive: true, preserveTimestamps: true });
+    }
+    if (POSIX) chmodSync(dir, 0o700);
+    writeFileSync(join(legacy, MIGRATED_NOTE), `Copied to ${dir} on ${new Date().toISOString()} by breakrocks (D-235). This folder is no longer read; delete it when you wish.\n`);
+    return true;
+  } catch { return false; }
 }
 
 const POSIX = process.platform !== 'win32';
@@ -107,6 +140,8 @@ export class ConfigStore {
   keysDir(profile: string) { return join(this.dir, 'keys', profile); }
   paymentsFile(profile: string) { return join(this.dir, 'payments', `${profile}.json`); }
   cacheFile(name: string) { return join(this.dir, 'cache', name); }
+  agentsDir() { return join(this.dir, 'agents'); }
+  agentDir(name: string) { return join(this.dir, 'agents', name); }
 }
 
 /** A profile name checked (PROFILE_NAME_INVALID, exit 2). */

@@ -18,6 +18,7 @@ import { endpoints, type Endpoints } from './endpoints.js';
 import { CliError, EXIT, cliRefusal, networkError, usageError } from './errors.js';
 import { claimsOf, refreshTokens, type CognitoTokens, type UserPool } from './cognito.js';
 import { privateKeyFrom, readPrivateKey, signChallenge } from './keys.js';
+import { localAgentKey, requireLocalAgent } from './local-agents.js';
 import { agentsPost, expectOk, graphql, isUnauthorized } from './transport.js';
 
 /** A session is renewed when it ends within 5 minutes. */
@@ -37,7 +38,7 @@ export type Session = {
   agentId?: string;
   recoveryKeyRequired?: boolean;
   /** Where the agent's key came from: its file or the environment (agents only). */
-  keySource?: 'file' | 'env';
+  keySource?: 'file' | 'env' | 'keychain';
   /** A human: its account id, its id token (the real time), its refresh token, its user pool, when the session must be opened again. */
   accountId?: string;
   idToken?: string;
@@ -70,7 +71,7 @@ export function humanSession(tokens: CognitoTokens, pool: UserPool, accountId: s
 /** What signs in the profile: the operator's key, or a delegated agent's (its file, or the BREAKROCKS_* variables). */
 export type Credentials =
   | { kind: 'operator'; operatorId: string; key: KeyObject }
-  | { kind: 'agent'; operatorId: string; agentId: string; key: KeyObject; source: 'file' | 'env' };
+  | { kind: 'agent'; operatorId: string; agentId: string; key: KeyObject; source: 'file' | 'env' | 'keychain' };
 
 /** The delegated agent of the BREAKROCKS_* variables, when all three are set. */
 export function agentFromEnv(env: NodeJS.ProcessEnv): Credentials | undefined {
@@ -84,6 +85,10 @@ export function agentFromEnv(env: NodeJS.ProcessEnv): Credentials | undefined {
 export function credentialsOf(ctx: Context, profile: Profile): Credentials | undefined {
   const fromEnv = agentFromEnv(ctx.env);
   if (fromEnv) return fromEnv;
+  if (profile.localAgent) {
+    const agent = requireLocalAgent(ctx.store, profile.localAgent);
+    return { kind: 'agent', operatorId: agent.operatorId, agentId: agent.agentId, key: localAgentKey(ctx, agent), source: agent.keyStorage };
+  }
   if (profile.kind === 'operator' && profile.operatorId && profile.keys?.operator) {
     return { kind: 'operator', operatorId: profile.operatorId, key: readPrivateKey(profile.keys.operator, 'The operator key').key };
   }

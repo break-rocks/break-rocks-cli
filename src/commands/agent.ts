@@ -10,7 +10,7 @@ import type { Command } from '../registry.js';
 import { object, openObject, str } from '../schema.js';
 import { agentFromEnv, signIn, type Credentials } from '../session.js';
 
-type LoginResult = { operatorId: string; agentId: string; keySource: 'file' | 'env'; session: { sessionId: string; expiresAt: string } };
+type LoginResult = { operatorId: string; agentId: string; keySource: 'file' | 'env' | 'keychain'; session: { sessionId: string; expiresAt: string } };
 
 export const agentLogin: Command<{ operator?: string; agent?: string; key?: string }, LoginResult> = {
   name: 'agent login', summary: 'Sign in a delegated agent: its auth challenge signed with its private key',
@@ -39,7 +39,7 @@ export const agentLogin: Command<{ operator?: string; agent?: string; key?: stri
     const at = await endpoints(ctx, { ...profile, operatorId: credentials.operatorId });
     const session = await signIn(ctx, at, credentials);
     if (given) ctx.saveProfile({ ...profile, cell: at.cell });
-    return { operatorId: credentials.operatorId, agentId: (credentials as { agentId: string }).agentId, keySource: (credentials as { source: 'file' | 'env' }).source, session: { sessionId: session.sessionId, expiresAt: session.expiresAt } };
+    return { operatorId: credentials.operatorId, agentId: (credentials as { agentId: string }).agentId, keySource: (credentials as { source: 'file' | 'env' | 'keychain' }).source, session: { sessionId: session.sessionId, expiresAt: session.expiresAt } };
   },
   quiet: (r) => r.session.sessionId,
 };

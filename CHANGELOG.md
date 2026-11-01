@@ -5,6 +5,20 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-01
+
+### Added
+
+- Local agents (D-235, specs v81.9.0): `agents create` keeps the delegated agent in `agents/<name>/agent.json` with its private key in the system keychain (macOS `security`, Linux `secret-tool`, Windows Credential Manager through PowerShell), else `agents/<name>/key.pem` (0600); `--out` still writes a file. `agents local`, `agents import`, `agents forget`.
+- `--agent <name>` global option and `BREAKROCKS_AGENT`: sign in with the stored key, session cached and renewed before its end; the `BREAKROCKS_OPERATOR_ID`/`AGENT_ID`/`AGENT_KEY` variables still come first.
+- `breakrocks mcp --agent <name>`; MCP prompts `whoami`, `agents` and `login`.
+- `doctor [--json]` (also an MCP tool): version against the latest published, profile, local agent, session, API reachability, schema drift by introspection.
+
+### Changed
+
+- The configuration folder is `~/.breakrocks` (`BREAKROCKS_HOME`, `BREAKROCKS_CONFIG_DIR` and an explicit `XDG_CONFIG_HOME` first; `%APPDATA%\breakrocks` on Windows); `~/.config/breakrocks` is copied once and kept with a `MIGRATED` note.
+- `agents regenerate` replaces the key of the local agent (keychain or file).
+
 ## [0.13.0] - 2026-11-01
 
 ### Added

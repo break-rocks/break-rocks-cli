@@ -32,7 +32,7 @@ export const tools = () => commands().filter((c) => c.mcp !== false).map((c) => 
 export const commandOfTool = (name: string): AnyCommand | undefined => commands().find((c) => c.mcp !== false && toolName(c.name) === name);
 
 /** Runs a command for an MCP client: its JSON answer, or its refusal ({ error }) marked isError. */
-export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'>, command: AnyCommand, args: Record<string, unknown>) {
+export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: AnyCommand, args: Record<string, unknown>) {
   const { yes, ...input } = args;
   if (yes !== undefined && !command.interactive) return failure(usageError('INVALID_INPUT', `input.yes: is not an option of ${command.name}`));
   const ctx = new Context({ ...io, interactive: false, readStdin: undefined, collectWatch: true }, { ...NO_FLAGS, ...base, json: true, yes: yes === true });
@@ -50,8 +50,27 @@ function failure(error: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(refusal, null, 2) }], structuredContent: refusal, isError: true };
 }
 
+const answerOf = async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: string) => (await callCommand(io, base, findCommand(command.split(' '))!.command, {})).content[0].text;
+
+/**
+ * The account prompts (D-235): whoami (who acts), agents (the local agents) and login (how a person
+ * signs in: never done in the MCP server, which opens no session for another account).
+ */
+export const ACCOUNT_PROMPTS = [
+  { name: 'whoami', title: 'Who acts', description: 'The account and the delegated agent this MCP server acts as (breakrocks whoami --json)', text: async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>) => `This break.rocks MCP server acts as:\n${await answerOf(io, base, 'whoami')}` },
+  { name: 'agents', title: 'The local agents', description: 'The local agents of this device (breakrocks agents local --json): start the server with --agent <name> to act as one', text: async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>) => `The local agents of this device (start \`breakrocks mcp --agent <name>\` to act as one; this server acts as ${base.agent ? `"${base.agent}"` : 'its profile'}):\n${await answerOf(io, base, 'agents local')}` },
+  { name: 'login', title: 'How to sign in', description: 'How a person signs in from a terminal (no sign-in happens in the MCP server)', text: async () => [
+    'The MCP server never signs anyone in: a person runs one of these in a terminal, then restarts the MCP server.',
+    '- A human: `breakrocks login` (an email code), or `breakrocks login --browser`.',
+    '- An agent operator: `breakrocks operator login`; then `breakrocks agents create <name>` keeps a delegated agent as a local agent.',
+    '- A local agent: nothing to do. Start the server with `breakrocks mcp --agent <name>`: it signs in with the key of the system keychain and renews its session.',
+    '- A key file: `breakrocks agents import <name> --operator <operator id> --agent <agent id> --key <file>`.',
+    '- Then `breakrocks doctor` checks the version, the profile, the agent, its session and the API.',
+  ].join('\n') },
+] as const;
+
 /** The MCP server of the CLI, on [io] (its out must be stderr-only: stdout is the protocol). */
-export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> = {}): Server {
+export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'> = {}): Server {
   const server = new Server({ name: 'breakrocks', title: 'break.rocks', version: VERSION }, {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: 'The break.rocks CLI as tools, with the session of the profile the server started with (a human signed in with breakrocks login at the terminal, an agent operator, or a delegated agent: sign-in with keys, x402 payments): reading, publishing, messages, themes, usage and capabilities, offline theme tools. Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',
@@ -70,7 +89,7 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> 
     return { contents: [{ uri: resource.uri, mimeType: 'application/json', text: answer.content[0].text }] };
   });
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-    prompts: [{
+    prompts: [...ACCOUNT_PROMPTS.map(({ name, title, description }) => ({ name, title, description })), {
       name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt: a theme.json of the format 2 (its opacities and text backdrop) and its images, for a field (or a universal theme), a mood, a name and a universe.',
       arguments: [
         { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech (none for a universal theme)' },
@@ -85,6 +104,8 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env'> 
     }],
   }));
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const account = ACCOUNT_PROMPTS.find((p) => p.name === request.params.name);
+    if (account) return { description: account.description, messages: [{ role: 'user' as const, content: { type: 'text' as const, text: await account.text(io, base) } }] };
     if (request.params.name !== 'theme-prompt') throw usageError('UNKNOWN_PROMPT', `No prompt ${request.params.name}`);
     const a = request.params.arguments ?? {};
     const language = (a.language ?? 'en') as Language;
