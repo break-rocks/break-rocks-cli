@@ -3,7 +3,7 @@
 // through PowerShell (CredWrite/CredRead/CredDelete of advapi32). Child processes only, no native
 // module and no npm dependency; the secret always goes through stdin, never through the arguments
 // (which other users of the system may read). BREAKROCKS_KEYCHAIN=off turns it off (a file instead).
-// TEMPORARY exception to "no system binary" (README § Dette technique): decided with D-235.
+// TEMPORARY exception to "no system binary" (README § Technical debt): decided with D-235.
 import { spawnSync } from 'node:child_process';
 
 export const KEYCHAIN_SERVICE = 'breakrocks';

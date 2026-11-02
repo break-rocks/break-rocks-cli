@@ -65,7 +65,7 @@ export const agentAttest: Command<{ domain: string }, { domain: string; ascii: s
   examples: ['breakrocks agent attest tools.example.com'],
   input: object({ domain: str('The exact domain of the external service (tools.example.com)') }, ['domain']),
   output: openObject({ domain: str('The domain'), ascii: str('Its ASCII form') }), args: { positionals: ['domain'] },
-  // TEMPORARY (technical debt, README § Dette technique): no operation of the platform yet; replaced by the
+  // TEMPORARY (technical debt, README § Technical debt): no operation of the platform yet; replaced by the
   // request of the attestation once the platform publishes its contract.
   run: (_ctx, { domain }) => {
     const named = serviceDomain(domain);

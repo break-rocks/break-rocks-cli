@@ -1,5 +1,5 @@
 // breakrocks completion <shell>: the completion script of bash, zsh, fish or PowerShell, generated
-// from the registry (README § Autocomplétion); --install shows the line to add, writing nothing.
+// from the registry (README § Completion); --install shows the line to add, writing nothing.
 // breakrocks __complete <words…> (hidden): what to propose for the last word, for the scripts.
 import { complete, completionLines } from '../completion/engine.js';
 import { completionModel, dynamicValues } from '../completion/model.js';

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The static completion scripts (README § Autocomplétion), from the built CLI (npm run build first):
+// The static completion scripts (README § Completion), from the built CLI (npm run build first):
 // completions/breakrocks.bash, .zsh, .fish and .ps1, for the npm package (prepack) and the release.
 // Usage: npm run gen:completions
 import { mkdirSync, writeFileSync } from 'node:fs';

@@ -1,11 +1,11 @@
 name: Release
 
-# The single executables of the CLI (README § Binaires): on a tag v<version> (the version of
+# The single executables of the CLI (README § Binaries): on a tag v<version> (the version of
 # package.json), each target builds its executable with Node SEA (npm run build:sea), checks that it
 # answers --version, and the release of the tag gets every executable and its SHA-256, with the
-# completion scripts of bash, zsh, fish and PowerShell (README § Autocomplétion) and the installers
+# completion scripts of bash, zsh, fish and PowerShell (README § Completion) and the installers
 # install.sh and install.ps1 (README § Installation). Then the npm package is published with npm
-# trusted publishing, only when the variable NPM_PUBLISH=true exists (README § Publication npm). Run
+# trusted publishing, only when the variable NPM_PUBLISH=true exists (README § npm publication and going public). Run
 # by hand (workflow_dispatch), it builds and checks the five targets and keeps them as artifacts,
 # without a release. No signature yet (macOS notarization, Windows Authenticode: later).
 
@@ -132,7 +132,7 @@ jobs:
     steps:
       - name: Without NPM_PUBLISH=true, nothing is published
         if: env.PUBLISH != 'true'
-        run: echo "::notice title=npm::NPM_PUBLISH=true is missing; the package breakrocks is not published to npm (README § Publication npm)"
+        run: echo "::notice title=npm::NPM_PUBLISH=true is missing; the package breakrocks is not published to npm (README § npm publication and going public)"
       - uses: actions/checkout@v7
         if: env.PUBLISH == 'true'
       - uses: actions/setup-node@v7

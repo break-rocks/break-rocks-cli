@@ -1,7 +1,7 @@
 name: CI
 
 # Lint, types, unit tests, the build, the executable, its completion scripts and its MCP server on
-# stdio, on Linux, macOS and Windows (the CLI runs wherever Node 24 runs: README § Systèmes), on
+# stdio, on Linux, macOS and Windows (the CLI runs wherever Node 24 runs: README § Systems), on
 # every push to main and every pull request.
 # No AWS credentials, no network: the CLI is tested against fakes, and against the versioned copy of
 # the contract of API v2 of the platform (schema/api-v2/). The job "check" is the one status main requires:

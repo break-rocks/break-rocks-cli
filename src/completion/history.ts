@@ -1,4 +1,4 @@
-// What the completion proposes without the network (README § Autocomplétion): the universes and the
+// What the completion proposes without the network (README § Completion): the universes and the
 // accounts used lately (history.json of the configuration folder, the last 100, written for the user
 // alone: an address and when it was used, never a text or the content of a message) and the themes
 // and layouts the profile published (cache/published-<profile>.json). BREAKROCKS_NO_HISTORY=1 keeps

@@ -322,7 +322,7 @@ tools) of many commands: scripts that read them must be checked. The names of th
   opening of production to the public.
 - The job `npm` of `release.yml` publishes only with the secret `NPM_TOKEN` **and** the repository
   variable `NPM_PUBLISH` set to `true` (absent until the launch: nothing is published).
-- README: § Licence. and § Publication npm et mise en public.
+- README: § Licence. and § npm publication and going public.
 
 ## [0.8.1] - 2026-10-24
 

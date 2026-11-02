@@ -1,5 +1,5 @@
 /**
- * Exit codes (README § Sorties et codes de sortie): 0 done; 1 refused, by the platform (the code of
+ * Exit codes (README § Output and exit codes): 0 done; 1 refused, by the platform (the code of
  * the contract) or by a guard of the CLI (a payment cap, a missing key; `source: "cli"`); 2 usage
  * (an unknown command or option, a value out of its schema, a confirmation missing); 3 network or
  * session (no answer, or a session to open again).

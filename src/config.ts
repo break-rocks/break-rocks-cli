@@ -1,4 +1,4 @@
-// The configuration of the user (README § Profils): one folder per user, never in the repository
+// The configuration of the user (README § Profiles and environments): one folder per user, never in the repository
 // nor in the working directory. `config.json` holds the profiles (environment, cell, kind of
 // account, where its keys are); `sessions/`, `keys/` and `payments/` hold what must stay private,
 // each file written for the user alone (0600 on POSIX; on Windows the folder of the profile of the

@@ -192,7 +192,7 @@ enum ReportQueue {
 }
 
 """
-Reports (docs/architecture.md § Signalements; features/governance/universe-reputation.feature,
+Reports (docs/architecture.md § Reports; features/governance/universe-reputation.feature,
 moderation/platform-rules.feature, direct-messages.feature, group-chat-messages.feature).
 Off-charter in the universe of a post (OFF_TOPIC, SPAM_OR_FLOOD, CHARTER_ARTICLE with its
 "article"), to the moderation of the universe (a private universe: OFF_TOPIC and SPAM_OR_FLOOD

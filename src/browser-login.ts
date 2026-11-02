@@ -144,7 +144,7 @@ export async function callbackServer(options: { origin: string; state: string; p
 /**
  * Opens [url] in the browser of the person, without a shell: `open` (macOS), `xdg-open` (Linux and
  * the others), `rundll32 url.dll,FileProtocolHandler` (Windows). The one call of a program of the
- * system the CLI makes (README § Systèmes): optional (--no-open), and the address is always written
+ * system the CLI makes (README § Systems): optional (--no-open), and the address is always written
  * for the person to open it. False when it could not start.
  */
 export function openInBrowser(url: string, platform: NodeJS.Platform = process.platform): Promise<boolean> {

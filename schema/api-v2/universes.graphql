@@ -533,7 +533,7 @@ input PrivateUniverseInput {
 }
 
 """
-Private universes (features/universes/; docs/architecture.md § Univers privés).
+Private universes (features/universes/; docs/architecture.md § Private universes).
 SUBSCRIPTION since specs v68.3.0 (D-186): joined by paying a subscription tier.
 """
 enum PrivateUniverseJoinMode {
