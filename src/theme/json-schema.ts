@@ -1,4 +1,4 @@
-// The subset of JSON Schema (draft 2020-12) that the schemas of the design system use (design/schemas/*.schema.json):
+// The subset of JSON Schema (draft 2020-12) that the schemas of the design system use (design-lib/schemas/*.schema.json):
 // boolean schemas, local $ref ("#/$defs/…"), type, enum, const, pattern (Unicode), the bounds of numbers, strings and
 // arrays, items, properties, required, additionalProperties, anyOf, if/then/else, and the annotation "deprecated"
 // (each value read through a deprecated schema is listed). Without a dependency (D-91).

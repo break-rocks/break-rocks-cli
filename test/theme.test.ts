@@ -42,9 +42,9 @@ function folder(doc: unknown = theme()) {
 
 type Report = { ok: boolean; errors: number; warnings: number; problems: { code: string; path: string; severity: string; suggested?: string }[]; images: { place: string; width?: number; read?: boolean }[]; families?: Record<string, Record<string, { background: string }>>; mask?: { imageShows: string; night: number; dim: number; day: number } };
 const codes = (r: Report) => r.problems.map((p) => p.code);
-const design = join(import.meta.dirname, '..', 'design');
+const design = join(import.meta.dirname, '..', 'design-lib');
 
-describe('theme check (the model of specs v99, design/lib/theme)', () => {
+describe('theme check (the model of specs v99, design-lib/lib/theme)', () => {
   it('passes a good theme with its images beside it, exit 0: the four families and the readability mask', async () => {
     const { h, file } = folder();
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
@@ -163,7 +163,7 @@ describe('theme check (the model of specs v99, design/lib/theme)', () => {
   });
 });
 
-describe('layouts check (design/lib/layout, offline)', () => {
+describe('layouts check (design-lib/lib/layout, offline)', () => {
   it('passes the platform layouts of the design system, refuses with the codes of the publication, never calls the API', async () => {
     const h = harness();
     expect(await h.run('layouts', 'check', `@${join(design, 'layouts', 'platform', 'agora.json')}`, '--json')).toBe(0);

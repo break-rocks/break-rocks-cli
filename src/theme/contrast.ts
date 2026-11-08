@@ -1,6 +1,6 @@
 // The contrast of a theme as the platform raises it at publication (specs contracts/themes.md § Validation at
 // publication, § Since v99.0.0): WCAG 2.1, 4.5:1 for text and 3:1 for large text and controls; the palette, then
-// the four families of theme surfaces (page, sky, block, control; design/lib/theme readTheme reads them, the former
+// the four families of theme surfaces (page, sky, block, control; design-lib/lib/theme readTheme reads them, the former
 // theme surfaces included), in the night, dim and day display modes: the text and the secondary text of each
 // family against its background, the background of a control 3:1 against each family that holds it. A theme sets
 // no radius, no stroke and no opacity. So that `theme check` tells offline what the platform would change.

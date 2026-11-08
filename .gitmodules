@@ -1,6 +1,6 @@
 [submodule "specs/common"]
 	path = specs/common
 	url = ../break-rocks-specs.git
-[submodule "design"]
-	path = design
-	url = ../break-rocks-design.git
+[submodule "design-lib"]
+	path = design-lib
+	url = https://github.com/break-rocks/break-rocks-design-lib.git

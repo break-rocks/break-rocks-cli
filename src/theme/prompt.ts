@@ -1,5 +1,5 @@
 // `theme prompt`: the theme prompt of the platform on the model of specs v99.0.0 (D-293, contracts/themes.md
-// § Since v99.0.0, § Format 2; design/schemas/theme-v2.schema.json, design/examples/themes): the four families
+// § Since v99.0.0, § Format 2; design-lib/schemas/theme-v2.schema.json, design-lib/examples/themes): the four families
 // of theme surfaces (page, sky, block, control), no radius, no stroke, no border, no opacity, one title
 // typeface, the image slots page and pageHeader, the readability mask computed by the platform. Filled with the
 // field, the mood, the name, the universe and the typeface, to give to an AI that writes the theme.json and its
@@ -90,7 +90,7 @@ export function themePrompt(input: PromptInput): PromptResult {
 
 type Filled = { named: boolean; fr: boolean; field: Field | null; fieldText: string; collection?: string; mood: string; name: string; universe: string; description?: string; fonts: string[]; universal: boolean; template: boolean };
 
-/** The JSON of the prompt: the model of specs v99 (design/examples/themes/faille.json), its colors to write. */
+/** The JSON of the prompt: the model of specs v99 (design-lib/examples/themes/faille.json), its colors to write. */
 function skeleton(f: Filled, sameKeys: string, descriptionPlaceholder: string, typefacePlaceholder: string): string {
   const color = (k: string, variant: 'night' | 'day') => (f.universal ? SOCLE_PALETTE[variant][k as keyof typeof SOCLE_PALETTE.night] : '#…');
   const palette = (variant: 'night' | 'day') => Object.fromEntries(['background', 'surface', 'text', 'primary', 'accent', 'link'].map((k) => [k, color(k, variant)]));

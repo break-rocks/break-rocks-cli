@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Builds the npm package of the CLI: src/index.ts bundled by esbuild in one ES module, dist/index.js, with what it
-// imports from the design system (design/lib/theme, design/lib/layout, design/schemas: the submodule design, pinned on
+// imports from the design system (design-lib/lib/theme, design-lib/lib/layout, design-lib/schemas: the submodule design-lib, pinned on
 // a tag, TypeScript without a build), the dependencies left in node_modules (the package's dependencies). The types
 // are checked apart (npm run typecheck). Usage: npm run build
 import { rmSync } from 'node:fs';
