@@ -9,16 +9,16 @@ import type { Command } from '../registry.js';
 import { bool, list, num, object, openObject, str } from '../schema.js';
 import { DEFAULT_MAX_USD_PER_DAY, FAUCETS, addressOf, formatUsdc, networkOf, spentToday, usdcBalance, walletKey, walletKeyFrom } from '../x402.js';
 
-const walletSchema = openObject({ profile: str('The profile'), address: str('The address of the wallet'), source: str('file or env'), network: str('CAIP-2 network of the environment'), networkName: str('Its name'), maxUsdPerDay: num('Cap per UTC day, in US dollars'), spentToday: str('Signed today, in USDC') });
-type WalletView = { profile: string; address: string; source: 'file' | 'env'; network: string; networkName: string; maxUsdPerDay: number; spentToday: string; file?: string };
+const walletSchema = openObject({ profile: str('The profile'), address: str('The address of the wallet'), source: str('file or env'), network: str('CAIP-2 network of the environment'), networkName: str('Its name'), maxUsdPerDay: num('Cap per UTC day, in US dollars'), extraUsage: bool('A delegated agent pays its extra usage without asking'), spentToday: str('Signed today, in USDC') });
+type WalletView = { profile: string; address: string; source: 'file' | 'env'; network: string; networkName: string; maxUsdPerDay: number; extraUsage?: boolean; spentToday: string; file?: string };
 
-export const walletSet: Command<{ key?: string; fromEnv?: boolean; maxUsdPerDay?: number }, WalletView> = {
+export const walletSet: Command<{ key?: string; fromEnv?: boolean; maxUsdPerDay?: number; extraUsage?: boolean }, WalletView> = {
   name: 'wallet set', summary: 'Set the x402 wallet of the profile (a key file, or --env) and its cap per day',
-  description: 'The key (64 hexadecimal digits, or a secp256k1 key in PEM) is copied in the configuration folder (0600) and never printed; --env reads it from BREAKROCKS_WALLET_KEY at each payment instead. --max-usd-per-day caps what the profile signs per UTC day (default 5).',
-  examples: ['breakrocks wallet set --key wallet.pem --max-usd-per-day 2', 'BREAKROCKS_WALLET_KEY=0x… breakrocks wallet set --env', 'breakrocks wallet set --max-usd-per-day 10'],
-  input: object({ key: str('The file of the wallet key'), fromEnv: bool('Read the key from BREAKROCKS_WALLET_KEY (flag: --env)'), maxUsdPerDay: num('Cap per UTC day, in US dollars', { minimum: 0, maximum: 10000 }) }),
+  description: 'The key (64 hexadecimal digits, or a secp256k1 key in PEM) is copied in the configuration folder (0600) and never printed; --env reads it from BREAKROCKS_WALLET_KEY at each payment instead. --max-usd-per-day caps what the profile signs per UTC day (default 5). --extra-usage (a delegated agent): pay its extra usage beyond its quota with x402 without a confirmation each time, within the cap of each payment (BREAKROCKS_MAX_USD, 1 US dollar by default) and the cap of the day; --no-extra-usage asks again (or --yes). Without a wallet, beyond its quota a delegated agent is refused PAYMENT_REQUIRED.',
+  examples: ['breakrocks wallet set --key wallet.pem --max-usd-per-day 2', 'BREAKROCKS_WALLET_KEY=0x… breakrocks wallet set --env', 'breakrocks wallet set --max-usd-per-day 10', 'breakrocks --agent herald wallet set --extra-usage --max-usd-per-day 1'],
+  input: object({ key: str('The file of the wallet key'), fromEnv: bool('Read the key from BREAKROCKS_WALLET_KEY (flag: --env)'), maxUsdPerDay: num('Cap per UTC day, in US dollars', { minimum: 0, maximum: 10000 }), extraUsage: bool('A delegated agent: pay its extra usage beyond its quota without asking each time (within the caps)') }),
   output: walletSchema, args: { aliases: { env: 'fromEnv' } }, offline: true,
-  run: async (ctx, { key, fromEnv, maxUsdPerDay }) => {
+  run: async (ctx, { key, fromEnv, maxUsdPerDay, extraUsage }) => {
     const profile = ctx.profile();
     if (key && fromEnv) throw usageError('INVALID_INPUT', '--key and --env are exclusive');
     let wallet = profile.wallet;
@@ -33,13 +33,15 @@ export const walletSet: Command<{ key?: string; fromEnv?: boolean; maxUsdPerDay?
       const value = ctx.env.BREAKROCKS_WALLET_KEY;
       if (!value) throw usageError('WALLET_MISSING', 'BREAKROCKS_WALLET_KEY is not set');
       wallet = { source: 'env', address: await addressOf(walletKeyFrom(value, 'BREAKROCKS_WALLET_KEY')), maxUsdPerDay: maxUsdPerDay ?? wallet?.maxUsdPerDay ?? DEFAULT_MAX_USD_PER_DAY };
-    } else if (maxUsdPerDay !== undefined) {
+    } else if (maxUsdPerDay !== undefined || extraUsage !== undefined) {
       if (!wallet) throw cliRefusal('WALLET_MISSING', 'Set the wallet first: --key <file> or --env');
-      wallet = { ...wallet, maxUsdPerDay };
-    } else throw usageError('INVALID_INPUT', 'Give --key <file>, --env or --max-usd-per-day');
+      wallet = { ...wallet, ...(maxUsdPerDay !== undefined ? { maxUsdPerDay } : {}) };
+    } else throw usageError('INVALID_INPUT', 'Give --key <file>, --env, --max-usd-per-day or --extra-usage');
+    if (extraUsage !== undefined) wallet = { ...wallet, extraUsage };
+    else if (profile.wallet?.extraUsage !== undefined) wallet = { ...wallet, extraUsage: profile.wallet.extraUsage };
     ctx.saveProfile({ ...profile, wallet });
     const network = networkOf(profile.env);
-    return { profile: ctx.profileName, address: wallet.address, source: wallet.source, network: network.id, networkName: network.name, maxUsdPerDay: wallet.maxUsdPerDay, spentToday: formatUsdc(spentToday(ctx)), ...(wallet.file ? { file: wallet.file } : {}) };
+    return { profile: ctx.profileName, address: wallet.address, source: wallet.source, network: network.id, networkName: network.name, maxUsdPerDay: wallet.maxUsdPerDay, extraUsage: !!wallet.extraUsage, spentToday: formatUsdc(spentToday(ctx)), ...(wallet.file ? { file: wallet.file } : {}) };
   },
   quiet: (r) => r.address,
 };

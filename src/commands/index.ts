@@ -2,7 +2,7 @@
 import { register } from '../registry.js';
 import { capabilities, usage, whoami } from './account.js';
 import { agentAttest, agentLogin } from './agent.js';
-import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
+import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend, agentsTier } from './agents.js';
 import { completion } from './completion.js';
 import { doctor } from './doctor.js';
 import { help, schema, version } from './core.js';
@@ -32,7 +32,7 @@ register(
   login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,
-  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity, agentsLocal, agentsImport, agentsForget,
+  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsTier, agentsActivity, agentsLocal, agentsImport, agentsForget,
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities, doctor,
