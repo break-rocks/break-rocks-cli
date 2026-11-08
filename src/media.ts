@@ -8,9 +8,9 @@
 import { existsSync, openAsBlob, readFileSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 import type { Context } from './context.js';
-import { CliError, networkError, usageError } from './errors.js';
+import { CliError, networkError, platformRefusal, usageError } from './errors.js';
 import { uuidv7 } from './ids.js';
-import { api } from './session.js';
+import { api, readSession } from './session.js';
 import { imageInfo } from './theme/images.js';
 
 export const MAX_POST_IMAGES = 4;
@@ -85,9 +85,87 @@ async function send(ctx: Context, form: Form, file: { path: string; type: string
 /** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
 export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null };
 
-async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO' | 'LONG_VIDEO', file: { type: string; bytes: number }, target: MediaTarget): Promise<Form> {
-  const input = { kind, contentType: file.type, size: file.bytes, destination: target.destination, ...(target.destination === 'POST' && target.address ? { address: target.address } : {}) };
-  return (await api<{ requestMediaUpload: Form }>(ctx, 'mutation($i: MediaUploadInput!, $r: ID!) { requestMediaUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestMediaUpload;
+// ---- Media licenses (specs v101.8.0, D-309, media-licenses.feature) ----
+
+/** The media licenses of a video of a post, a reply or a quote (MediaLicense). */
+export const MEDIA_LICENSES = ['CC0', 'CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'OWN_WORK_ALL_RIGHTS'] as const;
+export type MediaLicense = (typeof MEDIA_LICENSES)[number];
+export const MAX_ATTRIBUTION = 200;
+/** The media license declared with a video, and its attribution (the author and the source of the work). */
+export type LicenseChoice = { license: MediaLicense; attribution?: string };
+const LICENSE_NAMES: Record<MediaLicense, string> = { CC0: 'CC0', CC_BY: 'CC BY', CC_BY_SA: 'CC BY-SA', PUBLIC_DOMAIN: 'Public domain', OWN_WORK_ALL_RIGHTS: 'All rights reserved' };
+
+/** The line of a media license, as shown under the video: "CC BY · Jane Doe", "CC0", "Public domain", "All rights reserved"; none: undefined. */
+export function licenseLine(media: { license?: string | null; attribution?: string | null } | null | undefined): string | undefined {
+  const license = media?.license as MediaLicense | undefined;
+  if (!license) return undefined;
+  const name = LICENSE_NAMES[license] ?? license;
+  return media?.attribution ? `${name} · ${media.attribution}` : name;
+}
+
+/** "cc-by", "CC BY", "cc_by_sa", "public domain" → the value of MediaLicense; anything else: undefined. */
+export function licenseOf(raw: string): MediaLicense | undefined {
+  const value = raw.trim().toUpperCase().replace(/[\s-]+/g, '_');
+  return (MEDIA_LICENSES as readonly string[]).includes(value) ? value as MediaLicense : undefined;
+}
+
+/** Whether the profile acts as a delegated agent (the BREAKROCKS_* variables, a local agent, a profile or a session of a delegated agent). */
+export function actsAsDelegatedAgent(ctx: Context): boolean {
+  if (ctx.env.BREAKROCKS_OPERATOR_ID?.trim() && ctx.env.BREAKROCKS_AGENT_ID?.trim() && ctx.env.BREAKROCKS_AGENT_KEY) return true;
+  const profile = ctx.profile();
+  if (profile.kind === 'agent' || profile.localAgent) return true;
+  return readSession(ctx)?.kind === 'agent';
+}
+
+/**
+ * --license and --attribution checked as the platform checks them, before anything is sent: a media license for
+ * the video of a post, a reply or a quote only, an attribution with a media license only (MEDIA_LICENSE_NOT_ALLOWED);
+ * at most 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG); required for CC BY and CC BY-SA
+ * (MEDIA_ATTRIBUTION_REQUIRED); and from a delegated agent, a media license for every video (MEDIA_LICENSE_REQUIRED).
+ */
+export function checkLicense(ctx: Context, given: { license?: string; attribution?: string }, hasVideo: boolean): LicenseChoice | undefined {
+  const attribution = given.attribution?.trim() || undefined;
+  if (given.license === undefined) {
+    if (attribution) throw usageError('MEDIA_LICENSE_NOT_ALLOWED', 'An attribution goes with a media license: give --license too');
+    if (hasVideo && actsAsDelegatedAgent(ctx)) throw usageError('MEDIA_LICENSE_REQUIRED', `A delegated agent declares the media license of every video it posts: --license ${MEDIA_LICENSES.join('|')} (with --attribution "<author, source>" for CC_BY and CC_BY_SA)`);
+    return undefined;
+  }
+  const license = licenseOf(given.license);
+  if (!license) throw usageError('INVALID_INPUT', `--license: one of ${MEDIA_LICENSES.join(', ')}`);
+  if (!hasVideo) throw usageError('MEDIA_LICENSE_NOT_ALLOWED', 'A media license is declared for the video of a post, a reply or a quote only (--video or --long-video)');
+  if (attribution && graphemes(attribution) > MAX_ATTRIBUTION) throw usageError('MEDIA_ATTRIBUTION_TOO_LONG', `An attribution has at most ${MAX_ATTRIBUTION} visible characters (${graphemes(attribution)} given)`);
+  if (!attribution && (license === 'CC_BY' || license === 'CC_BY_SA')) throw usageError('MEDIA_ATTRIBUTION_REQUIRED', `The media license ${LICENSE_NAMES[license]} requires an attribution, the author and the source of the work: --attribution "<author, source>"`);
+  return { license, ...(attribution ? { attribution } : {}) };
+}
+
+/** The refusals of a media license by the platform, said plainly (their code kept). */
+const LICENSE_REFUSALS: Record<string, string> = {
+  MEDIA_LICENSE_REQUIRED: 'A delegated agent declares the media license of every video it posts: give --license',
+  MEDIA_ATTRIBUTION_REQUIRED: 'CC BY and CC BY-SA require an attribution, the author and the source of the work: give --attribution',
+  MEDIA_ATTRIBUTION_TOO_LONG: `An attribution has at most ${MAX_ATTRIBUTION} visible characters`,
+  MEDIA_LICENSE_NOT_ALLOWED: 'A media license is declared for the video of a post, a reply or a quote only, and an attribution goes with a media license',
+};
+
+/** VIDEO_QUOTA_EXCEEDED said plainly: never paid, with x402 or otherwise. */
+export function videoQuotaRefusal(error: CliError): CliError {
+  const info = (error.details as { errorInfo?: { minutesLeft?: number; retryAt?: string } }).errorInfo;
+  const left = info?.minutesLeft !== undefined ? ` (${info.minutesLeft} minutes left${info.retryAt ? `, more back at ${info.retryAt}` : ''})` : '';
+  return platformRefusal(error.code, `The video quota of 30 days is reached${left}: it cannot be paid for, not even with x402 (videos quota)`, error.details);
+}
+
+/** A refusal of the platform said plainly, for the media license and the video quota. */
+export function plainRefusal(error: unknown): unknown {
+  if (!(error instanceof CliError) || error.source !== 'platform') return error;
+  if (LICENSE_REFUSALS[error.code]) return platformRefusal(error.code, LICENSE_REFUSALS[error.code], error.details);
+  if (error.code === 'VIDEO_QUOTA_EXCEEDED') return videoQuotaRefusal(error);
+  return error;
+}
+
+async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO' | 'LONG_VIDEO', file: { type: string; bytes: number }, target: MediaTarget, choice?: LicenseChoice): Promise<Form> {
+  const input = { kind, contentType: file.type, size: file.bytes, destination: target.destination, ...(target.destination === 'POST' && target.address ? { address: target.address } : {}), ...(choice ? { license: choice.license, ...(choice.attribution ? { attribution: choice.attribution } : {}) } : {}) };
+  try {
+    return (await api<{ requestMediaUpload: Form }>(ctx, 'mutation($i: MediaUploadInput!, $r: ID!) { requestMediaUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestMediaUpload;
+  } catch (error) { throw plainRefusal(error); }
 }
 
 /** Sends an image checked for [target]: its upload id. */
@@ -96,10 +174,10 @@ export async function uploadImage(ctx: Context, image: CheckedImage, target: Med
   return send(ctx, await requestUpload(ctx, 'IMAGE', image, target), image);
 }
 
-/** Sends a video checked for [target]: its upload id (the clip of a post or a message once converted). */
-export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, kind: 'VIDEO' | 'LONG_VIDEO' = 'VIDEO'): Promise<string> {
-  ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)…`);
-  return send(ctx, await requestUpload(ctx, kind, video, target), video);
+/** Sends a video checked for [target], under its media license if one is declared: its upload id (the clip of a post or a message once converted). */
+export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, kind: 'VIDEO' | 'LONG_VIDEO' = 'VIDEO', choice?: LicenseChoice): Promise<string> {
+  ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)${choice ? ` under ${licenseLine(choice)}` : ''}…`);
+  return send(ctx, await requestUpload(ctx, kind, video, target, choice), video);
 }
 
 /** Sends the avatar of the account (requestAvatarUpload: a JPEG, PNG or WebP image): its upload id, for updateProfile. */

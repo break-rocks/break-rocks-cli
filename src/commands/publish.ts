@@ -11,7 +11,7 @@ import { enumValues, outputSchema, selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { uuidv7 } from '../ids.js';
 import { usageError } from '../errors.js';
-import { MAX_POST_IMAGES, checkImage, checkText, checkVideo, uploadImage, uploadVideo, whileProcessing, type CheckedImage, type CheckedVideo, type MediaTarget } from '../media.js';
+import { MAX_ATTRIBUTION, MAX_POST_IMAGES, MEDIA_LICENSES, checkImage, checkLicense, checkText, checkVideo, plainRefusal, uploadImage, uploadVideo, whileProcessing, type CheckedImage, type CheckedVideo, type LicenseChoice, type MediaTarget } from '../media.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
@@ -22,6 +22,8 @@ const POST = selection('Post', 1);
 const REPLY_POLICIES = ['everyone', 'following', 'mentioned', 'nobody'];
 
 export type ComposeInput = { text?: string; file?: string; image?: string[]; alt?: string[]; video?: string; link?: string; source?: string[]; requestId?: string; dryRun?: boolean };
+/** The media license of the video of a post, a reply or a quote (specs v101.8.0, D-309), and its attribution. */
+export type LicenseInput = { license?: string; attribution?: string };
 
 /** At most 10 post sources (specs v81.8.0, D-230), each a title of at most 200 characters. */
 export const MAX_POST_SOURCES = 10;
@@ -72,6 +74,11 @@ export const composeProps = {
   requestId: str('An idempotency key (a UUIDv7): sent again, it is made once (one is made when absent)', { pattern: '^[0-9a-fA-F-]{36}$' }),
   dryRun: bool('Check everything and tell what would be sent, without sending'),
 };
+/** --license and --attribution: the video of a post, a reply or a quote only (never a message). */
+export const licenseProps = {
+  license: str('The media license of the video (--video, --long-video), declared when it is sent and never changed: CC0, CC_BY, CC_BY_SA, PUBLIC_DOMAIN (open rights) or OWN_WORK_ALL_RIGHTS. Optional for a human; a delegated agent always declares one', { enum: [...MEDIA_LICENSES] }),
+  attribution: str(`The attribution of the media license: the author and the source of the work (${MAX_ATTRIBUTION} visible characters at most); required for CC_BY and CC_BY_SA`),
+};
 
 /** The text of a post: the positional, --file, or stdin ("-"). */
 async function textOf(ctx: Context, input: ComposeInput): Promise<string> {
@@ -85,7 +92,7 @@ async function textOf(ctx: Context, input: ComposeInput): Promise<string> {
   return input.text ?? '';
 }
 
-export type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; sources?: PostSourceInput[]; requestId: string };
+export type Plan = { text: string; images: CheckedImage[]; video?: CheckedVideo; link?: string; sources?: PostSourceInput[]; requestId: string; license?: LicenseChoice };
 
 /** Everything checked before anything is sent (POST_EMPTY, POST_TOO_MANY_IMAGES, POST_IMAGES_AND_CLIP, the media). */
 export async function plan(ctx: Context, input: ComposeInput, requireText = false): Promise<Plan> {
@@ -104,13 +111,14 @@ export const dryRunOf = (p: Plan, extra: Record<string, unknown>) => ({
   dryRun: true, ...extra, text: p.text, requestId: p.requestId,
   images: p.images.map((i) => ({ file: i.name, type: i.type, bytes: i.bytes, width: i.width, height: i.height, alt: i.alt ?? null })),
   ...(p.video ? { video: { file: p.video.name, type: p.video.type, bytes: p.video.bytes } } : {}), ...(p.link ? { link: p.link } : {}), ...(p.sources ? { sources: p.sources } : {}),
+  ...(p.license ? { license: p.license.license, attribution: p.license.attribution ?? null } : {}),
 });
 
 /** The media of a plan sent for [target]: the arguments images and clip of the mutation. */
 export async function sendMedia(ctx: Context, p: Plan, target: MediaTarget): Promise<Record<string, unknown>> {
   const images = [];
   for (const image of p.images) images.push({ id: await uploadImage(ctx, image, target), ...(image.alt ? { alt: image.alt } : {}) });
-  const clip = p.video ? await uploadVideo(ctx, p.video, target) : undefined;
+  const clip = p.video ? await uploadVideo(ctx, p.video, target, 'VIDEO', p.license) : undefined;
   return { ...(images.length ? { images } : {}), ...(clip ? { clip } : {}) };
 }
 
@@ -125,33 +133,44 @@ const composeOutput = outputSchema('Post', 1);
 
 /** A long video (specs v86.0.0, long-videos.feature): horizontal, at most 4 hours, counted in the video quota; never with a clip or images. */
 export const MAX_LONG_VIDEO_BYTES = 20 * 1024 * 1024 * 1024;
-export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string }, unknown> = {
-  name: 'post', summary: 'Publish a post: text, images (4), a clip or a long video, a link, in an address (createPost)',
+export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string }, unknown> = {
+  name: 'post', summary: 'Publish a post: text, images (4), a clip or a long video (--license: its media license), a link, in an address (createPost)',
   description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --long-video: a horizontal video of 4 hours at most, counted in the video quota (videos quota; VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED), never with a clip or images. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
-  examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'breakrocks post "The whole match" --in %paris --long-video match.mp4', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
-  input: object({ ...composeProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
+  examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'breakrocks post "The whole match" --in %paris --long-video match.mp4', 'breakrocks post "Harbour" --in %paris --video harbour.mp4 --license CC_BY --attribution "Jane Doe, archive.org/details/harbour-1952"', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
+  input: object({ ...composeProps, ...licenseProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
   output: composeOutput, args: { positionals: ['text'] },
   run: async (ctx, input) => {
     const long = input.longVideo ? checkVideo(ctx, input.longVideo, MAX_LONG_VIDEO_BYTES) : undefined;
     if (long && (input.video || input.image?.length)) throw usageError('POST_IMAGES_AND_CLIP', 'A long video comes without a clip or images');
     // A post whose only media is a long video needs no text.
     const p = await plan(ctx, input).catch((e: unknown) => { if (long && (e as { code?: string }).code === 'POST_EMPTY') return emptyPlan(ctx, input); throw e; });
+    const license = withLicense(ctx, p, input, !!long);
     if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement, ...(long ? { longVideo: { file: long.name, type: long.type, bytes: long.bytes } } : {}) });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? null });
-    const longVideo = long ? await uploadVideo(ctx, long, { destination: 'POST', address: input.in ?? null }, 'LONG_VIDEO') : null;
+    const longVideo = long ? await uploadVideo(ctx, long, { destination: 'POST', address: input.in ?? null }, 'LONG_VIDEO', license) : null;
     const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, longVideo, sources: p.sources ?? null };
-    return whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p));
+    return plainly(() => whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p)));
   },
   quiet: (r) => (r as { id?: string }).id,
 };
+/** --license and --attribution checked (a video given, or none) and kept in the plan of [p]. */
+function withLicense(ctx: Context, p: Plan, input: LicenseInput, longVideo = false): LicenseChoice | undefined {
+  const license = checkLicense(ctx, input, !!p.video || longVideo);
+  if (license) p.license = license;
+  return license;
+}
+/** [send] with the refusals of a media license and of the video quota said plainly. */
+export const plainly = async <T>(send: () => Promise<T>): Promise<T> => { try { return await send(); } catch (error) { throw plainRefusal(error); } };
+
 /** The plan of a post whose only media is a long video (no text needed). */
 const emptyPlan = (ctx: Context, input: ComposeInput): Plan => ({ text: '', images: [], ...(input.link ? { link: input.link } : {}), ...(sourcesOf(input.source) ? { sources: sourcesOf(input.source) } : {}), requestId: input.requestId ?? uuidv7(ctx.now()) });
 
-export const reply: Command<ComposeInput & { id: string }, unknown> = {
+export const reply: Command<ComposeInput & LicenseInput & { id: string }, unknown> = {
   name: 'reply', summary: 'Reply to a post (replyTo), with images or a clip', examples: ['breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"', 'breakrocks reply <id> --file reply.txt --image a.png'],
-  input: object({ id: str('The post replied to'), ...composeProps }, ['id']), output: composeOutput, args: { positionals: ['id', 'text'] },
+  input: object({ id: str('The post replied to'), ...composeProps, ...licenseProps }, ['id']), output: composeOutput, args: { positionals: ['id', 'text'] },
   run: async (ctx, input) => {
     const p = await plan(ctx, input);
+    withLicense(ctx, p, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'replyTo', id: input.id });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: await universeOfPost(ctx, p, input.id) });
     const vars = { postId: input.id, text: p.text, link: p.link ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
@@ -160,12 +179,13 @@ export const reply: Command<ComposeInput & { id: string }, unknown> = {
   quiet: (r) => (r as { id?: string }).id,
 };
 
-export const quote: Command<ComposeInput & { id: string; in?: string; replyPolicy?: string }, unknown> = {
+export const quote: Command<ComposeInput & LicenseInput & { id: string; in?: string; replyPolicy?: string }, unknown> = {
   name: 'quote', summary: 'Quote a post with a text of one\'s own (quote)', examples: ['breakrocks quote <id> "À lire" --in %paris'],
-  input: object({ id: str('The post quoted'), ...composeProps, in: str('Where to publish the quote (default: the address of the post)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }) }, ['id']),
+  input: object({ id: str('The post quoted'), ...composeProps, ...licenseProps, in: str('Where to publish the quote (default: the address of the post)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }) }, ['id']),
   output: composeOutput, args: { positionals: ['id', 'text'] },
   run: async (ctx, input) => {
     const p = await plan(ctx, input, true);
+    withLicense(ctx, p, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'quote', id: input.id, universe: input.in ?? null });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? await universeOfPost(ctx, p, input.id) });
     const vars = { postId: input.id, text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };

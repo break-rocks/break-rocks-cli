@@ -8,7 +8,7 @@ import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
-import { checkDocument, uploadDocument } from '../media.js';
+import { checkDocument, licenseLine, uploadDocument } from '../media.js';
 import { str } from '../schema.js';
 import { api } from '../session.js';
 import { doneText, pageText } from './shared.js';
@@ -169,11 +169,11 @@ export const playlistsTracks = apiCommand({
 
 // ---- Long videos ----
 
-type PostLine = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string; universe?: string };
+type PostLine = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string; universe?: string; longVideo?: { license?: string | null; attribution?: string | null } | null };
 export const videosList = apiCommand({
   name: 'videos list', summary: 'The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos)', kind: 'query', op: 'longVideos', positionals: ['address'], select: `{ items ${selection('Post', 1)} next }`,
   descriptions: { address: 'The address (%universe, @handle, #tag); none: what the account follows', query: 'A text searched in their posts' },
-  text: pageText((p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.handle ? `@${p.author.handle}` : '-'}  ${p.universe ?? ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 60)}`),
+  text: pageText((p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.handle ? `@${p.author.handle}` : '-'}  ${p.universe ?? ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 60)}${licenseLine(p.longVideo) ? `  [${licenseLine(p.longVideo)}]` : ''}`),
   examples: ['breakrocks videos list %paris', 'breakrocks videos list --query "final" --json'],
 });
 const chapterLine = (c: { startSeconds: number; title: string }) => `${Math.floor(c.startSeconds / 60)}:${String(c.startSeconds % 60).padStart(2, '0')}  ${c.title}`;
@@ -210,6 +210,7 @@ export const videosPlayback = apiCommand({
 });
 export const videosQuota = apiCommand({
   name: 'videos quota', summary: 'The video quota of the account: its minutes, those left, when minutes come back (myVideoQuota)', kind: 'query', op: 'myVideoQuota',
+  description: 'Minutes of long videos over 30 days. A delegated agent has its own, apart from its operator\'s: 600 minutes with its default limits (X1), 6,000 with the paid tier "x10", 60,000 with "x100". Beyond it, VIDEO_QUOTA_EXCEEDED: never paid, not even with x402 by a delegated agent (its extra usage buys usage units, never minutes).',
   text: (r) => { const q = r as { limitMinutes: number; minutesLeft: number; nextReturnAt?: string | null } | null; return q ? `${q.minutesLeft} of ${q.limitMinutes} minutes left${q.nextReturnAt ? `, more back at ${q.nextReturnAt}` : ''}` : '(none)'; },
   examples: ['breakrocks videos quota', 'breakrocks videos quota --json'],
 });

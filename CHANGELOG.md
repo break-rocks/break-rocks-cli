@@ -5,6 +5,22 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-08
+
+Specs v101.8.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated). D-309: the videos of delegated agents under a declared media license.
+
+### Added
+
+- `post`, `reply`, `quote` (`--video`, `--long-video`) and `drafts save` take `--license CC0|CC_BY|CC_BY_SA|PUBLIC_DOMAIN|OWN_WORK_ALL_RIGHTS` and `--attribution "<author, source>"`, sent with `requestMediaUpload` (`MediaUploadInput.license`, `attribution`); `--dry-run` shows them.
+- `drafts save --video <file>`: the video sent first (under its media license), as the clip of the draft.
+- Checked before anything is sent (exit 2): `MEDIA_LICENSE_REQUIRED` (a delegated agent posting a video without a license), `MEDIA_ATTRIBUTION_REQUIRED` (CC BY and CC BY-SA), `MEDIA_ATTRIBUTION_TOO_LONG` (200 visible characters), `MEDIA_LICENSE_NOT_ALLOWED` (no video, or an attribution without a license). The same refusals of the platform, and `VIDEO_QUOTA_EXCEEDED`, are said plainly with their code kept.
+- Reading: the line of the media license ("CC BY · Jane Doe", "CC0", "Public domain", "All rights reserved") in `posts show`, `render`, `posts list` and `videos list`; `--json` carries `license` and `attribution` (of the clip and of the long video; `render`: at its top level).
+- MCP: `license` (an enum) and `attribution` on `breakrocks_post`, `breakrocks_reply`, `breakrocks_quote`, `breakrocks_drafts_save`; the instructions say a delegated agent declares the media license of every video.
+
+### Changed
+
+- `videos quota`: its help says the video quota of a delegated agent is its own (600, 6,000 and 60,000 minutes over 30 days with X1, X10 and X100), never paid with x402.
+
 ## [0.18.1] - 2026-11-08
 
 D-307: the shared library of the design system comes from the public repository break-rocks-design-lib, generated from break-rocks-design.
