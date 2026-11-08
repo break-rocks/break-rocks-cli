@@ -9,8 +9,8 @@ import { usageError } from '../errors.js';
 import { discussionTarget, doneText, listText, oneDiscussion, pageText, pointOf } from './shared.js';
 
 const MESSAGE = selection('Message', 1);
-type Message = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; editedAt?: string | null };
-const messageLine = (m: Message) => `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ')}`;
+type Message = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; deleted?: boolean };
+const messageLine = (m: Message) => `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${m.deleted ? '(deleted)' : m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ')}`;
 const messageText = (r: unknown) => (r ? messageLine(r as Message) : '(none)');
 const targetHelp = 'Name the discussion with exactly one of --with (a conversation: @handle or its id), --group (a group chat id) or --channel (a universe discussion: %paris&general).';
 const inDiscussion = { ...discussionTarget, prepare: oneDiscussion };
@@ -82,7 +82,7 @@ export const messagesTyping = apiCommand({
 });
 export const messagesChanges = apiCommand({
   name: 'messages changes', summary: 'Catch up: the messages of a discussion changed or deleted since a time, at most 30 days back (messageChanges)', description: targetHelp,
-  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when (ISO 8601)' }, depth: 1,
+  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when (ISO 8601)' }, select: `{ items ${MESSAGE} next }`,
   text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z'],
 });
 export const messagesPinned = apiCommand({

@@ -52,7 +52,7 @@ type Profile = { chosenFields?: string[]; fieldChoiceOffered?: boolean; consents
 const profileText = (r: unknown) => {
   const p = r as Profile | null;
   if (!p) return '(none)';
-  return [`chosen fields: ${(p.chosenFields ?? []).join(', ') || '-'}${p.fieldChoiceOffered ? '  (the choice is offered: interests fields)' : ''}`, ...(p.inferred ?? []).map((i) => `inferred ${i.kind ?? ''}: ${i.tag ? `#${i.tag}` : i.universe ?? i.field ?? '-'}`)].join('\n');
+  return [`chosen fields: ${(p.chosenFields ?? []).join(', ') || '-'}${p.fieldChoiceOffered ? '  (the choice is offered: interests fields)' : ''}`, ...(p.inferred ?? []).map((i) => `inferred ${i.kind ?? ''}: ${i.tag ? `#${i.tag.replace(/^#/, '')}` : i.universe ?? i.field ?? '-'}`)].join('\n');
 };
 const interestFlags = {
   tags: { type: 'array', items: { type: 'string' }, description: 'Tags (without #)' }, universes: { type: 'array', items: { type: 'string' }, description: 'Universes (%name)' },

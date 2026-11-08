@@ -178,7 +178,7 @@ export const meReports = apiCommand({
 });
 const inviteException = (excepted: boolean) => apiCommand({
   name: `me invite-exceptions ${excepted ? 'add' : 'remove'}`, summary: excepted ? 'Add an account to the exceptions of who may invite the account to a universe (setInviteException; invite policy "except", 1,000 at most)' : 'Remove an account from the exceptions of who may invite the account (setInviteException)',
-  kind: 'mutation', op: 'setInviteException', fixed: { excepted }, positionals: ['accountId'], rename: { accountId: 'account' }, descriptions: { account: 'The account: @handle or its id' },
+  kind: 'mutation', op: 'setInviteException', fixed: { excepted }, select: '{ id handle displayName kind }', positionals: ['accountId'], rename: { accountId: 'account' }, descriptions: { account: 'The account: @handle or its id' },
   text: (r) => { const a = r as { handle?: string } | null; return a ? `@${a.handle} ${excepted ? 'added to' : 'removed from'} the exceptions` : '(none)'; },
   examples: [`breakrocks me invite-exceptions ${excepted ? 'add' : 'remove'} @alice`],
 });
