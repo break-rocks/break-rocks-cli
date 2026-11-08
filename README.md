@@ -225,6 +225,20 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me reports` | The reports the account sent, and what became of them (myReports) | `breakrocks me reports` |
 | `me invite-exceptions add` | Add an account to the exceptions of who may invite the account to a universe (setInviteException; invite policy "except", 1,000 at most) | `breakrocks me invite-exceptions add @alice` |
 | `me invite-exceptions remove` | Remove an account from the exceptions of who may invite the account (setInviteException) | `breakrocks me invite-exceptions remove @alice` |
+| `subscription show` | The paid tier subscription of the account (mySubscription; none: no subscription) | `breakrocks subscription show` |
+| `subscription offer` | The prices of the paid tiers in a currency, and the payment providers (subscriptionOffer) | `breakrocks subscription offer` |
+| `subscription start` | Subscribe to a paid tier: the address of the payment page, the subscription starts once the provider confirms (startSubscription) (confirmation: `--yes`) | `breakrocks subscription start X2 --interval MONTH --automatic-renewal --yes` |
+| `subscription renewal on` | Turn the automatic renewal back on (setAutomaticRenewal) | `breakrocks subscription renewal on` |
+| `subscription renewal off` | Turn the automatic renewal off: the subscription ends at its paid date, without refund (setAutomaticRenewal) | `breakrocks subscription renewal off` |
+| `subscription billing-day offer` | What a billing day would cost, changing nothing (billingDayOffer) | `breakrocks subscription billing-day offer 15 --kind PAID_TIER` |
+| `subscription billing-day set` | Choose the billing day of a subscription paid by card, once per paid period (setBillingDay) (confirmation: `--yes`) | `breakrocks subscription billing-day set 15 --kind PAID_TIER --yes` |
+| `subscription portal` | The billing portal of the payment provider: payment methods and invoices (openBillingPortal) | `breakrocks subscription portal` |
+| `subscription seller-verify` | The page of the payment provider that verifies you as a seller, valid 5 minutes (verifySellerIdentity) | `breakrocks subscription seller-verify` |
+| `gift-codes offer` | The gift codes offered in a currency: one per paid tier and number of months (giftCodeOffer) | `breakrocks gift-codes offer --currency EUR` |
+| `gift-codes list` | The gift codes the account bought (myGiftCodes) | `breakrocks gift-codes list` |
+| `gift-codes buy` | Buy a gift code of a paid tier for 1, 3 or 12 months: the address of the payment page; the code is made once paid (buyGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes buy X2 3 --yes` |
+| `gift-codes redeem` | Use a gift code: its tier for its months (redeemGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes redeem ABCD-EFGH --yes` |
+| `gift-codes refund` | Ask the refund of an unused gift code within 14 days of its purchase (refundGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes refund ABCD-EFGH --yes` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
 | `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "The corrected text"` |

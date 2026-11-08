@@ -29,6 +29,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   channels: 'Channels', discussions: 'Universe discussions: list, page, unread, pinned for oneself, the place of a channel; their moderation (archive, order, slow mode, writing bans, moderators, agents, deletion) and their limits', messages: 'Messages › Universes and mentions; reactions, threads and contribution votes of the messages of a universe discussion', settings: 'Personal settings: the universe visit history', themes: 'The theme catalog', appearance: 'The appearance editor of a universe: looks, palette, build, apply', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file',
   inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',
   moderation: 'Moderation of a universe', governance: 'Governance of a universe',
+  subscription: 'The paid tiers of the account (X2, X10): subscription, renewal, billing day, billing portal', 'gift-codes': 'Gift codes of the paid tiers: offer, bought, used, refunded',
   sanctions: 'The sanctions of the account in universes and their appeal', jury: 'The jury of the appeal of a sanction: the draw, the reviews, the vote',
 };
 

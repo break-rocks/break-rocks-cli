@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { billingCommands } from '../src/commands/billing.js';
 import { chatCommands } from '../src/commands/chats.js';
 import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
 import { discussionModerationCommands } from '../src/commands/discussions-moderation.js';
@@ -14,7 +15,7 @@ import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -168,5 +169,21 @@ describe('the moderation of universe discussions', () => {
     expect(calls.at(-1)!.variables).toMatchObject({ id: 'd1', accountId: 'a1', banned: true, hours: 24, article: 3 });
     expect(await h.run('discussions', 'unban', 'd1', '@spammer')).toBe(0);
     expect(calls.at(-1)!.variables).toMatchObject({ banned: false });
+  });
+});
+
+describe('the paid tiers', () => {
+  it('gives the payment page of a subscription, never pays, and asks first', async () => {
+    const { h, calls } = scripted({ startSubscription: { url: 'https://checkout.test/s', expiresAt: '2026-11-08T11:00:00.000Z' } });
+    expect(await h.run('subscription', 'start', 'X2', '--interval', 'YEAR', '--automatic-renewal')).toBe(2);
+    expect(await h.run('--yes', 'subscription', 'start', 'X2', '--interval', 'YEAR', '--automatic-renewal')).toBe(0);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].variables).toMatchObject({ tier: 'X2', interval: 'YEAR', automaticRenewal: true });
+    expect(h.lines.at(-1)).toContain('open: https://checkout.test/s');
+  });
+  it('sends the billing day with its subscription', async () => {
+    const { h, calls } = scripted({ billingDayOffer: { amount: 120, currency: 'EUR' } });
+    expect(await h.run('subscription', 'billing-day', 'offer', '15', '--kind', 'TIER_SUBSCRIPTION', '--universe', '%club.', '--settle-now')).toBe(0);
+    expect(calls[0].variables).toEqual({ input: { day: 15, settleNow: true }, subscription: { kind: 'TIER_SUBSCRIPTION', universe: '%club.' } });
   });
 });
