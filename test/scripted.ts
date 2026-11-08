@@ -11,7 +11,7 @@ export function scripted(answers: Record<string, unknown> = {}, options: { cwd?:
   const h = harness({
     env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' }, ...options,
     fetch: async (url, init) => {
-      if (String(url) !== 'https://api.test/graphql') { calls.push({ field: `POST ${String(url)}`, query: '', variables: {} }); return new Response('', { status: 204 }); }
+      if (String(url) !== 'https://api.test/graphql') { calls.push({ field: `POST ${String(url)}`, query: '', variables: {} }); return new Response(null, { status: 204 }); }
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
       calls.push({ field, query, variables });

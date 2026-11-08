@@ -214,12 +214,41 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `reposts requests` | The requests to repost a post of a private universe into a universe, waiting for its moderation (repostRequests) | `breakrocks reposts requests %paris` |
 | `reposts accept` | Accept a request to repost a post of a private universe into a universe one moderates (answerRepostRequest): the post is reposted | `breakrocks reposts accept <request id> --in %paris` |
 | `reposts decline` | Decline a request to repost a post of a private universe into a universe one moderates (answerRepostRequest) | `breakrocks reposts decline <request id> --in %paris` |
+| `playlists hub` | The playlists of the account: its own, those it follows, and "Watch later" (playlistsHub) | `breakrocks playlists hub` |
+| `playlists followed` | The playlists the account follows, the most recently changed first (followedPlaylists) | `breakrocks playlists followed` |
+| `playlists show` | A playlist and its items (50 at most), as the account reads it: its form, its route and the stage of each item, the progress (playlist) | `breakrocks playlists show @erin>journey` |
+| `playlists create` | Create a playlist: an account playlist, a series, or a universe playlist; its form, a route for the form ROUTE (createPlaylist) | `breakrocks playlists create journey --kind ACCOUNT --visibility PUBLIC` |
+| `playlists edit` | Change a playlist: its name, description, form, route, visibility, sections or course (updatePlaylist; a field not given stays) | `breakrocks playlists edit @erin>journey --visibility UNLISTED` |
+| `playlists delete` | Delete a playlist (never "Watch later"); its videos stay (deletePlaylist) (confirmation: `--yes`) | `breakrocks playlists delete @erin>journey --yes` |
+| `playlists add` | Add a post with a video (a post without one to a course) to a playlist, at a position, in a section, tied to a stage of its route (addToPlaylist) | `breakrocks playlists add @erin>journey <post id>` |
+| `playlists remove` | Remove a video from a playlist (removeFromPlaylist) | `breakrocks playlists remove @erin>journey <post id>` |
+| `playlists move` | Move a video of a playlist to a position (from 1) and, in a course, a section (movePlaylistItem) | `breakrocks playlists move @erin>journey <post id> 1` |
+| `playlists follow` | Follow a playlist (setPlaylistFollow) | `breakrocks playlists follow @erin>journey` |
+| `playlists unfollow` | Stop following a playlist (setPlaylistFollow) | `breakrocks playlists unfollow @erin>journey` |
+| `playlists pin` | Pin a universe playlist on the page of its universe, by its leadership (pinPlaylist; 3 at most) | `breakrocks playlists pin %paris>walks` |
+| `playlists unpin` | Unpin a universe playlist on the page of its universe, by its leadership (pinPlaylist) | `breakrocks playlists unpin %paris>walks` |
+| `playlists add-link` | Add a course link to a course (form CHAPTERS): its title and its https destination, reviewed as the destination of an ad (addLinkToPlaylist) | `breakrocks playlists add-link @erin>course --title "The reference" --url https://example.org/ref` |
+| `playlists add-doc` | Add a course document to a course (or a new version of one, --item-id): a PDF of 20 MB or a markdown text of 200 KB, sent then checked (requestDocumentUpload, addDocumentToPlaylist) | `breakrocks playlists add-doc @erin>course notes.pdf --title "The notes" --rights-confirmed` |
+| `playlists item-edit` | Change a course link or a course document: its title, the URL of a link, its place, its tags (updatePlaylistCourseItem) | `breakrocks playlists item-edit @erin>course <item id> --title "The reference, 2nd edition"` |
+| `playlists item-remove` | Remove a course link or a course document from a course (its file deleted) (removePlaylistCourseItem) (confirmation: `--yes`) | `breakrocks playlists item-remove @erin>course <item id> --yes` |
+| `playlists check` | Check a post of a course for oneself, once opened from it (checkPlaylistItem; a video is checked by videos playback) | `breakrocks playlists check @erin>course <post id>` |
+| `playlists check-item` | Check a course link or a course document for oneself, once opened (checkPlaylistCourseItem) | `breakrocks playlists check-item @erin>course <item id>` |
+| `playlists reset-progress` | Clear every checkmark of one's own in a playlist, every track together; the resume point stays (resetPlaylistProgress) (confirmation: `--yes`) | `breakrocks playlists reset-progress @erin>course --yes` |
+| `playlists checkmarks` | Show (--shown) or hide (--no-shown) the checkmarks of a SIMPLE playlist for oneself (setPlaylistCheckmarks) | `breakrocks playlists checkmarks @erin>journey --no-shown` |
+| `playlists tags` | Set the playlist tags of an item, all at once (none: --tags ""; 8 per playlist) (setPlaylistItemTags) | `breakrocks playlists tags @erin>course <post id> basics video` |
+| `playlists track` | Pick one's playlist track (none: back to the track by default) (setPlaylistTrack) | `breakrocks playlists track @erin>course quick` |
+| `playlists tracks` | Set the playlist tracks of a playlist, all at once, in order (10 at most; [] none) (setPlaylistTracks) | `breakrocks playlists tracks @erin>course --tracks '[{"name":"quick","title":"The quick way","tags":["basics"]}]'` |
+| `videos list` | The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos) | `breakrocks videos list %paris` |
+| `videos chapters propose` | The chapters the platform proposes from the subtitles of one's long video, shown to nobody until set (proposedChapters) | `breakrocks videos chapters propose <post id>` |
+| `videos chapters set` | Set the chapters of one's long video, all at once ("" removes them) (setChapters) | `breakrocks videos chapters set <post id> --chapters "0=Intro;1:30=The match"` |
+| `videos playback` | Record where one is in a long video (the second; --watched once at 90 %), from a playlist or not (recordPlayback) | `breakrocks videos playback <post id> 120` |
+| `videos quota` | The video quota of the account: its minutes, those left, when minutes come back (myVideoQuota) | `breakrocks videos quota` |
 | `posts alt` | Write the alternative text of an image of one's post in place of its automatic one, once per image (setImageAlt) | `breakrocks posts alt <post id> <image id> "The stadium at night"` |
 | `posts suggested-alt` | The alternative text a platform AI agent suggests for an image uploaded for a post (suggestedAlt) | `breakrocks posts suggested-alt <upload id> --language en` |
 | `posts subtitles on` | Turn the automatic subtitles of the clip of one's post back on (setAutomaticSubtitles) | `breakrocks posts subtitles on <post id>` |
 | `posts subtitles off` | Turn the automatic subtitles of the clip of one's post off (setAutomaticSubtitles) | `breakrocks posts subtitles off <post id>` |
 | `posts subtitles correct` | Correct the subtitles of the clip of one's post: every cue, in order, from a WebVTT or SRT file (correctSubtitles) | `breakrocks posts subtitles correct <post id> --file @clip.vtt` |
-| `post` | Publish a post: text, images (4) or a clip, a link, in an address (createPost) | `breakrocks post "Match tonight #football" --in %test-village-sport` |
+| `post` | Publish a post: text, images (4), a clip or a long video, a link, in an address (createPost) | `breakrocks post "Match tonight #football" --in %test-village-sport` |
 | `reply` | Reply to a post (replyTo), with images or a clip | `breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"` |
 | `quote` | Quote a post with a text of one's own (quote) | `breakrocks quote <id> "À lire" --in %paris` |
 | `repost` | Repost a post (--universe: in another universe) | `breakrocks repost <id>` |

@@ -97,7 +97,7 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
   post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, 'channels send': { channel: '%x&a', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'layouts check': { document: '{}', in: '%x', online: true },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
   'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages delete': { messageId: 'm', channel: '%x&general' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x&a'] },
-  'drafts schedule': { draftId: 'd', at: '2026-11-10T08:00:00Z' }, 'posts subtitles correct': { postId: 'p', file: '[{"startMs":0,"endMs":1,"text":"x"}]' },
+  'drafts schedule': { draftId: 'd', at: '2026-11-10T08:00:00Z' }, 'videos chapters set': { postId: 'p', chapters: '0=Intro' }, 'posts subtitles correct': { postId: 'p', file: '[{"startMs":0,"endMs":1,"text":"x"}]' },
 };
 
 describe('every command', () => {
@@ -152,7 +152,8 @@ describe('every command', () => {
     const calling = sent.map((s) => ({ command: s.command, op: /^\w+[^{]*\{\s*(\w+)/.exec(s.doc)?.[1] ?? '' })).filter((s) => deprecated.includes(s.op)).map((s) => `${s.command}: ${s.op}`);
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
-    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary']);
+    // Those that read a local file first (a document, a GPX file, an image).
+    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary', 'playlists add-doc']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

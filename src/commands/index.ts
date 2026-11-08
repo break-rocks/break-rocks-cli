@@ -25,6 +25,7 @@ import * as pages from './pages.js';
 import * as publish from './publish.js';
 import * as read from './read.js';
 import * as drafts from './drafts.js';
+import * as playlists from './playlists.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -41,6 +42,10 @@ register(
   read.feed, read.render, read.exportPosts,
   drafts.draftsList, drafts.draftsShow, drafts.draftsSave, drafts.draftsSchedule, drafts.draftsPublish, drafts.draftsDelete,
   drafts.repostsRequest, drafts.repostsRequests, drafts.repostsAccept, drafts.repostsDecline,
+  playlists.playlistsHub, playlists.playlistsFollowed, playlists.playlistsShow, playlists.playlistsCreate, playlists.playlistsEdit, playlists.playlistsDelete, playlists.playlistsAdd, playlists.playlistsRemove, playlists.playlistsMove,
+  playlists.playlistsFollow, playlists.playlistsUnfollow, playlists.playlistsPin, playlists.playlistsUnpin, playlists.playlistsAddLink, playlists.playlistsAddDoc, playlists.playlistsItemEdit, playlists.playlistsItemRemove,
+  playlists.playlistsCheck, playlists.playlistsCheckItem, playlists.playlistsResetProgress, playlists.playlistsCheckmarks, playlists.playlistsTags, playlists.playlistsTrack, playlists.playlistsTracks,
+  playlists.videosList, playlists.videosChaptersPropose, playlists.videosChaptersSet, playlists.videosPlayback, playlists.videosQuota,
   drafts.postsAlt, drafts.postsSuggestedAlt, drafts.postsSubtitlesOn, drafts.postsSubtitlesOff, drafts.postsSubtitlesCorrect,
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
