@@ -38,7 +38,7 @@ export const meProfileSet = apiCommand({
 
 export const meHandleCheck = apiCommand({
   name: 'me handle check', summary: 'Whether a handle is free to take (handleAvailability)', kind: 'query', op: 'handleAvailability', positionals: ['handle'], descriptions: { handle: 'The handle, without @' },
-  text: (r) => { const a = r as { handle: string; available: boolean; reason?: string | null } | null; return a ? `@${a.handle}  ${a.available ? 'available' : `taken${a.reason ? ` (${a.reason})` : ''}`}` : '(none)'; },
+  text: (r) => { const a = r as { handle: string; available: boolean; reason?: string | null } | null; return a ? `@${(a.handle ?? '').replace(/^@/, '')}  ${a.available ? 'available' : `taken${a.reason ? ` (${a.reason})` : ''}`}` : '(none)'; },
   examples: ['breakrocks me handle check alice'],
 });
 export const meHandleChange = apiCommand({
@@ -166,9 +166,9 @@ export const meInteractions = apiCommand({
   examples: ['breakrocks me interactions'],
 });
 type PostLine = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; universe?: string | null };
-const postLine = (p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  @${p.author?.handle ?? '?'}${p.universe ? `  ${p.universe}` : ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 80)}`;
+const postLine = (p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.handle ? `@${p.author.handle}` : '(deleted)'}${p.universe ? `  ${p.universe}` : ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 80)}`;
 export const mePosts = apiCommand({
-  name: 'me posts', summary: 'The posts the account liked or reposted (myPosts LIKED or REPOSTED)', kind: 'query', op: 'myPosts', positionals: ['kind'], descriptions: { kind: 'LIKED or REPOSTED' }, depth: 1,
+  name: 'me posts', summary: 'The posts the account liked or reposted (myPosts LIKED or REPOSTED)', kind: 'query', op: 'myPosts', positionals: ['kind'], descriptions: { kind: 'LIKED or REPOSTED' },
   text: pageText(postLine), examples: ['breakrocks me posts LIKED', 'breakrocks me posts REPOSTED --all --json'],
 });
 export const meReports = apiCommand({

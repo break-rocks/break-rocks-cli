@@ -127,7 +127,7 @@ const reception = (accept: boolean) => apiCommand({
 export const governanceVotesAccept = reception(true);
 export const governanceVotesRefuse = reception(false);
 export const governanceVoteHolders = apiCommand({
-  name: 'governance vote-holders', summary: 'The top holders of lent votes of a universe, or the votes one account holds (--account) (voteHolders)', kind: 'query', op: 'voteHolders', positionals: ['universe'], rename: { accountId: 'account' }, descriptions: u,
+  name: 'governance vote-holders', summary: 'The top holders of lent votes of a universe, or the votes one account holds (--account) (voteHolders)', kind: 'query', op: 'voteHolders', positionals: ['universe'], rename: { accountId: 'account' }, descriptions: u, select: '{ votes account { id handle displayName kind } }',
   text: (r) => (Array.isArray(r) && r.length ? (r as { account?: Ref; votes?: number }[]).map((v) => `${at(v.account)}  ${v.votes ?? 0}`).join('\n') : '(none)'), examples: ['breakrocks governance vote-holders %paris', 'breakrocks governance vote-holders %paris --account @alice'],
 });
 type Review = { postId?: string; status?: string; keepVotes?: number; backVotes?: number; myVote?: string | null; endsAt?: string };
