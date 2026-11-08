@@ -607,6 +607,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `theme apply` | Make a theme the theme of a universe (setUniverseProfile; the leadership, the owner, the admins) | `breakrocks theme apply %paris/stade-nuit --to %paris` |
 | `theme personal set` | Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme) | `breakrocks theme personal set --accent "#11707A"` |
 | `theme personal clear` | Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear) | `breakrocks theme personal clear` |
+| `theme personal saved` | The personal themes the account saved, the most recent first, 50 at most (personalThemes) | `breakrocks theme personal saved` |
 | `theme export` | Export a theme: its JSON and its images served (the largest width), or a ZIP (--zip) | `breakrocks theme export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `theme shots` | Download the screenshots of a theme (3 screens night and day, the page of a universe at 3 breakpoints) | `breakrocks theme shots %paris/stade-nuit --out shots/` |
 | `theme delete` | Delete a theme one published (it stays applied where it is) (confirmation: `--yes`) | `breakrocks theme delete %paris/stade-nuit --yes` |

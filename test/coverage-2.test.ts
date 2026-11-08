@@ -10,13 +10,14 @@ import { chatCommands } from '../src/commands/chats.js';
 import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
 import { discussionModerationCommands } from '../src/commands/discussions-moderation.js';
 import { favoriteCommands } from '../src/commands/favorites.js';
+import { themePersonalSaved } from '../src/commands/themes-online.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands, themePersonalSaved];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
