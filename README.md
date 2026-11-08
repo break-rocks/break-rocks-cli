@@ -411,7 +411,64 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
 
+### Contract of specs v101 and the theme model of v99 (0.16.0)
+
+- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (14 SDL files: 202 queries, 334
+  mutations; `schema/api-v2/VERSION`), taken from the submodule `specs/common` pinned on that tag
+  (`npm run update:schema`). The default selections leave out the fields marked `@deprecated`, and no
+  command calls an operation the contract deprecates (a test checks it). **The `--json` outputs grow**
+  with the fields added since v83.1.0 (`Post.place`, `Message.score`, `Universe.tagConventions`…) and lose
+  the deprecated ones (`PersonalTheme.theme`, `Notification.debate`…).
+- **Governance** (D-300): `events create` requires 1 to 5 free tags (`--tags`) and offers `--route-id`,
+  `--no-discussion`, `--from-discussion`; `proposals file` checks 1 to 5 tags for `ACTION` and `OTHER` (0 to 5
+  otherwise) and offers `--from-discussion`, `--appearance`, `--tag-conventions`, `--playlist-action`,
+  `--restore-layout-version` and the channel action `PLACE` (`--place-point <lat>,<lon>` or `--place-zone`,
+  `--place-name`).
+- **Reports** (M-09): the reasons come from the contract (`ReportReason`); new targets `playlist`,
+  `playlist-item` (`--item` or `--post`), `route`, `post-place`, `place-message` and `map-presence`;
+  `--details` (1,000 characters) and `--good-faith`, required with `ILLEGAL` (also by `universes page report`
+  and `universes territory report`).
+- **Channels and debates** are universe discussions (`migration.md` § Channels and debates, step 2): the
+  commands keep their names and call `universeDiscussions`, `universeDiscussion`, `openUniverseDiscussion`,
+  `join|leave|support|closeUniverseDiscussion` and `setPinnedUniverseDiscussions`; a channel is
+  **`%universe&name`** (never `~`, the sign of a live); `debates propose` (`proposeUniverseDiscussion`) is new.
+- **Withdrawn** with the gallery and the personal theme (D-289, specs v96): `themes star|unstar|starred|try|untry|trials`,
+  `theme try|undo-try|copy`, `layouts retouch|reset-retouches`, `universes theme-follow`; `universes theme-history`
+  and `theme-restore` become `universes appearance-history` and `appearance-restore` (`universeAppearanceHistory`,
+  `restoreUniverseAppearance`, `--propose`); `theme personal set` offers the accent (`#RRGGBB` or `universe`) and
+  the display settings only.
+- **Themes** (D-293, specs v99): the design system is mounted (submodule `design`, pinned on **v4.1.0**, as the
+  backend) and bundled in `dist/`. `theme check` rests on it: the JSON Schema `design/schemas/theme-v2.schema.json`
+  (its problems with the codes of the publication) and `design/lib/theme` (`readTheme`): the four families of
+  theme surfaces `page`, `sky`, `block`, `control`; the former surfaces read into their family and told
+  `THEME_SURFACE_DEPRECATED`; the radii (`surfaceRadius`, `shape`), the `border`, the opacities, the text
+  backdrop and `typography.accent` ignored and told `THEME_KEY_IGNORED`, never refused; the image slots `page`
+  and `pageHeader` only; `scrims` (the readability mask among them), `textScrims` and `screenshots` refused;
+  the contrast raised per family in the night, dim and day modes; the readability mask (`scrims.mask`)
+  computed as the platform does for `appearance.imageShows` `subtle` (the default) or `through`, the image read
+  as black and white offline. `theme check design/examples/themes/faille.json` passes. `theme publish` leaves
+  out the image slots ignored since v99. `theme prompt` is rewritten on that model, in English and French
+  (`--template` keeps the fields to fill as `<…>`), and the MCP prompt `theme-prompt` with it.
+- **Layouts**: `layouts check` runs `design/lib/layout` (`checkLayout`, the widget registry of the design
+  system) offline; `--online` asks the API.
+- **`doctor`** names the version of the contract of the CLI and its check `contract` compares it with what
+  the API serves (introspection): operations, types, fields or enum values the CLI does not know warn
+  `CLI_CONTRACT_BEHIND` (update the CLI).
+- **Delegated agents**: beyond its quota, a delegated agent pays its extra usage with x402 (`PAYMENT_REQUIRED`,
+  the same request sent again with `PAYMENT-SIGNATURE`), within the cap of a payment (`BREAKROCKS_MAX_USD`, 1 US
+  dollar by default) and the cap of the day; `wallet set --extra-usage` pays without a confirmation each time
+  (an MCP tool cannot confirm otherwise). `agents tier <agent> --tier X10|X100 --months n` buys a paid tier
+  (`POST /v1/operators/delegated-agents/{id}/tier`, x402, `--yes`).
+- **Build**: `npm run build` bundles the CLI with esbuild (`scripts/build.mjs`, `dist/index.js`); `tsc` only
+  checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`).
+
+Not yet covered (the next lot): the operations added since v83.1.0 (drafts and scheduled posts, playlists,
+routes and map presence, appearance editor, long videos, advertising, platform measures and terms…).
+
 ### Discussions, gallery and history (0.15.0, specs v83.1.0)
+
+Superseded in 0.16.0: the gallery stars and trials and the theme history are withdrawn (above).
+
 
 - **Discussions (D-245)**: `discussions list %u`, `discussions show %u&name` and `discussions unread`
   (`myUnreadDiscussions`, all the discussions with unread messages) show `presentCount`
@@ -521,6 +578,9 @@ taking over an x402 period by `operator plan start` (it needs an operator paid i
 test USDC); covered by the tests.
 
 ### Theme transparency, trials and previews (0.10.0)
+
+Superseded in 0.16.0: the opacities, the text backdrops and the post transparency are no longer drawn since
+specs v96 and v99 (above).
 
 - **`theme check`** accepts `opacity` (an integer from 0 to 100) per surface and per variant,
   `surfaceOpacity`, `textBackdrop` (`block` or `surface`) and the `block` surface; refuses `scrims` and
@@ -643,14 +703,15 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 
 ### The API contract
 
-`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (12
-SDL files, one per domain, with their `"""…"""` descriptions), the contract the CLI is
-built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
+`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.3.3, `schema/api-v2/VERSION`), the
+contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
 AppSync scalars that the contract does not declare. To follow a new version of the contract:
-`npm run update:schema -- <path>`, where the path is a local folder of the platform's specifications
-(the script reads `contracts/api-v2/*.graphql` there) or a folder of those files; it copies them
+move the submodule `specs/common` to its tag (`git -C specs/common checkout vX.Y.Z`), then `npm run update:schema`
+(or `npm run update:schema -- <path> [vX.Y.Z]`, a local folder of the platform's specifications or of the
+`.graphql` files); it copies them, records the tag in `schema/api-v2/VERSION`
 then regenerates the compact form, and `test/api.test.ts` checks that it is up to date. The
 commands that are
 an operation of the API take their options, their JSON schemas (help, `schema`, MCP tools) and the
@@ -866,7 +927,11 @@ only.
   `profile use` (the server acts with the profile it started with and opens no session
   for another account);
 - **resources**: `breakrocks://whoami`, `breakrocks://capabilities`, `breakrocks://profiles`;
-- **prompt**: `theme-prompt` (the parameterised theme prompt);
+- **prompts**: `theme-prompt` (the theme prompt of `theme prompt`, the model of specs v99), `whoami`, `agents`,
+  `login`; the codes of the server itself: `UNKNOWN_TOOL`, `UNKNOWN_RESOURCE`, `UNKNOWN_PROMPT`;
+- **payments**: a tool that pays (`operator renew`, `agents tier`…) needs `"yes": true`; the extra usage of a
+  delegated agent beyond its quota is paid only when its profile allows it (`wallet set --extra-usage`), else the
+  tool answers `PAYMENT_REQUIRED`;
 - the current profile, or `--profile` / `--env` given to `breakrocks mcp`; a tool that asks for a
   confirmation (deletion, payment) is refused without `"yes": true` in its input; nothing is
   ever asked on stdin; an agent signs in through `breakrocks_agent_login` and the BREAKROCKS_* variables.
@@ -984,6 +1049,14 @@ SEA binaries.
   `src/endpoints.ts`, `TEMPORARY`): `break.rocks` afterwards.
 - `src/srp.ts` is a copy of the back office CLI's (no shared package): a fix goes
   into both.
+- The operations of API v2 added since specs v83.1.0 (118, `audit` of 08/11) have no command yet: the next
+  lot (D-92: the CLI covers API v2 in full).
+- The submodules `design` and `specs/common` are private repositories of a public one: building from a clone
+  needs read access to them; the code of `design/lib` is bundled in the npm package.
+- `theme check` reads the images as black and white to compute the readability mask (no image decoder,
+  D-91): the platform reads their tones; the mask told is the worst case.
+- `theme prompt --universal` keeps its own copy of the palette of Socle (`SOCLE_PALETTE`).
+- `universes page check` stays online (the limits of the pages are the back office's).
 
 ## Dependabot
 
