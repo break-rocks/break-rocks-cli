@@ -30,6 +30,7 @@ import * as routes from './routes.js';
 import * as map from './map.js';
 import * as appearance from './appearance.js';
 import * as measures from './measures.js';
+import * as discovery from './discovery.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -58,7 +59,7 @@ register(
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
-  read.explore, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
+  read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
   map.presenceShow, map.presenceStart, map.presenceUpdate, map.presenceAudience, map.presenceGhostOn, map.presenceGhostOff, map.presenceStop,
   map.liveShareList, map.liveShareIn, map.liveShareStart, map.liveShareStop, map.liveSharePositions, map.liveShareSend,
   map.locatableShow, map.locatableResidents, map.locatableOn, map.locatableOff, map.locatableMove,

@@ -300,6 +300,12 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes pages import` | Import a document break-rocks-layout/3: one studio draft per page (importUniversePages) | `breakrocks universes pages import %paris --file paris-pages.json` |
 | `universes page report` | Report a custom page or one of its free blocks (report UNIVERSE_PAGE) | `breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES` |
 | `explore` | Explore: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow | `breakrocks explore` |
+| `explore why` | "Why this post": why a post was shown in "For you" or the clip feed, from what was shown in the last 7 days (whyRecommended) | `breakrocks explore why <post id>` |
+| `explore muted` | The universes muted from discovery (myMutedUniverses) | `breakrocks explore muted` |
+| `explore mute` | Mute a universe from discovery, its sub-universes included (muteUniverseDiscovery; 500 at most) | `breakrocks explore mute %paris-foot` |
+| `explore unmute` | Unmute a universe from discovery (unmuteUniverseDiscovery) | `breakrocks explore unmute %paris-foot` |
+| `explore reset` | Reset the recommendations: the interest profile, the recommendations of the last 7 days and the clip plays erased; the rest kept (resetRecommendations) (confirmation: `--yes`) | `breakrocks explore reset --yes` |
+| `resolve` | Resolve an address: its canonical address and URL, its address parameters, and the playlist, universe event or route it names (resolveAddress) | `breakrocks resolve "@erin>journey?t=90"` |
 | `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA) | `breakrocks explore area --boundary R7444` |
 | `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
