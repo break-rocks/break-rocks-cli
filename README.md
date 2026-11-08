@@ -546,9 +546,52 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
 
+### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
+
+D-92: the CLI covers API v2, each command in text and in `--json`, each an MCP tool. 0.17.0 adds 135 commands
+for 123 operations added since v83.1.0 that had none (contract of specs **v101.5.0**, `specs/common` pinned on
+that tag). Each one is an `apiCommand` of the registry: its help, its JSON schemas (`breakrocks schema`), its
+completion, its MCP tool `breakrocks_<group>_<action>`; the writes offer `--dry-run`, the irreversible ones ask
+`--yes`. A playlist is named by its address (`@erin>journey`) or its id, a universe discussion by its address
+(`%paris&general`) or its id, an account by its `@handle`; points are `<lat>,<lon>` (lists: `;`), and the
+areas of the map are 1 to 4 map cells of resolution 6 (`--cells`; no H3 library in the CLI).
+
+- **Posts**: `drafts list|show|save|schedule|publish|delete` (drafts and scheduled posts, v85.1.0);
+  `reposts request|requests|accept|decline` (a post of a private universe reposted into another);
+  `posts alt`, `posts suggested-alt`, `posts subtitles on|off|correct` (a WebVTT or SRT file); `posts place`;
+  `post --long-video <file>` (sent as `LONG_VIDEO`).
+- **Playlists** (v86 to v101.3): `playlists hub|followed|show|create|edit|delete|add|remove|move|follow|unfollow|pin|unpin`,
+  the form `ROUTE` (`create --form ROUTE --route-id`, `add --stage <n>`, `show` tells the stage of each item),
+  courses (`add-link`, `add-doc` sends a PDF or a markdown file, `item-edit`, `item-remove`, `check`,
+  `check-item`), the reader (`reset-progress`, `checkmarks`, `tags`, `track`, `tracks`). **Long videos**:
+  `videos list|playback|quota`, `videos chapters propose|set`.
+- **Routes** (v92.1, v101.4): `routes list|show|create|edit|delete|copy|plan`, `routes gpx export|import`,
+  `routes privacy-zones [set]`; the layers of an area: `map routes|channels|posts|places|presences|groups`.
+- **People on the map**: `presence show|start|update|audience|ghost on|ghost off|stop`; `live-share
+  list|in|start|stop|positions|send` (a minor sharer is read at the center of its map cell, v94.0.0 and
+  v101.4.0); `locatable show|residents|on|off|move`; `meetups answer|change|cancel`; `nearby
+  token|request|requests|accept|decline|leave|sightings`.
+- **Appearance and tags**: `appearance looks|palette|build|apply` (`--image` sent with the destination THEME and
+  waited for, `--image-shows NONE|SUBTLE|THROUGH`, `--focal`, `--character`, `--propose`); `universes tags
+  conventions|suggestions|view` (`%paris#market`).
+- **Discussions** (v88 to v101): `messages universes|mentions|ignore-mention|remove-discussion|block-universe|unblock-universe`,
+  `discussions pin|unpin` (for oneself), `discussions place set|remove`, `messages vote|unvote` (contribution
+  votes), `channels read --top`, `channels send --stance FOR|AGAINST|QUESTION`, `channels levels`.
+- **Measures and terms**: `me measures`, `me measures appeal`, `me terms`, `me terms accept`. **Advertising**:
+  `ads campaigns|show|create|update|submit|pause|resume|end|pay|suggest|group|repository|why`, `ads interests
+  [set]`. **Discovery**: `explore why|muted|mute|unmute|reset`; `resolve <address>`.
+
+Not offered: what the platform defers since v101.5.0 (`NOT_IMPLEMENTED`: map avatars, continuous play, passages
+and montages, masks after posting, placed videos and `pointsOfView`), `recordAdImpression` and `recordAdClick`
+(an app that shows ads), `experienceKinds` (experiences withdrawn from the apps). The delegated agents (tiers,
+plans, restrictions) were covered already (`agents tier|restrict`, `operator plan …`). The page opacity of the
+reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stays (about 155 operations
+that are not deprecated: account, private universes, governance, moderation of the universe discussions,
+subscription…).
+
 ### Contract of specs v101 and the theme model of v99 (0.16.0)
 
-- **Contract**: `schema/api-v2/` is the contract of specs **v101.5.0** (14 SDL files: 202 queries, 334
+- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (v101.5.0 since 0.17.0; 14 SDL files: 202 queries, 334
   mutations; `schema/api-v2/VERSION`), taken from the submodule `specs/common` pinned on that tag
   (`npm run update:schema`). The default selections leave out the fields marked `@deprecated`, and no
   command calls an operation the contract deprecates (a test checks it). **The `--json` outputs grow**
@@ -597,8 +640,7 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 - **Build**: `npm run build` bundles the CLI with esbuild (`scripts/build.mjs`, `dist/index.js`); `tsc` only
   checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`).
 
-Not yet covered (the next lot): the operations added since v83.1.0 (drafts and scheduled posts, playlists,
-routes and map presence, appearance editor, long videos, advertising, platform measures and terms…).
+The operations added since v83.1.0 are covered since 0.17.0 (below).
 
 ### Discussions, gallery and history (0.15.0, specs v83.1.0)
 
