@@ -546,6 +546,19 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
 
+### The public design library (0.17.1)
+
+D-307: the shared library of the design system comes from **break-rocks-design-lib**
+(`https://github.com/break-rocks/break-rocks-design-lib`, public, MIT), the submodule `design-lib` pinned on
+**v4.2.0**, in place of the private submodule `design` (break-rocks-design v4.1.0). That repository is generated
+from break-rocks-design at each of its versions and holds only what the CLI and the other public clients read:
+`lib/theme`, `lib/layout`, `schemas/`, `registry/widgets.json`, `layouts/platform/`, `examples/themes`,
+`examples/layouts`, `dist/web/tokens.ts` and `tokens.css`. A clone of this repository builds and tests
+without any token (`git submodule update --init design-lib`); CI and the release no longer use
+`SUBMODULES_TOKEN`. v4.2.0 of the design system no longer requires the live line in a layout
+(`LAYOUT_LIVE_LINE_REQUIRED` is no longer raised by `layouts check`). To follow a new version:
+`git -C design-lib fetch --tags && git -C design-lib checkout vX.Y.Z`, then `npm run check`.
+
 ### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
 
 D-92: the CLI covers API v2, each command in text and in `--json`, each an MCP tool. 0.17.0 adds 135 commands
@@ -656,7 +669,7 @@ votes (no temporary discussion open). `videos list` selects no `adSlots`: dev an
   (an MCP tool cannot confirm otherwise). `agents tier <agent> --tier X10|X100 --months n` buys a paid tier
   (`POST /v1/operators/delegated-agents/{id}/tier`, x402, `--yes`).
 - **Build**: `npm run build` bundles the CLI with esbuild (`scripts/build.mjs`, `dist/index.js`); `tsc` only
-  checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`).
+  checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`; since 0.17.1 only `design-lib`, public, without a token).
 
 The operations added since v83.1.0 are covered since 0.17.0 (below).
 
@@ -829,7 +842,7 @@ specs v96 and v99 (above).
   `CANVAS_ITEMS_LIMIT` with the back office limit `errorInfo.limit`…). **`page check` is
   online** (`checkLayout` with `{ format: "break-rocks-layout/3", pages: [page] }`: the limits of the
   pages are the back office's); exit 1 when a refusal is returned. Since 0.16.0 the shared design library
-  is mounted (the submodule `design`): `layouts check` runs `design/lib/layout` offline (`--online`: the API).
+  is mounted (the submodule `design-lib` since 0.17.1): `layouts check` runs `design-lib/lib/layout` offline (`--online`: the API).
 - **Governance page** (`living-universes.md` § The governance page): `governance proposals
   [--status] [--kind]`, `governance record` (`governanceRecords`, `--all`), `governance duties
   [--universe]` (`myJuryDuties`), `governance pinned` and `governance pin <u> <channel…>|--none`
@@ -912,6 +925,11 @@ commands that are
 an operation of the API take their options, their JSON schemas (help, `schema`, MCP tools) and the
 selection of their answer from it. `test/api.test.ts` checks, with `graphql` (a development dependency),
 that every document sent by every command is valid against the contract.
+
+`specs/common` (break-rocks-specs) is a private submodule: only `npm run update:schema` reads it, by hand, and
+neither CI nor the release checks it out; a clone builds and tests on `schema/api-v2/` alone. Not done yet: the
+same approach as the design library (a public read-only repository generated from the specifications, holding
+`contracts/api-v2/*.graphql` and `ui-actions.yaml`) would let `update:schema` run from a public source.
 
 ### Messaging
 
@@ -1246,8 +1264,10 @@ SEA binaries.
   into both.
 - The operations of API v2 added since specs v83.1.0 (118, `audit` of 08/11) have no command yet: the next
   lot (D-92: the CLI covers API v2 in full).
-- The submodules `design` and `specs/common` are private repositories of a public one: building from a clone
-  needs read access to them; the code of `design/lib` is bundled in the npm package.
+- The submodule `specs/common` is a private repository of a public one: `npm run update:schema` needs read
+  access to it (building and testing do not). A public read-only repository generated from the specifications
+  (`contracts/api-v2`, `ui-actions.yaml`), as `design-lib` is for the design system (D-307), would remove it.
+  The submodule `design-lib` is public (MIT); its code is bundled in the npm package.
 - `theme check` reads the images as black and white to compute the readability mask (no image decoder,
   D-91): the platform reads their tones; the mask told is the worst case.
 - `theme prompt --universal` keeps its own copy of the palette of Socle (`SOCLE_PALETTE`).
