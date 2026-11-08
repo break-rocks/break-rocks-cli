@@ -6,13 +6,14 @@ import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chatCommands } from '../src/commands/chats.js';
+import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -125,5 +126,27 @@ describe('private universes', () => {
     expect(await h.run('universes', 'tiers', 'subscribe', '%club.', 't1', '--interval', 'MONTH', '--automatic-renewal', '--immediate-access-consent', '--conditions-version', '1')).toBe(0);
     expect(calls[0].variables).toMatchObject({ universe: '%club.', input: { tierId: 't1', interval: 'MONTH', automaticRenewal: true, immediateAccessConsent: true, conditionsVersion: 1 } });
     expect(h.lines.at(-1)).toContain('open to pay: https://pay.test/x');
+  });
+});
+
+describe('governance', () => {
+  it('chooses a backup delegate or none', async () => {
+    const { h, calls } = scripted({ accountByHandle: { id: 'a1' } });
+    expect(await h.run('governance', 'backup-delegate', '%paris', '@alice')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'setBackupDelegate', variables: { universe: '%paris', accountId: 'a1' } });
+    expect(await h.run('governance', 'backup-delegate', '%paris', '--clear')).toBe(0);
+    expect(calls.at(-1)!.variables).toMatchObject({ accountId: null });
+    expect(await h.run('governance', 'backup-delegate', '%paris')).toBe(2);
+  });
+  it('changes an event by its id, the input flattened', async () => {
+    const { h, calls } = scripted();
+    expect(await h.run('events', 'change', 'e1', '--title', 'Night ride', '--clear', 'ROUTE', '--point', '{"lat":48.85,"lon":2.35}')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ input: { eventId: 'e1', title: 'Night ride', clear: ['ROUTE'], point: { lat: 48.85, lon: 2.35 } } });
+  });
+  it('votes as a juror, after a confirmation', async () => {
+    const { h, calls } = scripted();
+    expect(await h.run('jury', 'vote', 's1', '--outcome', 'REDUCED', '--reduced-to-days', '2', '--reasons', 'A first time')).toBe(2);
+    expect(await h.run('--yes', 'jury', 'vote', 's1', '--outcome', 'REDUCED', '--reduced-to-days', '2', '--reasons', 'A first time')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ sanctionId: 's1', outcome: 'REDUCED', reducedToDays: 2, reasons: 'A first time' });
   });
 });

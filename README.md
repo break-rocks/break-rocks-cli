@@ -444,6 +444,26 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `polls show` | A poll | `breakrocks polls show <id>` |
 | `polls create` | Create a poll in a universe | `breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche` |
 | `polls pick` | Pick a choice of a poll (its index, from 0) | `breakrocks polls pick <id> 1` |
+| `proposals votes` | The votes of the representatives on a proposal, the largest first: those who hold lent votes, never the choice of the others (proposalVotes) | `breakrocks proposals votes <id>` |
+| `proposals mine` | The proposals the account filed (--voted: those it voted on), the most recent first (myProposals) | `breakrocks proposals mine` |
+| `proposals projects` | The projects of a universe: action proposals adopted and not done, in progress first (projects) | `breakrocks proposals projects %paris` |
+| `proposals project-status` | Set the status of a project with a note: in progress or done (setProjectStatus; the leadership, without leadership the residents) | `breakrocks proposals project-status <id> IN_PROGRESS --note "Works start in March"` |
+| `proposals project-done` | Declare the project of an adopted action proposal done (declareProjectDone; its author) | `breakrocks proposals project-done <id>` |
+| `proposals refusal-review` | Ask the platform team, once, to review the refusal of a proposal when filed (askProposalRefusalReview; its author) (confirmation: `--yes`) | `breakrocks proposals refusal-review <id> --yes` |
+| `proposals change` | Amend a proposal: always refused by the platform, a proposal is withdrawn and filed again (changeProposal) | `breakrocks proposals change <id> --text "A new text"` |
+| `polls support` | Support a poll waiting for support (supportPoll; a resident) | `breakrocks polls support <id>` |
+| `events support` | Support a universe event proposed by a resident (supportUniverseEvent; a resident who can vote) | `breakrocks events support <id>` |
+| `events change` | Change a universe event: title, start, length, place, link, tags, its point, zone or route (changeUniverseEvent; the attendees are told) | `breakrocks events change <id> --title "Night ride" --starts-at 2026-11-20T19:00:00Z` |
+| `events delete` | Delete a universe event (deleteUniverseEvent) (confirmation: `--yes`) | `breakrocks events delete <id> --yes` |
+| `events attendees` | The attendees of a universe event, to the residents of its universe (universeEventAttendees) | `breakrocks events attendees <id> --all` |
+| `sanctions list` | The sanctions of the account in universes, the newest first (mySanctions) | `breakrocks sanctions list` |
+| `sanctions appeal` | Appeal a sanction before its date, to a jury of residents (appealSanction; --publish-name: your name published with it) (confirmation: `--yes`) | `breakrocks sanctions appeal <id> --no-publish-name --yes` |
+| `sanctions publish-name` | Whether your name is published with your appeal, until the decision (setAppealPublishName) | `breakrocks sanctions publish-name <id> off` |
+| `jury accept` | Accept your draw as a juror for the appeal of a sanction, before its answer date (answerJuryDraw) | `breakrocks jury accept <sanction id>` |
+| `jury decline` | Decline your draw as a juror for the appeal of a sanction, before its answer date (answerJuryDraw) | `breakrocks jury decline <sanction id>` |
+| `jury reviews` | Ask, for the jury, the two platform AI agents to review the sanction against the charter, one for and one against, once per appeal (askSanctionReviews) | `breakrocks jury reviews <sanction id>` |
+| `jury vote` | Vote as a juror on an appeal: an outcome with its reasons (--reduced-to-days for a reduction), or --dismiss (voteAsJuror) (confirmation: `--yes`) | `breakrocks jury vote <sanction id> --outcome REDUCED --reduced-to-days 2 --reasons "A first time" --yes` |
+| `jury withdraw` | Withdraw from the jury of an appeal before its vote (withdrawFromJury) (confirmation: `--yes`) | `breakrocks jury withdraw <sanction id> --yes` |
 | `channels list` | The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
 | `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
 | `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
@@ -627,6 +647,24 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
+| `governance residents` | The residents of a public universe: the leadership first, then the moderators, then by recent activity (universeResidents) | `breakrocks governance residents %paris --role LEADERSHIP` |
+| `governance welcome-wall` | The welcome wall: the new residents of the last 7 days (welcomeWall) | `breakrocks governance welcome-wall %paris` |
+| `governance welcome` | Welcome a new resident on the welcome wall, once (welcomeResident) | `breakrocks governance welcome %paris @newcomer` |
+| `governance news` | The news of a universe: the badges of its dashboard and its now page (universeNews) | `breakrocks governance news %paris --json` |
+| `governance pulse` | The pulse of a public universe, from 10 residents (universePulse) | `breakrocks governance pulse %paris --json` |
+| `governance manifesto-versions` | The versions of the manifesto of a private universe, the most recent first (universeManifestoVersions) | `breakrocks governance manifesto-versions %club.` |
+| `governance sub-governance` | Give a sub-universe a governance of its own: an account and its powers (giveSubUniverseGovernance; the leadership) (confirmation: `--yes`) | `breakrocks governance sub-governance %paris/velo @alice --powers ANNOUNCEMENTS,PINNED_POSTS --yes` |
+| `governance move-pinned` | Move a pinned post before another (--before; none: to the end) (movePinnedPost) | `breakrocks governance move-pinned %paris <post id> --before <post id>` |
+| `governance unpin-announcement` | Unpin an announcement, those of a former leadership included (unpinAnnouncement; the leadership in place) | `breakrocks governance unpin-announcement %paris <post id>` |
+| `governance backup-delegate` | Choose a backup delegate in a universe (--clear: none) (setBackupDelegate) | `breakrocks governance backup-delegate %paris @alice` |
+| `governance votes-accept` | Accept the votes lent to you in a universe (--everywhere: in all) (setVoteReception) | `breakrocks governance votes-accept %paris` |
+| `governance votes-refuse` | Refuse the votes lent to you in a universe (--everywhere: in all) (setVoteReception) | `breakrocks governance votes-refuse %paris` |
+| `governance vote-holders` | The top holders of lent votes of a universe, or the votes one account holds (--account) (voteHolders) | `breakrocks governance vote-holders %paris` |
+| `governance feed-reviews` | The feed removal reviews of a public universe, the newest first (feedRemovalReviews) | `breakrocks governance feed-reviews %paris` |
+| `governance feed-review-vote` | Vote on the feed removal review of a post while it is open (48 hours): KEEP_REMOVED or BACK_TO_FEEDS (voteOnFeedRemovalReview) | `breakrocks governance feed-review-vote <post id> BACK_TO_FEEDS` |
+| `governance like-question` | Like a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance like-question <id>` |
+| `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
+| `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
 
 ### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
 

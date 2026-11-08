@@ -34,6 +34,7 @@ import * as discovery from './discovery.js';
 import { meCommands } from './me.js';
 import { chatCommands } from './chats.js';
 import { privateUniverseCommands } from './private-universes.js';
+import { civicCommands, civicGovernanceCommands } from './civic.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -72,7 +73,7 @@ register(
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesPropose, publish.debatesSupport, publish.debatesClose,
-  read.pollsList, publish.pollsShow, publish.pollsCreate, publish.pollsPick,
+  read.pollsList, publish.pollsShow, publish.pollsCreate, publish.pollsPick, ...civicCommands,
   read.channelsList, publish.channelsCreate, publish.channelsJoin, publish.channelsLeave, msg.channelsSend, msg.channelsRead, disc.channelsLevels,
   msg.inbox, msg.dm, msg.dmRead, msg.dmDelete, msg.dmEphemeral,
   msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
@@ -92,7 +93,7 @@ register(
   measures.adsCampaigns, measures.adsShow, measures.adsCreate, measures.adsUpdate, measures.adsSubmit, measures.adsPause, measures.adsResume, measures.adsEnd, measures.adsPay,
   measures.adsSuggest, measures.adsGroup, measures.adsRepository, measures.adsWhy, measures.adsInterests, measures.adsInterestsSet,
   batch,
-  ...moderationCommands, ...governanceCommands, governancePinned, governancePin,
+  ...moderationCommands, ...governanceCommands, governancePinned, governancePin, ...civicGovernanceCommands,
   mcpCommand,
 );
 
