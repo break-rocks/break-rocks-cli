@@ -71,6 +71,13 @@ type Account {
   What only the account itself reads (C-8): null on the read of another account.
   """
   own: AccountOwn
+  """
+  Its series (since v86.0.0, playlists.feature) and its account playlists (since v86.2.0, kind ACCOUNT), the most
+  recently changed first. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before. Since v86.1.0: the PUBLIC ones only, but
+  for the account itself, which reads all of them with their visibility.
+  """
+  playlists(after: String, limit: Int): PlaylistPage
 }
 
 """
@@ -214,12 +221,13 @@ type AccountRef {
 }
 
 """
-What a bulk erasure erases (contracts/accounts.md § My data).
+What a bulk erasure erases (contracts/accounts.md § My data); LOCATION since v84.3.0.
 """
 enum BulkErasureScope {
   CLIP_PLAYS
   INTEREST_PROFILE
   LIKES_AND_REPOSTS
+  LOCATION
   POSTS_AND_REPLIES
   SENT_MESSAGES
 }

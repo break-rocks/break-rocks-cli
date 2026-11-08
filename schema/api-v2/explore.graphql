@@ -190,6 +190,12 @@ type ExploreUniverse {
   Its field set (false) or only suggested (true); false when it has none.
   """
   fieldSuggested: Boolean!
+  """
+  Since v84.1.0 (D-248, MAP-02): the primary color ("#RRGGBB") of the day variant of the universe theme it
+  shows (its own, its country theme, its field theme or its universal theme; Socle when none can be read), to
+  draw its universe territory, its markers and its glows. Set by AREA; null for the other lists.
+  """
+  primaryColor: String
 }
 
 """
@@ -487,6 +493,11 @@ enum RecommendationReason {
   NEW_ON_PLATFORM
   RESIDENT
   TAG_ENGAGED
+  """
+  Since v85.8.0 (for-you.feature): from a public universe whose universe territory is in the country of the
+  caller's account ("universe" set).
+  """
+  TERRITORY
   TRENDING
 }
 
@@ -556,6 +567,17 @@ type SearchResults {
   The universe pages that match.
   """
   pages: [PageOfUniverse!]!
+  """
+  Since v85.8.0 (search-bar.feature): the universe discussions the searcher can read whose name or description
+  matches, never by their messages; first page only, at most 5.
+  """
+  discussions: [UniverseDiscussion!]!
+  """
+  Since v86.1.0 (playlists.feature): the PUBLIC playlists the searcher can read (series, account playlists
+  since v86.2.0, and universe playlists)
+  whose name or description matches; never an UNLISTED or a PRIVATE one; first page only, at most 5.
+  """
+  playlists: [Playlist!]!
   """
   The posts and replies that match.
   """
@@ -707,4 +729,90 @@ type UniverseResult {
   The addresses of the universes, with their sign.
   """
   universes: [Universe!]!
+}
+
+"""
+"Why this post" (since v85.8.0, for-you.feature): the reason of a recommendation, a platform post, a popular
+clip or a platform clip, and every affinity that counted in its recommendation score.
+"""
+type RecommendationExplanation {
+  """
+  The post explained.
+  """
+  post: Post!
+  """
+  The strongest affinity, as Recommendation.reason.
+  """
+  reason: RecommendationReason!
+  """
+  Every affinity that counted, the strongest first (the reason included); empty for a platform post, a popular
+  clip and a platform clip.
+  """
+  affinities: [RecommendationAffinity!]!
+  """
+  What it is when it is not a recommendation: PLATFORM_POST, POPULAR_CLIP, PLATFORM_CLIP; null for a
+  recommendation.
+  """
+  fallback: RecommendationFallback
+  """
+  Always false: no ad profile is used (contextual-advertising.feature).
+  """
+  adProfileUsed: Boolean!
+}
+
+"""
+One affinity of a reader with a post (since v85.8.0): its kind, its weight in the affinity, and what it names.
+"""
+type RecommendationAffinity {
+  """
+  The kind of the affinity.
+  """
+  reason: RecommendationReason!
+  """
+  Its weight in the affinity (3 for FOLLOWED, 2 for RESIDENT…).
+  """
+  weight: Int!
+  """
+  The account, for FOLLOWED.
+  """
+  account: AccountRef
+  """
+  The universe, for RESIDENT, FAVORITE_UNIVERSE, TERRITORY and INFERRED_INTEREST of a universe.
+  """
+  universe: String
+  """
+  The tag, for TAG_ENGAGED and INFERRED_INTEREST of a tag.
+  """
+  tag: String
+  """
+  The field, for INFERRED_INTEREST of a field.
+  """
+  field: UniverseField
+  """
+  The language, for TRENDING.
+  """
+  language: String
+}
+
+"""
+What a post served after the recommendations is (since v85.8.0).
+"""
+enum RecommendationFallback {
+  PLATFORM_CLIP
+  PLATFORM_POST
+  POPULAR_CLIP
+}
+
+"""
+A universe the caller muted from discovery (since v85.8.0, for-you.feature), its sub-universes included.
+"""
+type MutedUniverse {
+  """
+  The address of the universe, with its sign ("%lyon").
+  """
+  universe: String!
+  """
+  When it was muted.
+  """
+  since: AWSDateTime!
 }

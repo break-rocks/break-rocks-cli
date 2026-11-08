@@ -170,6 +170,18 @@ type Query {
   newPosts(address: String, sincePostId: ID, excluding: [ID!], since: AWSDateTime): NewPosts
 
   """
+  A post draft of the caller by its id (drafts-and-scheduled-posts.feature, since v85.1.0). POST_DRAFT_NOT_FOUND.
+  """
+  postDraft(id: ID!): PostDraft
+
+  """
+  The post drafts of the caller (since v85.1.0), the most recently changed first; scheduled: true the scheduled
+  posts only, the earliest publication time first; false those not scheduled. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise).
+  """
+  postDrafts(after: String, limit: Int, scheduled: Boolean): PostDraftPage
+
+  """
   A post, a reply, a repost or a quote by its id, as the caller may read it. POST_NOT_FOUND,
   POST_NOT_READABLE.
   """
@@ -306,6 +318,13 @@ type Query {
   connectionRequests(after: String, limit: Int, sent: Boolean): ConnectionRequestPage
 
   """
+  Since v84.2.0 (D-248 follow-ups: the audience of a map presence): the connected accounts of the caller, in a stable
+  order (by account), but those blocked either way. limit: from 1 to 100 (50 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before. Never another account's connections.
+  """
+  myConnections(after: String, limit: Int): AccountRefPage
+
+  """
   A group chat the caller is a member of, as the caller sees it. GROUP_NOT_FOUND for any other.
   """
   groupChat(id: ID!): GroupChat
@@ -340,9 +359,12 @@ type Query {
   (a member: the messages since it joined), a channel (a member of a private universe; a public channel:
   anyone, a visitor who is not signed in included, its channel window). after: the next of the page before
   (CURSOR_INVALID otherwise). limit: from 1 to 50 (30 by default; LIMIT_INVALID otherwise). A message deleted
-  for the caller is left out: a page may hold fewer messages than its size, keep following next.
+  for the caller is left out: a page may hold fewer messages than its size, keep following next. order (since
+  v88.0.0, D-276): RECENT by default; TOP, the highest contribution score first, for a temporary universe
+  discussion only (MESSAGE_ORDER_NOT_ALLOWED elsewhere); its cursor keeps the order of its first page, so a
+  message whose score changes while paging may come twice (keep one by id) or be passed (read page 1 again).
   """
-  messages(discussion: DiscussionRefInput!, after: String, limit: Int): MessagePage
+  messages(discussion: DiscussionRefInput!, after: String, limit: Int, order: MessageOrder): MessagePage
 
   """
   Catching up (C-10): the messages of a discussion changed or deleted since since (at most 30 days back:
@@ -426,6 +448,53 @@ type Query {
   myUnreadDiscussions(after: String, limit: Int): UniverseDiscussionPage
 
   """
+  The Universes section of Messages (since v101.0.0, D-302, universe-discussions-in-messages.feature): the universe
+  discussions the caller joined, wrote in or pinned for itself (pinnedByMe), across every universe it reads, public and private, the one with the
+  most recent message first, with their lastMessage, unread, mentionedMe and presentCount; as its setting
+  "Universe discussions in Messages" allows (MessagingSettings.universeDiscussions), without the universes it
+  blocked in Messages nor the discussions it removed from Messages (until it takes part again). limit: from 1 to 50
+  (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myDiscussionsInMessages(after: String, limit: Int): UniverseDiscussionPage
+
+  """
+  The Mentions row of Messages (since v101.0.0, D-302): the universe discussions where a message mentions the
+  caller while it neither joined nor wrote in them, the most recent mention first, without those it ignored
+  (until a later mention), without the universes it blocked in Messages and without a discussion it may not read.
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myDiscussionMentions(after: String, limit: Int): DiscussionMentionPage
+
+  """
+  The levels where a channel may be opened by a channel proposal in a public universe of the first level (since
+  v101.0.0, D-300, proposal-form.feature): the universe and its public sub-universes, by their address
+  ("%paris", "%paris/velo"), the universe first, then in the order of the sub-universes. Its bound is not written
+  yet (README.md § To settle).
+  """
+  channelProposalLevels(universe: String!): [String!]
+
+  """
+  The placed channels of the map cells of resolution 6 of the area shown (4 at most) (since v101.0.0, D-300,
+  public-channels.feature): in one public universe (universe, the universe filter) or in every public universe
+  (universe null), with their place, presentCount and lastMessage. Its bound is not written yet (README.md § To
+  settle).
+  """
+  mapChannels(parentMapCells: [String!]!, universe: String): [UniverseDiscussion!]
+
+  """
+  The routes that cross the map cells of resolution 6 of the area shown (4 at most) (since v101.0.0, D-300,
+  routes.feature): the public routes of the accounts and the universe routes of the public universes, or, with
+  universe, the universe routes of that universe only; never an unlisted nor a private route; their encodedLine
+  without the parts their privacy zones hide. 100 at most.
+  """
+  mapRoutes(parentMapCells: [String!]!, universe: String): [MapRoute!]
+
+  """
+  The registry of experience kinds (since v101.0.0, D-301, experience-kinds.feature): "event" 0 and "route" 0.
+  """
+  experienceKinds: [ExperienceKind!]
+
+  """
   The thread replies of a message of a universe discussion (since v83.0.0, D-245), the oldest first, as messages
   reads them (blocks, deletions): the replies only, not the message itself. A message with no thread: an empty
   page. Same access as messages on its discussion; MESSAGE_NOT_FOUND. limit: from 1 to 100 (50 by default;
@@ -441,8 +510,8 @@ type Query {
   joinRequests(after: String, limit: Int, universe: String!): JoinRequestPage
 
   """
-  The live line of a universe (universe-layouts.feature); a private universe and the root universe (since
-  v46.0.0): its activity only.
+  The live line of a universe, since v99.0.0 (D-293) what the time strip shows (universe-layouts.feature); a
+  private universe and the root universe (since v46.0.0): its activity only.
   """
   liveLine(universe: String!): LiveLine
 
@@ -598,6 +667,25 @@ type Query {
   universeResidents(after: String, agents: Boolean, limit: Int, locatable: Boolean, newResidents: Boolean, query: String, role: PostAuthorRole, universe: String!): UniverseResidentPage
 
   """
+  The suggestions of free tags of a universe (since v101.1.0, universe-tags.feature), 20 at most: its tag
+  conventions (Universe.tagConventions) first, in their order, then the free tags most used by its universe
+  events, its proposals and its universe routes created in the last 30 days, the most used first, each once;
+  never a base tag. The same for every caller who reads the universe; empty when none. Worked out at the
+  writing of the objects, never at the read.
+  """
+  universeTagSuggestions(universe: String!): [String!]
+
+  """
+  The view of a universe and a tag (`%paris#market`, since v101.1.0, universe-tags.feature): the universe
+  events, the proposals and the universe routes of the universe that carry the tag (a free tag or, for a
+  proposal, its base tag, in its canonical form), the newest created first, each as the caller may read it
+  (the others left out); its posts are read with posts(address: "%paris#market"). tag: with or without its
+  "#", put in its canonical form (TAG_INVALID otherwise). An unknown universe or tag gives an empty page.
+  limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  universeTagView(after: String, limit: Int, tag: String!, universe: String!): UniverseTagObjectPage
+
+  """
   The welcome wall: the new residents of the last 7 days; a resident welcomes each once, never
   themselves (no effect on votes nor reputation; it renews the welcomer's presence). limit: from 1 to 50 (20
   by default; LIMIT_INVALID otherwise); after: the next of the page before.
@@ -661,6 +749,19 @@ type Query {
   1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
   myJuryDuties(after: String, limit: Int, universe: String): JuryDutyPage
+
+  """
+  The platform measures the caller received in the last 2 years, the newest first, each with its statement
+  of reasons (since v84.4.0, contracts/platform-measures.md); readable in restricted access (suspended,
+  banned). limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  myPlatformMeasures(after: String, limit: Int): PlatformMeasurePage
+
+  """
+  The versions of the terms of use and of the platform rules the caller accepted, and the latest published
+  ones (since v84.4.0, contracts/platform-measures.md § Versions of the platform rules).
+  """
+  myTermsAcceptance: TermsAcceptance
 
   """
   The caller's sanctions, the newest first; an appeal within 7 days (the sanction stays in force meanwhile).
@@ -777,7 +878,7 @@ type Query {
   retouched. One per layout retouched: the default layout of the universe and its switcher layouts (4 at
   most).
   """
-  myLayoutRetouches(device: String, universe: String!): [LayoutRetouches!]
+  myLayoutRetouches(device: String, universe: String!): [LayoutRetouches!] @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no reader retouches.")
 
   """
   A page of a universe by its name, with its document (contracts/layouts.md § The pages of a universe).
@@ -806,6 +907,38 @@ type Query {
   theme(appliedIn: String, name: String!, universe: String!): Theme
 
   """
+  The candidate colors of an image the caller uploaded (since v87.4.0, customize-universe.feature): 5 at most,
+  and the one proposed as the accent color. IMAGE_NOT_FOUND, IMAGE_NOT_READY, APPEARANCE_IMAGE_INVALID.
+  """
+  imagePalette(mediaId: ID!): ImagePalette
+
+  """
+  Builds an appearance of a universe from its gestures (since v87.4.0, contracts/themes.md § The appearance
+  editor): the theme document derived, its contrast report and the side of the name; nothing stored, nothing
+  applied. By who may change the appearance of the universe: the owner and the admins of a private universe,
+  the leadership and the residents who can vote of a public universe (THEME_SET_NOT_ALLOWED otherwise).
+  APPEARANCE_IMAGE_INVALID, APPEARANCE_FOCAL_POINT_INVALID, APPEARANCE_ACCENT_INVALID, IMAGE_NOT_FOUND,
+  IMAGE_NOT_READY.
+  """
+  buildUniverseAppearance(universe: String!, input: UniverseAppearanceInput!): UniverseAppearanceBuild
+
+  """
+  The looks of quick start (since v96.0.0, D-289, customize-universe.feature; contracts/themes.md § Customize):
+  the themes of the field collections, 3 by field, each with its appearance character and its layout; of one
+  field with collection, of the 10 fields without it (30 at most), in the order of the fields then of their
+  collection. Read by every signed-in account.
+  """
+  appearanceLooks(collection: UniverseField): [AppearanceLook!]
+
+  """
+  The appearance history of a universe (since v96.0.0, D-289): its last 5 appearances, the most recent first,
+  the one in use first. Read by who applies an appearance at once (the owner and the admins of a private
+  universe, the leadership of a public universe) and by a resident who can vote of a public universe
+  (THEME_SET_NOT_ALLOWED otherwise).
+  """
+  universeAppearanceHistory(universe: String!): [UniverseAppearanceHistoryEntry!]
+
+  """
   The theme catalog: the themes a universe or the caller can use, by collection (a field), creator, use
   (personal or universe theme) and variant, in the order asked, those matching query. limit: from 1 to 100 (50
   by default; LIMIT_INVALID otherwise); after: the next of the page before.
@@ -816,18 +949,30 @@ type Query {
   The themes the caller starred (starTheme, since v81.11.0, D-244), the most recent first, 50 at most; reason
   SAVED. limit: from 1 to 50 (50 by default; LIMIT_INVALID otherwise).
   """
-  starredThemes(after: String, limit: Int, variant: ThemeVariant): ThemeCatalogPage
+  starredThemes(after: String, limit: Int, variant: ThemeVariant): ThemeCatalogPage @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no theme gallery; quick start uses appearanceLooks.")
 
   """
   The gallery trials of the caller that run (since v81.11.0, D-244), one per universe at most, 20 at most.
   """
-  myGalleryTrials: [GalleryTrial!]
+  myGalleryTrials: [GalleryTrial!] @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no gallery trial.")
 
   """
   The universe theme history of a universe (since v81.11.0, D-244), the most recent first, one year; read by
   who may set its theme (THEME_SET_NOT_ALLOWED otherwise). limit: from 1 to 50 (20 by default).
   """
-  universeThemeHistory(universe: String!, after: String, limit: Int): UniverseThemeHistoryPage
+  universeThemeHistory(universe: String!, after: String, limit: Int): UniverseThemeHistoryPage @deprecated(reason: "Use universeAppearanceHistory (since v96.0.0, D-289).")
+
+  """
+  The layouts the caller starred (starLayout, since v85.7.0), the most recent first, 50 at most. limit: from 1
+  to 50 (50 by default; LIMIT_INVALID otherwise).
+  """
+  starredLayouts(after: String, limit: Int): LayoutCatalogPage @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no layout gallery.")
+
+  """
+  The universe layout history of a universe (since v85.7.0), the most recent first, one year; read by who may
+  set its default layout (LAYOUT_SET_NOT_ALLOWED otherwise). limit: from 1 to 50 (20 by default).
+  """
+  universeLayoutHistory(universe: String!, after: String, limit: Int): UniverseLayoutHistoryPage @deprecated(reason: "Use universeAppearanceHistory (since v96.0.0, D-289).")
 
   """
   The last position of each live share asked (20 at most) the caller may see.
@@ -839,6 +984,94 @@ type Query {
   residents.
   """
   locatableResidents(parentMapCells: [String!]!, universe: String!): [Locatable!]
+
+  """
+  Since v84.0.0 (D-248): the map presences of the connected accounts the caller may see, in the map cells of
+  resolution 6 of the area shown (4 at most): none in the ghost mode, none across a block. Each read counts a
+  view of each person for the stalking alert (map-safety.feature), once a minute per person at most.
+  """
+  mapPresences(parentMapCells: [String!]!): [MapPresence!]
+
+  """
+  Since v84.0.0 (D-248): the groups of map presence (3 people at least per map cell of resolution 8), in the map
+  cells of resolution 6 of the area shown (4 at most); empty for a minor. Each person counted once per read, never
+  a minor, nor in the ghost mode, nor across a block. With universe (the universe filter, to its residents
+  only: NOT_A_RESIDENT): the people sharing their map presence with that universe or locatable there. Since
+  v84.1.0, universe null (the map of Explore without a universe filter): every person the caller may see on the
+  map, aggregated per map cell: the map presences shared with a public universe the caller is a resident of
+  and the locatable residents of such a universe (its 20 most recent residences at most), and the map presences
+  shared with the caller; at most one group per map cell.
+  """
+  mapPresenceGroups(parentMapCells: [String!]!, universe: String): [MapPresenceGroup!]
+
+  """
+  Since v84.0.0 (D-248): the map presence of the caller; null when none.
+  """
+  myMapPresence: MyMapPresence
+
+  """
+  Since v84.0.0 (D-248): the placed posts of the map cells of resolution 6 of the area shown (4 at most) the
+  caller may read, in one public universe (universe, the universe filter) or in every public universe
+  (universe null), the most recent first, 200 at most. Since v92.0.0 (D-285): videosOnly true, the layer "Videos" (the
+  placed videos only); a placed video of a private universe only in that universe, for its members.
+  """
+  mapPosts(parentMapCells: [String!]!, universe: String, videosOnly: Boolean): [MapPost!]
+
+  """
+  Since v92.0.0 (D-285, placed-videos.feature): the points of view of a placed video: the placed videos the caller
+  may read within 2 kilometres whose recordings overlap by at least 10 seconds, each with the offset of its
+  recording from the one given (offsetMs), the nearest first, 20 at most; empty without a recording time.
+  POST_NOT_FOUND.
+  """
+  pointsOfView(postId: ID!): [PointOfView!]
+
+  """
+  Since v92.1.0 (routes.feature): a route by its identifier, as the caller may read it (the parts within the privacy
+  zones of its author left out, but for its author). ROUTE_NOT_FOUND (also when the caller may not read it).
+  """
+  mapRoute(id: ID!): MapRoute
+
+  """
+  Since v92.1.0: a route by its URL ("/a/alice/w/canal-run"). ROUTE_NOT_FOUND.
+  """
+  mapRouteByUrl(url: String!): MapRoute
+
+  """
+  Since v92.1.0: the routes of the caller, the most recent first. after: the next of the page before. limit: from 1
+  to 50 (20 by default).
+  """
+  myMapRoutes(after: String, limit: Int): MapRoutePage
+
+  """
+  Since v92.1.0: a route exported to a GPX file (its text), as the caller may read it, without the parts its privacy
+  zones hide. ROUTE_NOT_FOUND.
+  """
+  mapRouteGpx(id: ID!): String
+
+  """
+  Since v92.1.0: the privacy zones of the caller, 3 at most.
+  """
+  myRoutePrivacyZones: [RoutePrivacyZone!]
+
+
+  """
+  Since v84.1.0 (D-248, the pulse ring): the places (a point of interest, or a map cell of resolution 8) of the
+  map cells of resolution 6 of the area shown (4 at most) with a placed post of less than 1 hour the caller may
+  read, in one public universe (universe, the universe filter) or in every public universe (universe null), with
+  the time of their last placed post, the most recent first, 200 at most. A light read: no post, no author.
+  """
+  mapRecentPlaces(parentMapCells: [String!]!, universe: String): [MapRecentPlace!]
+
+  """
+  Since v84.0.0 (D-248): the avatar catalog, a layer or all of them, in "language". limit: from 1 to 100 (50
+  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  avatarParts(layer: AvatarLayer, language: String, after: String, limit: Int): AvatarPartPage
+
+  """
+  Since v84.0.0 (D-248): the map avatar of the caller; null without one.
+  """
+  myMapAvatar: MapAvatar
 
   """
   The live shares in progress of the caller, in every discussion.
@@ -920,6 +1153,18 @@ type Query {
   oldest forgotten first).
   """
   myNotInterested: [NotInterested!]
+
+  """
+  "Why this post" (since v85.8.0, for-you.feature): why post was shown to the caller in "For you" or the clip
+  feed, from what was shown to it in the last 7 days (recommendations, platform posts, popular and platform clips); POST_NOT_FOUND for a post the caller cannot read or
+  was not shown. A delegated agent: DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  whyRecommended(postId: ID!): RecommendationExplanation
+
+  """
+  The universes the caller muted from discovery (since v85.8.0), the most recent first, 500 at most.
+  """
+  myMutedUniverses: [MutedUniverse!]
 
   """
   The platform clips alone (the tab "For you" of the clips mode after popularClips; the clip feed of a
@@ -1042,6 +1287,101 @@ type Query {
   prices).
   """
   subscriptionOffer(currency: String): SubscriptionOffer
+
+  """
+  Advertising (contracts/advertising.md, since v85.5.0): a campaign of the caller, its creatives, states and
+  aggregates. AD_CAMPAIGN_NOT_FOUND (another's or unknown).
+  """
+  adCampaign(campaignId: ID!): AdCampaign
+
+  """
+  The public ad repository, without an account: the ads served in the last 12 months, the most recent first,
+  by advertiser (account id) or universe. limit: from 1 to 50 (20 by default).
+  """
+  adRepository(advertiser: ID, universe: String, after: String, limit: Int): AdRepositoryPage
+
+  """
+  Since v87.3.0 (D-266, contracts/advertising.md § Universe groups): the universe group of a public universe as
+  seed ("%paris"); null when it has none. ADS_NOT_OPEN, ADVERTISER_NOT_ALLOWED.
+  """
+  adUniverseGroup(universe: String!): AdUniverseGroup
+
+  """
+  Since v87.3.0 (D-266, contracts/advertising.md § Universe suggestions): at most 20 public universes with ads
+  on for an offer, the best first, from public content only. 20 asked per advertiser per day (a refused one not
+  counted). ADS_NOT_OPEN, ADVERTISER_NOT_ALLOWED, AD_SUGGESTION_INPUT_INVALID, AD_SUGGESTION_QUOTA
+  (errorInfo { retryAt }).
+  """
+  adUniverseSuggestions(input: AdUniverseSuggestionsInput!): [AdUniverseSuggestion!]
+
+  """
+  "Why this ad" for a slot token (DSA art. 26). AD_SLOT_EXPIRED.
+  """
+  adWhy(token: ID!): AdWhy
+
+  """
+  The campaigns of the caller, the most recent first. limit: from 1 to 50 (20 by default).
+  """
+  myAdCampaigns(after: String, limit: Int): AdCampaignPage
+
+  """
+  Since v87.3.0 (D-266, contracts/advertising.md § Declared ad interests): the declared ad interests of the
+  caller, whether they are offered to it, on and which.
+  """
+  myAdInterests: AdInterestSettings
+
+  """
+  Since v86.0.0 (playlists.feature): a playlist by its address ("@erin>journey"; parameters ignored).
+  PLAYLIST_ADDRESS_INVALID, PLAYLIST_NOT_FOUND, PLAYLIST_RESERVED. Since v86.1.0: a PUBLIC or UNLISTED series (since v86.2.0,
+  or account playlist) is read by anyone; a PRIVATE one by its owner only (PLAYLIST_NOT_FOUND for anyone else).
+  """
+  playlist(address: String!): Playlist
+
+  """
+  Since v91.1.0 (playlists.feature): the timeline of a playlist in continuous play, computed for the caller (the
+  items it may read, as if the playlist held nothing else). The errors of playlist (PLAYLIST_ADDRESS_INVALID,
+  PLAYLIST_NOT_FOUND, PLAYLIST_RESERVED).
+  """
+  playlistTimeline(address: String!): PlaylistTimeline
+
+  """
+  Since v86.0.0: the playlists hub of the caller ("Watch later", followed, own).
+  """
+  playlistsHub: PlaylistsHub
+
+  """
+  Since v86.0.0: the playlists the caller follows, the most recently changed first. limit: from 1 to 50 (20 by
+  default; LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  followedPlaylists(after: String, limit: Int): PlaylistPage
+
+  """
+  Since v86.0.0 (long-videos.feature): the view of the long videos: the posts with a long video of an address
+  (a universe, an account, a tag), or of what the caller follows (no address), newest first; query: a text
+  searched in their posts (search.md), then by relevance. limit: from 1 to 50 (20 by default; LIMIT_INVALID
+  otherwise); after: the next of the page before.
+  """
+  longVideos(address: String, after: String, limit: Int, query: String): PostPage
+
+  """
+  Since v86.0.0: the chapters the social platform proposes from the subtitles of a long video of the caller
+  (postId), never shown to others until setChapters. CHAPTERS_NOT_ALLOWED; empty without subtitles.
+  """
+  proposedChapters(postId: ID!): [Chapter!]
+
+  """
+  Since v86.0.0 (address-parameters.feature, contracts/urls.md): an address resolved, with its address
+  parameters parsed and its canonical address and URL. An unknown key or an invalid value is left out, never
+  refused; PLAYLIST_ADDRESS_INVALID. Since v101.0.0 (D-301): an experience instance address of a kind of the registry
+  resolves to its object (universeEvent, mapRoute; EVENT_NOT_FOUND, ROUTE_NOT_FOUND); another kind,
+  EXPERIENCE_KIND_NOT_AVAILABLE.
+  """
+  resolveAddress(address: String!): ResolvedAddress
+
+  """
+  Since v86.0.0: the video quota of the caller.
+  """
+  myVideoQuota: VideoQuota
 }
 
 """
@@ -1265,18 +1605,56 @@ type Mutation {
   """
   Posts a text, images (at most 4) or a clip (never both: POST_IMAGES_AND_CLIP), or both a text and media, in
   a universe (universe: a posting address; none: the personal space). clip: a video uploaded with
-  requestMediaUpload (VIDEO); images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
+  requestMediaUpload (VIDEO); longVideo (since v86.0.0): a horizontal video of more than 3 minutes and
+  at most 4 hours uploaded with requestMediaUpload (LONG_VIDEO), never with a clip or images (POST_IMAGES_AND_CLIP;
+  VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED); an address with ">" (since v93.0.0; "!" before): PLAYLIST_ADDRESS_MISUSED; images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
   the author accepted; replyPolicy: who can reply; announcement: an announcement of the leadership; sources
   (since v81.8.0, D-230): its post sources (PostSourceInput), at most 10, outside the 1,000 visible
   characters. requestId is the idempotency key, and the post is "<cell>-<requestId>" (Post.id). The posting
   codes (contracts/errors.md); a delegated agent in a universe that forbids agents for posts:
-  UNIVERSE_AGENTS_FORBIDDEN (since v81.8.0, D-232). Returns the post.
+  UNIVERSE_AGENTS_FORBIDDEN (since v81.8.0, D-232). document (since v87.6.0, D-269): its post document
+  (PostDocumentInput), beside the text and the images, never with a clip or a long video (POST_DOCUMENT_WITH_VIDEO);
+  DOCUMENT_RIGHTS_REQUIRED, DOCUMENT_MALICIOUS (the malware scan already found the file malicious); a post with a
+  document shows no link preview (link ignored). The post is posted at once; its document is shown to the other
+  readers once its malware scan and its media review are done (REFUSED: never shown, the author notified,
+  DOCUMENT_REFUSED). Its bytes count in the consumption of the account of its author. Returns the post.
   """
-  createPost(announcement: Boolean, clip: ID, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
+  createPost(announcement: Boolean, clip: ID, document: PostDocumentInput, images: [ImageAttachmentInput!], link: String, longVideo: ID, place: PostPlaceInput, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
-  The author deletes its post (or the moderation, which answers its reports "content removed"). Returns the
-  post, deleted.
+  Saves a post draft of the caller (since v85.1.0): a new one (draftId absent) or the whole content of one of its
+  drafts. POST_DRAFT_LIMIT (50, 100 with X2, 500 with X10; errorInfo { max }), POST_DRAFT_NOT_FOUND, POST_IMAGES_AND_CLIP;
+  a scheduled post: SCHEDULED_POST_LOCKED from 1 minute before its time. A delegated agent: within its
+  restrictions (DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED). Since v87.6.1: draft.document absent keeps the post document
+  the draft has; draft.document null removes it (the file no longer counts). Returns the draft.
+  """
+  savePostDraft(draft: PostDraftInput!, draftId: ID, requestId: ID!): PostDraft
+
+  """
+  Schedules a post draft of the caller (since v85.1.0): publishAt between 5 minutes and 30 days from now
+  (SCHEDULED_POST_TIME_INVALID); null cancels the scheduled post, which stays a post draft. Only for a universe
+  or the personal space (SCHEDULED_POST_NOT_ALLOWED); SCHEDULED_POST_LIMIT (20 waiting, 40 with X2, 200 with X10;
+  errorInfo { max }); SCHEDULED_POST_LOCKED from 1 minute before its time; POST_DRAFT_NOT_FOUND; a delegated
+  agent: within its restrictions (DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED). Returns the draft.
+  """
+  schedulePostDraft(draftId: ID!, publishAt: AWSDateTime, requestId: ID!): PostDraft
+
+  """
+  Publishes a post draft of the caller now (since v85.1.0), as createPost with its content and the posting codes;
+  the draft is deleted once posted, kept on a refusal. POST_DRAFT_NOT_FOUND. Returns the post.
+  """
+  publishPostDraft(draftId: ID!, requestId: ID!): Post
+
+  """
+  Deletes a post draft of the caller, a scheduled post included (since v85.1.0), with the media it alone
+  holds. POST_DRAFT_NOT_FOUND; SCHEDULED_POST_LOCKED from 1 minute before its time. Returns the draft, deleted.
+  """
+  deletePostDraft(draftId: ID!, requestId: ID!): PostDraft
+
+  """
+  The author deletes its post (or the moderation, which answers its reports "content removed"). Since v87.6.0
+  (D-269): its post document is deleted with it (no longer counted against DOCUMENT_LIMIT), unless kept as the
+  evidence of a report. Returns the post, deleted.
   """
   deletePost(postId: ID!, requestId: ID!): Post
 
@@ -1289,9 +1667,11 @@ type Mutation {
   """
   Quotes a post (postId) with a text and media, in a universe; requestId is the idempotency key, and the quote
   is "<cell>-<requestId>" (Post.id); sources as createPost (since v81.8.0); UNIVERSE_AGENTS_FORBIDDEN for a
-  delegated agent where its universe forbids agents for posts. Returns the quote.
+  delegated agent where its universe forbids agents for posts. document (since v87.6.0, D-269): its own post
+  document, as createPost (POST_DOCUMENT_WITH_VIDEO with a clip); the post quoted keeps its own document card.
+  Returns the quote.
   """
-  quote(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
+  quote(clip: ID, document: PostDocumentInput, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   Replies to a post or a reply (postId) with a text and media; requestId is the idempotency key, and the reply
@@ -1577,8 +1957,9 @@ type Mutation {
   deleteMessage(discussion: DiscussionRefInput!, messageId: ID!, forMe: Boolean, requestId: ID!): Message
 
   """
-  The caller types in a conversation or a group chat (G-1; DISCUSSION_TARGET_INVALID for a channel):
-  published at once to the other participants, not stored. An app sends it at most every 3 seconds while
+  The caller types in a conversation or a group chat (G-1): published at once to the other participants, not
+  stored. Since v101.0.0 (D-300), in a universe discussion too (channel): counted in its writing count, never named,
+  published as discussion.writing (contracts/realtime.md); refused where the caller may not write. An app sends it at most every 3 seconds while
   typing; it shows 5 seconds after the last one. The platform publishes at most one per caller and
   discussion every 3 seconds (the others answer true). Ephemeral: no requestId, no replay (I13).
   """
@@ -1870,6 +2251,15 @@ type Mutation {
   setUniverseSearchWords(universe: String!, words: [String!]!, requestId: ID!): Universe
 
   """
+  The tag conventions of the showcase of a public universe (since v101.1.0, universe-tags.feature): the whole
+  list wanted, in its order ([] clears it), at most 10 (TAG_CONVENTIONS_LIMIT), each a free tag (TAG_INVALID),
+  kept in its canonical form, a tag given twice kept once. Its leadership (UNIVERSE_GOVERNED; without
+  leadership, a proposal of kind SHOWCASE, tagConventions); a private universe has none
+  (TAG_CONVENTIONS_PUBLIC_ONLY). Returns the universe (Universe.tagConventions).
+  """
+  setUniverseTagConventions(tags: [String!]!, universe: String!, requestId: ID!): Universe
+
+  """
   Agents forbidden for posts (since v81.8.0, D-232: universe-agent-posts.feature): forbids (true) or allows
   (false) the delegated agents to post, reply, quote and repost in a universe and its whole universe tree. A
   public universe: set on its universe of the first level (a sub-universe given: its first level), by its
@@ -1928,6 +2318,42 @@ type Mutation {
   closeUniverseDiscussion(id: ID!, requestId: ID!): UniverseDiscussion
 
   """
+  The leadership sets, changes or removes the place of a public channel (since v101.0.0, D-300,
+  public-channels.feature): a point or a zone (EVENT_POINT_AND_ZONE when both), with its name (1 to 100 visible
+  characters, EVENT_PLACE_TOO_LONG; since v101.2.0, CHANNEL_PLACE_NAME_REQUIRED when a point or a zone comes without
+  it); neither point nor zone removes it. CHANNEL_PLACE_NOT_ALLOWED for a channel of a private universe or a
+  temporary universe discussion; LEADERSHIP_ONLY. Returns it.
+  """
+  setUniverseDiscussionPlace(id: ID!, name: String, point: PointInput, zone: ZoneInput, requestId: ID!): UniverseDiscussion
+
+  """
+  The caller removes a universe discussion from the Universes section of Messages (since v101.0.0, D-302) without
+  leaving it; it comes back when the caller next writes in it or joins it. Returns true.
+  """
+  removeDiscussionFromMessages(id: ID!, requestId: ID!): Boolean
+
+  """
+  The caller pins a universe discussion for itself, or unpins it (since v101.0.0, D-302, discussion-tabs.feature):
+  shown to the caller only, apart from the pinned channels of the universe, and listed in the Universes section of
+  Messages. Returns it.
+  """
+  setUniverseDiscussionPinnedByMe(id: ID!, pinned: Boolean!, requestId: ID!): UniverseDiscussion
+
+  """
+  The caller ignores a universe discussion of the Mentions row (since v101.0.0, D-302): it leaves the row until a
+  later message mentions the caller there. Returns true.
+  """
+  ignoreDiscussionMention(id: ID!, requestId: ID!): Boolean
+
+  """
+  The caller blocks, or lifts the block of, a universe in Messages (since v101.0.0, D-302): blocked, none of its
+  universe discussions is in the Universes section nor in the Mentions row, and its mentions of the caller no
+  longer notify it; the caller still reads and writes in it. 500 universes at most (BLOCKED_UNIVERSES_LIMIT).
+  Returns the settings of messages.
+  """
+  setUniverseBlockedInMessages(universe: String!, blocked: Boolean!, requestId: ID!): MessagingSettings
+
+  """
   The leadership, within 24 hours of the end of a temporary universe discussion, approves or declines its
   summary (UNIVERSE_DISCUSSION_SUMMARY_ANSWERED when already answered or after the 24 hours).
   """
@@ -1973,7 +2399,7 @@ type Mutation {
 
   """
   A moderator removes a message of a universe discussion (messageId), citing an article of the charter: a
-  sanction CHANNEL_MESSAGE_REMOVAL, or DEBATE_MESSAGE_REMOVAL in a temporary one (since v81.0.0, D-222).
+  sanction CHANNEL_MESSAGE_REMOVAL, in a temporary one too (since v85.0.0, D-249).
   Returns the moderation log entry.
   """
   removeUniverseDiscussionMessage(article: Int, id: ID!, messageId: ID!, requestId: ID!): ModerationLogEntry
@@ -2070,6 +2496,25 @@ type Mutation {
   unreactToMessage(messageId: ID!, reaction: String!, requestId: ID!): Message
 
   """
+  Gives the caller's contribution vote, UP or DOWN, to a message of an open temporary universe discussion
+  (since v88.0.0, D-276, lively-debates.feature): one per account and per message, the other one replaces it,
+  the same one again changes nothing. A human acting itself only (CONTRIBUTION_VOTE_HUMANS_ONLY for a delegated
+  agent and the system account; AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS); since v89.0.0, whatever its status in
+  the universe (a visitor, a resident, under a posting ban); SIGN_IN_REQUIRED signed out; MESSAGE_NOT_FOUND for a
+  message hidden from the caller by a block; CONTRIBUTION_VOTE_NOT_ALLOWED outside a temporary universe discussion;
+  CONTRIBUTION_VOTE_OWN_MESSAGE on its own message; UNIVERSE_DISCUSSION_NOT_OPEN once closed; MESSAGE_NOT_FOUND
+  (expired or removed too); CONTRIBUTION_VOTE_RATE_LIMITED beyond 30 per minute or 500 per hour per account across all universes (the defaults,
+  set by the platform team). Returns the message (score, myVote).
+  """
+  voteOnContribution(messageId: ID!, vote: ContributionVote!, requestId: ID!): Message
+
+  """
+  Withdraws the caller's contribution vote from a message (since v88.0.0, D-276); none given: nothing changes.
+  The refusals of voteOnContribution, but CONTRIBUTION_VOTE_OWN_MESSAGE. Returns the message.
+  """
+  withdrawContributionVote(messageId: ID!, requestId: ID!): Message
+
+  """
   Replies in the thread of a message of a universe discussion (since v83.0.0, D-245): the reply is a message of
   that discussion (its id "<cell>-<requestId>"), shown in the thread only, kept as the messages of the
   discussion (UniverseDiscussion.messageTtlSeconds, from its own sending); a thread has one level: a reply to a
@@ -2103,7 +2548,7 @@ type Mutation {
   supportPoll(pollId: ID!, requestId: ID!): Poll
 
   """
-  A resident who can vote supports a universe event asked for by a resident (eventId). Returns the event.
+  A resident who can vote supports a universe event proposed by a resident (eventId; asked for, until v101.0.0). Returns the event.
   """
   supportUniverseEvent(eventId: ID!, requestId: ID!): UniverseEvent
 
@@ -2119,7 +2564,7 @@ type Mutation {
   welcomeResident(accountId: ID!, universe: String!, requestId: ID!): NewResident
 
   """
-  Creates a universe event (P-5): by the leadership, or asked for by a resident who can vote and created at
+  Creates a universe event (P-5): by the leadership, or proposed by a resident who can vote and created at
   the support of 5 residents who can vote (7 days); 20 upcoming at most. Returns the event.
   """
   createUniverseEvent(input: UniverseEventInput!, requestId: ID!): UniverseEvent
@@ -2179,6 +2624,24 @@ type Mutation {
   The leadership answers a question asked to it, or changes its answer. Returns the question.
   """
   answerLeadershipQuestion(questionId: ID!, text: String!, requestId: ID!): LeadershipQuestion
+
+  """
+  The caller accepts the latest published versions of the terms of use and of the platform rules (since
+  v84.4.0); allowed in restricted access. PLATFORM_RULES_VERSION_INVALID when one is not the latest
+  published. Returns what the caller accepted.
+  """
+  acceptTerms(rules: String!, terms: String!, requestId: ID!): TermsAcceptance
+
+  """
+  The account a platform measure targets appeals it (since v85.0.0, D-250; DSA art. 20; contracts/platform-measures.md
+  § Platform appeals): once, free, within 6 months of the measure, with a text of at most 2,000 characters (empty
+  or absent: none); decided by a member of the platform team other than its author; the measure stays in force
+  until the decision, and is lifted at once when the appeal cancels it. Allowed in restricted access and under a
+  platform suspension; never by a delegated agent (DELEGATED_AGENT_NOT_ALLOWED). PLATFORM_MEASURE_NOT_FOUND,
+  PLATFORM_APPEAL_DEADLINE_PASSED, PLATFORM_APPEAL_EXISTS, PLATFORM_APPEAL_NOT_AVAILABLE (an authority order),
+  PLATFORM_APPEAL_TEXT_TOO_LONG. Returns the measure with its appeal.
+  """
+  appealPlatformMeasure(measureId: ID!, text: String, requestId: ID!): PlatformMeasure
 
   """
   The sanctioned account appeals a sanction (sanctionId) before appealableUntil, its name published with the
@@ -2244,7 +2707,7 @@ type Mutation {
 
   """
   A moderator of the universe removes a message of a debate (messageId), citing an article of the charter: a
-  sanction DEBATE_MESSAGE_REMOVAL. Returns the sanction.
+  sanction CHANNEL_MESSAGE_REMOVAL (since v85.0.0, D-249). Returns the sanction.
   """
   removeDebateMessage(article: Int, messageId: ID!, name: String!, universe: String!, requestId: ID!): Sanction @deprecated(reason: "Use removeUniverseDiscussionMessage (since v81.0.0), which returns a ModerationLogEntry instead of a Sanction.")
 
@@ -2351,11 +2814,30 @@ type Mutation {
   """
   Reports a content (C-1): a post or a reply, a message, a group chat, a theme, a layout, a locatable
   resident, the banner, the territory, a custom page or the search words of a universe, a platform search
-  word. reason and article as the target allows (REPORT_REASON_NOT_ALLOWED, REPORT_ARTICLE_REQUIRED,
+  word; since v87.5.0 (D-268), a playlist (PLAYLIST) or one of its items (PLAYLIST_ITEM). reason and article as the target allows (REPORT_REASON_NOT_ALLOWED, REPORT_ARTICLE_REQUIRED,
   REPORT_ARTICLE_INVALID, REPORT_ARTICLE_NOT_ALLOWED, REPORT_OWN_CONTENT, REPORT_TARGET_NOT_ALLOWED).
-  Returns the report.
+  Since v99.1.0 (M-09, DSA art. 16(2)): details, a free text of 0 to 1,000 characters (REPORT_DETAILS_TOO_LONG);
+  goodFaith, the good-faith declaration of the reporter, true required with ILLEGAL (REPORT_GOOD_FAITH_REQUIRED,
+  once the minimum version of the apps sends it; contracts/reports.md). Returns the report.
   """
-  report(target: ReportTargetInput!, reason: ReportReason!, article: Int, requestId: ID!): Report
+  report(target: ReportTargetInput!, reason: ReportReason!, article: Int, mask: MediaMaskInput, details: String, goodFaith: Boolean, requestId: ID!): Report
+
+  """
+  Since v92.0.0 (D-284, masks-after-posting.feature): adds masks to a media of a posted post, a post, a reply or a
+  quote: an image (imageId) or its clip or long video (imageId null). Its author, or a moderator of its universe
+  with article (a sanction MEDIA_MASK, appealed as a removal); masks are only added, never removed; the original is
+  replaced and kept nowhere but in the report archive of a media under report; a clip or a long video is encoded
+  again by the platform (maskPending true until it is ready). MASK_NOT_ALLOWED for another account,
+  MASK_INVALID for an area or a time range out of the media, MEDIA_MASK_ARTICLE_REQUIRED for a moderator without
+  article; POST_NOT_FOUND. Returns the post.
+  """
+  maskPostMedia(postId: ID!, imageId: ID, masks: [MediaMaskInput!]!, article: Int, requestId: ID!): Post
+
+  """
+  Since v92.0.0: the author answers a mask request: accept adds its mask (as maskPostMedia), or declines it.
+  MASK_REQUEST_NOT_FOUND. Returns the mask request.
+  """
+  answerMaskRequest(id: ID!, accept: Boolean!, requestId: ID!): MaskRequest
 
   """
   The moderation keeps a reported content (G-3): its reports are answered "no action" (deleting the content
@@ -2376,7 +2858,7 @@ type Mutation {
   as a personal theme when targetUniverse is absent (the theme answered has no universe).
   THEME_NOT_IN_CATALOG. Returns the copy.
   """
-  copyTheme(as: String!, name: String!, targetUniverse: String, universe: String!, requestId: ID!): Theme
+  copyTheme(as: String!, name: String!, targetUniverse: String, universe: String!, requestId: ID!): Theme @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no copy of a theme from the apps.")
 
   """
   Deletes a layout of a universe: it leaves the catalog; the universes that use it keep their copy until they
@@ -2387,7 +2869,7 @@ type Mutation {
   """
   Deletes a personal theme the caller saved. True once done.
   """
-  deletePersonalTheme(name: String!, requestId: ID!): Boolean
+  deletePersonalTheme(name: String!, requestId: ID!): Boolean @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no personal theme.")
 
   """
   Deletes a studio draft of the caller. True once done.
@@ -2438,12 +2920,12 @@ type Mutation {
   Removes the reader retouches of the caller in a universe, on a device (the calling one by default). True
   once done.
   """
-  resetLayoutRetouches(device: String, universe: String!, requestId: ID!): Boolean
+  resetLayoutRetouches(device: String, universe: String!, requestId: ID!): Boolean @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no reader retouches.")
 
   """
   Saves a personal theme of the caller (its document), to apply later. Returns the theme saved.
   """
-  savePersonalTheme(theme: AWSJSON!, requestId: ID!): SavedTheme
+  savePersonalTheme(theme: AWSJSON!, requestId: ID!): SavedTheme @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no personal theme.")
 
   """
   Saves a studio draft (its kind and document): a new one (draftId absent) or a draft of the caller. Returns
@@ -2455,7 +2937,7 @@ type Mutation {
   Sets the reader retouches of the caller on a layout of a universe, on a device (the calling one by default),
   when the universe allows them. Returns the retouches.
   """
-  setLayoutRetouches(device: String, layout: LayoutRefInput!, retouches: [LayoutRetouchInput!]!, universe: String!, requestId: ID!): LayoutRetouches
+  setLayoutRetouches(device: String, layout: LayoutRefInput!, retouches: [LayoutRetouchInput!]!, universe: String!, requestId: ID!): LayoutRetouches @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no reader retouches.")
 
   """
   The governance of a universe hides a page from its readers (hidden true) or shows it again. Returns the
@@ -2490,18 +2972,18 @@ type Mutation {
   Tries a theme of the catalog for 24 hours (theme given) or ends the try (null) (C-2): the theme that comes
   back is formerTheme. Returns the personal theme.
   """
-  setTriedTheme(theme: ThemeRefInput, requestId: ID!): PersonalTheme
+  setTriedTheme(theme: ThemeRefInput, requestId: ID!): PersonalTheme @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no personal theme.")
 
   """
   Stars a theme of the catalog (since v81.11.0, D-244): 50 at most (STARRED_THEME_LIMIT); THEME_NOT_IN_CATALOG.
   Starring it again changes nothing. Returns the theme.
   """
-  starTheme(theme: ThemeRefInput!, requestId: ID!): Theme
+  starTheme(theme: ThemeRefInput!, requestId: ID!): Theme @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no theme gallery.")
 
   """
   Unstars a theme (since v81.11.0). True once done, also when it was not starred.
   """
-  unstarTheme(theme: ThemeRefInput!, requestId: ID!): Boolean
+  unstarTheme(theme: ThemeRefInput!, requestId: ID!): Boolean @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no theme gallery.")
 
   """
   Starts a gallery trial (since v81.11.0, D-244) on a universe the caller can read, for the caller alone, for 24
@@ -2509,20 +2991,20 @@ type Mutation {
   THEME_NOT_IN_CATALOG, LAYOUT_NOT_IN_CATALOG, GALLERY_TRIAL_LIMIT (20 universes at once). Replaces the gallery
   trial of the caller on that universe. Returns the trial.
   """
-  startGalleryTrial(universe: String!, theme: ThemeRefInput, layout: LayoutRefInput, requestId: ID!): GalleryTrial
+  startGalleryTrial(universe: String!, theme: ThemeRefInput, layout: LayoutRefInput, requestId: ID!): GalleryTrial @deprecated(reason: "Withdrawn since v96.0.0 (D-289): Customize tries an appearance (startUniverseThemeTrial, startDraftPreview).")
 
   """
   Ends the gallery trial of the caller on a universe, theme and layout together (since v81.11.0). Returns the
   universe (myGalleryTrial null).
   """
-  endGalleryTrial(universe: String!, requestId: ID!): Universe
+  endGalleryTrial(universe: String!, requestId: ID!): Universe @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no gallery trial.")
 
   """
   Restores an entry of the universe theme history (since v81.11.0, D-244): the universe holds that theme at that
   version (Universe.themeHeldVersion), by who may set its theme (universe-theme.feature; THEME_SET_NOT_ALLOWED),
   or files a proposal without leadership. THEME_HISTORY_ENTRY_NOT_FOUND, THEME_NOT_RESTORABLE.
   """
-  restoreUniverseTheme(universe: String!, entryId: ID!, requestId: ID!): UniverseThemeRestore
+  restoreUniverseTheme(universe: String!, entryId: ID!, requestId: ID!): UniverseThemeRestore @deprecated(reason: "Use restoreUniverseAppearance (since v96.0.0, D-289).")
 
   """
   Ends the frozen version of a universe (since v83.0.0, D-244 follow-up): its universe theme follows the latest
@@ -2530,7 +3012,34 @@ type Mutation {
   or files a proposal without leadership. A universe that is not frozen: nothing changes. THEME_NOT_RESTORABLE
   when its theme was removed by the moderation.
   """
-  followThemeUpdates(universe: String!, requestId: ID!): UniverseThemeRestore
+  followThemeUpdates(universe: String!, requestId: ID!): UniverseThemeRestore @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no frozen version.")
+
+  """
+  Stars a layout of the catalog (since v85.7.0): 50 at most, apart from the starred themes
+  (STARRED_LAYOUT_LIMIT); LAYOUT_NOT_IN_CATALOG. Starring it again changes nothing. Returns the layout.
+  """
+  starLayout(layout: LayoutRefInput!, requestId: ID!): Layout @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no layout gallery.")
+
+  """
+  Unstars a layout (since v85.7.0). True once done, also when it was not starred.
+  """
+  unstarLayout(layout: LayoutRefInput!, requestId: ID!): Boolean @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no layout gallery.")
+
+  """
+  Restores an entry of the universe layout history (since v85.7.0): the universe holds that default layout at
+  that version (Universe.layoutHeldVersion), by who may set its default layout (LAYOUT_SET_NOT_ALLOWED), or
+  files a proposal without leadership. LAYOUT_HISTORY_ENTRY_NOT_FOUND, LAYOUT_NOT_RESTORABLE. The universe
+  theme is unchanged.
+  """
+  restoreUniverseLayout(universe: String!, entryId: ID!, requestId: ID!): UniverseLayoutRestore @deprecated(reason: "Use restoreUniverseAppearance (since v96.0.0, D-289).")
+
+  """
+  Ends the frozen version of the default layout of a universe (since v85.7.0): it follows the latest version of
+  its layout again (Universe.layoutHeldVersion null), by who may set its default layout
+  (LAYOUT_SET_NOT_ALLOWED), or files a proposal without leadership. A universe that is not frozen: nothing
+  changes. LAYOUT_NOT_RESTORABLE when its layout was removed or deleted.
+  """
+  followLayoutUpdates(universe: String!, requestId: ID!): UniverseLayoutRestore @deprecated(reason: "Withdrawn since v96.0.0 (D-289): no frozen version.")
 
   """
   Changes the personal theme of the caller (P-5); a field not given stays. Returns the personal theme.
@@ -2551,6 +3060,33 @@ type Mutation {
   STUDIO_DRAFT_KIND_INVALID, and the codes of the layout, the page or the theme.
   """
   useStudioDraft(draftId: ID!, requestId: ID!): StudioDraftUse
+
+  """
+  Applies an appearance to a universe (since v87.4.0, contracts/themes.md § Customize). A private
+  universe: by the owner and the admins (THEME_SET_NOT_ALLOWED otherwise), at once: the theme built is
+  published in the universe by the system account (the theme "appearance" of the universe, its next version)
+  and set as the universe theme, the logo and the watermark set or cleared as by setUniverseIdentity, the own
+  universe banner of the universe removed. A public universe: by its leadership, at once, the same (as it
+  sets the universe theme), or with propose true a proposal of the kind APPEARANCE open at once; by a
+  resident who can vote and is not in the leadership, or any resident without leadership, a proposal of the
+  kind APPEARANCE waiting for support (propose ignored). A proposal is filed as by fileProposal (title
+  required, INVALID_REQUEST without it; text optional). propose: false by default, ignored in a private
+  universe. The codes of buildUniverseAppearance and of
+  setUniverseIdentity (UNIVERSE_LOGO_TOO_SMALL, WATERMARK_TOO_LONG). Returns what was done.
+  """
+  applyUniverseAppearance(universe: String!, input: UniverseAppearanceInput!, propose: Boolean, title: String, text: String, requestId: ID!): UniverseAppearanceUse
+
+  """
+  Restores an appearance of the appearance history of a universe (since v96.0.0, D-289; contracts/themes.md §
+  Customize): publishes the next version of its theme "appearance" from that entry (its image, its color, its
+  appearance character and its layout) and sets it, with that layout as the default layout; the appearance
+  replaced stays in the history. Also the "Undo" offered for 10 seconds after applying. By who applies an
+  appearance at once; a resident who can vote of a public universe, or the leadership with propose true,
+  files instead a proposal of the kind APPEARANCE from that entry, with the optional reason text (the order of
+  the universe pages is never part of it); THEME_SET_NOT_ALLOWED for anyone else.
+  APPEARANCE_HISTORY_ENTRY_NOT_FOUND, APPEARANCE_NOT_RESTORABLE.
+  """
+  restoreUniverseAppearance(universe: String!, entryId: ID!, propose: Boolean, text: String, requestId: ID!): UniverseAppearanceUse
 
   """
   The recipient answers a request to connect through Nearby (nearbyRequestId): accept true connects the two
@@ -2598,6 +3134,59 @@ type Mutation {
   INVALID_REQUEST. Returns the locatable resident; null once stopped.
   """
   setLocatable(universe: String!, locatable: Boolean!, activity: String, point: PointInput, minutes: Int, requestId: ID!): Locatable
+
+  """
+  Since v84.0.0 (D-248): a human starts its map presence, or replaces it, for a duration, with an audience and
+  its point (turned into map cells at once, kept as a point for EXACT viewers only, during the map presence
+  only). DELEGATED_AGENT_NOT_ALLOWED, MAP_PRESENCE_BANNED (since v84.3.0, errorInfo.until), MAP_PRESENCE_CONNECTIONS_ONLY, MAP_PRESENCE_UNIVERSE_LIMIT,
+  MAP_SHARE_RATE_LIMITED, NOT_CONNECTED (a viewer), NOT_A_RESIDENT (a universe).
+  """
+  startMapPresence(audience: MapPresenceAudienceInput!, duration: MapPresenceDuration!, point: PointInput!, requestId: ID!): MyMapPresence
+
+  """
+  Since v84.0.0 (D-248): the point of the map presence of the caller, every 5 minutes at most
+  (MAP_PRESENCE_TOO_SOON); MAP_PRESENCE_NOT_FOUND without one.
+  """
+  updateMapPresence(point: PointInput!, requestId: ID!): MyMapPresence
+
+  """
+  Since v84.0.0 (D-248): changes the audience of the map presence of the caller, 30 times in 24 hours at most
+  (MAP_AUDIENCE_RATE_LIMITED); the same refusals as startMapPresence.
+  """
+  setMapPresenceAudience(audience: MapPresenceAudienceInput!, requestId: ID!): MyMapPresence
+
+  """
+  Since v84.0.0 (D-248): turns the ghost mode on (true) or off (false); the audience is not told.
+  MAP_PRESENCE_NOT_FOUND without a map presence.
+  """
+  setGhostMode(ghost: Boolean!, requestId: ID!): MyMapPresence
+
+  """
+  Since v84.0.0 (D-248): stops the map presence of the caller; nothing is kept. True once stopped, false when
+  there was none.
+  """
+  stopMapPresence(requestId: ID!): Boolean
+
+  """
+  Since v84.0.0 (D-248): the author places one of its posts (place) or removes its place (place null).
+  POST_PLACE_NOT_ALLOWED (a private universe, a reply, a repost, a quote), POST_NOT_AUTHOR, POST_NOT_FOUND,
+  PLACE_INVALID.
+  """
+  setPostPlace(postId: ID!, place: PostPlaceInput, requestId: ID!): Post
+
+  """
+  Since v84.0.0 (D-248): composes the map avatar of the caller from parts of the catalog (empty: removes it).
+  AVATAR_PART_NOT_FOUND, AVATAR_LAYER_CONFLICT (two parts of one layer), AVATAR_PART_NOT_OWNED (a paid
+  cosmetic part not bought), DELEGATED_AGENT_NOT_ALLOWED.
+  """
+  setMapAvatar(partIds: [ID!]!, requestId: ID!): MapAvatar
+
+  """
+  Since v84.0.0 (D-248): a Stripe Checkout session buying a paid cosmetic part for good; owned once Stripe
+  confirms the payment; back to "returnPath" (default /me/avatar). AVATAR_PART_NOT_FOUND, AVATAR_PART_FREE,
+  AVATAR_PART_OWNED, PROVIDER_NOT_AVAILABLE, RETURN_PATH_INVALID.
+  """
+  buyAvatarPart(partId: ID!, currency: String, returnPath: String, requestId: ID!): PaymentPage
 
   """
   A human starts a live share (sharing true) in a conversation or a group chat (discussion), for 15 to 1,440
@@ -2672,6 +3261,26 @@ type Mutation {
   back.
   """
   setNotInterested(input: NotInterestedInput!, notInterested: Boolean!, requestId: ID!): NotInterested
+
+  """
+  Mutes a universe from discovery (since v85.8.0, for-you.feature), its sub-universes included: 500 at most
+  (MUTED_UNIVERSE_LIMIT); UNIVERSE_NOT_FOUND for a universe the caller cannot read; a delegated agent:
+  DELEGATED_AGENT_NOT_ALLOWED. Muting it again changes nothing. Returns what is recorded.
+  """
+  muteUniverseDiscovery(universe: String!, requestId: ID!): MutedUniverse
+
+  """
+  Unmutes a universe from discovery (since v85.8.0). True once done, also when it was not muted.
+  """
+  unmuteUniverseDiscovery(universe: String!, requestId: ID!): Boolean
+
+  """
+  Resets the recommendations of the caller (since v85.8.0, for-you.feature): erases its interest profile, the
+  recommendations shown in the last 7 days and its clip plays; keeps what it said it is not interested in, its
+  universes muted from discovery, its follows, mutes and residences. A delegated agent:
+  DELEGATED_AGENT_NOT_ALLOWED. Returns the empty interest profile; the apps then offer chooseFields.
+  """
+  resetRecommendations(requestId: ID!): InterestProfile
 
   """
   Changes the personal settings of the caller by section (C-6, G-5); a section or a field not given stays.
@@ -2817,4 +3426,289 @@ type Mutation {
   ONLY_OWNER_OFFERS_SUBSCRIPTION_TIERS, LAST_SUBSCRIPTION_TIER, SUBSCRIPTION_TIER_NOT_FOUND.
   """
   withdrawSubscriptionTier(tierId: ID!, universe: String!, requestId: ID!): SubscriptionTier
+
+  """
+  Advertising: a campaign DRAFT of a human (not a minor) or a verified organization. Errors: ADS_NOT_OPEN,
+  ADVERTISER_NOT_ALLOWED, AD_TARGETING_INVALID (a universe private, without ads or unknown; a bound),
+  AD_BID_BELOW_FLOOR, AD_FORMAT_NOT_OFFERED. Since v87.3.0 (D-266): AD_BID_BELOW_FLOOR also for a maxCpc under the
+  floor per click; AD_TARGETING_INVALID also for no universe and no universe group, a universe group unknown, a
+  CPC campaign without maxCpc, ad interests while ads.declaredInterests is off, a bid kind changed outside DRAFT
+  or PAUSED.
+  """
+  createAdCampaign(input: AdCampaignInput!, requestId: ID!): AdCampaign
+
+  """
+  Advertising: the budget of a campaign prepaid by card (a page of the payment provider) or from the
+  universe cash of "universe" by its leadership; 10 EUR at least. Errors: AD_CAMPAIGN_NOT_FOUND,
+  AD_BUDGET_TOO_LOW, PROVIDER_NOT_AVAILABLE, CURRENCY_NOT_SUPPORTED, RETURN_PATH_INVALID.
+  """
+  payAdBudget(campaignId: ID!, amount: Float!, currency: String!, source: AdBudgetSource!, universe: String, returnPath: String, requestId: ID!): AdBudgetPayment
+
+  """
+  Advertising: a click on an ad slot; answers the destination. AD_SLOT_EXPIRED. Since v87.3.0 (D-266): a click
+  counted at most once per reader and per campaign per day, what a CPC campaign is charged for.
+  """
+  recordAdClick(token: ID!, requestId: ID!): AWSURL
+
+  """
+  Advertising: an impression of an ad slot (50 percent visible for 1 second), counted once. AD_SLOT_EXPIRED.
+  """
+  recordAdImpression(token: ID!, requestId: ID!): Boolean
+
+  """
+  Advertising: pause, resume or end a campaign. Errors: AD_CAMPAIGN_NOT_FOUND, AD_CAMPAIGN_ENDED,
+  AD_CAMPAIGN_NOT_APPROVED.
+  """
+  setAdCampaignState(campaignId: ID!, state: AdCampaignState!, requestId: ID!): AdCampaign
+
+  """
+  Since v87.3.0 (D-266, contracts/advertising.md § Declared ad interests): a human of full age turns its declared
+  ad interests on with 0 to 10 of them, or off, which erases them at once ("interests" then ignored). Errors:
+  ADS_NOT_OPEN (ads.declaredInterests off), AD_INTERESTS_NOT_ALLOWED (a minor), AD_INTEREST_INVALID (more than 10,
+  or one twice).
+  """
+  setAdInterests(enabled: Boolean!, interests: [AdInterest!]!, requestId: ID!): AdInterestSettings
+
+  """
+  Advertising: send a campaign to the review of creatives. Errors: AD_CAMPAIGN_NOT_FOUND, AD_BUDGET_REQUIRED,
+  IDENTITY_NOT_VERIFIED.
+  """
+  submitAdCampaign(campaignId: ID!, requestId: ID!): AdCampaign
+
+  """
+  Advertising: change a campaign; a creative changed sends it back to IN_REVIEW. Errors: AD_CAMPAIGN_NOT_FOUND,
+  AD_CAMPAIGN_ENDED, and those of createAdCampaign.
+  """
+  updateAdCampaign(campaignId: ID!, input: AdCampaignInput!, requestId: ID!): AdCampaign
+
+  """
+  Since v86.0.0 (playlists.feature): creates a series of the caller, an account playlist of the caller (since
+  v86.2.0, kind ACCOUNT: ACCOUNT_PLAYLIST_LIMIT, errorInfo { max }; since v87.1.0, it may be a course) or a universe
+  playlist (by the leadership of its universe; by an adopted PLAYLIST proposal, the platform creates it). PLAYLIST_NAME_INVALID,
+  PLAYLIST_NAME_TAKEN, PLAYLIST_NOT_ALLOWED, PLAYLIST_RESERVE_NOT_ALLOWED, COURSE_SECTION_LIMIT; WATCH_LATER:
+  INVALID_REQUEST; since v86.1.0, a visibility for a universe playlist: PLAYLIST_VISIBILITY_NOT_ALLOWED. Since
+  v87.1.0: a form (PLAYLIST_FORM_NOT_ALLOWED) and sections (PLAYLIST_SECTION_NAME_INVALID,
+  PLAYLIST_SECTION_NAME_TAKEN). Returns the playlist.
+  """
+  createPlaylist(input: PlaylistInput!, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0: changes a playlist (a field not given stays). The errors of createPlaylist, PLAYLIST_NOT_FOUND.
+  Since v87.2.0: a PRIVATE account playlist holding videos of private universes made PUBLIC or UNLISTED needs
+  input.revealMembership true (PLAYLIST_REVEALS_MEMBERSHIP, errorInfo { universes }).
+  """
+  updatePlaylist(playlistId: ID!, input: PlaylistChangeInput!, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0: deletes a series, an account playlist or a universe playlist (never WATCH_LATER: INVALID_REQUEST); its videos stay.
+  PLAYLIST_NOT_FOUND, PLAYLIST_NOT_ALLOWED. True once done.
+  """
+  deletePlaylist(playlistId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v86.0.0: adds a post with a video at a position (none: at the end; "Watch later": playlistId of
+  playlistsHub.watchLater) in a section of a course (sectionId). PLAYLIST_FULL (500), PLAYLIST_VIDEO_INVALID,
+  PLAYLIST_NOT_ALLOWED. A video already there is moved. Notifies SERIES_EPISODE to the followers of a series
+  when added at its end (since v86.1.0, never for a PRIVATE series); never anything for an account playlist
+  (since v86.2.0), which takes a post with a video of any author, never of a private universe
+  (PLAYLIST_VIDEO_INVALID). Since v87.1.0 (D-264): an account playlist takes a video of a private universe the
+  caller is a member of (a video the caller cannot read: PLAYLIST_VIDEO_INVALID); a course takes a post with text
+  or images and no video (kind POST; outside a course: PLAYLIST_VIDEO_INVALID), counted among the 500
+  (PLAYLIST_FULL), never notified as an episode. Since v87.2.0: a video of a private universe added to a PUBLIC or
+  UNLISTED account playlist that holds no other video of that universe needs revealMembership true
+  (PLAYLIST_REVEALS_MEMBERSHIP, errorInfo { universes }): it shows that the caller is a member of it. Since v91.1.0:
+  passageStartMs and passageEndMs add a passage of a long video (both or none; PLAYLIST_PASSAGE_INVALID when the end
+  is not after the start, beyond the length, under 1 second, or the video is not a long video), an item of its own,
+  so that a video may be in a playlist as several passages; a MONTAGE takes passages of the caller's own long videos
+  only (MONTAGE_OWN_VIDEOS_ONLY). Since v92.1.0: stageIndex ties the item to a stage of the route of a playlist of
+  the form ROUTE (INVALID_REQUEST for another form or an index out of its stages). Since v101.3.0 (routes.feature):
+  stageIndex is the position, from 0, of the stage in the stages the caller sees (PlaylistItem.stageIndex);
+  INVALID_REQUEST for a stage another item is already tied to, and while the caller may no longer read the route of the
+  playlist; position is not used with a stageIndex, the item taking the place of its stage in the order of the
+  stages. To untie an item: removeFromPlaylist, then addToPlaylist without stageIndex (the item was already there:
+  the client sends revealMembership true).
+  """
+  addToPlaylist(playlistId: ID!, postId: ID!, position: Int, sectionId: ID, revealMembership: Boolean, passageStartMs: Int, passageEndMs: Int, stageIndex: Int, requestId: ID!): Playlist
+
+  """
+  Since v91.1.0: records a montage view of the caller, once it played the MONTAGE 30 seconds; counted once per
+  account, per montage and per day (a second call that day changes nothing). PLAYLIST_NOT_FOUND;
+  MONTAGE_NOT_ALLOWED for a playlist that is not a MONTAGE. Returns the playlist (montageViewCount).
+  """
+  recordMontageView(playlistId: ID!, requestId: ID!): Playlist
+
+  """
+  Since v92.1.0 (routes.feature): creates or changes a route (input.id). The rules of a route of a universe event
+  (ROUTE_INVALID: 2 to 100 points placed point by point, or 1,000 points drawn by hand, 500 kilometres at most); ROUTE_NAME_TAKEN for a name the owner already uses;
+  ROUTE_NOT_FOUND; a universe route by its leadership only (LEADERSHIP_ONLY). Returns the route.
+  """
+  saveMapRoute(input: MapRouteInput!, requestId: ID!): MapRoute
+
+  """
+  Since v92.1.0: deletes a route of the caller (or of its universe, by its leadership); the universe events that
+  carry it keep a copy of its line. ROUTE_NOT_FOUND. Returns true.
+  """
+  deleteMapRoute(id: ID!, requestId: ID!): Boolean
+
+  """
+  Since v92.1.0: "Do this route": copies a route the caller reads into its own routes, PRIVATE, crediting the original
+  (copiedFrom). ROUTE_NOT_FOUND, ROUTE_NAME_TAKEN (name: the name of the copy, the original's when not given).
+  Returns the copy.
+  """
+  copyMapRoute(id: ID!, name: String, requestId: ID!): MapRoute
+
+  """
+  Since v92.1.0: imports a GPX file (its text, 2 MB at most) as a PRIVATE route of the caller: its track simplified,
+  keeping its shape, to at most 1,000 points, its waypoints as stages (60 at most). ROUTE_GPX_INVALID, ROUTE_NAME_TAKEN. Returns the route.
+  """
+  importGpxRoute(gpx: String!, name: String!, mode: RouteMode!, requestId: ID!): MapRoute
+
+  """
+  Since v92.1.0: sets the privacy zones of the caller, 0 to 3 (ROUTE_PRIVACY_ZONES_INVALID beyond, or a radius other
+  than 200, 500 or 1,000 metres). Returns them.
+  """
+  setRoutePrivacyZones(zones: [RoutePrivacyZoneInput!]!, requestId: ID!): [RoutePrivacyZone!]
+
+  """
+  Since v87.5.0 (D-268): adds a course link to a course (form CHAPTERS; another form, WATCH_LATER included:
+  PLAYLIST_ITEM_INVALID), by who changes the playlist (PLAYLIST_NOT_ALLOWED). Its destination is read once and
+  reviewed like the destination of an ad (contracts/advertising.md § Formats): https, no redirect chain to another
+  domain, no value per reader (LINK_DESTINATION_INVALID, errorInfo { reason }); its link preview built then (as
+  linkPreview; none: preview null). PLAYLIST_FULL (500 playlist items), PLAYLIST_NOT_FOUND, PLAYLIST_TAG_LIMIT,
+  PLAYLIST_TAG_INVALID, INVALID_REQUEST (a title out of 1 to 80 visible characters, an unknown sectionId). Never
+  notified. Returns the playlist.
+  """
+  addLinkToPlaylist(playlistId: ID!, input: PlaylistLinkInput!, requestId: ID!): Playlist
+
+  """
+  Since v87.5.0 (D-268): a signed form to upload the file of a course document (POST the fields, then the file, to
+  url), by who changes the course (PLAYLIST_NOT_ALLOWED; not a course: PLAYLIST_ITEM_INVALID):
+  DOCUMENT_FORMAT_NOT_ALLOWED (not application/pdf nor text/markdown), DOCUMENT_TOO_LARGE (a PDF document over 20
+  MB, a markdown document over 200 KB; errorInfo { max } in bytes), DOCUMENT_LIMIT (errorInfo { max }: 50 course
+  documents per account, 100 with X2, 500 with X10, whatever their versions; a human never pays to go beyond;
+  checked here for a new course document and again by addDocumentToPlaylist). 24 hours to use it, as
+  requestMediaUpload. Once uploaded, the file goes through the malware scan and the media review before it is
+  served. Since v87.6.0 (D-269): input.playlistId absent, the file of a post document (PostDocumentInput), under the
+  same format and size rules; DOCUMENT_LIMIT then counts the post documents of the account (50, 100 with X2, 500
+  with X10), a separate count from the course documents, each file counted once from this upload until its post or
+  post draft is deleted, or the upload expires unused after 24 hours.
+  """
+  requestDocumentUpload(input: DocumentUploadInput!, requestId: ID!): MediaUpload
+
+  """
+  Since v87.5.0 (D-268): adds a course document to a course, or gives a new file to one (input.itemId: a new
+  version), from a file uploaded with requestDocumentUpload for that playlist (INVALID_REQUEST otherwise).
+  DOCUMENT_RIGHTS_REQUIRED (rightsConfirmed false), DOCUMENT_MALICIOUS (the malware scan already found the file
+  malicious), DOCUMENT_LIMIT, PLAYLIST_ITEM_INVALID (not a course), PLAYLIST_FULL, PLAYLIST_NOT_ALLOWED,
+  PLAYLIST_NOT_FOUND, PLAYLIST_TAG_LIMIT, PLAYLIST_TAG_INVALID. The item, or its new version, stays CHECKING until
+  its malware scan and its media review are done, then READY, or REFUSED (the uploader notified, DOCUMENT_REFUSED;
+  a new version refused leaves the version before served). Its bytes count in the consumption of the account of
+  its uploader. Returns the playlist.
+  """
+  addDocumentToPlaylist(playlistId: ID!, input: PlaylistDocumentInput!, requestId: ID!): Playlist
+
+  """
+  Since v87.5.0 (D-268): changes a course link or a course document of a course (itemId: PlaylistCourseItem.id), by
+  who changes the playlist (PLAYLIST_NOT_ALLOWED): its title, the URL of a course link (LINK_DESTINATION_INVALID),
+  its place, its playlist tags (PLAYLIST_TAG_LIMIT, PLAYLIST_TAG_INVALID). INVALID_REQUEST when the item is not in
+  the playlist, for url on a DOCUMENT, and for a removed item. Returns the playlist.
+  """
+  updatePlaylistCourseItem(playlistId: ID!, itemId: ID!, input: PlaylistCourseItemChangeInput!, requestId: ID!): Playlist
+
+  """
+  Since v87.5.0 (D-268): removes a course link, a course document (its file deleted; it no longer counts against
+  DOCUMENT_LIMIT) or a removed item from a course, by who changes the playlist (PLAYLIST_NOT_ALLOWED). True once
+  done, also when it was not there.
+  """
+  removePlaylistCourseItem(playlistId: ID!, itemId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v87.5.0 (D-268): checks a course link or a course document for the caller: a course link once opened from
+  the course, a PDF document once opened, a markdown document once scrolled to 90 % of it (the app calls it then).
+  PLAYLIST_NOT_FOUND; INVALID_REQUEST when the item is not in the playlist, is a removed item or a course document
+  not READY. With ordered playback, a course link or a course document is an item before like a video; a removed
+  item is skipped. True once done, also when already checked.
+  """
+  checkPlaylistCourseItem(playlistId: ID!, itemId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v86.0.0: removes a video from a playlist. True once done, also when it was not there.
+  """
+  removeFromPlaylist(playlistId: ID!, postId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v86.0.0: moves a video of a playlist to a position (from 1) and, in a course, a section.
+  PLAYLIST_NOT_ALLOWED, INVALID_REQUEST for a position out of the playlist. Since v101.3.0: in a playlist of the
+  form ROUTE, INVALID_REQUEST for a move that breaks the order of the stages of its items tied to stages; an item
+  tied to no stage moves freely.
+  """
+  movePlaylistItem(playlistId: ID!, postId: ID!, position: Int!, sectionId: ID, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0: follows (true) or unfollows (false) a series, an account playlist (since v86.2.0) or a
+  universe playlist (never WATCH_LATER:
+  INVALID_REQUEST). PLAYLIST_ADDRESS_INVALID, PLAYLIST_NOT_FOUND, PLAYLIST_RESERVED. Since v86.1.0: a PUBLIC or
+  UNLISTED playlist is followed by whoever reads it; a PRIVATE one by nobody (its owner: INVALID_REQUEST;
+  anyone else: PLAYLIST_NOT_FOUND); unfollowing (false) always succeeds, even once the playlist is no longer readable.
+  """
+  setPlaylistFollow(address: String!, following: Boolean!, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0: pins (true) or unpins (false) a universe playlist on the page of its universe, by its
+  leadership. PINNED_PLAYLIST_LIMIT (3), PLAYLIST_NOT_ALLOWED.
+  """
+  pinPlaylist(playlistId: ID!, pinned: Boolean!, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0: records where the caller is in a long video (postId) and, when played from a playlist, its
+  playlistId: the second, every 30 seconds of play and at a stop; watched true once played to its last 10 % (since
+  v87.1.0: to 90 % of its length; with playlistId, it checks the item in that playlist, on every playlist form).
+  The start of a video of a course with ordered playback whose video before is not watched:
+  PLAYLIST_ORDER_REQUIRED. One write per call, kept 1 year. Returns true.
+  """
+  recordPlayback(postId: ID!, playlistId: ID, seconds: Int!, watched: Boolean, requestId: ID!): Boolean
+
+  """
+  Since v87.1.0 (D-264): checks a post (kind POST) of a course for the caller, once opened from it. A video is checked by recordPlayback. PLAYLIST_NOT_FOUND,
+  INVALID_REQUEST when the post is not in the playlist. True once done, also when already checked.
+  """
+  checkPlaylistItem(playlistId: ID!, postId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v87.1.0: clears every checkmark of the caller in a playlist, every playlist track together; the resume
+  point stays. PLAYLIST_NOT_FOUND. True once done.
+  """
+  resetPlaylistProgress(playlistId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v87.1.0: shows (true) or hides (false) the checkmarks of a SIMPLE playlist for the caller
+  (PLAYLIST_CHECKMARKS_NOT_HIDDEN for another form; showing always succeeds). PLAYLIST_NOT_FOUND. Returns the playlist.
+  """
+  setPlaylistCheckmarks(playlistId: ID!, shown: Boolean!, requestId: ID!): Playlist
+
+  """
+  Since v87.1.0: sets the playlist tags of an item of a playlist, all at once (empty: none), by who changes the
+  playlist (PLAYLIST_NOT_ALLOWED). PLAYLIST_TAG_LIMIT (8 per playlist, errorInfo { max }), PLAYLIST_TAG_INVALID,
+  INVALID_REQUEST when the post is not in the playlist. Returns the playlist.
+  """
+  setPlaylistItemTags(playlistId: ID!, postId: ID!, tags: [String!]!, requestId: ID!): Playlist
+
+  """
+  Since v87.1.0: the caller picks the playlist track of a playlist (its track name; none: back to the track by
+  default), kept with the resume point. PLAYLIST_TRACK_INVALID for an unknown track name. Returns the playlist.
+  """
+  setPlaylistTrack(playlistId: ID!, track: String, requestId: ID!): Playlist
+
+  """
+  Since v87.1.0: sets the playlist tracks of a playlist, all at once, in order (empty: none), by who changes the
+  playlist (PLAYLIST_NOT_ALLOWED). PLAYLIST_TRACK_LIMIT (10, errorInfo { max }), PLAYLIST_TRACK_INVALID,
+  PLAYLIST_TAG_INVALID. A track a reader chose that is removed: back to the track by default. Returns the playlist.
+  """
+  setPlaylistTracks(playlistId: ID!, tracks: [PlaylistTrackInput!]!, requestId: ID!): Playlist
+
+  """
+  Since v86.0.0 (long-videos.feature): sets the chapters of a long video of the caller, all at once (empty:
+  none). CHAPTERS_INVALID, CHAPTERS_NOT_ALLOWED. Returns the long video.
+  """
+  setChapters(postId: ID!, chapters: [ChapterInput!]!, requestId: ID!): LongVideo
 }

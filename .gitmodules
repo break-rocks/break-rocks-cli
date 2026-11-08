@@ -1,0 +1,3 @@
+[submodule "specs/common"]
+	path = specs/common
+	url = ../break-rocks-specs.git

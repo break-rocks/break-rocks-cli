@@ -9,7 +9,7 @@ enum AgentRequests {
 }
 
 """
-The frame mode chosen on one device (since v80.0.0, universe-frame-modes.feature).
+The screen mode chosen on one device (since v80.0.0, universe-frame-modes.feature).
 """
 type DeviceFrameMode {
   """
@@ -17,7 +17,7 @@ type DeviceFrameMode {
   """
   device: String!
   """
-  The frame mode.
+  The screen mode.
   """
   frameMode: FrameMode!
 }
@@ -54,10 +54,12 @@ input DoNotDisturbInput {
 }
 
 """
-The frame mode of the universe screen (since v80.0.0, universe-frame-modes.feature, contracts/layouts.md §
-The frame modes): STANDARD (the default), IMMERSIVE, READING, since v80.2.0, ONE_HAND (drawn as STANDARD
+The screen mode of the universe screen (since v80.0.0, universe-frame-modes.feature, contracts/layouts.md §
+The screen modes): STANDARD (the default), IMMERSIVE, READING, since v80.2.0, ONE_HAND (drawn as STANDARD
 on a tablet and a desktop) and, since v80.4.0, CUSTOM (the frame document UniverseFrameSettings.frame,
-contracts/layouts.md § The custom mode). An app that receives a value it does not know draws STANDARD.
+contracts/layouts.md § The custom mode). Since v96.0.0 (D-289) the custom mode is withdrawn: the apps no longer
+send CUSTOM and read it as STANDARD; the backend answers a stored CUSTOM as STANDARD. An app that receives a
+value it does not know draws STANDARD.
 """
 enum FrameMode {
   STANDARD
@@ -108,6 +110,28 @@ type MessagingSettings {
   Read receipts, for direct messages and group chats: on by default; off, neither sent nor seen.
   """
   readReceipts: Boolean!
+  """
+  "Universe discussions in Messages" (since v101.0.0, D-302): ALL (by default), SOME (the universes of
+  universesInMessages) or NONE.
+  """
+  universeDiscussions: UniverseDiscussionsInMessages!
+  """
+  The universes whose universe discussions are in Messages with SOME (since v101.0.0); empty otherwise.
+  """
+  universesInMessages: [String!]!
+  """
+  The universes the caller blocked in Messages (since v101.0.0, setUniverseBlockedInMessages), the most recent first.
+  """
+  blockedUniverses: [String!]!
+}
+
+"""
+Which universes have their universe discussions in the Universes section of Messages (since v101.0.0, D-302).
+"""
+enum UniverseDiscussionsInMessages {
+  ALL
+  NONE
+  SOME
 }
 
 """
@@ -120,6 +144,11 @@ input MessagingSettingsInput {
   silentDecline: Boolean
   invitePolicy: InvitePolicy
   readReceipts: Boolean
+  universeDiscussions: UniverseDiscussionsInMessages
+  """
+  Since v101.0.0: the universes kept with SOME, replacing them; its bound is not written yet (README.md § To settle).
+  """
+  universesInMessages: [String!]
 }
 
 """
@@ -175,9 +204,22 @@ type Notification {
   """
   days: Int
   """
+  POST_DRAFT_EXPIRES_SOON, SCHEDULED_POST_FAILED (since v85.1.0): the post draft.
+  """
+  draftId: ID
+  """
+  SCHEDULED_POST_FAILED (since v85.1.0): the error code of the failure (PostDraft.failure.code).
+  """
+  draftFailure: String
+  """
   UNIVERSE_DEBATE_OPENED: the debate, its address ("%paris&quiet-nights"; its subject is "subject").
   """
-  debate: String
+  debate: String @deprecated(reason: "Use discussion (since v84.4.0, D-222).")
+  """
+  UNIVERSE_DEBATE_OPENED (since v84.4.0, D-222): the temporary universe discussion opened, its address
+  ("%paris&quiet-nights"; its subject is "subject"); the same value as debate.
+  """
+  discussion: String
   """
   EVENT_REMINDER, EVENT_CHANGED, EVENT_CANCELLED: the universe event (its title is "subject"; none once
   cancelled); EVENT_CHANGED: its start and place now.
@@ -223,6 +265,10 @@ type Notification {
   """
   PLATFORM_MEASURE (since v49.8.0): the measure and its statement of reasons ("universe" its universe,
   "subject" what it concerned).
+  PLATFORM_APPEAL_DECIDED (since v85.0.0, D-250): the measure appealed (measureId, kind), the outcome and its
+  reasons (appealOutcome, appealReasons).
+  PLATFORM_APPEAL_OVERDUE (since v99.1.0, M-12): the measure appealed (measureId, kind), when it was appealed
+  (appealedAt) and since when its platform appeal has waited 14 days without a decision (overdueSince).
   """
   measure: NotificationMeasure
   """
@@ -259,10 +305,19 @@ type Notification {
   """
   read: Boolean!
   """
-  SANCTION_POST_REMOVAL, SANCTION_POSTING_BAN: the sanction (the removed post is "subject"; the universe is
-  "universe").
+  REPORT_DECIDED (since v99.1.0, M-09): the decision of the platform team on a report of the reader ("subject"
+  the content as reported); null otherwise.
+  """
+  report: NotificationReport
+  """
+  SANCTION_POST_REMOVAL, SANCTION_POSTING_BAN and, since v92.0.0, SANCTION_MEDIA_MASK: the sanction (the removed
+  or masked post is "subject"; the universe is "universe").
   """
   sanction: NotificationSanction
+  """
+  MASK_REQUESTED (since v92.0.0, D-284): the mask request to answer (answerMaskRequest); null otherwise.
+  """
+  maskRequestId: ID
   """
   PROJECT_NOTE (since v46.0.0): the status the leadership set and its note ("subject": the title of the
   project, "proposalId" its proposal).
@@ -301,6 +356,7 @@ enum NotificationCategory {
   CHANNELS
   CONNECTION_REQUESTS
   DIRECT_MESSAGES
+  DRAFTS
   GOVERNANCE
   GROUP_CHATS
   INVITATIONS_AND_JOIN_REQUESTS
@@ -308,6 +364,7 @@ enum NotificationCategory {
   MENTIONS
   MODERATION
   NEW_FOLLOWERS
+  PLAYLISTS
   REPLIES
   REPOSTS_AND_QUOTES
   UNIVERSES
@@ -385,7 +442,20 @@ type NotificationDataRequest {
 
 """
 The kind of a notification (contracts/notifications.md). An unknown kind is shown as a generic notification,
-so that new kinds can be added.
+so that new kinds can be added. Since v84.0.0 (D-248): MAP_STALKING_ALERT, an account (actor) viewed the
+position of the reader beyond the stalking alert threshold within 24 hours, never how many times exactly.
+Since v84.4.0: TERMS_CHANGED, a version of the terms of use or of the platform rules published ("subject":
+"terms" or "rules", "message" the version and when it applies; contracts/platform-measures.md).
+Since v86.0.0: SERIES_EPISODE, a new episode of a followed series ("subject" the playlist address, "postId" the
+episode). Since v87.5.0 (D-268): DOCUMENT_REFUSED, to the uploader of a file of a course document found malicious by
+the malware scan or refused by the media review, never served ("subject" the playlist address, "message" the
+title of the course document and the reason: malicious or the rule of the media review); category PLAYLISTS.
+Since v87.6.0 (D-269): also to the author of a post document refused ("subject" the address of the post, the post
+staying without its document card).
+Since v92.0.0 (D-284): MASK_REQUESTED, a person shown in a media of the caller asks to hide an area; SANCTION_MEDIA_MASK, a moderator masked a media of the caller (category moderation).
+Since v99.1.0: PLATFORM_APPEAL_OVERDUE (M-12, M-14), a platform appeal of the reader without a decision 14 days
+after it was filed: an out-of-court dispute settlement body can be asked (category moderation, mandatory);
+REPORT_DECIDED (M-09), the platform team decided a report of the reader (category moderation).
 """
 enum NotificationKind {
   APPEAL_DECIDED
@@ -399,6 +469,7 @@ enum NotificationKind {
   DATA_REQUEST_ANSWERED
   DELEGATED_AGENTS_DEACTIVATED
   DIRECT_MESSAGE
+  DOCUMENT_REFUSED
   EVENT_CANCELLED
   EVENT_CHANGED
   EVENT_PLACE_REVEALED
@@ -410,27 +481,37 @@ enum NotificationKind {
   INVITATION_SIGN_UP
   JUROR_DRAWN
   LIKE
+  MAP_STALKING_ALERT
+  MASK_REQUESTED
   MEET_UP_SOON
   MENTION
   MODERATOR_DESIGNATED
   PASSWORD_RESET
+  PLATFORM_APPEAL_DECIDED
+  PLATFORM_APPEAL_OVERDUE
   PLATFORM_MEASURE
+  POST_DRAFT_EXPIRES_SOON
   PRIVATE_POST_REPOSTED
   PROJECT_NOTE
   PROJECT_REPORTED_DONE
   QUOTE
   REPLY
+  REPORT_DECIDED
   REPOST
   REPOST_REQUEST
   REPOST_REQUEST_ANSWERED
   SANCTION_CHANNEL_MESSAGE_REMOVAL
+  SANCTION_MEDIA_MASK
   SANCTION_POSTING_BAN
   SANCTION_POST_REMOVAL
   SANCTION_WRITING_BAN
+  SCHEDULED_POST_FAILED
+  SERIES_EPISODE
   SIGNED_OUT_EVERYWHERE
   SUBSCRIPTION_ENDED
   SUBSCRIPTION_ENDS_SOON
   SUBSCRIPTION_PAYMENT_FAILED
+  TERMS_CHANGED
   TIER_PRICE_CHANGE
   UNIVERSE_ACCESS_OPENED
   UNIVERSE_ANNOUNCEMENT
@@ -480,6 +561,74 @@ type NotificationMeasure {
   The statement of reasons.
   """
   statement: String!
+  """
+  Since v84.4.0: the measure in myPlatformMeasures, where its whole statement of reasons is read; null for a
+  measure on a universe territory.
+  """
+  measureId: ID
+  """
+  Since v84.4.0: CONTENT_REMOVAL, POSTING_BAN, SUSPENSION, BAN or AGENT_SUSPENSION; null for a measure on a
+  universe territory.
+  """
+  kind: PlatformMeasureKind
+  """
+  Since v84.4.0: when it ends; null for a removal and a ban.
+  """
+  endsAt: AWSDateTime
+  """
+  Since v84.4.0: when a platform appeal can be filed until; null when none can.
+  """
+  appealableUntil: AWSDateTime
+  """
+  Since v84.4.0: the counted platform measures of the account within 90 days, this one included; null when it
+  does not count.
+  """
+  countedWithin90Days: Int
+  """
+  Since v85.0.0 (D-250): the outcome of the platform appeal (PLATFORM_APPEAL_DECIDED); null otherwise.
+  """
+  appealOutcome: PlatformAppealOutcome
+  """
+  Since v85.0.0 (D-250): the reasons of the decision of the platform appeal (PLATFORM_APPEAL_DECIDED); null
+  otherwise.
+  """
+  appealReasons: String
+  """
+  Since v99.1.0 (M-12): when the platform appeal was filed (PLATFORM_APPEAL_OVERDUE); null otherwise.
+  """
+  appealedAt: AWSDateTime
+  """
+  Since v99.1.0 (M-12): when the platform appeal became overdue, 14 days after it was filed
+  (PLATFORM_APPEAL_OVERDUE); null otherwise.
+  """
+  overdueSince: AWSDateTime
+}
+
+"""
+The decision of the platform team on a report of the reader (REPORT_DECIDED, since v99.1.0, M-09,
+contracts/reports.md § The decision told to the reporter): never the measure taken against the author.
+"""
+type NotificationReport {
+  """
+  The report, as myReports gives it.
+  """
+  reportId: ID!
+  """
+  CONTENT_REMOVED or NO_ACTION.
+  """
+  status: ReportStatus!
+  """
+  The article of the platform rules applied; null without one.
+  """
+  article: Int
+  """
+  The reason written by the member of the platform team for NO_ACTION; null otherwise.
+  """
+  reason: String
+  """
+  Whether the decision was taken by automated means.
+  """
+  automatedDecision: Boolean!
 }
 
 """
@@ -728,7 +877,7 @@ type Settings {
   """
   tips: TipSettings!
   """
-  The frame mode of the universe screen and the immersive offer (contracts/layouts.md § The frame modes,
+  The screen mode of the universe screen and the immersive offer (contracts/layouts.md § The screen modes,
   since v80.0.0).
   """
   universeFrame: UniverseFrameSettings!
@@ -737,6 +886,17 @@ type Settings {
   The apps turn a localized name into its English name before any call; the API knows the English names only.
   """
   commandLanguage: String
+  """
+  The private analysis consent (since v85.0.0, D-251; ai-analysis.feature): whether the AI analysis looks at the
+  private contents the caller writes; false by default, distinct from the terms of use; always false while the
+  platform switch moderation.privateAnalysis of client-config is off.
+  """
+  privateAnalysisConsent: Boolean!
+  """
+  The autoplay setting (since v86.0.0, long-videos.feature): on by default; never applied for a minor nor
+  from 23:00 to 06:00 local time of the device, whatever its value.
+  """
+  autoplay: Boolean!
 }
 
 """
@@ -765,7 +925,7 @@ input SettingsInput {
   """
   tips: TipSettingsInput
   """
-  The frame mode of the account or of one device, and the immersive offer made (since v80.0.0); the frame
+  The screen mode of the account or of one device, and the immersive offer made (since v80.0.0); the frame
   document of the custom mode (since v80.4.0).
   """
   universeFrame: UniverseFrameSettingsInput
@@ -774,15 +934,24 @@ input SettingsInput {
   of the app.
   """
   commandLanguage: String
+  """
+  Gives (true) or withdraws (false) the private analysis consent (since v85.0.0, D-251); true is refused
+  PRIVATE_ANALYSIS_NOT_OFFERED while the platform switch is off; never by a delegated agent.
+  """
+  privateAnalysisConsent: Boolean
   clear: [SettingsPart!]
+  """
+  The autoplay setting (since v86.0.0).
+  """
+  autoplay: Boolean
 }
 
 """
 A personal setting to remove (setSettings clear): the nearby label (back to the handle), the
-do-not-disturb hours, the frame mode of a device (DEVICE_FRAME_MODE, since v80.0.0: the device named by
+do-not-disturb hours, the screen mode of a device (DEVICE_FRAME_MODE, since v80.0.0: the device named by
 universeFrame.device, else the calling device, the header x-device-id, as DEVICE_DISPLAY_MODE of
-PersonalThemePart; that device goes back to the frame mode of the account), the frame document (FRAME, since
-v80.5.0: the account, and every device whose frame mode is CUSTOM, go back to STANDARD, chosen staying true).
+PersonalThemePart; that device goes back to the screen mode of the account), the frame document (FRAME, since
+v80.5.0: the account, and every device whose screen mode is CUSTOM, go back to STANDARD, chosen staying true).
 """
 enum SettingsPart {
   NEARBY_LABEL
@@ -855,10 +1024,10 @@ input TranslationSettingsInput {
 }
 
 """
-The frame mode of the universe screen (universe-frame-modes.feature, contracts/layouts.md § The frame modes;
+The screen mode of the universe screen (universe-frame-modes.feature, contracts/layouts.md § The screen modes;
 since v80.0.0): "frameMode" the one of the account (STANDARD while never chosen), "deviceFrameMode" the one
-of the calling device (the header x-device-id; null: the frame mode of the account), "deviceFrameModes"
-all; "chosen" whether the account ever made an explicit choice of a frame mode, STANDARD included, for the
+of the calling device (the header x-device-id; null: the screen mode of the account), "deviceFrameModes"
+all; "chosen" whether the account ever made an explicit choice of a screen mode, STANDARD included, for the
 account or for one device; "immersiveOffered" whether the immersive offer was
 made to the account, set to true by the app once it is shown, so that another device does not make it again;
 "oneHandLeft" (since v80.2.0) the option "left hand" of ONE_HAND, the same on all the devices of the account;
@@ -866,19 +1035,19 @@ made to the account, set to true by the app once it is shown, so that another de
 """
 type UniverseFrameSettings {
   """
-  The frame mode of the account.
+  The screen mode of the account.
   """
   frameMode: FrameMode!
   """
-  The frame mode of the calling device; null: the frame mode of the account.
+  The screen mode of the calling device; null: the screen mode of the account.
   """
   deviceFrameMode: FrameMode
   """
-  The frame mode of each device that has one.
+  The screen mode of each device that has one.
   """
   deviceFrameModes: [DeviceFrameMode!]!
   """
-  Whether the account ever chose a frame mode, STANDARD included, for the account or for one device (the
+  Whether the account ever chose a screen mode, STANDARD included, for the account or for one device (the
   immersive offer is made only while it is false).
   """
   chosen: Boolean!
@@ -894,11 +1063,33 @@ type UniverseFrameSettings {
   The frame document of the custom mode, format break-rocks-frame/1 (contracts/frame.schema.json; since
   v80.4.0); null while the account never saved one.
   """
-  frame: AWSJSON
+  frame: AWSJSON @deprecated(reason: "The custom mode is withdrawn since v96.0.0 (D-289).")
+  """
+  The setting "Pages bar" of Me › Display, "universe.pagesBar" (since v96.0.0, D-289, bottom-bar-option.feature):
+  the pages bar drawn on a phone in the standard, immersive and reading modes; true by default; the same on all
+  the devices of the account.
+  """
+  pagesBar: Boolean!
+  """
+  What a double tap on the page of the universe in the pages bar does (since v88.1.0, the setting
+  "universe.homeDoubleTap", bottom-bar-option.feature): TOP_OF_POSTS by default; the same on all the devices
+  of the account.
+  """
+  homeDoubleTap: HomeDoubleTap!
 }
 
 """
-The frame mode to change (setSettings, since v80.0.0); a field not given stays. frameMode sets the frame
+What a double tap on the page of the universe in the pages bar does (since v88.1.0): TOP_OF_POSTS, back to the
+top of the focus posts, both bars back (the default); KEEP_POSITION, both bars back, the feed where it was. An
+app that does not know a value reads TOP_OF_POSTS.
+"""
+enum HomeDoubleTap {
+  KEEP_POSITION
+  TOP_OF_POSTS
+}
+
+"""
+The screen mode to change (setSettings, since v80.0.0); a field not given stays. frameMode sets the frame
 mode of the account; deviceFrameMode sets the one of a device; device names that device for deviceFrameMode
 and for clear DEVICE_FRAME_MODE (its identifier; absent, the header x-device-id); frameMode or
 deviceFrameMode, whatever their value, marks the account as having chosen (chosen true). A choice in the
@@ -910,8 +1101,8 @@ FRAME_POSTS_REQUIRED, FRAME_LIVE_LINE_FOLDED, FRAME_RAILS_INVALID, FRAME_BUTTONS
 account as having chosen; frame given as null (since v80.5.0) removes the frame document, as clear FRAME. The
 checks come in this order: the size, the schema, the rules outside it (contracts/layouts.md § The custom mode).
 CUSTOM in frameMode or deviceFrameMode while the account has no frame document and none is given:
-FRAME_DOCUMENT_MISSING. The editor saves with frame and frameMode CUSTOM (or deviceFrameMode
-CUSTOM for one device) in one setSettings.
+FRAME_DOCUMENT_MISSING. Since v96.0.0 (D-289) the apps send neither frame nor CUSTOM (the custom mode is
+withdrawn); the backend keeps accepting them until the minimum version of the apps no longer sends them.
 """
 input UniverseFrameSettingsInput {
   frameMode: FrameMode
@@ -920,4 +1111,12 @@ input UniverseFrameSettingsInput {
   immersiveOffered: Boolean
   oneHandLeft: Boolean
   frame: AWSJSON
+  """
+  Since v88.1.0: the setting "universe.homeDoubleTap"; it does not mark the account as having chosen.
+  """
+  homeDoubleTap: HomeDoubleTap
+  """
+  Since v96.0.0 (D-289): the setting "universe.pagesBar"; it does not mark the account as having chosen.
+  """
+  pagesBar: Boolean
 }

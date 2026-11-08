@@ -6,6 +6,15 @@ player within the post.
 """
 type Clip {
   """
+  Whether an area of it was hidden after posting (since v92.0.0, D-284, masks-after-posting.feature): shown with
+  the mention "area hidden after posting"; false otherwise.
+  """
+  maskedAfterPosting: Boolean!
+  """
+  Whether a masked version is being made (since v92.0.0): the original is served until it is ready; false otherwise.
+  """
+  maskPending: Boolean!
+  """
   Whether its automatic subtitles are on (automatic-subtitles.feature, since v78.0.0, D-214): false once the
   author of its post turned them off (setAutomaticSubtitles), and for the clip of a message.
   """
@@ -82,6 +91,11 @@ blurhash draws a placeholder of the right colors while it loads. The images of p
 universes (banner, logo), link previews and avatars (G-10: was PostImage).
 """
 type Image {
+  """
+  Whether an area of it was hidden after posting (since v92.0.0, D-284, masks-after-posting.feature): shown with
+  the mention "area hidden after posting"; false otherwise.
+  """
+  maskedAfterPosting: Boolean!
   """
   The identifier of the image.
   """
@@ -191,11 +205,13 @@ The media destination of a media upload (requestMediaUpload, since v78.0.0, D-21
 uploaded and kept with the media, which is attached there only (MEDIA_DESTINATION_MISMATCH): POST (a post, a
 reply or a quote, with the universe where it goes: requestMediaUpload "address"), DIRECT_MESSAGE,
 GROUP_MESSAGE, CHANNEL_MESSAGE, UNIVERSE_IMAGE (the image of a universe, its logo; also the logo of a proposal),
-UNIVERSE_BANNER (its banner, day or night), THEME (an image slot of a theme). An avatar has its own upload
+UNIVERSE_BANNER (its banner, day or night), THEME (an image slot of a theme). Since v87.5.0 (D-268), COURSE_DOCUMENT: an
+image of a markdown document (IMAGE only, MEDIA_DESTINATION_INVALID otherwise), shown by its URL on the media CDN. An avatar has its own upload
 (requestAvatarUpload). Only an image of POST gets a suggested alternative text (suggestedAlt).
 """
 enum MediaDestination {
   CHANNEL_MESSAGE
+  COURSE_DOCUMENT
   DIRECT_MESSAGE
   GROUP_MESSAGE
   POST
@@ -206,10 +222,12 @@ enum MediaDestination {
 
 """
 What a media upload is for (requestMediaUpload, C-11): an image of a post, a message or a universe, a
-video (the clip of a post or a message), a voice message.
+video (the clip of a post or a message), a voice message; since v86.0.0, LONG_VIDEO the long video of a post
+(POST only; VIDEO_QUOTA_EXCEEDED beyond the video quota).
 """
 enum MediaKind {
   IMAGE
+  LONG_VIDEO
   VIDEO
   VOICE
 }
@@ -288,6 +306,10 @@ type Post {
   """
   author: AccountRef!
   """
+  Since v84.0.0 (D-248): its place, chosen by its author; null when not placed.
+  """
+  place: PostPlace
+  """
   The text as written.
   """
   text: String!
@@ -362,6 +384,12 @@ type Post {
   """
   deleted: Boolean!
   """
+  Its post document (since v87.6.0, D-269, post-documents.feature): a post or a quote only, never with a clip or a
+  long video; null without one, on a reply, and on a repost (its original carries it: original.document). A
+  reader other than its author reads it once READY only (null before, and when REFUSED).
+  """
+  document: PostDocument
+  """
   A daily digest of the system account, written by a platform AI agent (daily-digest.feature): the day (UTC)
   it sums up; null otherwise.
   """
@@ -413,6 +441,13 @@ type Post {
   without.
   """
   link: LinkPreview
+  """
+  The discussion card of the first universe discussion address of its text (since v89.0.0, addresses-in-text.feature,
+  contracts/text.md § Discussion card), built for the caller when read: the universe discussion as the caller sees
+  it (subject, status, decisionProposal, stanceGauge, messageCount); null when the text carries none, when the caller
+  cannot read it, once gone, and with images, a clip or a long video.
+  """
+  discussionCard: UniverseDiscussion
   """
   The former alternative texts and subtitles of its media (since v78.0.0, D-214): the automatic alternative
   text its author replaced (setImageAlt) and every correction of its subtitles (correctSubtitles), the oldest
@@ -520,6 +555,10 @@ type Post {
   vertical or square clip and for a post of a private universe.
   """
   viewCount: Int
+  """
+  Its long video (long-videos.feature, since v86.0.0); never with a clip or images. Null otherwise.
+  """
+  longVideo: LongVideo
 }
 
 """
@@ -574,6 +613,11 @@ type PostOriginal {
   """
   createdAt: AWSDateTime!
   """
+  Its post document, READY (since v87.6.0, D-269): the document card of the original shown in a repost or a quote;
+  null without one.
+  """
+  document: PostDocument
+  """
   Whether it is deleted.
   """
   deleted: Boolean!
@@ -623,6 +667,12 @@ type PostPage {
   How the posts are ranked, for the suggested posts; null for the other pages.
   """
   reason: String
+  """
+  Since v85.5.0 (contracts/advertising.md): the ad slots of this page, at most 1 per 12 posts, never first;
+  empty when none (switch ads.enabled off, a paid tier, a private universe, ads off in the universe…). Added
+  beside items, which keep only posts (expand only).
+  """
+  adSlots: [AdSlot!]!
 }
 
 """
@@ -919,11 +969,17 @@ type TextSpan {
   """
   start: Int!
   """
-  What a universe or a tag links to ("%paris/tourisme", "#sport"); null for the other kinds.
+  The address parameters kept of an address (since v86.0.0, contracts/text.md, D-261), keys sorted; empty when it
+  has none and for the kinds that are not addresses.
+  """
+  parameters: [AddressParameter!]!
+  """
+  What a universe, a tag or a playlist links to ("%paris/tourisme", "#sport", "@erin>journey"); null for the
+  other kinds.
   """
   target: String
   """
-  The identifier of the account it is about; null otherwise.
+  The identifier of the account it is about, or of the playlist (kind playlist); null otherwise.
   """
   targetId: ID
   """
@@ -950,6 +1006,7 @@ enum TextSpanKind {
   universe
   tag
   address
+  playlist
 }
 
 """
@@ -1056,4 +1113,301 @@ type Voice {
   Its URL.
   """
   url: String!
+}
+
+"""
+A post draft of the caller (drafts-and-scheduled-posts.feature, since v85.1.0): kept on the social platform
+for its account, the same on every device, seen by nobody else; checked as a post only when it is published.
+A scheduled post is a post draft whose publishAt is set.
+"""
+type PostDraft {
+  """
+  An announcement of the leadership, as createPost (since v85.3.0); false without it.
+  """
+  announcement: Boolean!
+  """
+  Its clip (uploaded with requestMediaUpload, VIDEO); null without one.
+  """
+  clip: Clip
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its post document (since v87.6.0, D-269), kept with the draft; null without one.
+  """
+  document: PostDocument
+  """
+  When it is deleted with its media: 90 days after its last change (updatedAt; scheduling is not a change) or after it became a post draft again (cancelled or failed), the later; null while it is a scheduled post.
+  """
+  deletedAt: AWSDateTime
+  """
+  Why its last publication failed (PostDraftFailure); null when none failed since its last change.
+  """
+  failure: PostDraftFailure
+  """
+  The identifier of the post draft.
+  """
+  id: ID!
+  """
+  Its images (uploaded with requestMediaUpload, IMAGE), in order; [] without any.
+  """
+  images: [Image!]!
+  """
+  The link whose preview the author accepted; null without one.
+  """
+  link: String
+  """
+  Its post place (since v85.3.0); null without one.
+  """
+  place: PostPlace
+  """
+  Its publication time: a scheduled post; null for a post draft that is not scheduled.
+  """
+  publishAt: AWSDateTime
+  """
+  Who can reply (since v85.3.0); null: the default of createPost.
+  """
+  replyPolicy: ReplyPolicy
+  """
+  Its post sources, in order; [] without any.
+  """
+  sources: [PostSource!]!
+  """
+  Its text; "" without one.
+  """
+  text: String!
+  """
+  Its target universe, a posting address; null: the personal space.
+  """
+  universe: String
+  """
+  When it was last changed.
+  """
+  updatedAt: AWSDateTime!
+  """
+  The name of the delegated agent that last changed it; null when its account did.
+  """
+  via: String
+}
+
+"""
+A post document (since v87.6.0, D-269, post-documents.feature): the one document a post or a quote may carry beside
+its text and its images, shown as a document card (title, format, size, the page count of a PDF document when
+known) that opens the document in the app. The rules of a course document (playlists.feature): a PDF document (20
+MB at most) or a markdown document (200 KB at most, contracts/text.md § Markdown document), uploaded with
+requestDocumentUpload without playlistId, its uploader confirming the right to share it, served once its malware
+scan and its media review are done, by a URL signed for the caller and valid 1 hour. No version: fixed once posted,
+like the images of the post (changePost keeps it). Deleted with its post (or post draft), unless kept as the
+evidence of a report.
+"""
+type PostDocument implements Document {
+  """
+  Its size, in bytes.
+  """
+  bytes: Int!
+  """
+  Its format.
+  """
+  format: DocumentFormat!
+  """
+  The number of pages of a PDF document, read by the malware scan; null when not known, and for a markdown document.
+  """
+  pageCount: Int
+  """
+  Where its file stands; a reader other than the author of the post sees READY only.
+  """
+  status: DocumentStatus!
+  """
+  Its title, 1 to 80 visible characters.
+  """
+  title: String!
+  """
+  When its file was uploaded.
+  """
+  updatedAt: AWSDateTime!
+  """
+  The URL of the file served, signed for the caller and valid 1 hour (urlExpiresAt); null when not READY.
+  """
+  url: String
+  """
+  When url stops working; null when url is null.
+  """
+  urlExpiresAt: AWSDateTime
+}
+
+"""
+A post document to attach (createPost, quote, PostDraftInput; since v87.6.0, D-269): uploadId (the id of
+requestDocumentUpload without playlistId: INVALID_REQUEST for a file uploaded for a course, or already attached);
+rightsConfirmed, true when the author confirms they have the right to share it (DOCUMENT_RIGHTS_REQUIRED otherwise,
+when posted); title, 1 to 80 visible characters (INVALID_REQUEST otherwise).
+"""
+input PostDocumentInput {
+  rightsConfirmed: Boolean!
+  title: String!
+  uploadId: ID!
+}
+
+"""
+Why a scheduled post was not posted at its publication time (since v85.1.0): the error code a createPost would
+have answered (contracts/errors.md, posting codes) and when.
+"""
+type PostDraftFailure {
+  """
+  When the publication failed.
+  """
+  at: AWSDateTime!
+  """
+  The error code, a posting code of contracts/errors.md.
+  """
+  code: String!
+}
+
+"""
+What a post draft holds (since v85.1.0): the whole draft wanted, nothing checked as a post before it is
+published but the bounds of a draft.
+"""
+input PostDraftInput {
+  """
+  An announcement of the leadership, as createPost (since v85.3.0).
+  """
+  announcement: Boolean
+  """
+  A video uploaded with requestMediaUpload (VIDEO); never with images.
+  """
+  clip: ID
+  """
+  Its post document (since v87.6.0, D-269), as createPost: never with a clip (POST_DOCUMENT_WITH_VIDEO when published).
+  """
+  document: PostDocumentInput
+  """
+  The images uploaded with requestMediaUpload (IMAGE).
+  """
+  images: [ImageAttachmentInput!]
+  """
+  The link whose preview the author accepted.
+  """
+  link: String
+  """
+  Its post place, as createPost (since v85.3.0); the placeId of a point of interest is accepted and kept (since
+  v86.3.0), so that a draft saved again keeps its point of interest.
+  """
+  place: PostPlaceInput
+  """
+  Who can reply, as createPost (since v85.3.0); none: the default of createPost.
+  """
+  replyPolicy: ReplyPolicy
+  """
+  Its post sources.
+  """
+  sources: [PostSourceInput!]
+  """
+  Its text.
+  """
+  text: String
+  """
+  A posting address; none: the personal space.
+  """
+  universe: String
+}
+
+"""
+A page of post drafts (since v85.1.0).
+"""
+type PostDraftPage {
+  """
+  The post drafts of the page.
+  """
+  items: [PostDraft!]!
+  """
+  The cursor of the next page; null on the last page.
+  """
+  next: String
+}
+
+"""
+A mask to add to a media of a posted post (since v92.0.0, D-284, maskPostMedia, report): an area, a rectangle
+(x, y, width, height from 0 to 1 of the image or the video frame) or a free area (points, 3 to 100, from 0 to 1),
+its kind, and, on a clip or a long video, its time range and its keyframes (2 to 20, each a time within the range
+and the area at that time; the area moves between them).
+"""
+input MediaMaskInput {
+  kind: MediaMaskKind!
+  rectangle: MaskRectangleInput
+  points: [PointFractionInput!]
+  startMs: Int
+  endMs: Int
+  keyframes: [MaskKeyframeInput!]
+}
+
+"""
+A rectangle of a mask, in fractions of the media (since v92.0.0).
+"""
+input MaskRectangleInput {
+  x: Float!
+  y: Float!
+  width: Float!
+  height: Float!
+}
+
+"""
+A point of a free area of a mask, in fractions of the media (since v92.0.0).
+"""
+input PointFractionInput {
+  x: Float!
+  y: Float!
+}
+
+"""
+A keyframe of a mask on a video (since v92.0.0): its time and the area at that time.
+"""
+input MaskKeyframeInput {
+  atMs: Int!
+  rectangle: MaskRectangleInput
+  points: [PointFractionInput!]
+}
+
+"""
+How a mask hides its area (since v92.0.0): BLUR, PIXELATION or SOLID_FILL, as the image masks of the media editor.
+"""
+enum MediaMaskKind {
+  BLUR
+  PIXELATION
+  SOLID_FILL
+}
+
+"""
+A mask request (since v92.0.0, D-284): a person shown in a media asks its author to hide an area (report with the
+reason SHOWS_ME); the author accepts (the mask is added) or declines it.
+"""
+type MaskRequest {
+  """
+  The identifier of the mask request.
+  """
+  id: ID!
+  """
+  The post.
+  """
+  postId: ID!
+  """
+  The image of the post, for an image; null for its clip or its long video.
+  """
+  imageId: ID
+  """
+  WAITING, ACCEPTED or DECLINED.
+  """
+  status: MaskRequestStatus!
+  """
+  When it was asked.
+  """
+  createdAt: AWSDateTime!
+}
+
+"""
+The state of a mask request (since v92.0.0).
+"""
+enum MaskRequestStatus {
+  ACCEPTED
+  DECLINED
+  WAITING
 }

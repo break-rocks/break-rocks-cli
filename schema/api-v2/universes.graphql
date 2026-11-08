@@ -114,7 +114,7 @@ enum DebateClosedBy {
 """
 A debate of a public universe (debates.feature; contracts/living-universes.md § Debates): an
 ephemeral channel ("address": "%paris&quiet-nights"), read by everyone, written by the residents
-with the operations of the channels. WAITING_SUPPORT: asked for by a resident ("opensAt": the
+with the operations of the channels. WAITING_SUPPORT: proposed by a resident (asked for, until v101.0.0) ("opensAt": the
 request, which expires 24 hours later since v81.0.0; "support": the supporters needed); CLOSED: read-only, its
 messages until "endsAt" + 24 hours; "summary": the debate summary once posted; "summaryAnswer":
 the leadership's (APPROVED, DECLINED) once given.
@@ -753,6 +753,12 @@ private universe of the first level.
 """
 type Universe {
   """
+  Since v85.5.0 (contracts/advertising.md): whether ads are shown in this public universe (on by default once
+  its territory is open; turned off or on by a proposal ADVERTISING); false for a private universe, a universe
+  declared as an association or an open-source project, and an adult-only universe.
+  """
+  adsEnabled: Boolean!
+  """
   Agents forbidden for posts (since v81.8.0, D-232: universe-agent-posts.feature): whether delegated agents
   are refused (UNIVERSE_AGENTS_FORBIDDEN) when they post, reply, quote or repost in this universe; the setting
   of its universe of the first level (a public universe) or of its private universe, for the whole tree
@@ -964,6 +970,11 @@ type Universe {
   """
   themeHeldVersion: Int
   """
+  Since v85.7.0: the version its default layout is frozen at after restoreUniverseLayout; null: it follows the
+  latest version of its default layout (followLayoutUpdates, or setting the default layout again, clears it).
+  """
+  layoutHeldVersion: Int
+  """
   The caller's join request waiting (a non-member), or null.
   """
   myJoinRequest: MyJoinRequest
@@ -1096,6 +1107,12 @@ type Universe {
   """
   switcherLayouts: [LayoutRef!]!
   """
+  The tag conventions of its showcase (since v101.1.0, universe-tags.feature): at most 10 free tags in their
+  canonical form, in their order, set by setUniverseTagConventions or a proposal of kind SHOWCASE; empty when
+  none, and always for a private universe.
+  """
+  tagConventions: [String!]!
+  """
   Its universe territory (contracts/map.md § The universe territory, since v49.8.0): a boundary or
   a circle of a public universe of the first level, of any field; null for a private universe and
   the root universe, and for a sub-universe but one of the field "places" that had it before v49.4.0.
@@ -1136,6 +1153,12 @@ type Universe {
   The universe its watermark comes from; null when its own or none.
   """
   watermarkOf: String
+  """
+  Its universe playlists the caller can read (since v86.0.0, playlists.feature), the pinned first (3 at most),
+  then the most recently changed. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next
+  of the page before.
+  """
+  playlists(after: String, limit: Int): PlaylistPage
 }
 
 """
@@ -1259,7 +1282,7 @@ type UniverseEvent {
   """
   createdAt: AWSDateTime!
   """
-  Who created it or asked for it, as shown.
+  Who created it or proposed it, as shown.
   """
   createdBy: AccountRef!
   """
@@ -1290,6 +1313,11 @@ type UniverseEvent {
   """
   route: Route
   """
+  The route object it carries (since v92.1.0, routes.feature), whose line is "route"; null when its route was drawn
+  for it, or none.
+  """
+  routeId: ID
+  """
   When it starts.
   """
   startsAt: AWSDateTime!
@@ -1317,6 +1345,25 @@ type UniverseEvent {
   Its zone, its point hidden until revealed; null when it has a point or none.
   """
   zone: Zone
+  """
+  Its free tags, 1 to 5 (since v101.0.0, D-300, universe-tags.feature), in their canonical form; empty for an
+  event created before v101.0.0.
+  """
+  tags: [String!]!
+  """
+  Its event discussion (since v101.0.0, D-300): from 48 hours before its start, while open and once closed; null
+  before it opens, and when its author turned it off.
+  """
+  discussion: UniverseDiscussion
+  """
+  Whether its author turned its event discussion off (since v101.0.0); false by default.
+  """
+  discussionOff: Boolean!
+  """
+  The address of the universe discussion it was proposed from with "/event" (since v101.0.0,
+  slash-commands.feature), where its creation is told; null otherwise.
+  """
+  fromDiscussion: String
 }
 
 """
@@ -1334,7 +1381,20 @@ input UniverseEventChangeInput {
   point: PointInput
   zone: ZoneInput
   route: RouteInput
+  """
+  Since v92.1.0: a route of its universe or of its creator, readable by its attendees, in place of route
+  (ROUTE_NOT_FOUND; both: INVALID_REQUEST).
+  """
+  routeId: ID
   clear: [UniverseEventPart!]
+  """
+  Since v101.0.0: its free tags, 1 to 5, replacing them (FREE_TAGS_REQUIRED, FREE_TAGS_TOO_MANY, TAG_INVALID).
+  """
+  tags: [String!]
+  """
+  Since v101.0.0: false turns its event discussion off, true back on, until it opens (EVENT_DISCUSSION_OPEN after).
+  """
+  discussion: Boolean
 }
 
 """
@@ -1351,6 +1411,24 @@ input UniverseEventInput {
   point: PointInput
   zone: ZoneInput
   route: RouteInput
+  """
+  Since v92.1.0: a route of its universe or of its creator, readable by its attendees, in place of route
+  (ROUTE_NOT_FOUND; both: INVALID_REQUEST).
+  """
+  routeId: ID
+  """
+  Since v101.0.0 (D-300): its free tags, 1 to 5, required (FREE_TAGS_REQUIRED, FREE_TAGS_TOO_MANY, TAG_INVALID).
+  """
+  tags: [String!]
+  """
+  Since v101.0.0: false turns its event discussion off (true when not given).
+  """
+  discussion: Boolean
+  """
+  Since v101.0.0: the id of the universe discussion of the same universe it is proposed from with "/event", where its
+  creation is told (CHANNEL_NOT_FOUND).
+  """
+  fromDiscussion: ID
 }
 
 """
@@ -1458,6 +1536,12 @@ type UniverseGovernance {
   When it reaches the next level; null when not under way.
   """
   nextLevelAt: AWSDateTime
+  """
+  The number of residents the next level needs (since v88.0.0, D-273: the governance level gauge, "village → town
+  at 1,000 residents"): 50, 1,000, 10,000 or 100,000; null at the federation. Once the residents reach it,
+  nextLevelAt tells the date of the passage.
+  """
+  nextLevelThreshold: Int
   """
   The number of residents.
   """
@@ -1988,6 +2072,11 @@ type UniverseDiscussion {
   """
   closesWhenEmpty: Boolean!
   """
+  What closed it, once CLOSED (TEMPORARY, and GONE after it was open); null while it waits for support or is
+  open, and for PERMANENT (since v85.6.0, as the deprecated Debate.closedBy).
+  """
+  closedBy: UniverseDiscussionClosedBy
+  """
   When it ends at the latest: its duration for origin GOVERNANCE, 7 days after it opened for origin
   RESIDENT_PROPOSAL (earlier when it has no message left); null for PERMANENT.
   """
@@ -2031,8 +2120,8 @@ type UniverseDiscussion {
   origin GOVERNANCE (from 3,600 to its duration, 3,600 by default). Since v83.0.0 (D-245), filled for PERMANENT
   too: "&general" of a public universe by the number of residents of its universe now (D-225: 604,800 below 50,
   259,200 below 1,000, 86,400 below 100,000, 21,600 from 100,000; a message keeps the lifetime of its sending);
-  another public channel 604,800; a channel of a private universe its channel message retention. Null only while
-  it waits for support.
+  another public channel 604,800; a channel of a private universe its channel message retention. Since v101.0.0,
+  origin EVENT and PROPOSAL: 604,800, as a public channel. Null only while it waits for support.
   """
   messageTtlSeconds: Int
   """
@@ -2073,7 +2162,7 @@ type UniverseDiscussion {
   """
   opensAt: AWSDateTime
   """
-  GOVERNANCE or RESIDENT_PROPOSAL for TEMPORARY; null for PERMANENT.
+  GOVERNANCE, RESIDENT_PROPOSAL, EVENT or PROPOSAL (since v101.0.0) for TEMPORARY; null for PERMANENT.
   """
   origin: UniverseDiscussionOrigin
   """
@@ -2102,6 +2191,17 @@ type UniverseDiscussion {
   """
   summary: Post
   """
+  The answer of the leadership to its summary (answerUniverseDiscussionSummary); null before (since v85.6.0, as
+  the deprecated Debate.summaryAnswer).
+  """
+  summaryAnswer: DebateSummaryAnswer
+  """
+  Its final summary before it is posted, to the leadership of its universe only (null for others): from the end
+  until the leadership answers it (answerUniverseDiscussionSummary) or it is posted 24 hours after the end; null
+  without a summary (below "village", no message) (since v85.6.0, as the deprecated Debate.summaryDraft).
+  """
+  summaryDraft: Summary
+  """
   Its support while it waits for it ("needed" computed by the server); null otherwise.
   """
   support: ProposalSupport
@@ -2117,6 +2217,74 @@ type UniverseDiscussion {
   The unread messages or items (since v81.3.0).
   """
   unread: Int!
+  """
+  Its stance gauge (since v88.0.0, D-276, TEMPORARY): null for PERMANENT, and while fewer than 5 residents (the
+  default, set by the platform team) have a latest stance FOR or AGAINST in it; kept, read only, once CLOSED.
+  Live by the event discussion.scores (contracts/realtime.md).
+  """
+  stanceGauge: StanceGauge
+  """
+  The most recent proposal filed from it ("Propose a decision", since v88.1.0, TEMPORARY): shown "became a vote"
+  once its vote is open, with its result once decided; null when none, and while its vote is not open.
+  """
+  decisionProposal: Proposal
+  """
+  Its last message the caller may read (since v101.0.0, D-300, discussion-activity.feature), joined or not,
+  permanent or temporary: a message of an account the caller blocked, or that blocked the caller, passed over for
+  the one before; null when it has none the caller may read.
+  """
+  lastMessage: Message
+  """
+  The universe event of an event discussion (origin EVENT, since v101.0.0, D-300); null otherwise.
+  """
+  event: UniverseEvent
+  """
+  The proposal of a proposal discussion (origin PROPOSAL, since v101.0.0, D-300); null otherwise.
+  """
+  proposal: Proposal
+  """
+  The place of a placed channel (since v101.0.0, D-300, public-channels.feature): a point or a zone, set by the
+  leadership (setUniverseDiscussionPlace) or by a channel proposal (ChannelProposalAction PLACE); null when it has
+  none, and always for a channel of a private universe and a temporary universe discussion.
+  """
+  place: ChannelPlace
+  """
+  Whether the caller pinned it for itself (since v101.0.0, D-302, setUniverseDiscussionPinnedByMe).
+  """
+  pinnedByMe: Boolean!
+}
+
+"""
+The place of a placed channel (since v101.0.0, D-300): its name, and a point or a zone (a zone of a channel hides
+no place: its point is never set).
+"""
+type ChannelPlace {
+  """
+  The name of the place, 1 to 100 visible characters.
+  """
+  name: String!
+  """
+  Its point; null with a zone.
+  """
+  point: Point
+  """
+  Its zone; null with a point.
+  """
+  zone: Zone
+}
+
+"""
+What closed a temporary universe discussion (since v85.6.0): END (its duration came, or 7 days for origin
+RESIDENT_PROPOSAL), EMPTY (origin RESIDENT_PROPOSAL, no message left after "minOpenUntil"), LEADERSHIP (closed
+early by the leadership), OPENER (closed early by the resident who proposed it), LEVEL (its universe went below
+the village).
+"""
+enum UniverseDiscussionClosedBy {
+  EMPTY
+  END
+  LEADERSHIP
+  LEVEL
+  OPENER
 }
 
 """
@@ -2129,11 +2297,16 @@ enum UniverseDiscussionLifetime {
 }
 
 """
-Who started a temporary universe discussion: GOVERNANCE (opened at once) or RESIDENT_PROPOSAL (opened at its
-support).
+Who started a temporary universe discussion: GOVERNANCE (opened at once), RESIDENT_PROPOSAL (a topic proposal,
+opened at its support), since v101.0.0 (D-300) EVENT (an event discussion, opened by the social platform 48 hours
+before the start of its universe event, closed 24 hours after its end) and PROPOSAL (a proposal discussion, opened
+by the social platform when its proposal is filed, closed when its vote ends, or when it is withdrawn or expires);
+EVENT and PROPOSAL do not count toward the cap of open temporary universe discussions.
 """
 enum UniverseDiscussionOrigin {
+  EVENT
   GOVERNANCE
+  PROPOSAL
   RESIDENT_PROPOSAL
 }
 
@@ -2212,4 +2385,41 @@ type UniverseDiscussionList {
   a public universe).
   """
   membersCreate: Boolean!
+}
+
+"""
+An object of the view of a universe and a tag (since v101.1.0, universeTagView): one of its universe event, its
+proposal or its universe route, the two others null, each served as its own read serves it.
+"""
+type UniverseTagObject {
+  """
+  When the object was created; orders the view, the newest first.
+  """
+  createdAt: AWSDateTime!
+  """
+  The universe route; null for another object.
+  """
+  mapRoute: MapRoute
+  """
+  The proposal; null for another object.
+  """
+  proposal: Proposal
+  """
+  The universe event; null for another object.
+  """
+  universeEvent: UniverseEvent
+}
+
+"""
+A page of the view of a universe and a tag, the newest created first (since v101.1.0).
+"""
+type UniverseTagObjectPage {
+  """
+  The objects of the page.
+  """
+  items: [UniverseTagObject!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
 }
