@@ -374,8 +374,9 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
 | `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
 | `channels leave` | Leave a channel (leaveUniverseDiscussion) | `breakrocks channels leave %paris&velo` |
-| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
-| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris&velo --json` |
+| `channels send` | Send a message in a channel or a universe discussion, with its media (sendMessage; --stance in a temporary one) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
+| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message; --top: the best contributions first) | `breakrocks channels read %paris&velo --json` |
+| `channels levels` | The levels where a channel proposal may open a channel in a public universe of the first level: the universe and its public sub-universes (channelProposalLevels) | `breakrocks channels levels %paris` |
 | `inbox` | The conversations and group chats, the unread first (--unread; --watch) | `breakrocks inbox` |
 | `dm` | Send a direct message: text, images or a clip, a link (sendMessage) | `breakrocks dm @alice "Hello!"` |
 | `dm read` | The conversation with an account (--since, --all; --watch: each new message) | `breakrocks dm read @alice` |
@@ -408,6 +409,18 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions list` | The universe discussions of a universe: present now, unread, mentions, silence, retention (universeDiscussions; --all-levels: of its sub-universes too) | `breakrocks discussions list %paris` |
 | `discussions show` | A universe discussion: its state, who reads it now, unread, mentions, silence, how long its messages are kept (universeDiscussion) | `breakrocks discussions show %paris&general` |
 | `discussions unread` | The universe discussions with unread messages, across the universes of the account, the latest message first (myUnreadDiscussions) | `breakrocks discussions unread` |
+| `discussions pin` | Pin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions pin %paris&velo` |
+| `discussions unpin` | Unpin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions unpin %paris&velo` |
+| `discussions place set` | Set or change the place of a public channel: a point or a zone, with its name, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place set %paris&canal --point 48.8721,2.3654 --name "Canal Saint-Martin"` |
+| `discussions place remove` | Remove the place of a public channel, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place remove %paris&canal` |
+| `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
+| `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
+| `messages ignore-mention` | Ignore a universe discussion of the Mentions row, until a later message mentions you there (ignoreDiscussionMention) | `breakrocks messages ignore-mention %paris&general` |
+| `messages remove-discussion` | Remove a universe discussion from the Universes section of Messages without leaving it; it comes back when you write or join (removeDiscussionFromMessages) | `breakrocks messages remove-discussion %paris&general` |
+| `messages block-universe` | Block a universe in Messages: none of its discussions in the Universes section nor the Mentions row, its mentions no longer notify; you still read and write there (setUniverseBlockedInMessages) | `breakrocks messages block-universe %paris` |
+| `messages unblock-universe` | Lift the block of a universe in Messages (setUniverseBlockedInMessages) | `breakrocks messages unblock-universe %paris` |
+| `messages vote` | Give your contribution vote, UP or DOWN, to a message of an open temporary universe discussion (voteOnContribution; a human acting itself only) | `breakrocks messages vote <message id> UP` |
+| `messages unvote` | Withdraw your contribution vote from a message (withdrawContributionVote) | `breakrocks messages unvote <message id>` |
 | `messages react` | React to a message of a universe discussion with one emoji (reactToMessage; adding it again changes nothing) | `breakrocks messages react <message id> 👍` |
 | `messages unreact` | Remove your reaction from a message of a universe discussion (unreactToMessage; one you did not add: nothing changes) | `breakrocks messages unreact <message id> 👍` |
 | `messages thread` | The thread replies of a message of a universe discussion, the oldest first (threadMessages; --all) | `breakrocks messages thread <message id>` |

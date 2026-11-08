@@ -53,12 +53,12 @@ export const inbox: Command<{ unread?: boolean; after?: string; all?: boolean; m
 };
 
 /** Sends a message with its media in [to] (sendMessage); its requestId (a UUIDv7) makes it once, and its id is <cell>-<requestId>. */
-async function sendTo(ctx: Context, to: Discussion, i: ComposeInput & { respondsTo?: string; unblock?: boolean }, operation: string, shown: Record<string, unknown>) {
+async function sendTo(ctx: Context, to: Discussion, i: ComposeInput & { respondsTo?: string; unblock?: boolean; stance?: string }, operation: string, shown: Record<string, unknown>) {
   const p = await plan(ctx, i);
-  if (i.dryRun) return dryRunOf(p, { operation, ...shown });
+  if (i.dryRun) return dryRunOf(p, { operation, ...shown, ...(i.stance ? { stance: i.stance } : {}) });
   const destination = 'accountId' in to ? 'DIRECT_MESSAGE' : 'groupChatId' in to ? 'GROUP_MESSAGE' : 'CHANNEL_MESSAGE';
   const media = await sendMedia(ctx, p, { destination });
-  const input = { to, text: p.text, link: p.link ?? null, respondsTo: i.respondsTo ?? null, ...(i.unblock !== undefined ? { unblock: i.unblock } : {}), images: media.images ?? null, clip: media.clip ?? null };
+  const input = { to, text: p.text, link: p.link ?? null, respondsTo: i.respondsTo ?? null, ...(i.unblock !== undefined ? { unblock: i.unblock } : {}), ...(i.stance ? { stance: i.stance } : {}), images: media.images ?? null, clip: media.clip ?? null };
   return whileProcessing(ctx, async () => (await api<{ sendMessage: unknown }>(ctx, `mutation($input: SendMessageInput!, $requestId: ID!) { sendMessage(input: $input, requestId: $requestId) ${MESSAGE} }`, { input, requestId: p.requestId })).sendMessage, wait(p));
 }
 
@@ -75,7 +75,7 @@ export const dm: Command<DmInput, unknown> = {
   quiet: (r) => (r as { id?: string }).id,
 };
 
-type ReadInput = { since?: string; after?: string; all?: boolean; max?: number; limit?: number } & WatchInput;
+type ReadInput = { since?: string; after?: string; all?: boolean; max?: number; limit?: number; top?: boolean } & WatchInput;
 const readProps = { since: str('Only the messages after this: a duration (2h, 30m, 7d) or a date'), after: str('The cursor of the next page'), limit: int('Messages per page', { minimum: 1, maximum: 100 }), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES };
 
 /** Pages of messages (newest first), --since applied. */
@@ -93,7 +93,8 @@ async function readMessages<T extends Item>(ctx: Context, read: (after: string |
 
 /** The messages of a discussion (messages), --watch in real time: the account's channel, or the lease of a channel (watch). */
 async function readDiscussion(ctx: Context, discussion: Discussion, i: ReadInput) {
-  const read = async (after: string | null) => (await api<{ messages: Page<Item> }>(ctx, `query($d: DiscussionRefInput!, $after: String, $limit: Int) { messages(discussion: $d, after: $after, limit: $limit) ${MESSAGE_PAGE} }`, { d: discussion, after, limit: i.limit ?? null })).messages;
+  const read = async (after: string | null) => (await api<{ messages: Page<Item> }>(ctx, `query($d: DiscussionRefInput!, $after: String, $limit: Int${i.top ? ', $order: MessageOrder' : ''}) { messages(discussion: $d, after: $after, limit: $limit${i.top ? ', order: $order' : ''}) ${MESSAGE_PAGE} }`, { d: discussion, after, limit: i.limit ?? null, ...(i.top ? { order: 'TOP' } : {}) })).messages;
+  if (i.top && (i.watch || i.since)) throw usageError('INVALID_INPUT', '--top reads the best contributions first: without --watch nor --since');
   if (i.watch) {
     const live = 'channel' in discussion
       ? liveOf(ctx, { channel: discussion.channel }, ['discussion.message', 'discussion.messages'])
@@ -200,15 +201,15 @@ export const groupsDecline = apiCommand({ name: 'groups decline', summary: 'Decl
 
 // The channels of a universe: their messages are those of a discussion { channel }.
 const ch = { channel: 'The channel (%universe&name)' };
-export const channelsSend: Command<ComposeInput & { channel: string; respondsTo?: string }, unknown> = {
-  name: 'channels send', summary: 'Send a message in a channel, with its media (sendMessage)', examples: ['breakrocks channels send %paris&velo "See you at 6 pm"'],
-  input: object({ channel: str(ch.channel), ...composeProps, ...messageRequestId, respondsTo: str('The message answered') }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
+export const channelsSend: Command<ComposeInput & { channel: string; respondsTo?: string; stance?: string }, unknown> = {
+  name: 'channels send', summary: 'Send a message in a channel or a universe discussion, with its media (sendMessage; --stance in a temporary one)', examples: ['breakrocks channels send %paris&velo "See you at 6 pm"', 'breakrocks channels send %paris&budget "Too expensive" --stance AGAINST'],
+  input: object({ channel: str(ch.channel), ...composeProps, ...messageRequestId, respondsTo: str('The message answered'), stance: str('The stance of a contribution in a temporary universe discussion: FOR, AGAINST or QUESTION (STANCE_NOT_ALLOWED elsewhere)', { enum: ['FOR', 'AGAINST', 'QUESTION'] }) }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { channel: i.channel }, i, 'sendMessage', { channel: i.channel }),
   quiet: (r) => (r as { id?: string }).id,
 };
 export const channelsRead: Command<{ channel: string } & ReadInput, unknown> = {
-  name: 'channels read', summary: 'The messages of a channel (--since, --all; --watch: its lease, then each new message)', examples: ['breakrocks channels read %paris&velo --json', 'breakrocks channels read %team-fra.&general --watch --jsonl'],
-  input: object({ channel: str(ch.channel), ...readProps }, ['channel']), output: outputSchema('MessagePage', 2), args: { positionals: ['channel'] },
+  name: 'channels read', summary: 'The messages of a channel (--since, --all; --watch: its lease, then each new message; --top: the best contributions first)', examples: ['breakrocks channels read %paris&velo --json', 'breakrocks channels read %team-fra.&general --watch --jsonl', 'breakrocks channels read %paris&budget --top'],
+  input: object({ channel: str(ch.channel), ...readProps, top: bool('The highest contribution score first (order TOP; a temporary universe discussion only: MESSAGE_ORDER_NOT_ALLOWED elsewhere)') }, ['channel']), output: outputSchema('MessagePage', 2), args: { positionals: ['channel'] },
   run: async (ctx, i) => readDiscussion(ctx, { channel: i.channel }, i),
 };
 
