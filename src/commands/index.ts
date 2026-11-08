@@ -28,6 +28,7 @@ import * as drafts from './drafts.js';
 import * as playlists from './playlists.js';
 import * as routes from './routes.js';
 import * as map from './map.js';
+import * as appearance from './appearance.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -75,6 +76,8 @@ register(
   disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
   themesList, themesShow,
   gallery.themesGallery, gallery.universesAppearanceHistory, gallery.universesAppearanceRestore,
+  appearance.appearanceLooks, appearance.appearancePalette, appearance.appearanceBuild, appearance.appearanceApply,
+  appearance.universesTagsConventions, appearance.universesTagsSuggestions, appearance.universesTagsView,
   history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themePersonalSet, themePersonalClear, themeExport, themeShots, themeDelete,
