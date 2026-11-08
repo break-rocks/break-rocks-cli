@@ -141,11 +141,11 @@ describe('breakrocks __complete', () => {
     const ctx = new Context(h.io, NO_FLAGS);
     rememberUse(ctx, findCommand(['theme', 'publish'])!.command, { file: 'theme.json', in: '%paris' }, { theme: { universe: '%paris', name: 'stade-nuit' }, uploads: [], warnings: 0 });
     rememberUse(ctx, findCommand(['layouts', 'publish'])!.command, { document: '{}', in: '%paris' }, { universe: '%paris', name: 'agora' });
-    expect(await run(h, 'theme', 'try', '')).toEqual(['%paris/stade-nuit']);
+    expect(await run(h, 'themes', 'show', '')).toEqual(['%paris/stade-nuit']);
     expect(await run(h, 'layouts', 'show', '%p')).toEqual(['%paris/agora']);
     expect(await run(h, 'universes', 'show', '')).toEqual(['%paris']);
     rememberUse(ctx, findCommand(['theme', 'delete'])!.command, { theme: '%paris/stade-nuit' }, {});
-    expect(await run(h, 'theme', 'try', '')).toEqual([]);
+    expect(await run(h, 'themes', 'show', '')).toEqual([]);
   });
 });
 

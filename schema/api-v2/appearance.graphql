@@ -27,10 +27,13 @@ type AppliedLayout {
 
 """
 Where the layout that applies comes from: the layout switcher of the device, the universe (its default layout,
-its own or of a universe above: "of"), its field ("of": the field), the platform ("feed first").
+its own or of a universe above: "of"), its field ("of": the field), the platform ("feed first"), or, since
+v86.3.0, a gallery trial of the account on that universe (GALLERY_TRIAL). A client shows an unknown source as
+UNIVERSE.
 """
 enum AppliedLayoutSource {
   FIELD
+  GALLERY_TRIAL
   PLATFORM
   SWITCHER
   UNIVERSE
@@ -65,6 +68,11 @@ A draft preview (since v54.0.0): the studio draft of a theme served to its autho
 hours, as a trial.
 """
 type DraftPreview {
+  """
+  The layout of the block "appearance" of the studio draft, applied for its author during the preview (since
+  v96.0.0, D-289); null when the draft carries none.
+  """
+  layout: String
   """
   Its document (JSON), as published.
   """
@@ -144,6 +152,10 @@ type Layout {
   The number of universes that use it.
   """
   universeCount: Int!
+  """
+  Since v85.7.0 (theme-gallery.feature): whether the caller starred it (starLayout).
+  """
+  starred: Boolean!
   """
   When it was last updated.
   """
@@ -421,12 +433,15 @@ enum PageOfUniverseKind {
 }
 
 """
-The personal theme of an account (personal-theme.feature): "theme" the one shown now (tried,
+The personal theme of an account (display.feature): "theme" the one shown now (tried,
 chosen, or Socle; a removed theme: Socle); while a try lasts (until "tryEndsAt", 24 hours),
 "triedTheme" and "formerTheme" (the one that comes back); the display mode (night while never
 chosen), "deviceDisplayMode" the one of the calling device (the header "x-device-id" when read
 as Account.personalTheme; the argument "device" of setPersonalTheme), "deviceDisplayModes" all;
-the accent as chosen and raised to AA against the night and day backgrounds of its theme.
+the accent as chosen and raised to AA against the night and day backgrounds of its theme. Since v96.0.0
+(D-289, display.feature) the apps read only the display settings of Me › Display (displayMode, the device
+display modes, accent, textScale, density, motion, sounds, readableTypeface): no personal theme ("theme" is
+Socle), no try, no "my theme everywhere", no post transparency.
 """
 type PersonalTheme {
   """
@@ -460,7 +475,7 @@ type PersonalTheme {
   """
   While a try lasts, the theme that comes back; null otherwise.
   """
-  formerTheme: ThemeRef
+  formerTheme: ThemeRef @deprecated(reason: "No personal theme since v96.0.0 (D-289).")
   """
   The motion.
   """
@@ -468,11 +483,11 @@ type PersonalTheme {
   """
   Whether the personal theme replaces the universe themes everywhere.
   """
-  myThemeEverywhere: Boolean!
+  myThemeEverywhere: Boolean! @deprecated(reason: "Withdrawn since v96.0.0 (D-289).")
   """
   The transparency of the posts.
   """
-  postTransparency: PostTransparency!
+  postTransparency: PostTransparency! @deprecated(reason: "Withdrawn since v96.0.0 (D-289).")
   """
   Whether a readable typeface replaces the typefaces of the themes.
   """
@@ -480,7 +495,7 @@ type PersonalTheme {
   """
   The number of personal themes saved.
   """
-  savedCount: Int!
+  savedCount: Int! @deprecated(reason: "No personal theme since v96.0.0 (D-289).")
   """
   Whether the sounds are on.
   """
@@ -492,20 +507,24 @@ type PersonalTheme {
   """
   The theme.
   """
-  theme: ThemeRef!
+  theme: ThemeRef! @deprecated(reason: "No personal theme since v96.0.0 (D-289): Socle with the accent.")
   """
   The theme tried; null when no try lasts.
   """
-  triedTheme: ThemeRef
+  triedTheme: ThemeRef @deprecated(reason: "No personal theme since v96.0.0 (D-289).")
   """
   When the try ends (24 hours); null when no try lasts.
   """
-  tryEndsAt: AWSDateTime
+  tryEndsAt: AWSDateTime @deprecated(reason: "No personal theme since v96.0.0 (D-289).")
 }
 
 """
 The personal theme to change (setPersonalTheme); a field not given stays. device: the device whose display
-mode is set (deviceDisplayMode). clear removes a part.
+mode is set (deviceDisplayMode). clear removes a part. Since v96.0.0 (D-289): accent is "#RRGGBB" (the apps
+send one of the colors of "My accent": Slate #3F4752, Forest #1F6B45, Lagoon #11707A, Aubergine #5A2E5E,
+Brick #A8432C) or "universe", the accent of the universe visited, the default of an account that never chose
+one; theme, myThemeEverywhere and
+postTransparency are no longer sent by the apps.
 """
 input PersonalThemeInput {
   theme: ThemeRefInput
@@ -533,7 +552,7 @@ enum PersonalThemePart {
 }
 
 """
-The post transparency of a personal theme (since v54.0.0, personal-theme.feature): OPAQUE (100), THEME (the
+The post transparency of a personal theme (since v54.0.0, display.feature): OPAQUE (100), THEME (the
 default), MORE (20 points less), LIQUID (40 points less).
 """
 enum PostTransparency {
@@ -666,7 +685,7 @@ enum StudioDraftKind {
 }
 
 """
-What a theme draft on trial or in preview serves after a save (since v54.0.0, theme-studio.feature):
+What a theme draft on trial or in preview serves after a save (since v54.0.0; customize-universe.feature since v96.0.0):
 "version" the one served now; "kept" when the save was refused by the validation of a publication
 ("refusal": its error code), the readers keeping the last valid version.
 """
@@ -956,7 +975,7 @@ type ThemeImages {
   """
   Its texture.
   """
-  texture: ThemeImage
+  texture: ThemeImage @deprecated(reason: "The card texture is withdrawn since v99.0.0 (D-293): a post has no card.")
   """
   Its wordmark.
   """
@@ -970,11 +989,11 @@ type ThemeImageSlots {
   """
   The texture of the cards.
   """
-  cardTexture: ThemeImage
+  cardTexture: ThemeImage @deprecated(reason: "Withdrawn since v99.0.0 (D-293): a post has no card; ignored since v96.0.0.")
   """
   The header of the channels.
   """
-  channelHeader: ThemeImage
+  channelHeader: ThemeImage @deprecated(reason: "Withdrawn since v99.0.0 (D-293): the image slots are page and pageHeader; ignored since v96.0.0.")
   """
   The page.
   """
@@ -986,7 +1005,7 @@ type ThemeImageSlots {
   """
   The background of the time column.
   """
-  timeColumn: ThemeImage
+  timeColumn: ThemeImage @deprecated(reason: "Withdrawn since v99.0.0 (D-293): the image slots are page and pageHeader; ignored since v96.0.0.")
 }
 
 """
@@ -1050,9 +1069,9 @@ The typefaces of a theme: its title typeface and its accent typeface.
 """
 type ThemeTypography {
   """
-  The accent color.
+  The accent typeface.
   """
-  accent: String
+  accent: String @deprecated(reason: "Merged with the title typeface since v99.0.0 (D-293).")
   """
   Its title.
   """
@@ -1110,6 +1129,11 @@ theme object (format 2, its scrims and text scrims computed) with "imageMeta" (t
 images by upload id); "version" changes at each valid save (the key of the caches).
 """
 type UniverseThemeTrial {
+  """
+  The layout of the block "appearance" of the studio draft, applied to every reader during the trial (since
+  v96.0.0, D-289); null when the draft carries none.
+  """
+  layout: String
   """
   Its document (JSON), as published.
   """
@@ -1287,4 +1311,363 @@ type UniverseThemeRestore {
   The proposal filed; null when set at once.
   """
   proposal: Proposal
+}
+
+"""
+An entry of the universe layout history (since v85.7.0, theme-gallery.feature): a default layout the universe
+had, at the version it had, the most recent first, kept one year.
+"""
+type UniverseLayoutHistoryEntry {
+  """
+  The identifier of the entry (restoreUniverseLayout).
+  """
+  id: ID!
+  """
+  The layout and its version then.
+  """
+  layout: LayoutRef!
+  """
+  When it became the default layout.
+  """
+  setAt: AWSDateTime!
+  """
+  When it stopped being the default layout; null for the current one.
+  """
+  endedAt: AWSDateTime
+  """
+  Whether it can be restored (false: removed by the moderation, deleted, or no longer readable).
+  """
+  restorable: Boolean!
+}
+
+"""
+A page of the universe layout history.
+"""
+type UniverseLayoutHistoryPage {
+  """
+  The entries of this page.
+  """
+  items: [UniverseLayoutHistoryEntry!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+What restoreUniverseLayout or followLayoutUpdates made (since v85.7.0): the universe, its default layout held
+at the version restored, or the proposal filed when the universe has no leadership (null when set at once).
+"""
+type UniverseLayoutRestore {
+  """
+  The universe.
+  """
+  universe: Universe
+  """
+  The proposal filed; null when set at once.
+  """
+  proposal: Proposal
+}
+
+"""
+The appearance editor (since v87.4.0, D-267, customize-universe.feature; contracts/themes.md § Customize): its three gestures (one image with its focal point and its subtle background, one accent color, one
+appearance character) and its options (the logo, the watermark), read by buildUniverseAppearance and
+applyUniverseAppearance. imageId: an image uploaded with requestMediaUpload (IMAGE, destination THEME), JPEG,
+PNG or WebP, at least 1,500 × 500 pixels (APPEARANCE_IMAGE_INVALID; IMAGE_NOT_FOUND, IMAGE_NOT_READY,
+THEME_IMAGE_TOO_LARGE); null: no image, a flat universe sky. focalPoint: { 0.5, 0.5 } by default. ground: the
+subtle background, false by default. accent: "#RRGGBB" (APPEARANCE_ACCENT_INVALID); null: the proposed accent of
+the image, or without an image the primary of the default colors of the universe. character: PLACE by
+default. logo, clear (LOGO): as setUniverseIdentity (UNIVERSE_LOGO_TOO_SMALL); ignored by
+buildUniverseAppearance, which builds the theme only. watermark and clear WATERMARK: ignored since v96.0.0
+(D-289, the watermark is gone). layout (since v96.0.0): the default layout the appearance sets, "feed-first",
+"village-square" or "hud" (UNIVERSE_LAYOUT_NOT_OFFERED otherwise); null: unchanged; carried in the block
+"appearance" of the document, so that a trial and a draft preview apply it too. ground: true by default since
+v96.0.0 (the subtle background); deprecated since v99.1.0, read only when imageShows is null (true reads SUBTLE,
+false reads NONE). imageShows (since v99.1.0, D-293, contracts/themes.md): how the image shows, NONE, SUBTLE
+or THROUGH; null: ground as above, else SUBTLE; carried in the block "appearance" of the document as
+"imageShows" ("none", "subtle", "through"). With an image, the publication computes the readability mask
+("scrims.mask" of the document, contracts/themes.md).
+"""
+input UniverseAppearanceInput {
+  imageId: ID
+  focalPoint: FocalPointInput
+  ground: Boolean
+  imageShows: ImageShows
+  accent: String
+  character: AppearanceCharacter
+  logo: ImageAttachmentInput
+  watermark: WatermarkSettingInput
+  clear: [UniverseIdentityPart!]
+  layout: String
+}
+
+"""
+How the image of an appearance shows (since v99.1.0, D-293; contracts/themes.md § How the image of an appearance
+shows): NONE, the slot page empty; SUBTLE, the subtle background (the slot page behind the page on a tablet and a
+desktop, the default; the page over it at the page opacity of the reader, 64 % by default, since v100.0.0, D-299); THROUGH, the slot page behind the page at every breakpoint, the blocks at the block
+opacity, every text and control of a block or of a post on the readability mask.
+"""
+enum ImageShows {
+  NONE
+  SUBTLE
+  THROUGH
+}
+
+"""
+The focal point of an image (since v87.4.0): x from the start edge, y from the top, each from 0 to 1
+(APPEARANCE_FOCAL_POINT_INVALID otherwise); every crop of the image holds it.
+"""
+input FocalPointInput {
+  x: Float!
+  y: Float!
+}
+
+"""
+An appearance character (since v87.4.0): the title typeface and, until v99.0.0 (D-293: the radii are fixed by
+the social platform), the shape of an appearance. Since v96.0.0
+(D-289) shown by its tone, the values unchanged: PLACE "Calm" (Sora, soft); AGORA "Editorial" (Fraunces,
+soft); GALLERY "Lively" (Figtree, sharp); STAGE "Playful" (Bebas Neue, round); TERMINAL "Precise" (JetBrains
+Mono, sharp); shown in this order: Calm, Editorial, Lively, Playful, Precise. The body text stays the readable
+typeface of Socle.
+"""
+enum AppearanceCharacter {
+  AGORA
+  GALLERY
+  PLACE
+  STAGE
+  TERMINAL
+}
+
+"""
+The side of the universe sky where the name of the universe is laid out (since v87.4.0): the least busy half
+of the image, chosen by the social platform; START without an image or on a tie.
+"""
+enum AppearanceNameSide {
+  END
+  START
+}
+
+"""
+An appearance built from its gestures (buildUniverseAppearance, since v87.4.0): nothing stored.
+"""
+type UniverseAppearanceBuild {
+  """
+  The theme document derived, of the format "break-rocks-theme/2", with its block "appearance"; the apps draw
+  the preview from it. Since v99.1.0 (D-293): its block "appearance" carries "imageShows", and with an image its
+  "scrims" carry "mask" { night, dim, day }, the readability mask: the lowest opacity of the color of the page
+  over the image that keeps AA for every text and control in that display mode, from 0.6 to 1, computed by the
+  social platform (never given: THEME_SCRIMS_COMPUTED).
+  """
+  document: AWSJSON!
+  """
+  Since v99.1.0 (D-293): how the image of the appearance shows.
+  """
+  imageShows: ImageShows!
+  """
+  The contrast report: the colors adjusted to reach AA, in each variant.
+  """
+  contrast: AppearanceContrastReport!
+  """
+  The side of the universe sky where the name of the universe is laid out.
+  """
+  nameSide: AppearanceNameSide!
+}
+
+"""
+The contrast report of an appearance (since v87.4.0): AA in the day and the night variants; a color that falls
+short is adjusted by the social platform, never refused, and the adjustment is told here.
+"""
+type AppearanceContrastReport {
+  """
+  The accent color as asked (or proposed), "#RRGGBB".
+  """
+  accentAsked: String!
+  """
+  The accent color kept in the day variant.
+  """
+  accentDay: String!
+  """
+  The accent color kept in the night variant.
+  """
+  accentNight: String!
+  """
+  Every color adjusted, empty when none was.
+  """
+  adjustments: [AppearanceAdjustment!]!
+}
+
+"""
+A color of an appearance adjusted to reach the contrast AA (since v87.4.0).
+"""
+type AppearanceAdjustment {
+  """
+  The token adjusted, as named in the theme document ("palette.primary", "surfaces.primaryButton.background"…).
+  """
+  token: String!
+  """
+  The variant where it was adjusted.
+  """
+  variant: ThemeVariant!
+  """
+  The color derived before the adjustment, "#RRGGBB".
+  """
+  asked: String!
+  """
+  The color kept, "#RRGGBB".
+  """
+  kept: String!
+  """
+  The contrast ratio reached by the color kept (4.5 for 4.5:1).
+  """
+  ratio: Float!
+  """
+  Why it was adjusted (since v96.0.0, D-289): CONTRAST to reach AA, SIGN to stay distinct from the color of a
+  reserved sign ("Adjusted to stay distinct from the signs").
+  """
+  reason: AppearanceAdjustmentReason!
+}
+
+"""
+Why a color of an appearance was adjusted (since v96.0.0, D-289): CONTRAST, to reach the contrast AA; SIGN, to
+stay at a distance of at least 0.08 in OKLab from the color of every reserved sign.
+"""
+enum AppearanceAdjustmentReason {
+  CONTRAST
+  SIGN
+}
+
+"""
+The candidate colors of an image (imagePalette, since v87.4.0): 5 colors at most, ordered by the share of the
+image they cover, and the one proposed as the accent color.
+"""
+type ImagePalette {
+  """
+  The candidate colors, "#RRGGBB", from 1 to 5.
+  """
+  colors: [String!]!
+  """
+  The candidate proposed as the accent color: the one of highest chroma among those that cover at least 5 % of
+  the image, else the first.
+  """
+  proposedAccent: String!
+  """
+  The color name of each candidate, in the order of colors (since v96.0.0, D-289): the nearest by distance in
+  OKLab among a fixed list of about 40 English color names published with the design system, which the apps
+  translate; shown in the step "Color", in the appearance history and in a proposal.
+  """
+  names: [String!]!
+}
+
+"""
+What applying an appearance did (applyUniverseAppearance, since v87.4.0): the theme published and set at once
+(a private universe, or the leadership of a public universe), or the proposal of the kind APPEARANCE filed.
+"""
+type UniverseAppearanceUse {
+  """
+  The theme published and set; null when a proposal was filed.
+  """
+  theme: Theme
+  """
+  The proposal filed; null when set at once.
+  """
+  proposal: Proposal
+  """
+  The contrast report of the appearance.
+  """
+  contrast: AppearanceContrastReport!
+}
+
+"""
+A look of quick start (appearanceLooks, since v96.0.0, D-289): a theme of a field collection with the
+appearance character and the layout it goes with. Starting from it sets the accent color, the appearance
+character and the layout of an appearance; the image and the logo stay.
+"""
+type AppearanceLook {
+  """
+  The theme of the field collection, in the root universe.
+  """
+  theme: ThemeRef!
+  """
+  The name of the look shown, in English ("Market"; the apps translate).
+  """
+  name: String!
+  """
+  The field of its collection.
+  """
+  collection: UniverseField!
+  """
+  The appearance character it goes with.
+  """
+  character: AppearanceCharacter!
+  """
+  The layout it goes with: "feed-first", "village-square" or "hud".
+  """
+  layout: String!
+  """
+  Its accent color, "#RRGGBB".
+  """
+  accent: String!
+  """
+  The screenshots of the page of a universe in that look, at the three breakpoints, day and night.
+  """
+  screenshots: Screenshots!
+}
+
+"""
+An entry of the appearance history of a universe (universeAppearanceHistory, since v96.0.0, D-289).
+"""
+type UniverseAppearanceHistoryEntry {
+  """
+  The id of the entry, for restoreUniverseAppearance.
+  """
+  id: ID!
+  """
+  When it was applied (or adopted).
+  """
+  setAt: AWSDateTime!
+  """
+  True for the appearance in use (shown "Live").
+  """
+  live: Boolean!
+  """
+  True when it was applied after a trial of 24 hours.
+  """
+  trial: Boolean!
+  """
+  True for the first appearance of the universe (shown "Creation").
+  """
+  first: Boolean!
+  """
+  The theme version it set.
+  """
+  theme: ThemeRef!
+  """
+  Its image, null without an image.
+  """
+  image: ThemeImage
+  """
+  Its accent color, "#RRGGBB".
+  """
+  accent: String!
+  """
+  The color name of its accent, from the same fixed list as ImagePalette.names (English; the apps translate).
+  """
+  accentName: String!
+  """
+  Its appearance character.
+  """
+  character: AppearanceCharacter!
+  """
+  Its layout: "feed-first", "village-square" or "hud".
+  """
+  layout: String!
+  """
+  Since v99.1.0 (D-293): how its image shows; SUBTLE for an appearance applied before v99.1.0 with ground true,
+  NONE with ground false.
+  """
+  imageShows: ImageShows!
+  """
+  False when its theme or its image was removed by the moderation (APPEARANCE_NOT_RESTORABLE).
+  """
+  restorable: Boolean!
 }

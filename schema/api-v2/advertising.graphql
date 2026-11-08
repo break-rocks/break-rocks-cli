@@ -1,0 +1,534 @@
+# Contextual advertising (contracts/advertising.md, since v85.5.0, D-254): additions only.
+
+"""
+An ad slot of a page of posts: the ad to draw after the post at index "after" (0-based) of the page.
+"""
+type AdSlot {
+  """
+  The index of the post of the page this slot follows; never before the first post.
+  """
+  after: Int!
+  """
+  The opaque token of the slot, valid 1 hour, for recordAdImpression, recordAdClick and adWhy.
+  """
+  token: ID!
+  """
+  The ad to draw, labelled "Sponsored".
+  """
+  ad: Ad!
+}
+
+"""
+An ad as served or as kept in the ad repository.
+"""
+type Ad {
+  """
+  The id of the creative.
+  """
+  id: ID!
+  """
+  The campaign it belongs to.
+  """
+  campaignId: ID!
+  """
+  Its format: IMAGE now, VERTICAL_VIDEO later.
+  """
+  format: AdFormat!
+  """
+  The headline, 1 to 60 visible characters.
+  """
+  headline: String!
+  """
+  The text, 0 to 200 visible characters.
+  """
+  text: String!
+  """
+  The signed URL of its media.
+  """
+  mediaUrl: AWSURL!
+  """
+  The call to action.
+  """
+  callToAction: AdCallToAction!
+  """
+  The destination, opened without any parameter added.
+  """
+  destinationUrl: AWSURL!
+  """
+  "Why this ad" (DSA art. 26).
+  """
+  why: AdWhy!
+}
+
+"""
+Why an ad is shown: who advertises, who paid, and the parameters matched; never a profile.
+"""
+type AdWhy {
+  """
+  The name of the advertiser.
+  """
+  advertiser: String!
+  """
+  The name of the payer.
+  """
+  payer: String!
+  """
+  The universe matched, without its sign; null in the ad repository.
+  """
+  universe: String
+  """
+  The territory matched (a country or a region code); null when the campaign targets every territory.
+  """
+  territory: String
+  """
+  The language matched; null when the campaign targets every language.
+  """
+  language: String
+  """
+  Since v87.3.0 (D-266): the seed universe of the universe group through which the universe matched, without
+  its sign; null when the universe was targeted itself, and in the ad repository.
+  """
+  universeGroup: String
+  """
+  Since v87.3.0 (D-266): the declared ad interest of the reader that matched; null when the campaign targets no
+  ad interest, and in the ad repository.
+  """
+  interest: AdInterest
+}
+
+"""
+The format of an ad.
+"""
+enum AdFormat {
+  IMAGE
+  VERTICAL_VIDEO
+}
+
+"""
+The calls to action of an ad.
+"""
+enum AdCallToAction {
+  BOOK
+  CONTACT
+  DOWNLOAD
+  LEARN_MORE
+  SHOP
+  SIGN_UP
+}
+
+"""
+The states of a campaign: DRAFT, IN_REVIEW, APPROVED (scheduled), RUNNING, PAUSED, REJECTED, ENDED.
+"""
+enum AdCampaignState {
+  APPROVED
+  DRAFT
+  ENDED
+  IN_REVIEW
+  PAUSED
+  REJECTED
+  RUNNING
+}
+
+"""
+Where the budget of a campaign is paid from: a card (Stripe) or the universe cash of a universe.
+"""
+enum AdBudgetSource {
+  CARD
+  UNIVERSE_CASH
+}
+
+"""
+Since v87.3.0 (D-266): how a campaign bids: CPM (per thousand impressions counted, the default) or CPC (per
+click counted, compared in the auction by its effective CPM).
+"""
+enum AdBidKind {
+  CPC
+  CPM
+}
+
+"""
+Since v87.3.0 (D-266): the fixed list of the ad interests an adult may declare (10 at most) and a campaign may
+target (10 at most): ANIMATION_AND_COMICS, ARCHITECTURE, ARTS_AND_DESIGN, BEAUTY_AND_GROOMING,
+BOARD_GAMES_AND_PUZZLES, BOOKS, BUSINESS_AND_ENTREPRENEURSHIP, CAREERS, COOKING_AND_FOOD, CRAFTS_AND_DIY,
+EDUCATION_AND_LEARNING, FASHION, FILM_AND_TV, GARDENING, HISTORY, HOME_AND_DECOR, LANGUAGES, LIVE_EVENTS, MUSIC,
+NATURE_AND_OUTDOORS, PERFORMING_ARTS, PETS, PHOTOGRAPHY, SCIENCE, SPACE_AND_ASTRONOMY, SPORTS, TECHNOLOGY, TRAVEL,
+VEHICLES, VIDEO_GAMES. None concerns a sensitive topic; the apps translate them.
+"""
+enum AdInterest {
+  ANIMATION_AND_COMICS
+  ARCHITECTURE
+  ARTS_AND_DESIGN
+  BEAUTY_AND_GROOMING
+  BOARD_GAMES_AND_PUZZLES
+  BOOKS
+  BUSINESS_AND_ENTREPRENEURSHIP
+  CAREERS
+  COOKING_AND_FOOD
+  CRAFTS_AND_DIY
+  EDUCATION_AND_LEARNING
+  FASHION
+  FILM_AND_TV
+  GARDENING
+  HISTORY
+  HOME_AND_DECOR
+  LANGUAGES
+  LIVE_EVENTS
+  MUSIC
+  NATURE_AND_OUTDOORS
+  PERFORMING_ARTS
+  PETS
+  PHOTOGRAPHY
+  SCIENCE
+  SPACE_AND_ASTRONOMY
+  SPORTS
+  TECHNOLOGY
+  TRAVEL
+  VEHICLES
+  VIDEO_GAMES
+}
+
+"""
+Since v87.3.0 (D-266): the declared ad interests of the caller, opt-in, off by default.
+"""
+type AdInterestSettings {
+  """
+  Whether the declared ad interests are offered to the caller: false for a minor, an AI agent, or while the
+  client-config switch ads.declaredInterests is off.
+  """
+  offered: Boolean!
+  """
+  Whether the caller turned them on; false by default.
+  """
+  enabled: Boolean!
+  """
+  The ad interests declared, 0 to 10; empty while off (turning off erases them at once).
+  """
+  interests: [AdInterest!]!
+}
+
+"""
+Since v87.3.0 (D-266): a universe group, computed weekly in aggregate from the co-readership of public universes
+(noisy counts of distinct readers, 1,000 at least per pair; never a list of people, never a private universe),
+named by its seed universe.
+"""
+type AdUniverseGroup {
+  """
+  The seed universe, without its sign: the universe group of that universe.
+  """
+  seed: String!
+  """
+  The other public universes of the group, without their sign, the most co-read with the seed first (1 to 20);
+  targeting the group targets the seed and these, each with ads on at the moment of the slot.
+  """
+  universes: [String!]!
+  """
+  When it was computed (weekly).
+  """
+  refreshedAt: AWSDateTime!
+}
+
+"""
+Since v87.3.0 (D-266): a public universe with ads on suggested for an offer, computed from public content only
+(embeddings refreshed daily and a decision model), never from who reads it.
+"""
+type AdUniverseSuggestion {
+  """
+  The universe, without its sign.
+  """
+  universe: String!
+  """
+  Its residents.
+  """
+  residents: Int!
+  """
+  Its active residents of the last 30 days.
+  """
+  activeResidents: Int!
+  """
+  Its posts of the last 30 days.
+  """
+  posts: Int!
+  """
+  The low end of the estimated CPM (10th percentile of the winning prices of its ad slots over 30 days, or the
+  floor of its territory without any), in "currency".
+  """
+  cpmLow: Float!
+  """
+  The high end of the estimated CPM (90th percentile, or twice the floor without any), in "currency".
+  """
+  cpmHigh: Float!
+  """
+  The currency of the range (ISO 4217).
+  """
+  currency: String!
+  """
+  Why it is suggested: the topics matched, 1 to 5 words or short phrases.
+  """
+  topics: [String!]!
+  """
+  Its universe group (as seed universe); null when it has none.
+  """
+  group: AdUniverseGroup
+}
+
+"""
+Since v87.3.0 (D-266): an offer to find universes for: at least one of "text" (1 to 500 visible characters),
+"keywords" (1 to 20, 1 to 50 visible characters each) and "siteUrl" (https, its first page read once, nothing
+kept); "territories" (0 to 50) and "languages" (0 to 20) narrow the answer. AD_SUGGESTION_INPUT_INVALID
+otherwise.
+"""
+input AdUniverseSuggestionsInput {
+  text: String
+  keywords: [String!]
+  siteUrl: AWSURL
+  territories: [String!]
+  languages: [String!]
+}
+
+"""
+A campaign of an advertiser.
+"""
+type AdCampaign {
+  """
+  Its id.
+  """
+  id: ID!
+  """
+  Its name, seen by its advertiser only.
+  """
+  name: String!
+  """
+  Its state.
+  """
+  state: AdCampaignState!
+  """
+  The reason and the rule of a refusal; null unless REJECTED.
+  """
+  rejectionReason: String
+  """
+  Its creatives.
+  """
+  creatives: [Ad!]!
+  """
+  The public universes targeted, without their sign (1 to 50).
+  """
+  universes: [String!]!
+  """
+  The territories targeted (0 to 50; empty: every open territory).
+  """
+  territories: [String!]!
+  """
+  The languages targeted (0 to 20; empty: all).
+  """
+  languages: [String!]!
+  """
+  Its maximum bid per thousand impressions, in its currency; since v87.3.0, for a CPC campaign, its effective CPM
+  of the moment (maxCpc times 1,000 times estimatedCtr).
+  """
+  maxCpm: Float!
+  """
+  Since v87.3.0 (D-266): its bid kind, CPM or CPC.
+  """
+  bidKind: AdBidKind!
+  """
+  Since v87.3.0: its maximum bid per click, in its currency; null for a CPM campaign.
+  """
+  maxCpc: Float
+  """
+  Since v87.3.0: its estimated click-through rate (0 to 1): its clicks over its impressions of the last 30 days,
+  or the platform average of its territory until it has 2,000 impressions; recomputed every hour.
+  """
+  estimatedCtr: Float!
+  """
+  Since v87.3.0: the universe groups targeted, by their seed universe without its sign (0 to 20).
+  """
+  universeGroups: [String!]!
+  """
+  Since v87.3.0: the ad interests targeted (0 to 10): its ads show only to readers who declared one of them,
+  within its universes and universe groups.
+  """
+  interests: [AdInterest!]!
+  """
+  Its currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The budget prepaid.
+  """
+  budget: Float!
+  """
+  The budget spent.
+  """
+  spent: Float!
+  """
+  When it starts.
+  """
+  startsAt: AWSDateTime!
+  """
+  When it ends; null without an end date (365 days at most).
+  """
+  endsAt: AWSDateTime
+  """
+  Its measurement, per universe and per day, the most recent first (90 days).
+  """
+  stats: [AdDailyStat!]!
+}
+
+"""
+The aggregates of a campaign for one universe and one day (UTC).
+"""
+type AdDailyStat {
+  """
+  The day.
+  """
+  day: AWSDate!
+  """
+  The universe, without its sign.
+  """
+  universe: String!
+  """
+  The impressions counted.
+  """
+  impressions: Int!
+  """
+  The clicks.
+  """
+  clicks: Int!
+  """
+  The amount spent.
+  """
+  spent: Float!
+  """
+  Since v87.3.0 (D-266): the cost per click, spent divided by clicks; null without a click.
+  """
+  costPerClick: Float
+}
+
+"""
+A page of campaigns, the most recent first.
+"""
+type AdCampaignPage {
+  """
+  The campaigns of this page.
+  """
+  items: [AdCampaign!]!
+  """
+  The cursor of the next page; null on the last page.
+  """
+  next: String
+}
+
+"""
+An entry of the public ad repository.
+"""
+type AdRepositoryEntry {
+  """
+  The ad, with its "Why this ad".
+  """
+  ad: Ad!
+  """
+  The first impression.
+  """
+  firstShownAt: AWSDateTime!
+  """
+  The last impression.
+  """
+  lastShownAt: AWSDateTime!
+  """
+  The universes targeted, without their sign.
+  """
+  universes: [String!]!
+  """
+  The territories targeted.
+  """
+  territories: [String!]!
+  """
+  The languages targeted.
+  """
+  languages: [String!]!
+  """
+  Since v87.3.0 (D-266): the universe groups targeted, by their seed universe without its sign.
+  """
+  universeGroups: [String!]!
+  """
+  Since v87.3.0 (D-266): the ad interests targeted.
+  """
+  interests: [AdInterest!]!
+  """
+  The impressions by territory, as ranges (AWSJSON object: territory to "1000-9999").
+  """
+  impressionsByTerritory: AWSJSON!
+  """
+  Why it was removed; null when it was not.
+  """
+  removedReason: String
+}
+
+"""
+A page of the ad repository, the most recent first.
+"""
+type AdRepositoryPage {
+  """
+  The entries of this page.
+  """
+  items: [AdRepositoryEntry!]!
+  """
+  The cursor of the next page; null on the last page.
+  """
+  next: String
+}
+
+"""
+A creative of a campaign.
+"""
+input AdCreativeInput {
+  """
+  The format; IMAGE only for now (AD_FORMAT_NOT_OFFERED otherwise), the headline 1 to 60, the text 0 to 200
+  visible characters, the media uploaded, the call to action and the destination https.
+  """
+  format: AdFormat!
+  headline: String!
+  text: String!
+  mediaId: ID!
+  callToAction: AdCallToAction!
+  destinationUrl: AWSURL!
+}
+
+"""
+A campaign written or changed: its name, 1 to 5 creatives, its targeting (1 to 50 universes, 0 to 50
+territories, 0 to 20 languages), its maximum CPM and currency, its schedule (365 days at most). Since v87.3.0
+(D-266): "bidKind" (null: CPM; changed only while DRAFT or PAUSED), "maxCpc" (required for CPC, at least the
+floor per click of each territory targeted: AD_BID_BELOW_FLOOR; maxCpm is then ignored, 0 may be sent),
+"universeGroups" (0 to 20 seed universes) and "interests" (0 to 10 ad interests, AD_TARGETING_INVALID while
+ads.declaredInterests is off); "universes" may then be 0 to 50, with at least 1 universe or 1 universe group.
+"""
+input AdCampaignInput {
+  name: String!
+  creatives: [AdCreativeInput!]!
+  universes: [String!]!
+  territories: [String!]!
+  languages: [String!]!
+  maxCpm: Float!
+  currency: String!
+  startsAt: AWSDateTime!
+  endsAt: AWSDateTime
+  bidKind: AdBidKind
+  maxCpc: Float
+  universeGroups: [String!]
+  interests: [AdInterest!]
+}
+
+"""
+What paying a budget answers: the page of the payment provider for a card, or the campaign for the universe
+cash.
+"""
+type AdBudgetPayment {
+  """
+  The page of the payment provider; null for the universe cash.
+  """
+  page: PaymentPage
+  """
+  The campaign, its budget updated once paid.
+  """
+  campaign: AdCampaign!
+}

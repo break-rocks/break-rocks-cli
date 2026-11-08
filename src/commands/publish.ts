@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { accountIdOf, apiCommand, refOf } from '../api/command.js';
-import { outputSchema, selection } from '../api/graphql.js';
+import { enumValues, outputSchema, selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { uuidv7 } from '../ids.js';
 import { usageError } from '../errors.js';
@@ -15,6 +15,7 @@ import { MAX_POST_IMAGES, checkImage, checkText, checkVideo, uploadImage, upload
 import type { Command } from '../registry.js';
 import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
+import { discussionAddress, discussionIdOf } from './discussions.js';
 import { BOUNDARY_ID, territoryChoice } from './geo.js';
 
 const POST = selection('Post', 1);
@@ -219,23 +220,73 @@ export const universesAgentPosts = apiCommand({
 });
 export const universesMembers = apiCommand({ name: 'universes members', summary: 'The members of a universe', kind: 'query', op: 'universeMembers', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes members %club --all'] });
 
+/** At most 5 free tags (specs v101.0.0, D-300: universe-tags.feature), in their canonical form (a leading # dropped). */
+export const MAX_FREE_TAGS = 5;
+/** The free tags given, checked as the platform counts them: [min] to 5 (FREE_TAGS_REQUIRED, FREE_TAGS_TOO_MANY). */
+export function freeTags(tags: unknown, min: number, what: string): string[] | undefined {
+  const given = ((tags as string[] | undefined) ?? []).flatMap((t) => String(t).split(',')).map((t) => t.trim().replace(/^#/, '')).filter(Boolean);
+  if (given.length < min) throw usageError('FREE_TAGS_REQUIRED', `${what}: --tags is required, 1 to ${MAX_FREE_TAGS} free tags (--tags velo --tags paris, or --tags velo,paris)`);
+  if (given.length > MAX_FREE_TAGS) throw usageError('FREE_TAGS_TOO_MANY', `${what}: at most ${MAX_FREE_TAGS} free tags`, { max: MAX_FREE_TAGS });
+  return tags === undefined ? undefined : given;
+}
+/** "lat,lon" → { lat, lon }. */
+function pointOf(value: string, flag: string): { lat: number; lon: number } {
+  const [lat, lon] = value.split(',').map((x) => Number(x.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw usageError('INVALID_INPUT', `${flag}: <lat>,<lon>, for example 48.8566,2.3522`);
+  return { lat, lon };
+}
+/** The proposal kinds whose free tags are required (1 to 5); 0 to 5 for the others. */
+const TAGGED_KINDS = ['ACTION', 'OTHER'];
+
 export const proposalsFile = apiCommand({
   name: 'proposals file', summary: 'File a proposal in a universe (fileProposal)', kind: 'mutation', op: 'fileProposal', positionals: ['input.universe'], flatten: ['input', 'input.change'],
-  description: 'A proposal of kind TERRITORY sets a universe territory: --boundary <id> (its name read from its shape), or --circle <lat>,<lon> --radius <m> --territory-name <place>, or --no-territory to propose none; at any governance level, with or without leadership (the support, then the majority of the votes cast). Read the current one first: breakrocks universes territory get.',
-  descriptions: { ...u, kind: 'The kind of proposal', title: 'Its title', text: 'Its text', accountId: 'The account it concerns: @handle or its id', territory: 'A universe territory as TerritoryChoiceInput JSON (or --boundary, --circle)', clear: 'The parts removed (TERRITORY: no universe territory, as --no-territory; LOGO, WATERMARK)', channelAction: 'Kind CHANNEL: the action on a channel (ChannelActionInput JSON)' },
+  description: [
+    'Free tags (--tags, since specs v101.0.0): 1 to 5 for the kinds ACTION and OTHER (FREE_TAGS_REQUIRED), 0 to 5 for the others; its base tag follows from its kind and is never given.',
+    '--from-discussion <id>: the temporary universe discussion it comes from ("Propose a decision"), open or closed in the last 24 hours.',
+    'Kind APPEARANCE: --appearance, the appearance built (UniverseAppearanceInput JSON: imageId, imageShows NONE|SUBTLE|THROUGH, accent, character, logo, watermark, clear; see breakrocks universes show).',
+    'Kind SHOWCASE: --tag-conventions, the tag conventions of the universe (at most 10).',
+    'Kind CHANNEL: --channel-action as ChannelActionInput JSON ({"action":"OPEN","universe":"%paris","name":"velo"}); the action PLACE sets the place of the channel: --place-point <lat>,<lon> (or --place-zone as ZoneInput JSON) with --place-name, or neither to remove it.',
+    'Kind TERRITORY sets a universe territory: --boundary <id> (its name read from its shape), or --circle <lat>,<lon> --radius <m> --territory-name <place>, or --no-territory to propose none; at any governance level, with or without leadership (the support, then the majority of the votes cast). Read the current one first: breakrocks universes territory get.',
+  ].join(' '),
+  descriptions: {
+    ...u, kind: 'The kind of proposal', title: 'Its title (1 to 140 characters)', text: 'Its text', accountId: 'The account it concerns: @handle or its id', territory: 'A universe territory as TerritoryChoiceInput JSON (or --boundary, --circle)',
+    clear: 'The parts removed (TERRITORY: no universe territory, as --no-territory; LOGO, WATERMARK)', channelAction: 'Kind CHANNEL: the action on a channel (ChannelActionInput JSON: action OPEN, ARCHIVE, UNARCHIVE, DELETE or PLACE, universe, name)',
+    tags: 'Its free tags (repeat --tags, or commas): 1 to 5 for ACTION and OTHER, at most 5 otherwise', fromDiscussion: 'The id of the temporary universe discussion it comes from',
+    appearance: 'Kind APPEARANCE: the appearance (UniverseAppearanceInput JSON)', tagConventions: 'Kind SHOWCASE: the tag conventions of the universe (at most 10)',
+    playlistAction: 'Kind PLAYLIST: the action on a universe playlist (PlaylistActionInput JSON)', restoreLayoutVersion: 'Kind LAYOUT: the version of the layout of the universe to restore',
+  },
   extra: {
     boundary: str('Kind TERRITORY: a boundary, the id of its place (R7444)', { pattern: BOUNDARY_ID }), circle: str('Kind TERRITORY: a circle, its center <lat>,<lon>'),
     radius: str('Kind TERRITORY: the radius of the circle (150 to 25000 metres, 2.5km…)'), territoryName: str('Kind TERRITORY: the place at the center of the circle (made public), or the name of the boundary', { maxLength: 100 }),
     noTerritory: bool('Kind TERRITORY: propose no universe territory'),
+    placePoint: str('Kind CHANNEL, action PLACE: the point of the place of the channel, <lat>,<lon>'), placeZone: str('Kind CHANNEL, action PLACE: the zone of the place (ZoneInput JSON), in place of --place-point'),
+    placeName: str('Kind CHANNEL, action PLACE: the name of the place (1 to 100 characters), required with a point or a zone', { maxLength: 100 }),
   },
   prepare: async (i, ctx) => {
-    const { boundary, circle, radius, territoryName, noTerritory, ...rest } = i as Record<string, unknown> & { boundary?: string; circle?: string; radius?: string; territoryName?: string; noTerritory?: boolean };
+    const { boundary, circle, radius, territoryName, noTerritory, placePoint, placeZone, placeName, ...rest } = i as Record<string, unknown> & { boundary?: string; circle?: string; radius?: string; territoryName?: string; noTerritory?: boolean; placePoint?: string; placeZone?: string; placeName?: string };
+    rest.tags = freeTags(rest.tags, TAGGED_KINDS.includes(String(rest.kind)) ? 1 : 0, `A proposal ${String(rest.kind)}`);
+    if (rest.tags === undefined) delete rest.tags;
     if ((boundary || circle) && (noTerritory || rest.territory !== undefined)) throw usageError('INVALID_INPUT', '--boundary or --circle, --territory, or --no-territory: one of them');
     if (boundary || circle) rest.territory = await territoryChoice(ctx, { boundary, circle, radius, name: territoryName });
     if (noTerritory) rest.clear = [...new Set([...((rest.clear as string[] | undefined) ?? []), 'TERRITORY'])];
+    if (placePoint || placeZone || placeName) {
+      if (placePoint && placeZone) throw usageError('INVALID_INPUT', '--place-point or --place-zone, not both');
+      if ((placePoint || placeZone) && !placeName) throw usageError('CHANNEL_PLACE_NAME_REQUIRED', '--place-name is required with --place-point or --place-zone');
+      const action = typeof rest.channelAction === 'string' ? JSON.parse(rest.channelAction) as Record<string, unknown> : (rest.channelAction as Record<string, unknown> | undefined);
+      if (action?.action !== 'PLACE') throw usageError('INVALID_INPUT', '--place-point, --place-zone and --place-name go with --channel-action \'{"action":"PLACE","universe":"%u","name":"<channel>"}\'');
+      rest.channelAction = { ...action, ...(placePoint ? { point: pointOf(placePoint, '--place-point') } : {}), ...(placeZone ? { zone: JSON.parse(placeZone) } : {}), ...(placeName ? { placeName } : {}) };
+    }
     return rest;
   },
-  examples: ['breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square"', 'breakrocks proposals file %paris --kind THEME --title "A theme" --theme %paris/stade-nuit', 'breakrocks proposals file %paris --kind TERRITORY --title "The city of Paris" --boundary R7444', 'breakrocks proposals file %marche --kind TERRITORY --title "The neighbourhood" --circle 48.8566,2.3522 --radius 1km --territory-name "Market square"'],
+  examples: [
+    'breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square" --tags bancs --tags place-du-marche',
+    'breakrocks proposals file %paris --kind OTHER --title "Close the street on Sundays?" --tags rue --from-discussion <discussion id>',
+    'breakrocks proposals file %paris --kind CHANNEL --title "A place for &velo" --channel-action \'{"action":"PLACE","universe":"%paris","name":"velo"}\' --place-point 48.853,2.369 --place-name Bastille',
+    'breakrocks proposals file %paris --kind SHOWCASE --title "Our tags" --tag-conventions velo --tag-conventions marche',
+    'breakrocks proposals file %paris --kind APPEARANCE --title "A new look" --appearance \'{"imageId":"<upload id>","imageShows":"SUBTLE"}\'',
+    'breakrocks proposals file %paris --kind TERRITORY --title "The city of Paris" --boundary R7444',
+    'breakrocks proposals file %marche --kind TERRITORY --title "The neighbourhood" --circle 48.8566,2.3522 --radius 1km --territory-name "Market square"',
+  ],
 });
 export const proposalsShow = apiCommand({ name: 'proposals show', summary: 'A proposal', kind: 'query', op: 'proposal', positionals: ['id'], examples: ['breakrocks proposals show <id>'] });
 const onProposal = { positionals: ['proposalId'], rename: { proposalId: 'id' }, descriptions: { id: 'The proposal' } };
@@ -253,16 +304,37 @@ export const proposalsVote: Command<{ id: string; choice?: 'for' | 'against'; ca
 };
 export const proposalsWithdraw = apiCommand({ name: 'proposals withdraw', summary: 'Withdraw one\'s proposal', kind: 'mutation', op: 'withdrawProposal', ...onProposal, confirm: (i) => `Withdraw the proposal ${i.id}?`, examples: ['breakrocks proposals withdraw <id> --yes'] });
 
-export const debatesOpen = apiCommand({ name: 'debates open', summary: 'Open a debate in a universe', kind: 'mutation', op: 'openDebate', positionals: ['universe', 'name'], descriptions: { ...u, name: 'Its name (&name)' }, examples: ['breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48'] });
-export const debatesSupport = apiCommand({ name: 'debates support', summary: 'Support a debate', kind: 'mutation', op: 'supportDebate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates support %paris velo'] });
-export const debatesClose = apiCommand({ name: 'debates close', summary: 'Close a debate', kind: 'mutation', op: 'closeDebate', positionals: ['universe', 'name'], descriptions: u, confirm: (i) => `Close the debate &${i.name} of ${i.universe}?`, examples: ['breakrocks debates close %paris velo --yes'] });
-export const debatesShow = apiCommand({ name: 'debates show', summary: 'A debate', kind: 'query', op: 'debate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates show %paris velo'] });
+const onDiscussion = (what: string) => ({ positionals: ['universe', 'name'], extra: { universe: str('The universe (%name)'), name: str(`The name of the ${what} (without &)`) }, hide: ['id'], require: ['universe', 'name'] });
+const byAddress = async (i: Record<string, unknown>, ctx: Context) => { const { universe, name, ...rest } = i; return { ...rest, id: await discussionIdOf(ctx, discussionAddress(String(universe), String(name))) }; };
+export const debatesOpen = apiCommand({
+  name: 'debates open', summary: 'Open a temporary universe discussion, a debate (openUniverseDiscussion TEMPORARY: the governance)', kind: 'mutation', op: 'openUniverseDiscussion', positionals: ['universe', 'name'], fixed: { lifetime: 'TEMPORARY' },
+  description: '1 to 168 hours (--hours, 24 by default); --message-ttl-seconds from 3600 to its duration. The governance only (LEADERSHIP_ONLY): a resident proposes one with debates propose.',
+  descriptions: { ...u, name: 'Its name (without &)', subject: 'Its subject' }, examples: ['breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48'],
+});
+export const debatesPropose = apiCommand({
+  name: 'debates propose', summary: 'Propose a debate, a temporary universe discussion waiting for the support of the residents (proposeUniverseDiscussion)', kind: 'mutation', op: 'proposeUniverseDiscussion', positionals: ['universe', 'name'],
+  description: 'A resident who can vote; it waits for the support of 5 residents who can vote (or 1 percent of the active residents, at most 50) and expires after 24 hours; one waiting per resident.',
+  descriptions: { ...u, name: 'Its name (without &)', subject: 'Its subject' }, examples: ['breakrocks debates propose %paris velo --subject "More bike lanes?"'],
+});
+export const debatesSupport = apiCommand({ name: 'debates support', summary: 'Support a proposed debate (supportUniverseDiscussion)', kind: 'mutation', op: 'supportUniverseDiscussion', ...onDiscussion('debate'), prepare: byAddress, examples: ['breakrocks debates support %paris velo'] });
+export const debatesClose = apiCommand({ name: 'debates close', summary: 'Close a debate early (closeUniverseDiscussion)', kind: 'mutation', op: 'closeUniverseDiscussion', ...onDiscussion('debate'), prepare: byAddress, confirm: (i) => `Close the debate ${discussionAddress(String(i.universe), String(i.name))}?`, examples: ['breakrocks debates close %paris velo --yes'] });
+export const debatesShow = apiCommand({
+  name: 'debates show', summary: 'A debate (universeDiscussion)', kind: 'query', op: 'universeDiscussion', positionals: ['universe', 'name'], extra: { universe: str('The universe (%name)'), name: str('The name of the debate (without &)') }, hide: ['address'], require: ['universe', 'name'],
+  prepare: (i) => ({ address: discussionAddress(String(i.universe), String(i.name)) }), examples: ['breakrocks debates show %paris velo'],
+});
 
 export const pollsCreate = apiCommand({ name: 'polls create', summary: 'Create a poll in a universe', kind: 'mutation', op: 'createPoll', positionals: ['universe'], descriptions: { ...u, choices: 'The choices (repeat --choices, or commas)' }, examples: ['breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche'] });
 export const pollsPick = apiCommand({ name: 'polls pick', summary: 'Pick a choice of a poll (its index, from 0)', kind: 'mutation', op: 'pickPollChoice', positionals: ['pollId', 'choice'], rename: { pollId: 'id' }, descriptions: { id: 'The poll', choice: 'The index of the choice, from 0' }, examples: ['breakrocks polls pick <id> 1'] });
 export const pollsShow = apiCommand({ name: 'polls show', summary: 'A poll', kind: 'query', op: 'poll', positionals: ['id'], examples: ['breakrocks polls show <id>'] });
 
-export const eventsCreate = apiCommand({ name: 'events create', summary: 'Create an event in a universe', kind: 'mutation', op: 'createUniverseEvent', positionals: ['input.universe'], descriptions: { ...u, place: 'Where, as text', point: 'Where: { "lat", "lon" }' }, examples: ['breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont"'] });
+export const eventsCreate = apiCommand({
+  name: 'events create', summary: 'Propose an event in a universe (createUniverseEvent): 1 to 5 free tags', kind: 'mutation', op: 'createUniverseEvent', positionals: ['input.universe'],
+  description: 'Since specs v101.0.0 (D-300) a universe event carries 1 to 5 free tags (--tags, required: FREE_TAGS_REQUIRED); a resident proposes it, the leadership of the universe creates it. --route-id: a route of the universe or one\'s own; --no-discussion turns its event discussion off; --from-discussion: the universe discussion it is proposed from (/event).',
+  descriptions: { ...u, place: 'Where, as text', point: 'Where: { "lat", "lon" }', tags: 'Its free tags (repeat --tags, or commas): 1 to 5, required', routeId: 'The id of a route of the universe or of one\'s own', discussion: 'Its event discussion (on unless --no-discussion)', fromDiscussion: 'The id of the universe discussion it is proposed from' },
+  require: ['tags'],
+  prepare: (i) => ({ ...i, tags: freeTags(i.tags, 1, 'A universe event') }),
+  examples: ['breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc'],
+});
 export const eventsAttend: Command<{ id: string; no?: boolean }, unknown> = {
   name: 'events attend', summary: 'Attend an event (--no: no longer)', examples: ['breakrocks events attend <id>', 'breakrocks events attend <id> --no'],
   input: object({ id: str('The event'), no: bool('No longer attend') }, ['id']), output: outputSchema('UniverseEvent', 1), args: { positionals: ['id'] },
@@ -270,26 +342,43 @@ export const eventsAttend: Command<{ id: string; no?: boolean }, unknown> = {
   quiet: (r) => (r as { id?: string }).id,
 };
 
-const ch = { channel: 'The channel (%universe~name)' };
-export const channelsCreate = apiCommand({ name: 'channels create', summary: 'Create a channel in a universe', kind: 'mutation', op: 'createChannel', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks channels create %paris velo'] });
-export const channelsJoin = apiCommand({ name: 'channels join', summary: 'Join a channel', kind: 'mutation', op: 'joinChannel', positionals: ['channel'], descriptions: ch, examples: ['breakrocks channels join %paris~velo'] });
-export const channelsLeave = apiCommand({ name: 'channels leave', summary: 'Leave a channel', kind: 'mutation', op: 'leaveChannel', positionals: ['channel'], descriptions: ch, examples: ['breakrocks channels leave %paris~velo'] });
+const ch = { channel: 'The channel: %universe&name, or its id' };
+export const channelsCreate = apiCommand({ name: 'channels create', summary: 'Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT)', kind: 'mutation', op: 'openUniverseDiscussion', positionals: ['universe', 'name'], fixed: { lifetime: 'PERMANENT' }, hide: ['hours', 'subject', 'messageTtlSeconds'], descriptions: { ...u, name: 'Its name (without &)' }, examples: ['breakrocks channels create %paris velo'] });
+const onChannel = { positionals: ['channel'], extra: { channel: str(ch.channel) }, hide: ['id'], require: ['channel'], prepare: async (i: Record<string, unknown>, ctx: Context) => { const { channel, ...rest } = i; return { ...rest, id: await discussionIdOf(ctx, String(channel)) }; } };
+export const channelsJoin = apiCommand({ name: 'channels join', summary: 'Join a channel (joinUniverseDiscussion)', kind: 'mutation', op: 'joinUniverseDiscussion', ...onChannel, examples: ['breakrocks channels join %paris&velo'] });
+export const channelsLeave = apiCommand({ name: 'channels leave', summary: 'Leave a channel (leaveUniverseDiscussion)', kind: 'mutation', op: 'leaveUniverseDiscussion', ...onChannel, examples: ['breakrocks channels leave %paris&velo'] });
 
-const REPORT_TARGETS = ['post', 'channel-message', 'direct-message', 'group-message', 'group', 'theme', 'layout', 'banner', 'page', 'territory'] as const;
-type ReportInput = { target: (typeof REPORT_TARGETS)[number]; id: string; reason: string; article?: number; channel?: string; account?: string; message?: string; part?: string; block?: string };
+const REPORT_TARGETS = ['post', 'channel-message', 'direct-message', 'group-message', 'group', 'theme', 'layout', 'banner', 'page', 'territory', 'playlist', 'playlist-item', 'route', 'post-place', 'place-message', 'map-presence'] as const;
+/** The reasons of a report, read from the contract (ReportReason). */
+export const REPORT_REASONS: readonly string[] = enumValues('ReportReason') ?? [];
+/** At most 1,000 characters of details (specs v99.1.0, M-09: REPORT_DETAILS_TOO_LONG). */
+export const REPORT_DETAILS_MAX = 1000;
+type ReportInput = { target: (typeof REPORT_TARGETS)[number]; id: string; reason: string; article?: number; channel?: string; account?: string; group?: string; message?: string; part?: string; block?: string; item?: string; post?: string; details?: string; goodFaith?: boolean };
 export const report: Command<ReportInput, unknown> = {
-  name: 'report', summary: 'Report a post, a message, a group, a theme, a layout, a banner, a page or a territory (report)',
-  description: 'report post <id>; report channel-message <message id> --channel %u~name; report direct-message <message id> --account @h; report group-message <group id> --message <message id>; report group <group id>; report theme %u/name [--part]; report layout %u/name; report banner %u; report page %u/name [--block]; report territory %u. The reason is a ReportReason; --article names the article of the rules or the charter. The API takes no free text.',
-  examples: ['breakrocks report post <id> --reason SPAM_OR_FLOOD', 'breakrocks report theme %paris/stade-nuit --reason ILLEGAL --part BANNER', 'breakrocks report page %paris/agenda --reason ILLEGAL --block intro'],
+  name: 'report', summary: 'Report a post, a message, a group, a theme, a layout, a banner, a page, a territory, a playlist, a route, a place or a map presence (report)',
+  description: [
+    'report post <id>; report channel-message <message id> --channel %u&name; report direct-message <message id> --account @h; report group-message <group id> --message <message id>; report group <group id>;',
+    'report theme %u/name [--part]; report layout %u/name; report banner %u; report page %u/name [--block]; report territory %u; report playlist <playlist id>; report playlist-item <playlist id> --item <item id> | --post <post id>;',
+    'report route <route id>; report post-place <post id>; report place-message <message id> --channel %u&name | --account @h | --group <group id>; report map-presence @handle.',
+    `The reason is a ReportReason (${REPORT_REASONS.join(', ')}); --article names the article of the rules or the charter; --details adds a free text (at most ${REPORT_DETAILS_MAX} characters).`,
+    'ILLEGAL needs --good-faith: the reporter declares in good faith that the content is illegal (DSA art. 16(2), REPORT_GOOD_FAITH_REQUIRED).',
+  ].join(' '),
+  examples: ['breakrocks report post <id> --reason SPAM_OR_FLOOD', 'breakrocks report theme %paris/stade-nuit --reason ILLEGAL --part BANNER --details "A logo that is not theirs" --good-faith', 'breakrocks report channel-message <message id> --channel %paris&velo --reason OFF_TOPIC', 'breakrocks report route <route id> --reason MISLEADING'],
   input: object({
-    target: str('What is reported', { enum: REPORT_TARGETS }), id: str('Its id (a theme, a layout or a page: %universe/name; a banner or a territory: %universe)'),
-    reason: str('The reason', { enum: ['CHARTER_ARTICLE', 'ILLEGAL', 'MISLEADING', 'OFF_TOPIC', 'PLATFORM_RULES', 'SPAM_OR_FLOOD', 'WRONG_NAME'] }), article: int('The article of the rules or the charter'),
-    channel: str('For a channel message: the channel'), account: str('For a direct message: the other account (@handle or id)'), message: str('For a group message: the message id'),
-    part: str('For a theme: the part reported (ThemeReportPart)'), block: str('For a page: the block reported'),
+    target: str('What is reported', { enum: REPORT_TARGETS }), id: str('Its id (a theme, a layout or a page: %universe/name; a banner or a territory: %universe; a map presence: @handle or the account id)'),
+    reason: str('The reason (ReportReason)', { enum: REPORT_REASONS }), article: int('The article of the rules or the charter'),
+    details: str(`Details, a free text (at most ${REPORT_DETAILS_MAX} characters)`, { maxLength: REPORT_DETAILS_MAX }), goodFaith: bool('Declare in good faith that the content is illegal (required with ILLEGAL)'),
+    channel: str('For a channel message or a place sent in a channel: the channel (%universe&name)'), account: str('For a direct message or a place sent in one: the other account (@handle or id)'), group: str('For a place sent in a group chat: the group id'), message: str('For a group message: the message id'),
+    part: str('For a theme: the part reported (ThemeReportPart)'), block: str('For a page: the block reported'), item: str('For a playlist item: the id of a course link or document'), post: str('For a playlist item: the id of its post'),
   }, ['target', 'id', 'reason']),
   output: outputSchema('Report', 1), args: { positionals: ['target', 'id'] },
   run: async (ctx, i) => {
+    if (i.reason === 'ILLEGAL' && !i.goodFaith) throw usageError('REPORT_GOOD_FAITH_REQUIRED', 'ILLEGAL: --good-faith is required (you declare in good faith that the content is illegal)');
     const named = () => refOf(i.id, 'id') as { universe: string; name: string };
+    const discussion = async () => {
+      if ([i.channel, i.account, i.group].filter(Boolean).length !== 1) throw usageError('INVALID_INPUT', 'One of --channel, --account or --group is needed');
+      return i.channel ? { channel: i.channel } : i.account ? { accountId: await accountIdOf(ctx, i.account) } : { groupChatId: i.group };
+    };
     let target: Record<string, unknown>;
     switch (i.target) {
       case 'post': target = { kind: 'POST', postId: i.id }; break;
@@ -302,8 +391,15 @@ export const report: Command<ReportInput, unknown> = {
       case 'page': { const r = named(); target = { kind: 'UNIVERSE_PAGE', universe: r.universe, name: r.name, ...(i.block ? { block: i.block } : {}) }; break; }
       case 'banner': target = { kind: 'UNIVERSE_BANNER', universe: i.id }; break;
       case 'territory': target = { kind: 'UNIVERSE_TERRITORY', universe: i.id }; break;
+      case 'playlist': target = { kind: 'PLAYLIST', playlistId: i.id }; break;
+      case 'playlist-item': if (!!i.item === !!i.post) throw usageError('INVALID_INPUT', '--item or --post is needed (one of them)'); target = { kind: 'PLAYLIST_ITEM', playlistId: i.id, ...(i.item ? { itemId: i.item } : { postId: i.post }) }; break;
+      case 'route': target = { kind: 'ROUTE', routeId: i.id }; break;
+      case 'post-place': target = { kind: 'POST_PLACE', postId: i.id }; break;
+      case 'place-message': target = { kind: 'PLACE_MESSAGE', discussion: await discussion(), messageId: i.id }; break;
+      case 'map-presence': target = { kind: 'MAP_PRESENCE', accountId: await accountIdOf(ctx, i.id) }; break;
     }
-    return (await api<{ report: unknown }>(ctx, `mutation($t: ReportTargetInput!, $reason: ReportReason!, $article: Int, $r: ID!) { report(target: $t, reason: $reason, article: $article, requestId: $r) ${selection('Report', 1)} }`, { t: target, reason: i.reason, article: i.article ?? null, r: uuidv7(ctx.now()) })).report;
+    const vars = { t: target, reason: i.reason, article: i.article ?? null, details: i.details ?? null, goodFaith: i.goodFaith ?? null, r: uuidv7(ctx.now()) };
+    return (await api<{ report: unknown }>(ctx, `mutation($t: ReportTargetInput!, $reason: ReportReason!, $article: Int, $details: String, $goodFaith: Boolean, $r: ID!) { report(target: $t, reason: $reason, article: $article, details: $details, goodFaith: $goodFaith, requestId: $r) ${selection('Report', 1)} }`, vars)).report;
   },
   quiet: (r) => (r as { id?: string }).id,
 };

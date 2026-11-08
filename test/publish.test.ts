@@ -108,12 +108,40 @@ describe('the interactions', () => {
     expect(calls).toEqual([]);
     expect(await h.run('posts', 'delete', 'p1', '--yes', '--json')).toBe(0);
   });
-  it('report a theme by its address, with its reason and its part', async () => {
+  it('report a theme by its address, with its reason and its part; ILLEGAL needs --good-faith', async () => {
     const { h, calls } = scripted({ report: () => ({ id: 'r1' }) });
-    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--json')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ t: { kind: 'THEME', universe: '%paris', name: 'stade-nuit', themePart: 'BANNER' }, reason: 'ILLEGAL', article: null, r: expect.stringMatching(UUID_V7) });
-    expect(await h.run('report', 'channel-message', 'm1', '--channel', '%club~general', '--reason', 'SPAM_OR_FLOOD', '--json')).toBe(0);
-    expect(calls[1].variables.t).toEqual({ kind: 'CHANNEL_MESSAGE', discussion: { channel: '%club~general' }, messageId: 'm1' });
+    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--json')).toBe(2);
+    expect(calls).toEqual([]);
+    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--details', 'Not theirs', '--good-faith', '--json')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ t: { kind: 'THEME', universe: '%paris', name: 'stade-nuit', themePart: 'BANNER' }, reason: 'ILLEGAL', article: null, details: 'Not theirs', goodFaith: true, r: expect.stringMatching(UUID_V7) });
+    expect(await h.run('report', 'channel-message', 'm1', '--channel', '%club&general', '--reason', 'SPAM_OR_FLOOD', '--json')).toBe(0);
+    expect(calls[1].variables.t).toEqual({ kind: 'CHANNEL_MESSAGE', discussion: { channel: '%club&general' }, messageId: 'm1' });
+  });
+  it('report the targets of specs v84 to v101: a route, a playlist item, a place sent, with the reasons of the contract', async () => {
+    const { h, calls } = scripted({ report: () => ({ id: 'r1' }) });
+    expect(await h.run('report', 'route', 'rt1', '--reason', 'MISLEADING', '--json')).toBe(0);
+    expect(calls[0].variables.t).toEqual({ kind: 'ROUTE', routeId: 'rt1' });
+    expect(await h.run('report', 'playlist-item', 'pl1', '--post', 'p1', '--reason', 'UNDECLARED_COMMERCIAL', '--json')).toBe(0);
+    expect(calls[1].variables.t).toEqual({ kind: 'PLAYLIST_ITEM', playlistId: 'pl1', postId: 'p1' });
+    expect(await h.run('report', 'place-message', 'm1', '--channel', '%paris&velo', '--reason', 'MISLEADING_LINK', '--json')).toBe(0);
+    expect(calls[2].variables.t).toEqual({ kind: 'PLACE_MESSAGE', discussion: { channel: '%paris&velo' }, messageId: 'm1' });
+    expect(await h.run('report', 'playlist-item', 'pl1', '--reason', 'OFF_TOPIC', '--json')).toBe(2);
+  });
+  it('events create and proposals file take 1 to 5 free tags (ACTION, OTHER, an event), at most 5 otherwise', async () => {
+    const { h, calls } = scripted({ createUniverseEvent: () => ({ id: 'e1' }), fileProposal: () => ({ id: 'pr1' }) });
+    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--json')).toBe(2);
+    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--tags', '#picnic,parc', '--json')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ input: { universe: '%paris', title: 'Picnic', minutes: 60, tags: ['picnic', 'parc'] } });
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'OTHER', '--title', 'Q', '--tags', 'a,b,c,d,e,f', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--tags', 'bancs', '--from-discussion', 'd1', '--json')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ input: { universe: '%paris', kind: 'ACTION', tags: ['bancs'], fromDiscussion: 'd1' } });
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--place-name', 'Bastille', '--json')).toBe(0);
+    expect(calls[2].variables).toMatchObject({ input: { kind: 'CHANNEL', change: { channelAction: { action: 'PLACE', universe: '%paris', name: 'velo', point: { lat: 48.85, lon: 2.36 }, placeName: 'Bastille' } } } });
+    expect((calls[2].variables.input as Record<string, unknown>).tags).toBeUndefined();
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'Tags', '--tag-conventions', 'velo', '--json')).toBe(0);
+    expect(calls[3].variables).toMatchObject({ input: { change: { tagConventions: ['velo'] } } });
   });
 });
 
@@ -161,57 +189,55 @@ describe('theme publish', () => {
       day: { palette: { background: '#FFFFFF', surface: '#F4F5F7', text: '#14171C', primary: '#C8102E', accent: '#0067B8', link: '#0057A0' } },
     },
     typography: { title: 'Bebas Neue' },
-    imageSlots: { timeColumn: { day: 'time-column-day.png' }, cardTexture: { day: 'card-texture-day.png' }, page: null },
+    imageSlots: { page: { day: 'page-day.png' }, pageHeader: { day: 'page-header-day.png' }, cardTexture: { day: 'card-texture-day.png' } },
   };
-  it('sends each image the JSON names, replaces it with its upload id, then publishes', async () => {
+  it('sends each image the JSON names, replaces it with its upload id, leaves out the slots ignored since v99, then publishes', async () => {
     const { h, calls, uploads } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ name: JSON.parse(String(v.t)).name, version: 1 }) });
     const dir = join(h.dir, 't'); mkdirSync(dir);
     writeFileSync(join(dir, 'theme.json'), JSON.stringify(doc));
-    writeFileSync(join(dir, 'time-column-day.png'), png(1080, 1440));
-    writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
+    writeFileSync(join(dir, 'page-day.png'), png(2400, 1800));
+    writeFileSync(join(dir, 'page-header-day.png'), png(2400, 800));
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(0);
     expect(uploads.length).toBe(2);
     expect(calls.filter((c) => c.field === 'requestMediaUpload').map((c) => (c.variables.i as { destination: string }).destination)).toEqual(['THEME', 'THEME']);
     const published = calls.find((c) => c.field === 'publishTheme')!.variables;
     expect(published.u).toBe('%paris');
     const sent = JSON.parse(String(published.t));
-    expect(sent.imageSlots).toEqual({ timeColumn: { day: 'up-1' }, cardTexture: { day: 'up-2' }, page: null });
+    expect(sent.imageSlots).toEqual({ page: { day: 'up-1' }, pageHeader: { day: 'up-2' } });
     expect(sent.universe).toBeUndefined();
-    expect(last(h)).toMatchObject({ uploads: [{ ref: 'time-column-day.png', id: 'up-1' }, { ref: 'card-texture-day.png', id: 'up-2' }] });
+    expect(last(h)).toMatchObject({ uploads: [{ ref: 'page-day.png', id: 'up-1' }, { ref: 'page-header-day.png', id: 'up-2' }], removed: ['imageSlots.cardTexture'] });
   });
-  it('keeps the opacities, removes the scrims and the text scrims, and tells what the platform corrected with the value kept', async () => {
-    const served = { night: { palette: { text: '#F2F4F8' }, surfaces: { badge: { opacity: 100 }, postCard: { secondaryText: '#B0B4BA' } } } };
-    const { h, calls } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 2, corrected: ['night.text', 'night.surfaces.badge.opacity', 'night.surfaces.postCard.secondaryText'], document: JSON.stringify({ variants: served }) }) });
+  it('removes the scrims and the text scrims, sends the keys the platform ignores as they are, and tells what the platform corrected with the value kept', async () => {
+    const served = { night: { palette: { text: '#F2F4F8' }, surfaces: { control: { text: '#0E1116' } } } };
+    const { h, calls } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 2, corrected: ['night.text', 'night.surfaces.control.text'], document: JSON.stringify({ variants: served }) }) });
     const dir = join(h.dir, 't'); mkdirSync(dir);
-    const transparent = { ...doc, surfaceOpacity: 85, textBackdrop: 'block', textScrims: { postCard: {} }, scrims: { page: {} }, variants: { ...doc.variants, night: { ...doc.variants.night, surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } };
-    writeFileSync(join(dir, 'theme.json'), JSON.stringify(transparent));
-    writeFileSync(join(dir, 'time-column-day.png'), png(1080, 1440));
-    writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
+    const old = { ...doc, imageSlots: { page: null }, surfaceOpacity: 85, textScrims: { postCard: {} }, scrims: { mask: {} }, variants: { ...doc.variants, night: { ...doc.variants.night, surfaces: { control: { background: '#FF2BD6', text: '#FFFFFF' }, postCard: { opacity: 45 } } } } };
+    writeFileSync(join(dir, 'theme.json'), JSON.stringify(old));
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version', '--json')).toBe(0);
     const sent = JSON.parse(String(calls.find((c) => c.field === 'publishTheme')!.variables.t));
-    expect(sent).toMatchObject({ surfaceOpacity: 85, textBackdrop: 'block', variants: { night: { surfaces: { badge: { opacity: 50 }, postCard: { opacity: 45 } } } } });
+    expect(sent).toMatchObject({ surfaceOpacity: 85, variants: { night: { surfaces: { postCard: { opacity: 45 } } } } });
     expect(sent.textScrims).toBeUndefined();
     expect(sent.scrims).toBeUndefined();
-    expect(last(h)).toMatchObject({ removed: ['scrims', 'textScrims'], corrected: [{ path: 'night.text', value: '#F2F4F8' }, { path: 'night.surfaces.badge.opacity', value: 100 }, { path: 'night.surfaces.postCard.secondaryText', value: '#B0B4BA' }] });
+    expect(last(h)).toMatchObject({ removed: ['scrims', 'textScrims'], corrected: [{ path: 'night.text', value: '#F2F4F8' }, { path: 'night.surfaces.control.text', value: '#0E1116' }] });
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version')).toBe(0);
-    expect(h.all()).toMatch(/corrected night\.surfaces\.badge\.opacity: 100/);
+    expect(h.all()).toMatch(/corrected night\.surfaces\.control\.text: #0E1116/);
   });
   it('names each file missing, before anything is sent', async () => {
     const { h, calls } = scripted({});
     const dir = join(h.dir, 't'); mkdirSync(dir);
     writeFileSync(join(dir, 'theme.json'), JSON.stringify(doc));
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'IMAGE_FILE_MISSING', missing: ['imageSlots.timeColumn.day', 'imageSlots.cardTexture.day'] } });
+    expect(last(h)).toMatchObject({ error: { code: 'IMAGE_FILE_MISSING', missing: ['imageSlots.page.day', 'imageSlots.pageHeader.day'] } });
     expect(calls).toEqual([]);
   });
 });
 
-describe('theme trials, draft previews and the post transparency', () => {
-  it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(postTransparency)', async () => {
+describe('theme trials, draft previews and the personal accent', () => {
+  it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(accent)', async () => {
     const { h, calls } = scripted({
       startUniverseThemeTrial: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, startedAt: '2026-10-27T10:00:00.000Z', endsAt: '2026-10-28T10:00:00.000Z', startedBy: { id: 'eu-1', handle: 'alice', displayName: 'Alice' } }),
       endUniverseThemeTrial: () => ({ name: '%paris' }), startDraftPreview: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, endsAt: '2026-10-28T10:00:00.000Z' }), endDraftPreview: () => ({ name: '%paris' }),
-      setPersonalTheme: (v) => ({ postTransparency: (v.input as { postTransparency?: string }).postTransparency }),
+      setPersonalTheme: (v) => ({ accent: (v.input as { accent?: string }).accent }),
     });
     expect(await h.run('studio', 'try', 'd-1')).toBe(0);
     expect(h.all()).toMatch(/%paris: trial of the draft d-1 \(v1\) until 2026-10-28T10:00:00.000Z/);
@@ -221,9 +247,12 @@ describe('theme trials, draft previews and the post transparency', () => {
     expect(await h.run('studio', 'preview', 'd-1', '--json')).toBe(0);
     expect(await h.run('studio', 'end-preview', '%paris', '--json')).toBe(0);
     expect(calls.map((c) => c.field)).toEqual(['startUniverseThemeTrial', 'endUniverseThemeTrial', 'startDraftPreview', 'endDraftPreview']);
-    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'LIQUID', '--json')).toBe(0);
-    expect(calls.at(-1)!.variables).toEqual({ input: { postTransparency: 'LIQUID' }, requestId: expect.stringMatching(UUID_V7) });
-    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'CLEAR', '--json')).toBe(2);
+    expect(await h.run('theme', 'personal', 'set', '--accent', 'universe', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ input: { accent: 'universe' }, requestId: expect.stringMatching(UUID_V7) });
+    // Withdrawn since specs v96.0.0 (D-289): no personal theme, no post transparency, no "my theme everywhere".
+    for (const flag of ['--post-transparency', '--my-theme-everywhere']) expect(await h.run('theme', 'personal', 'set', flag, 'LIQUID', '--json')).toBe(2);
+    expect(await h.run('theme', 'personal', 'clear', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ input: { clear: ['ACCENT', 'DEVICE_DISPLAY_MODE'] }, requestId: expect.stringMatching(UUID_V7) });
   });
 });
 

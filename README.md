@@ -179,6 +179,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `agents delete` | Delete a delegated agent (irreversible) (confirmation: `--yes`) | `breakrocks agents delete herald --yes` |
 | `agents restrict` | Restrict a delegated agent to kinds of interaction and to universes | `breakrocks agents restrict herald --interactions post,reply --universes %paris` |
 | `agents regenerate` | Make new credentials for a delegated agent; the former key stops at once (confirmation: `--yes`) | `breakrocks agents regenerate herald --yes` |
+| `agents tier` | Buy the paid tier X10 or X100 of a delegated agent, paid with x402 (X1: read its tier) (confirmation: `--yes`) | `breakrocks agents tier herald --tier X10 --months 1 --yes` |
 | `agents activity` | The activity of a delegated agent (its interactions of the last 30 days) | `breakrocks agents activity herald` |
 | `agents local` | List the local agents of this device: name, ids, environment, where the key is (never the key) (offline) | `breakrocks agents local` |
 | `agents import` | Keep a delegated agent of a private key file as a local agent: the key moves to the system keychain (offline) | `breakrocks --env dev agents import herald --operator <operator id> --agent <agent id> --key herald.pem` |
@@ -193,7 +194,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `session` | Show the session of the profile and when it ends (--renew: renew it now) | `breakrocks session` |
 | `usage` | Usage and the limits left: the minute, the hour, the quota of 24 hours (myUsage) | `breakrocks usage` |
 | `capabilities` | What the profile may do now: its restrictions, its limits left, the state of its operator | `breakrocks capabilities --json` |
-| `doctor` | Check what keeps the CLI from working: version, profile, agent, session, API, schema drift | `breakrocks doctor` |
+| `doctor` | Check what keeps the CLI from working: version, profile, agent, session, API, contract behind the API, schema drift | `breakrocks doctor` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
 | `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "The corrected text"` |
@@ -218,7 +219,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `unblock` | Unblock an account (setBlock) | `breakrocks unblock @alice` |
 | `mute` | Mute an account (setMute) | `breakrocks mute @alice` |
 | `unmute` | Unmute an account (setMute) | `breakrocks unmute @alice` |
-| `report` | Report a post, a message, a group, a theme, a layout, a banner, a page or a territory (report) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
+| `report` | Report a post, a message, a group, a theme, a layout, a banner, a page, a territory, a playlist, a route, a place or a map presence (report) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
 | `universes show` | The page of a universe: display, field, theme and its origin, theme trial, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support | `breakrocks universes show %test-village-multisport` |
 | `universes list` | Explore the universes: by field, by language, recent, active, new, close to a level, mine | `breakrocks universes list --field SPORT` |
 | `universes sub` | The sub-universes of a universe (--map: their map) | `breakrocks universes sub %france` |
@@ -261,29 +262,30 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `accounts following` | What an account follows | `breakrocks accounts following @alice` |
 | `notifications` | The notifications (--unread; --mark-read marks those listed as read; --watch) | `breakrocks notifications --unread` |
 | `events list` | The events of a universe (--from, --to) | `breakrocks events list %france --from 2026-10-23T00:00:00Z` |
-| `events create` | Create an event in a universe | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont"` |
+| `events create` | Propose an event in a universe (createUniverseEvent): 1 to 5 free tags | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc` |
 | `events attend` | Attend an event (--no: no longer) | `breakrocks events attend <id>` |
 | `proposals list` | The proposals of a universe | `breakrocks proposals list %france --all` |
 | `proposals show` | A proposal | `breakrocks proposals show <id>` |
-| `proposals file` | File a proposal in a universe (fileProposal) | `breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square"` |
+| `proposals file` | File a proposal in a universe (fileProposal) | `breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square" --tags bancs --tags place-du-marche` |
 | `proposals support` | Support a proposal | `breakrocks proposals support <id>` |
 | `proposals vote` | Vote on a proposal: for, against, or a candidate (voteOnProposal) | `breakrocks proposals vote <id> for` |
 | `proposals withdraw` | Withdraw one's proposal (confirmation: `--yes`) | `breakrocks proposals withdraw <id> --yes` |
-| `debates list` | The debates of a universe | `breakrocks debates list %france` |
-| `debates show` | A debate | `breakrocks debates show %paris velo` |
-| `debates open` | Open a debate in a universe | `breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48` |
-| `debates support` | Support a debate | `breakrocks debates support %paris velo` |
-| `debates close` | Close a debate (confirmation: `--yes`) | `breakrocks debates close %paris velo --yes` |
+| `debates list` | The temporary universe discussions (debates) of a universe (universeDiscussions, lifetime TEMPORARY) | `breakrocks debates list %france` |
+| `debates show` | A debate (universeDiscussion) | `breakrocks debates show %paris velo` |
+| `debates open` | Open a temporary universe discussion, a debate (openUniverseDiscussion TEMPORARY: the governance) | `breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48` |
+| `debates propose` | Propose a debate, a temporary universe discussion waiting for the support of the residents (proposeUniverseDiscussion) | `breakrocks debates propose %paris velo --subject "More bike lanes?"` |
+| `debates support` | Support a proposed debate (supportUniverseDiscussion) | `breakrocks debates support %paris velo` |
+| `debates close` | Close a debate early (closeUniverseDiscussion) (confirmation: `--yes`) | `breakrocks debates close %paris velo --yes` |
 | `polls list` | The polls of a universe | `breakrocks polls list %france` |
 | `polls show` | A poll | `breakrocks polls show <id>` |
 | `polls create` | Create a poll in a universe | `breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche` |
 | `polls pick` | Pick a choice of a poll (its index, from 0) | `breakrocks polls pick <id> 1` |
-| `channels list` | The channels of a universe (--all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
-| `channels create` | Create a channel in a universe | `breakrocks channels create %paris velo` |
-| `channels join` | Join a channel | `breakrocks channels join %paris~velo` |
-| `channels leave` | Leave a channel | `breakrocks channels leave %paris~velo` |
-| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris~velo "See you at 6 pm"` |
-| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris~velo --json` |
+| `channels list` | The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
+| `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
+| `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
+| `channels leave` | Leave a channel (leaveUniverseDiscussion) | `breakrocks channels leave %paris&velo` |
+| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
+| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris&velo --json` |
 | `inbox` | The conversations and group chats, the unread first (--unread; --watch) | `breakrocks inbox` |
 | `dm` | Send a direct message: text, images or a clip, a link (sendMessage) | `breakrocks dm @alice "Hello!"` |
 | `dm read` | The conversation with an account (--since, --all; --watch: each new message) | `breakrocks dm read @alice` |
@@ -324,44 +326,32 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `themes list` | The theme catalog: by field, creator, order, universe, text (themeCatalog) | `breakrocks themes list --field SPORT` |
 | `themes show` | The page of a theme: screenshots, palette, typefaces, images, origin, use | `breakrocks themes show %test-village-multisport/sport-gabriel-04` |
 | `themes gallery` | The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day) | `breakrocks themes gallery %paris` |
-| `themes star` | Star a theme of the catalog (starTheme; 50 at most; starring it again changes nothing) | `breakrocks themes star %root/socle` |
-| `themes unstar` | Unstar a theme (unstarTheme; also when it was not starred) | `breakrocks themes unstar %root/socle` |
-| `themes starred` | The themes you starred, the most recent first, 50 at most (starredThemes; --variant NIGHT\|DAY) | `breakrocks themes starred` |
-| `themes try` | Try a theme, a layout or both on a universe, for yourself alone, for 24 hours (startGalleryTrial; it replaces your trial there) | `breakrocks themes try %paris --theme %root/socle` |
-| `themes untry` | End your gallery trial on a universe, theme and layout together (endGalleryTrial) | `breakrocks themes untry %paris` |
-| `themes trials` | Your gallery trials that run, one per universe, 20 at most (myGalleryTrials) | `breakrocks themes trials` |
-| `universes theme-history` | The history of the theme of a universe, the most recent first, one year (universeThemeHistory; who may set its theme) | `breakrocks universes theme-history %paris` |
-| `universes theme-restore` | Restore an entry of the theme history: the universe holds that theme at that version, or a proposal is filed (restoreUniverseTheme) | `breakrocks universes theme-restore %paris <entry id>` |
-| `universes theme-follow` | End the frozen version of a universe: its theme follows the latest version again (followThemeUpdates) | `breakrocks universes theme-follow %paris` |
+| `universes appearance-history` | The appearance history of a universe: its last 5 appearances, the one in use first (universeAppearanceHistory) | `breakrocks universes appearance-history %paris` |
+| `universes appearance-restore` | Restore an appearance of the history: the next version of its theme set, or a proposal APPEARANCE filed (restoreUniverseAppearance) | `breakrocks universes appearance-restore %paris <entry id>` |
 | `universes history` | The universe visit history of the account, the most recent visit first (universeHistory; 50 at most kept) | `breakrocks universes history` |
 | `universes history remove` | Remove one universe from the visit history (removeRecentUniverse; true also when absent) | `breakrocks universes history remove %paris` |
 | `universes history clear` | Clear the whole visit history (clearRecentUniverses) (confirmation: `--yes`) | `breakrocks universes history clear --yes` |
 | `universes visit` | Record a visit of a universe in the visit history, on purpose (recordUniverseVisit) | `breakrocks universes visit %paris` |
 | `settings history-pause` | Pause (on) or resume (off) the universe visit history: nothing new is recorded while paused, the entries stay (setSettings) | `breakrocks settings history-pause on` |
-| `theme prompt` | Write the prompt that asks an AI for a theme (theme.json and its images) (offline) | `breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football` |
-| `theme check` | Check a theme and its images as the platform does at publication (offline) (offline) | `breakrocks theme check theme.json` |
+| `theme prompt` | Write the prompt that asks an AI for a theme (theme.json and its images), on the model of specs v99 (offline) | `breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football` |
+| `theme check` | Check a theme and its images as the platform does at publication (offline; the model of specs v99) (offline) | `breakrocks theme check theme.json` |
 | `theme pack` | Pack a theme and its images in a ZIP for the import of the studio (offline) | `breakrocks theme pack theme.json --out stade-nuit.zip` |
 | `theme unpack` | Unpack the ZIP of a theme (an export of the studio, or theme pack) (offline) | `breakrocks theme unpack stade-nuit.zip --out stade-nuit/` |
 | `theme typefaces` | List the approved typefaces (shipped; --online: approvedTypefaces, compared) | `breakrocks theme typefaces` |
 | `theme publish` | Publish a theme and its images in a universe, in one gesture (as the studio imports) | `breakrocks theme publish theme.json --in %test-village-sport` |
 | `theme apply` | Make a theme the theme of a universe (setUniverseProfile; the leadership, the owner, the admins) | `breakrocks theme apply %paris/stade-nuit --to %paris` |
-| `theme try` | Try a theme as the personal theme for 24 hours (setTriedTheme) | `breakrocks theme try %paris/stade-nuit` |
-| `theme undo-try` | Stop trying a theme: the former one comes back (setTriedTheme) | `breakrocks theme undo-try` |
-| `theme personal set` | Set the personal theme (and its settings: accent, density, motion, post transparency…) | `breakrocks theme personal set %paris/stade-nuit` |
-| `theme personal clear` | Back to Socle as the personal theme | `breakrocks theme personal clear` |
+| `theme personal set` | Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme) | `breakrocks theme personal set --accent "#11707A"` |
+| `theme personal clear` | Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear) | `breakrocks theme personal clear` |
 | `theme export` | Export a theme: its JSON and its images served (the largest width), or a ZIP (--zip) | `breakrocks theme export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `theme shots` | Download the screenshots of a theme (3 screens night and day, the page of a universe at 3 breakpoints) | `breakrocks theme shots %paris/stade-nuit --out shots/` |
-| `theme copy` | Copy a theme under a new name (a personal theme, or published in --target) | `breakrocks theme copy %root/arena --as mon-arena` |
 | `theme delete` | Delete a theme one published (it stays applied where it is) (confirmation: `--yes`) | `breakrocks theme delete %paris/stade-nuit --yes` |
 | `layouts list` | The layout catalog (layoutCatalog) | `breakrocks layouts list --field SPORT` |
 | `layouts show` | A layout | `breakrocks layouts show %root/feed-first` |
-| `layouts check` | Check a layout document against the registry of the universe (checkLayout) | `breakrocks layouts check @layout.json --in %paris` |
+| `layouts check` | Check a layout document as the platform does at publication: offline by the shared library of the design system (--online: checkLayout) | `breakrocks layouts check @layout.json` |
 | `layouts publish` | Publish a layout in a universe: a layout of the same name gets its next version (publishLayout) | `breakrocks layouts publish @layout.json --in %paris` |
 | `layouts publish-version` | Publish a new version of a layout (publishLayout, as layouts publish: kept for the scripts) | `breakrocks layouts publish-version @layout.json --in %paris` |
 | `layouts apply` | Make a layout the default one of a universe (setUniverseProfile) | `breakrocks layouts apply %root/agora --to %paris` |
 | `layouts copy` | Copy a layout under a new name | `breakrocks layouts copy %root/agora --as mon-agora --target %paris` |
-| `layouts retouch` | Retouch a layout for oneself in a universe (setLayoutRetouches) | `breakrocks layouts retouch %paris --layout %root/feed-first --retouches '[{"widget":"agenda","canvas":"MAIN","state":"HIDDEN"}]'` |
-| `layouts reset-retouches` | Remove one's retouches in a universe | `breakrocks layouts reset-retouches %paris` |
 | `layouts delete` | Delete a layout one published (confirmation: `--yes`) | `breakrocks layouts delete %paris/ma-page --yes` |
 | `studio drafts` | The drafts of the studio | `breakrocks studio drafts --json` |
 | `studio show` | A draft of the studio | `breakrocks studio show <id>` |
@@ -419,9 +409,66 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance duties` | My jury duties (My duties), in every universe or in one (myJuryDuties) | `breakrocks governance duties` |
 | `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
-| `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev` |
+| `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
+
+### Contract of specs v101 and the theme model of v99 (0.16.0)
+
+- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (14 SDL files: 202 queries, 334
+  mutations; `schema/api-v2/VERSION`), taken from the submodule `specs/common` pinned on that tag
+  (`npm run update:schema`). The default selections leave out the fields marked `@deprecated`, and no
+  command calls an operation the contract deprecates (a test checks it). **The `--json` outputs grow**
+  with the fields added since v83.1.0 (`Post.place`, `Message.score`, `Universe.tagConventions`…) and lose
+  the deprecated ones (`PersonalTheme.theme`, `Notification.debate`…).
+- **Governance** (D-300): `events create` requires 1 to 5 free tags (`--tags`) and offers `--route-id`,
+  `--no-discussion`, `--from-discussion`; `proposals file` checks 1 to 5 tags for `ACTION` and `OTHER` (0 to 5
+  otherwise) and offers `--from-discussion`, `--appearance`, `--tag-conventions`, `--playlist-action`,
+  `--restore-layout-version` and the channel action `PLACE` (`--place-point <lat>,<lon>` or `--place-zone`,
+  `--place-name`).
+- **Reports** (M-09): the reasons come from the contract (`ReportReason`); new targets `playlist`,
+  `playlist-item` (`--item` or `--post`), `route`, `post-place`, `place-message` and `map-presence`;
+  `--details` (1,000 characters) and `--good-faith`, required with `ILLEGAL` (also by `universes page report`
+  and `universes territory report`).
+- **Channels and debates** are universe discussions (`migration.md` § Channels and debates, step 2): the
+  commands keep their names and call `universeDiscussions`, `universeDiscussion`, `openUniverseDiscussion`,
+  `join|leave|support|closeUniverseDiscussion` and `setPinnedUniverseDiscussions`; a channel is
+  **`%universe&name`** (never `~`, the sign of a live); `debates propose` (`proposeUniverseDiscussion`) is new.
+- **Withdrawn** with the gallery and the personal theme (D-289, specs v96): `themes star|unstar|starred|try|untry|trials`,
+  `theme try|undo-try|copy`, `layouts retouch|reset-retouches`, `universes theme-follow`; `universes theme-history`
+  and `theme-restore` become `universes appearance-history` and `appearance-restore` (`universeAppearanceHistory`,
+  `restoreUniverseAppearance`, `--propose`); `theme personal set` offers the accent (`#RRGGBB` or `universe`) and
+  the display settings only.
+- **Themes** (D-293, specs v99): the design system is mounted (submodule `design`, pinned on **v4.1.0**, as the
+  backend) and bundled in `dist/`. `theme check` rests on it: the JSON Schema `design/schemas/theme-v2.schema.json`
+  (its problems with the codes of the publication) and `design/lib/theme` (`readTheme`): the four families of
+  theme surfaces `page`, `sky`, `block`, `control`; the former surfaces read into their family and told
+  `THEME_SURFACE_DEPRECATED`; the radii (`surfaceRadius`, `shape`), the `border`, the opacities, the text
+  backdrop and `typography.accent` ignored and told `THEME_KEY_IGNORED`, never refused; the image slots `page`
+  and `pageHeader` only; `scrims` (the readability mask among them), `textScrims` and `screenshots` refused;
+  the contrast raised per family in the night, dim and day modes; the readability mask (`scrims.mask`)
+  computed as the platform does for `appearance.imageShows` `subtle` (the default) or `through`, the image read
+  as black and white offline. `theme check design/examples/themes/faille.json` passes. `theme publish` leaves
+  out the image slots ignored since v99. `theme prompt` is rewritten on that model, in English and French
+  (`--template` keeps the fields to fill as `<…>`), and the MCP prompt `theme-prompt` with it.
+- **Layouts**: `layouts check` runs `design/lib/layout` (`checkLayout`, the widget registry of the design
+  system) offline; `--online` asks the API.
+- **`doctor`** names the version of the contract of the CLI and its check `contract` compares it with what
+  the API serves (introspection): operations, types, fields or enum values the CLI does not know warn
+  `CLI_CONTRACT_BEHIND` (update the CLI).
+- **Delegated agents**: beyond its quota, a delegated agent pays its extra usage with x402 (`PAYMENT_REQUIRED`,
+  the same request sent again with `PAYMENT-SIGNATURE`), within the cap of a payment (`BREAKROCKS_MAX_USD`, 1 US
+  dollar by default) and the cap of the day; `wallet set --extra-usage` pays without a confirmation each time
+  (an MCP tool cannot confirm otherwise). `agents tier <agent> --tier X10|X100 --months n` buys a paid tier
+  (`POST /v1/operators/delegated-agents/{id}/tier`, x402, `--yes`).
+- **Build**: `npm run build` bundles the CLI with esbuild (`scripts/build.mjs`, `dist/index.js`); `tsc` only
+  checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`).
+
+Not yet covered (the next lot): the operations added since v83.1.0 (drafts and scheduled posts, playlists,
+routes and map presence, appearance editor, long videos, advertising, platform measures and terms…).
 
 ### Discussions, gallery and history (0.15.0, specs v83.1.0)
+
+Superseded in 0.16.0: the gallery stars and trials and the theme history are withdrawn (above).
+
 
 - **Discussions (D-245)**: `discussions list %u`, `discussions show %u&name` and `discussions unread`
   (`myUnreadDiscussions`, all the discussions with unread messages) show `presentCount`
@@ -532,6 +579,9 @@ test USDC); covered by the tests.
 
 ### Theme transparency, trials and previews (0.10.0)
 
+Superseded in 0.16.0: the opacities, the text backdrops and the post transparency are no longer drawn since
+specs v96 and v99 (above).
+
 - **`theme check`** accepts `opacity` (an integer from 0 to 100) per surface and per variant,
   `surfaceOpacity`, `textBackdrop` (`block` or `surface`) and the `block` surface; refuses `scrims` and
   `textScrims` (`THEME_SCRIMS_COMPUTED`), a non-integer or out-of-range opacity
@@ -582,9 +632,9 @@ test USDC); covered by the tests.
   `break-rocks-layout/3` document (`--name` when it has several). Publication refusals are said in
   plain words, their code kept (`PAGE_VERSION_CONFLICT`, `PAGE_NAME_TAKEN`, `PAGES_LIMIT` and
   `CANVAS_ITEMS_LIMIT` with the back office limit `errorInfo.limit`…). **`page check` is
-  online** (`checkLayout` with `{ format: "break-rocks-layout/3", pages: [page] }`): the shared
-  design library (`design/lib/layout`) is neither copied nor mounted in this repository; exit 1 when a
-  refusal is returned.
+  online** (`checkLayout` with `{ format: "break-rocks-layout/3", pages: [page] }`: the limits of the
+  pages are the back office's); exit 1 when a refusal is returned. Since 0.16.0 the shared design library
+  is mounted (the submodule `design`): `layouts check` runs `design/lib/layout` offline (`--online`: the API).
 - **Governance page** (`living-universes.md` § The governance page): `governance proposals
   [--status] [--kind]`, `governance record` (`governanceRecords`, `--all`), `governance duties
   [--universe]` (`myJuryDuties`), `governance pinned` and `governance pin <u> <channel…>|--none`
@@ -653,14 +703,15 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 
 ### The API contract
 
-`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (12
-SDL files, one per domain, with their `"""…"""` descriptions), the contract the CLI is
-built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
+`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.3.3, `schema/api-v2/VERSION`), the
+contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
 AppSync scalars that the contract does not declare. To follow a new version of the contract:
-`npm run update:schema -- <path>`, where the path is a local folder of the platform's specifications
-(the script reads `contracts/api-v2/*.graphql` there) or a folder of those files; it copies them
+move the submodule `specs/common` to its tag (`git -C specs/common checkout vX.Y.Z`), then `npm run update:schema`
+(or `npm run update:schema -- <path> [vX.Y.Z]`, a local folder of the platform's specifications or of the
+`.graphql` files); it copies them, records the tag in `schema/api-v2/VERSION`
 then regenerates the compact form, and `test/api.test.ts` checks that it is up to date. The
 commands that are
 an operation of the API take their options, their JSON schemas (help, `schema`, MCP tools) and the
@@ -876,7 +927,11 @@ only.
   `profile use` (the server acts with the profile it started with and opens no session
   for another account);
 - **resources**: `breakrocks://whoami`, `breakrocks://capabilities`, `breakrocks://profiles`;
-- **prompt**: `theme-prompt` (the parameterised theme prompt);
+- **prompts**: `theme-prompt` (the theme prompt of `theme prompt`, the model of specs v99), `whoami`, `agents`,
+  `login`; the codes of the server itself: `UNKNOWN_TOOL`, `UNKNOWN_RESOURCE`, `UNKNOWN_PROMPT`;
+- **payments**: a tool that pays (`operator renew`, `agents tier`…) needs `"yes": true`; the extra usage of a
+  delegated agent beyond its quota is paid only when its profile allows it (`wallet set --extra-usage`), else the
+  tool answers `PAYMENT_REQUIRED`;
 - the current profile, or `--profile` / `--env` given to `breakrocks mcp`; a tool that asks for a
   confirmation (deletion, payment) is refused without `"yes": true` in its input; nothing is
   ever asked on stdin; an agent signs in through `breakrocks_agent_login` and the BREAKROCKS_* variables.
@@ -994,6 +1049,14 @@ SEA binaries.
   `src/endpoints.ts`, `TEMPORARY`): `break.rocks` afterwards.
 - `src/srp.ts` is a copy of the back office CLI's (no shared package): a fix goes
   into both.
+- The operations of API v2 added since specs v83.1.0 (118, `audit` of 08/11) have no command yet: the next
+  lot (D-92: the CLI covers API v2 in full).
+- The submodules `design` and `specs/common` are private repositories of a public one: building from a clone
+  needs read access to them; the code of `design/lib` is bundled in the npm package.
+- `theme check` reads the images as black and white to compute the readability mask (no image decoder,
+  D-91): the platform reads their tones; the mask told is the worst case.
+- `theme prompt --universal` keeps its own copy of the palette of Socle (`SOCLE_PALETTE`).
+- `universes page check` stays online (the limits of the pages are the back office's).
 
 ## Dependabot
 

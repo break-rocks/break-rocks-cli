@@ -20,6 +20,7 @@ import { claimsOf, refreshTokens, type CognitoTokens, type UserPool } from './co
 import { privateKeyFrom, readPrivateKey, signChallenge } from './keys.js';
 import { localAgentKey, requireLocalAgent } from './local-agents.js';
 import { agentsPost, expectOk, graphql, isUnauthorized } from './transport.js';
+import { payExtraUsage } from './x402.js';
 
 /** A session is renewed when it ends within 5 minutes. */
 export const RENEW_BEFORE_MS = 5 * 60 * 1000;
@@ -186,7 +187,7 @@ async function ensureHumanSession(ctx: Context, profile: Profile, options: { ren
 export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   const { session, at } = await ensureSession(ctx);
   try {
-    return await graphql<T>(ctx, at.api, apiToken(session), query, variables, false, !!options.partial);
+    return await withExtraUsage(ctx, session, (token, extra) => graphql<T>(ctx, at.api, token, query, variables, false, !!options.partial, extra));
   } catch (error) {
     if (!isUnauthorized(error)) throw error;
     let fresh: Session;
@@ -196,7 +197,18 @@ export async function api<T = Record<string, unknown>>(ctx: Context, query: stri
       if (signInError instanceof CliError && signInError.code === 'SIGN_IN_REQUIRED') throw new CliError('SESSION_EXPIRED', 'The session was refused and cannot be opened again here: sign in again', EXIT.NETWORK, {}, 'platform');
       throw signInError;
     }
-    return graphql<T>(ctx, at.api, apiToken(fresh), query, variables, false, !!options.partial);
+    return withExtraUsage(ctx, fresh, (token, extra) => graphql<T>(ctx, at.api, token, query, variables, false, !!options.partial, extra));
+  }
+}
+
+/** A request of a delegated agent beyond its quota (PAYMENT_REQUIRED with its x402 conditions): its extra usage paid, the request sent again (x402.ts payExtraUsage). */
+async function withExtraUsage<T>(ctx: Context, session: Session, send: (token: string, extra: { headers?: Record<string, string>; seen?: (h: Headers) => void }) => Promise<T>): Promise<T> {
+  try {
+    return await send(apiToken(session), {});
+  } catch (error) {
+    const info = error instanceof CliError && error.code === 'PAYMENT_REQUIRED' ? (error.details as { errorInfo?: Record<string, unknown> }).errorInfo : undefined;
+    if (!info || session.kind !== 'agent' || !ctx.profile().wallet) throw error;
+    return payExtraUsage(ctx, info, async (headers) => { let seen: Headers | undefined; const data = await send(apiToken(session), { headers, seen: (h) => { seen = h; } }); return { data, headers: seen }; });
   }
 }
 

@@ -34,7 +34,7 @@ export type Profile = {
   /** A registration signed and not paid yet: its id (the future account id) and when it is abandoned. */
   registration?: { id: string; expiresAt: string; country: string };
   /** The x402 wallet: a key file of the configuration folder, or the variable BREAKROCKS_WALLET_KEY. */
-  wallet?: { source: 'file' | 'env'; file?: string; address: string; maxUsdPerDay: number };
+  wallet?: { source: 'file' | 'env'; file?: string; address: string; maxUsdPerDay: number; extraUsage?: boolean };
   /** A local agent (--agent, BREAKROCKS_AGENT): its name; never saved in config.json. */
   localAgent?: string;
 };

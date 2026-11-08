@@ -13,6 +13,14 @@ The last position of a live share.
 """
 type LivePosition {
   """
+  Since v84.0.0 (D-248): its map avatar; null without one (the profile picture is shown).
+  """
+  mapAvatar: MapAvatar
+  """
+  Since v84.0.0 (D-248): the state of its map avatar.
+  """
+  state: MapAvatarState
+  """
   The identifier of the account.
   """
   accountId: ID!
@@ -21,9 +29,15 @@ type LivePosition {
   """
   at: AWSDateTime!
   """
-  The point (WGS 84).
+  The point (WGS 84); since v94.0.0 (D-288), for a minor sharer, the center of its map cell (mapCell), never the
+  point sent.
   """
   point: Point!
+  """
+  Since v94.0.0 (D-288): the map cell of resolution 8 (about 1 kilometre) the position lies in, for a minor sharer,
+  turned by the backend before any recipient reads it; null for an adult sharer.
+  """
+  mapCell: String
   """
   The time to arrival at the meeting point, in seconds; null when unknown.
   """
@@ -87,6 +101,14 @@ A locatable resident: its map cell (H3, resolution 8, about 1 kilometre across; 
 activity, its end; "account" its display copy.
 """
 type Locatable {
+  """
+  Since v84.0.0 (D-248): its map avatar; null without one (the profile picture is shown).
+  """
+  mapAvatar: MapAvatar
+  """
+  Since v84.0.0 (D-248): the state of its map avatar.
+  """
+  state: MapAvatarState
   """
   The account, as shown.
   """
@@ -358,7 +380,9 @@ type Route {
   """
   points: [Point!]!
   """
-  Its time, in seconds; null when unknown.
+  Its time, in seconds; null when unknown. Since v101.2.0 (routes.feature): when the route does not follow the ways
+  (snapped false) and seconds is null, the apps show an estimated duration, its metres at 5 km/h on foot and 15 km/h
+  by bicycle, told "estimated".
   """
   seconds: Int
   """
@@ -373,6 +397,10 @@ type Route {
   Its stages; null when none.
   """
   stages: [Stage!]
+  """
+  Whether it is a loop, its end joined to its start (since v92.1.0); false otherwise.
+  """
+  loop: Boolean!
 }
 
 """
@@ -393,6 +421,16 @@ input RouteInput {
   snap: Boolean
   snapped: Boolean
   stages: [StageInput!]
+  """
+  Since v92.1.0: a loop (false when not given). A line drawn by hand is simplified by the app, keeping its shape (5
+  metres by default, a setting of the platform team), to at most 1,000 points before it is sent, with handDrawn
+  true (ROUTE_INVALID beyond; 100 points placed point by point).
+  """
+  loop: Boolean
+  """
+  Since v92.1.0: a line drawn by hand or imported, up to 1,000 points (false when not given: 2 to 100 points).
+  """
+  handDrawn: Boolean
 }
 
 """
@@ -415,6 +453,10 @@ type Stage {
   The name of the stage.
   """
   name: String!
+  """
+  The post it holds (since v92.1.0: a video, an image or a text, that the caller reads); null when none.
+  """
+  postId: ID
 }
 
 """
@@ -426,6 +468,10 @@ input StageInput {
   The name of the stage input.
   """
   name: String!
+  """
+  Since v92.1.0: the post it holds (POST_NOT_FOUND).
+  """
+  postId: ID
 }
 
 """
@@ -561,4 +607,489 @@ enum ZoneRadius {
   M150
   M250
   M500
+}
+
+"""
+Since v84.0.0 (D-248): a layer of a map avatar, one part per layer at most.
+"""
+enum AvatarLayer {
+  ACCESSORY
+  BODY
+  CLOTHES
+  FACE
+  HAIR
+}
+
+"""
+Since v84.0.0 (D-248): a part of the avatar catalog, a layered 2D image made by the platform or under the
+CC0 licence, approved by the platform team.
+"""
+type AvatarPart {
+  """
+  The identifier of the part.
+  """
+  id: ID!
+  """
+  The layer it is drawn in.
+  """
+  layer: AvatarLayer!
+  """
+  Its name, in the language asked.
+  """
+  name: String!
+  """
+  The URL of its image (SVG) on the CDN.
+  """
+  imageUrl: AWSURL!
+  """
+  True for a free part, false for a paid cosmetic part.
+  """
+  free: Boolean!
+  """
+  True once the caller may wear it: a free part, or a paid cosmetic part bought.
+  """
+  owned: Boolean!
+  """
+  The price of a paid cosmetic part in the currency of the caller, in minor units; null for a free part.
+  """
+  priceMinor: Int
+  """
+  The currency of priceMinor (ISO 4217); null for a free part.
+  """
+  currency: String
+}
+
+"""
+Since v84.0.0 (D-248): a page of the avatar catalog.
+"""
+type AvatarPartPage {
+  """
+  The parts of this page.
+  """
+  items: [AvatarPart!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Since v84.0.0 (D-248): a map avatar, its parts by layer.
+"""
+type MapAvatar {
+  """
+  Its parts, one per layer at most.
+  """
+  parts: [AvatarPart!]!
+  """
+  When it was last changed.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+Since v84.0.0 (D-248): the state of a map avatar on the map, computed by the platform from the map presence,
+the live share or the locatable resident: MOVING beyond 100 metres in the last 10 minutes, AT_EVENT within the
+place or the zone of a universe event in progress its owner attends, IDLE otherwise.
+"""
+enum MapAvatarState {
+  AT_EVENT
+  IDLE
+  MOVING
+}
+
+"""
+Since v84.0.0 (D-248): the precision a connected account sees a map presence at: NEIGHBOURHOOD (H3
+resolution 8, about 1 kilometre, the default), CITY (H3 resolution 6, about 36 square kilometres), EXACT (the
+point).
+"""
+enum MapPresencePrecision {
+  CITY
+  EXACT
+  NEIGHBOURHOOD
+}
+
+"""
+Since v84.0.0 (D-248): how long a map presence lasts.
+"""
+enum MapPresenceDuration {
+  EIGHT_HOURS
+  ONE_DAY
+  ONE_HOUR
+  SEVEN_DAYS
+}
+
+"""
+Since v84.0.0 (D-248): a connected account of the audience of a map presence and its precision.
+"""
+type MapPresenceViewer {
+  """
+  The identifier of the connected account.
+  """
+  accountId: ID!
+  """
+  The precision it sees.
+  """
+  precision: MapPresencePrecision!
+}
+
+"""
+Since v84.0.0 (D-248): a connected account of the audience, as an argument; precision by default the
+precision of the audience.
+"""
+input MapPresenceViewerInput {
+  accountId: ID!
+  precision: MapPresencePrecision
+}
+
+"""
+Since v84.0.0 (D-248): the audience of a map presence, as an argument: all the connected accounts
+(allConnections) or those listed (viewers), at "precision" (NEIGHBOURHOOD by default), and the residents of
+at most 3 public universes the caller is a resident of (universes, seeing groups only). A minor: universes
+empty, else MAP_PRESENCE_CONNECTIONS_ONLY; since v94.0.0 (D-288), a minor never EXACT (precision nor a viewer),
+else MAP_PRESENCE_PRECISION_NOT_ALLOWED; 4 universes or more: MAP_PRESENCE_UNIVERSE_LIMIT.
+"""
+input MapPresenceAudienceInput {
+  allConnections: Boolean!
+  precision: MapPresencePrecision
+  viewers: [MapPresenceViewerInput!]!
+  universes: [String!]!
+}
+
+"""
+Since v84.0.0 (D-248): the map presence of the caller.
+"""
+type MyMapPresence {
+  """
+  True for all the connected accounts.
+  """
+  allConnections: Boolean!
+  """
+  The precision of the connected accounts not listed in viewers.
+  """
+  precision: MapPresencePrecision!
+  """
+  The connected accounts listed, with their precision.
+  """
+  viewers: [MapPresenceViewer!]!
+  """
+  The addresses of the universes whose residents see groups ("%paris").
+  """
+  universes: [String!]!
+  """
+  True in the ghost mode: nobody sees it.
+  """
+  ghost: Boolean!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  When its map cell or point was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+Since v84.0.0 (D-248): the map presence of a connected account, as the caller may see it: its map cell at
+its precision, or its point (EXACT only).
+"""
+type MapPresence {
+  """
+  The account, as shown.
+  """
+  account: AccountRef
+  """
+  The identifier of the account.
+  """
+  accountId: ID!
+  """
+  The precision the caller sees.
+  """
+  precision: MapPresencePrecision!
+  """
+  The map cell (H3, resolution 8 or 6); null with EXACT.
+  """
+  mapCell: String
+  """
+  The point (WGS 84), EXACT only; null otherwise.
+  """
+  point: Point
+  """
+  Its map avatar; null without one (the profile picture is shown).
+  """
+  mapAvatar: MapAvatar
+  """
+  The state of its map avatar.
+  """
+  state: MapAvatarState!
+  """
+  When it ends.
+  """
+  endsAt: AWSDateTime!
+  """
+  When it was last updated.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+Since v84.0.0 (D-248): a group of map presence of the residents of a universe in a map cell (H3, resolution
+8), from 3 residents; never a name, an avatar nor a point.
+"""
+type MapPresenceGroup {
+  """
+  The map cell (H3, resolution 8).
+  """
+  mapCell: String!
+  """
+  The number of people, 3 or more, each counted once (a map presence and a locatable resident of the same
+  person count one).
+  """
+  count: Int!
+}
+
+"""
+Since v84.0.0 (D-248): the place of a placed post: a point of interest of the cartography at its point
+(pointOfInterest true, point set), or a map cell of about 1 kilometre (H3, resolution 8), point null.
+"""
+type PostPlace {
+  """
+  The name shown: the name of the point of interest, else the name of the district of the map cell.
+  """
+  name: String!
+  """
+  True for a point of interest.
+  """
+  pointOfInterest: Boolean!
+  """
+  The point of a point of interest; null otherwise.
+  """
+  point: Point
+  """
+  The map cell (H3, resolution 8) of the place, always set.
+  """
+  mapCell: String!
+  """
+  Since v86.3.0: the identifier of the point of interest (the placeId of PostPlaceInput); null otherwise.
+  """
+  placeId: String
+  """
+  Since v92.0.0 (D-285, placed-videos.feature): the precision of a placed video, EXACT (a point of interest, point set), NEIGHBOURHOOD
+  or CITY (point null, mapCell the cell of resolution 8 at the center of the city); NEIGHBOURHOOD for a post
+  without a video.
+  """
+  precision: PlacePrecision!
+  """
+  Since v92.0.0: the moment of the video its pin opens at, in milliseconds; null for its start.
+  """
+  atMs: Int
+}
+
+"""
+The precision of the place of a placed video (since v92.0.0, D-285): the exact point (of a point of interest only), the
+neighbourhood (the map cell of about 1 kilometre) or the city. A minor: CITY at most.
+"""
+enum PlacePrecision {
+  CITY
+  EXACT
+  NEIGHBOURHOOD
+}
+
+"""
+Since v84.0.0 (D-248): the place an author chooses for a post: a point of interest (placeId, from places)
+kept at its point, or any point, rounded to its map cell by the platform before anything is kept.
+POST_PLACE_NOT_ALLOWED in a private universe, a reply, a repost or a quote; since v92.0.0 (D-285), a post with a
+clip or a long video is placed in a private universe too, seen by its members only. Since v92.0.0: precision (a
+post with a video only, NEIGHBOURHOOD when not given; POST_PLACE_PRECISION_NOT_ALLOWED for a post without a video, and for EXACT without a point of interest (placeId);
+EXACT and NEIGHBOURHOOD read as CITY for a minor); atMs (the moment its pin opens at, within the video);
+recordingStartedAt (the start of the recording, read on the device and shown to the author, for the points of
+view; never kept otherwise).
+"""
+input PostPlaceInput {
+  placeId: String
+  point: PointInput
+  precision: PlacePrecision
+  atMs: Int
+  recordingStartedAt: AWSDateTime
+}
+
+"""
+Since v84.0.0 (D-248): a placed post on the map: the post and its place.
+"""
+type MapPost {
+  """
+  The identifier of the post.
+  """
+  postId: ID!
+  """
+  The address of its universe ("%paris").
+  """
+  universe: String!
+  """
+  Its place.
+  """
+  place: PostPlace!
+  """
+  When it was published (the pulse ring under 1 hour).
+  """
+  createdAt: AWSDateTime!
+  """
+  Since v92.0.0 (D-285): whether it carries a clip or a long video (the layer "Videos").
+  """
+  video: Boolean!
+}
+
+"""
+Since v84.1.0 (D-248, the pulse ring): a place with a placed post of less than 1 hour (mapRecentPlaces).
+"""
+type MapRecentPlace {
+  """
+  The map cell (H3, resolution 8) of the place, always set.
+  """
+  mapCell: String!
+  """
+  True for a point of interest.
+  """
+  pointOfInterest: Boolean!
+  """
+  The point of a point of interest; null otherwise.
+  """
+  point: Point
+  """
+  When its last placed post the caller may read was published, less than 1 hour ago.
+  """
+  lastPostAt: AWSDateTime!
+}
+
+"""
+A point of view of a placed video (since v92.0.0, D-285, pointsOfView): another placed video of the same moment.
+"""
+type PointOfView {
+  """
+  The post with the video.
+  """
+  postId: ID!
+  """
+  Its place.
+  """
+  place: PostPlace!
+  """
+  The start of its recording minus the start of the recording of the video asked, in milliseconds: the instant to
+  switch to is the instant shown minus offsetMs.
+  """
+  offsetMs: Int!
+}
+
+"""
+A route as an object of its own (since v92.1.0, routes.feature): made by an account or the leadership of a universe,
+its URL ("/a/<handle>/w/<name>", "/u/<path>/w/<name>"), its line (route), its visibility (that of a playlist,
+PRIVATE when created; a universe route the visibility of its universe), and the original it was copied from. The
+parts within the privacy zones of its author are left out of route for every caller but its author. Since v101.2.0
+(D-288): its author receives the whole line and its app computes the part hidden to the others with
+myRoutePrivacyZones, by the rule of contracts/map.md § Routes; no field carries it.
+"""
+type MapRoute {
+  """
+  The identifier of the route.
+  """
+  id: ID!
+  """
+  Its name, by the rules of a channel name, unique per owner.
+  """
+  name: String!
+  """
+  Its canonical URL.
+  """
+  url: AWSURL!
+  """
+  Its author, for the route of an account; null for a universe route.
+  """
+  owner: AccountRef
+  """
+  Its universe ("%paris"), for a universe route; null otherwise.
+  """
+  universe: String
+  """
+  Its visibility: PUBLIC, UNLISTED or PRIVATE (an account route); that of its universe for a universe route.
+  """
+  visibility: PlaylistVisibility!
+  """
+  Its line, its stages, its mode, its length and its elevation.
+  """
+  route: Route!
+  """
+  The URL of the route it was copied from ("Do this route"); null when it is an original, or once the original is
+  no longer readable.
+  """
+  copiedFrom: AWSURL
+  """
+  The author of the original it was copied from; null otherwise.
+  """
+  copiedFromAuthor: AccountRef
+  """
+  When it was created.
+  """
+  createdAt: AWSDateTime!
+  """
+  Its free tags, 0 to 5 (since v101.0.0, D-300), in their canonical form, without "#".
+  """
+  tags: [String!]!
+  """
+  Its line as kept (since v101.0.0, contracts/map.md § Routes): the simplified line, at most 1,000 points, as an
+  encoded polyline of precision 5, the parts its privacy zones hide left out for another reader than its author.
+  """
+  encodedLine: String!
+}
+
+"""
+A page of routes, the most recent first (since v92.1.0).
+"""
+type MapRoutePage {
+  """
+  The routes of the page.
+  """
+  items: [MapRoute!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+}
+
+"""
+A route to save (since v92.1.0, saveMapRoute): id to change one, none to create one; universe for a universe route,
+by its leadership; visibility for an account route only (PRIVATE when not given).
+"""
+input MapRouteInput {
+  id: ID
+  name: String!
+  universe: String
+  visibility: PlaylistVisibility
+  route: RouteInput!
+  """
+  Since v101.0.0 (D-300): its free tags, 0 to 5, replacing them (FREE_TAGS_TOO_MANY, TAG_INVALID); not given: kept.
+  """
+  tags: [String!]
+}
+
+"""
+A privacy zone of an account (since v92.1.0): a private place and its radius, 200, 500 or 1,000 metres.
+"""
+type RoutePrivacyZone {
+  """
+  The private place.
+  """
+  point: Point!
+  """
+  Its radius, in metres.
+  """
+  metres: Int!
+}
+
+"""
+A privacy zone to set (since v92.1.0).
+"""
+input RoutePrivacyZoneInput {
+  point: PointInput!
+  metres: Int!
 }

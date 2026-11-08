@@ -12,7 +12,9 @@ import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { uuidv7 } from '../ids.js';
-import { api, requireOperator } from '../session.js';
+import { api, ensureSession, requireOperator } from '../session.js';
+import { expectOk } from '../transport.js';
+import { paidPost, type Payment } from '../x402.js';
 
 export const INTERACTIONS = ['channels', 'directMessages', 'follow', 'groupChats', 'joinPrivateUniverses', 'post', 'reply', 'repost'] as const;
 const AGENT_FIELDS = 'id name status interactions universes createdAt credentialsUpdatedAt suspendedAt deactivatedAt';
@@ -242,4 +244,24 @@ export const agentsForget: Command<{ name: string }, { name: string; agentId: st
     return { name, agentId: agent.agentId, keyRemoved };
   },
   quiet: (r) => r.name,
+};
+
+type TierResult = { agentId: string; tier: string; paidUntil: string | null; next: { tier: string; from: string; until: string } | null; payment?: Payment };
+export const agentsTier: Command<{ agent: string; tier: 'X10' | 'X100' | 'X1'; months?: number; maxUsd?: number }, TierResult> = {
+  name: 'agents tier', summary: 'Buy the paid tier X10 or X100 of a delegated agent, paid with x402 (X1: read its tier)',
+  description: 'POST /v1/operators/delegated-agents/{id}/tier with the session of the operator (contracts/payments.md § What is paid): the limits of the delegated agent ×10 or ×100 for whole months (1 to 12), paid with the x402 wallet of the profile within --max-usd and the cap of the day, after a confirmation (--yes). A tier bought starts at once; the tier in force asked again is renewed after its end; a higher tier applies at once for the difference over the days left; a lower one is paid for the months after the period in force and applies then (no refund). Never renewed automatically. X1 pays nothing and answers the tier in force.',
+  examples: ['breakrocks agents tier herald --tier X10 --months 1 --yes', 'breakrocks agents tier herald --tier X100 --months 3 --max-usd 50', 'breakrocks agents tier herald --tier X1 --json'],
+  input: object({ agent: agentRef, tier: str('X10 or X100 (X1: the tier in force, nothing paid)', { enum: ['X10', 'X100', 'X1'] }), months: int('Whole months', { minimum: 1, maximum: 12, default: 1 }), maxUsd: { type: 'number', minimum: 0, default: 1, description: 'The most this command may pay, in US dollars' } }, ['agent', 'tier']),
+  output: openObject({ agentId: str('The delegated agent'), tier: str('The tier in force: X1, X10 or X100'), paidUntil: { type: ['string', 'null'], description: 'The end of its paid period' }, next: { type: ['object', 'null'], description: 'The tier that follows: { tier, from, until }' }, payment: openObject({ usd: str('Amount paid, in USDC'), network: str('CAIP-2 network'), transaction: str('Transaction hash') }) }),
+  args: { positionals: ['agent'] }, interactive: true,
+  run: async (ctx, { agent, tier, months = 1, maxUsd }) => {
+    requireOperator(ctx);
+    const { id, name } = await agentIdOf(ctx, agent);
+    const { session, at } = await ensureSession(ctx);
+    const paid = await paidPost(ctx, { base: at.agents, path: `/operators/delegated-agents/${encodeURIComponent(id)}/tier`, body: { tier, months }, headers: { authorization: `Bearer ${session.token}` }, maxUsd, what: `the paid tier ${tier} of the delegated agent "${name}" (${months} month${months > 1 ? 's' : ''})` });
+    const body = expectOk(paid.answer) as Omit<TierResult, 'payment'>;
+    return { agentId: body.agentId ?? id, tier: body.tier, paidUntil: body.paidUntil ?? null, next: body.next ?? null, ...(paid.payment ? { payment: paid.payment } : {}) };
+  },
+  text: (r) => [`${r.agentId}: tier ${r.tier}${r.paidUntil ? ` until ${r.paidUntil}` : ''}${r.next ? `, then ${r.next.tier} until ${r.next.until}` : ''}`, ...(r.payment ? [`paid ${r.payment.usd} USDC on ${r.payment.networkName}${r.payment.transaction ? ` (${r.payment.transaction})` : ''}`] : [])].join('\n'),
+  quiet: (r) => r.tier,
 };

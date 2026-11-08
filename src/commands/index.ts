@@ -2,7 +2,7 @@
 import { register } from '../registry.js';
 import { capabilities, usage, whoami } from './account.js';
 import { agentAttest, agentLogin } from './agent.js';
-import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend } from './agents.js';
+import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend, agentsTier } from './agents.js';
 import { completion } from './completion.js';
 import { doctor } from './doctor.js';
 import { help, schema, version } from './core.js';
@@ -24,7 +24,7 @@ import { governanceCommands, governancePin, governancePinned, moderationCommands
 import * as pages from './pages.js';
 import * as publish from './publish.js';
 import * as read from './read.js';
-import { layoutCommands, studioCommands, themeApply, themeCopy, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themeTry, themeUndoTry, themesList, themesShow } from './themes-online.js';
+import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
   help, version, schema, completion, update,
@@ -32,7 +32,7 @@ register(
   login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,
-  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsActivity, agentsLocal, agentsImport, agentsForget,
+  agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsTier, agentsActivity, agentsLocal, agentsImport, agentsForget,
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities, doctor,
@@ -47,7 +47,7 @@ register(
   read.explore, geo.exploreArea, geo.placesSearch, geo.mapBoundary, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
-  read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesSupport, publish.debatesClose,
+  read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesPropose, publish.debatesSupport, publish.debatesClose,
   read.pollsList, publish.pollsShow, publish.pollsCreate, publish.pollsPick,
   read.channelsList, publish.channelsCreate, publish.channelsJoin, publish.channelsLeave, msg.channelsSend, msg.channelsRead,
   msg.inbox, msg.dm, msg.dmRead, msg.dmDelete, msg.dmEphemeral,
@@ -57,11 +57,10 @@ register(
   disc.discussionsList, disc.discussionsShow, disc.discussionsUnread,
   disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
   themesList, themesShow,
-  gallery.themesGallery, gallery.themesStar, gallery.themesUnstar, gallery.themesStarred, gallery.themesTry, gallery.themesUntry, gallery.themesTrials,
-  gallery.universesThemeHistory, gallery.universesThemeRestore, gallery.universesThemeFollow,
+  gallery.themesGallery, gallery.universesAppearanceHistory, gallery.universesAppearanceRestore,
   history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
-  themePublish, themeApply, themeTry, themeUndoTry, themePersonalSet, themePersonalClear, themeExport, themeShots, themeCopy, themeDelete,
+  themePublish, themeApply, themePersonalSet, themePersonalClear, themeExport, themeShots, themeDelete,
   ...layoutCommands, ...studioCommands, pages.studioMakePage,
   batch,
   ...moderationCommands, ...governanceCommands, governancePinned, governancePin,

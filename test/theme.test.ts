@@ -21,12 +21,11 @@ function jpeg(w: number, h: number): Buffer {
 const theme = () => ({
   format: 'break-rocks-theme/2', universe: '%football', name: 'stade-nuit', description: 'Floodlights', collection: 'SPORT',
   variants: {
-    night: { palette: { background: '#0E1116', surface: '#161B22', text: '#F2F4F7', primary: '#E5484D', accent: '#4CC2FF', link: '#7CC4FF' }, surfaces: { postCard: { background: '#1A0F2E', text: '#F2F4F7' } } },
+    night: { palette: { background: '#0E1116', surface: '#161B22', text: '#F2F4F7', primary: '#E5484D', accent: '#4CC2FF', link: '#7CC4FF' }, surfaces: { block: { background: '#1A0F2E', text: '#F2F4F7' }, control: { background: '#FF2BD6', text: '#0E1116' } } },
     day: { palette: { background: '#FFFFFF', surface: '#F4F5F7', text: '#14171C', primary: '#C8102E', accent: '#0067B8', link: '#0057A0' } },
   },
-  surfaceRadius: { postCard: 'sharp' }, typography: { title: 'Bebas Neue', accent: 'Orbitron' }, gradient: ['#0E1116', '#4CC2FF'], motionAccents: true,
-  shape: { radius: 'soft', stroke: 'regular' },
-  imageSlots: { page: { day: 'page-day.jpg', night: 'page-night.png' }, pageHeader: { day: 'page-header-day.png' }, timeColumn: null, channelHeader: null, cardTexture: { day: 'card-texture-day.png' } },
+  typography: { title: 'Bebas Neue' }, gradient: ['#0E1116', '#4CC2FF'], motionAccents: true,
+  imageSlots: { page: { day: 'page-day.jpg', night: 'page-night.png' }, pageHeader: { day: 'page-header-day.png' } },
   images: { wordmark: null, pattern: null }, stickers: [],
 });
 
@@ -38,69 +37,117 @@ function folder(doc: unknown = theme()) {
   writeFileSync(join(dir, 'page-day.jpg'), jpeg(2160, 1620));
   writeFileSync(join(dir, 'page-night.png'), png(2160, 1620));
   writeFileSync(join(dir, 'page-header-day.png'), png(2160, 720));
-  writeFileSync(join(dir, 'card-texture-day.png'), png(1024, 1024));
   return { h, dir, file: join(dir, 'theme.json') };
 }
 
-type Report = { ok: boolean; errors: number; warnings: number; problems: { code: string; path: string; severity: string; suggested?: string }[]; images: { place: string; width?: number }[] };
+type Report = { ok: boolean; errors: number; warnings: number; problems: { code: string; path: string; severity: string; suggested?: string }[]; images: { place: string; width?: number; read?: boolean }[]; families?: Record<string, Record<string, { background: string }>>; mask?: { imageShows: string; night: number; dim: number; day: number } };
 const codes = (r: Report) => r.problems.map((p) => p.code);
+const design = join(import.meta.dirname, '..', 'design');
 
-describe('theme check', () => {
-  it('passes a good theme with its images beside it, exit 0', async () => {
+describe('theme check (the model of specs v99, design/lib/theme)', () => {
+  it('passes a good theme with its images beside it, exit 0: the four families and the readability mask', async () => {
     const { h, file } = folder();
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
     const r = last<Report>(h);
-    expect(r).toMatchObject({ ok: true, errors: 0, format: 'break-rocks-theme/2', name: 'stade-nuit' });
-    expect(r.images.map((i) => [i.place, i.width])).toEqual([['page', 2160], ['page', 2160], ['pageHeader', 2160], ['cardTexture', 1024]]);
+    expect(r).toMatchObject({ ok: true, errors: 0, warnings: 0, format: 'break-rocks-theme/2', name: 'stade-nuit' });
+    expect(r.images.map((i) => [i.place, i.width])).toEqual([['page', 2160], ['page', 2160], ['pageHeader', 2160]]);
+    expect(r.families!.night.block.background).toBe('#1A0F2E');
+    expect(r.mask).toMatchObject({ imageShows: 'subtle' });
+    for (const mode of ['night', 'dim', 'day'] as const) expect(r.mask![mode]).toBeGreaterThanOrEqual(0.6);
   });
-  it('does not warn of a theme without cardTexture (the cards are transparent by default)', async () => {
-    const doc = theme() as { imageSlots: Record<string, unknown> };
-    delete doc.imageSlots.cardTexture;
+  it('passes the examples of the design system', async () => {
+    for (const name of ['faille.json', 'faille-v48.json', 'vestiaire.json']) {
+      const h = harness();
+      expect(await h.run('theme', 'check', join(design, 'examples', 'themes', name), '--json'), name).toBe(0);
+    }
+  });
+  it('refuses the invalid examples of the design system with the codes of the publication', async () => {
+    const expected: Record<string, string> = {
+      'schema.surface-unknown.json': 'THEME_SURFACE_UNKNOWN', 'schema.image-slot-unknown.json': 'THEME_IMAGE_SLOT_UNKNOWN', 'schema.body-typeface.json': 'THEME_BODY_TYPEFACE',
+      'schema.color-not-rrggbb.json': 'THEME_PALETTE_INVALID', 'schema.name-starts-with-digit.json': 'THEME_NAME_INVALID', 'schema.external-image.json': 'THEME_EXTERNAL_RESOURCE',
+      'schema.format-3.json': 'THEME_FORMAT_INVALID', 'schema.variant-missing.json': 'THEME_VARIANT_MISSING', 'schema.scrim-above-1.json': 'THEME_SCRIMS_COMPUTED',
+    };
+    for (const [name, code] of Object.entries(expected)) {
+      const h = harness();
+      expect(await h.run('theme', 'check', join(design, 'examples', 'themes', 'invalid', name), '--json'), name).toBe(1);
+      expect(codes(last<Report>(h)), name).toContain(code);
+    }
+  });
+  it('reads the former theme surfaces into their family, deprecated; ignores radii, borders, opacities and the accent typeface, never refuses them', async () => {
+    const doc = theme() as Record<string, any>;
+    doc.variants.night.surfaces = { widget: { background: '#20123A', border: '#FF2BD6', opacity: 45 }, postCard: { background: '#1A0F2E' } };
+    doc.surfaceRadius = { widget: 'sharp' }; doc.shape = { radius: 'huge', stroke: 'bold' }; doc.typography.accent = 'Orbitron';
+    doc.surfaceOpacity = 85; doc.textBackdrop = 'block';
+    doc.imageSlots.cardTexture = { day: 'card-texture-day.png' };
     const { h, file } = folder(doc);
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
     const r = last<Report>(h);
-    expect(r.warnings).toBe(0);
-    expect(r.problems.filter((p) => /cardTexture|texture/i.test(p.path))).toEqual([]);
+    expect(codes(r)).not.toContain('THEME_RADIUS_INVALID');
+    expect(codes(r)).not.toContain('THEME_STROKE_INVALID');
+    expect(r.problems.filter((p) => p.code === 'THEME_SURFACE_DEPRECATED').map((p) => p.path)).toEqual(['variants.night.surfaces.widget']);
+    expect(r.problems.filter((p) => p.code === 'THEME_KEY_IGNORED').map((p) => p.path)).toEqual(expect.arrayContaining(['surfaceOpacity', 'textBackdrop', 'variants.night.surfaces.widget.opacity', 'variants.night.surfaces.widget.border', 'variants.night.surfaces.postCard', 'surfaceRadius', 'shape', 'typography.accent', 'imageSlots.cardTexture']));
+    expect(r.families!.night.block.background).toBe('#20123A');
+    expect(r.images.find((i) => i.place === 'cardTexture')).toMatchObject({ read: false });
+    expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
   });
   it('refuses, exit 1, with the codes of the platform', async () => {
     const doc = theme() as Record<string, any>;
-    doc.variants.night.surfaces.nope = { text: '#FFFFFF' };
+    doc.variants.night.surfaces.navigation = { text: '#FFFFFF' };
     doc.typography.title = 'Comic Sans';
-    doc.scrims = { page: { day: 0.5 } };
+    doc.scrims = { mask: { day: 0.7 } };
+    doc.textScrims = {};
     doc.gradient = ['#123456', '#654321'];
-    doc.shape.stroke = 'huge';
-    doc.imageSlots.timeColumn = { day: 'https://example.com/a.jpg' };
+    doc.imageSlots.page = { day: 'https://example.com/a.jpg' };
+    doc.imageSlots.sidebar = null;
     doc.extra = 1;
     const { h, file } = folder(doc);
     expect(await h.run('theme', 'check', file, '--json')).toBe(1);
     const r = last<Report>(h);
     expect(r.ok).toBe(false);
-    expect(codes(r)).toEqual(expect.arrayContaining(['THEME_SURFACE_UNKNOWN', 'THEME_TYPEFACE_NOT_APPROVED', 'THEME_SCRIMS_COMPUTED', 'THEME_GRADIENT_INVALID', 'THEME_STROKE_INVALID', 'THEME_EXTERNAL_RESOURCE', 'THEME_FORMAT_INVALID']));
+    expect(codes(r)).toEqual(expect.arrayContaining(['THEME_SURFACE_UNKNOWN', 'THEME_TYPEFACE_NOT_APPROVED', 'THEME_SCRIMS_COMPUTED', 'THEME_GRADIENT_INVALID', 'THEME_EXTERNAL_RESOURCE', 'THEME_IMAGE_SLOT_UNKNOWN', 'THEME_FORMAT_INVALID']));
   });
   it('refuses a missing file, more than 8 images, an image that is no JPEG/PNG/WebP; warns of a banner that is not 3:1', async () => {
     const doc = theme() as Record<string, any>;
-    doc.imageSlots.timeColumn = { day: 'time-column-day.jpg', night: 'tc-night.jpg' };
-    doc.imageSlots.channelHeader = { day: 'ch.jpg', night: 'ch-night.jpg' };
-    doc.images.wordmark = 'wordmark.png';
+    doc.imageSlots.pageHeader = { day: 'page-header-day.png', night: 'ph-night.jpg' };
+    doc.images = { wordmark: 'wordmark.png', pattern: 'p.png' };
+    doc.variants.night.surfaces.sky = { background: '#2A1846' };
     const { h, dir, file } = folder(doc);
     writeFileSync(join(dir, 'page-header-day.png'), png(1200, 400));
-    writeFileSync(join(dir, 'card-texture-day.png'), Buffer.from('GIF89a\x10\x00\x10\x00'));
+    writeFileSync(join(dir, 'wordmark.png'), Buffer.from('GIF89a\x10\x00\x10\x00'));
     expect(await h.run('theme', 'check', file, '--json')).toBe(1);
     const r = last<Report>(h);
-    expect(codes(r)).toEqual(expect.arrayContaining(['THEME_IMAGES_LIMIT', 'IMAGE_FILE_MISSING', 'THEME_BANNER_SIZE', 'THEME_IMAGE_TYPE']));
+    expect(codes(r)).toEqual(expect.arrayContaining(['IMAGE_FILE_MISSING', 'THEME_BANNER_SIZE', 'THEME_IMAGE_TYPE']));
     expect(r.problems.find((p) => p.code === 'THEME_BANNER_SIZE')!.severity).toBe('warning');
+    const many = theme() as Record<string, any>;
+    many.imageSlots = { page: { day: 'a', night: 'b' }, pageHeader: { day: 'c', night: 'd' } };
+    many.images = { wordmark: 'e', pattern: 'f' };
+    many.variants.night.surfaces.page = { background: '#0E1116' };
+    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
+    void many;
   });
-  it('tells the colors the platform would raise: a warning with the color kept, an error with --strict', async () => {
+  it('tells the colors the platform would raise on the families: a warning with the color kept, an error with --strict', async () => {
     const doc = theme() as Record<string, any>;
     doc.variants.night.palette.text = '#30343A';
-    doc.variants.night.surfaces.postCard.text = '#222222';
+    doc.variants.night.surfaces.block.text = '#222222';
     const { h, file } = folder(doc);
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
     const r = last<Report>(h);
     const contrast = r.problems.filter((p) => p.code === 'THEME_CONTRAST');
-    expect(contrast.map((p) => p.path)).toEqual(expect.arrayContaining(['variants.night.palette.text', 'variants.night.surfaces.postCard.text']));
+    expect(contrast.map((p) => p.path)).toEqual(expect.arrayContaining(['variants.night.palette.text', 'variants.night.surfaces.block.text']));
     expect(contrast.every((p) => p.severity === 'warning' && /^#[0-9A-F]{6}$/.test(p.suggested!))).toBe(true);
     expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
+  });
+  it('reads how the image of the page shows from the block appearance; none: no mask', async () => {
+    const doc = theme() as Record<string, any>;
+    doc.appearance = { imageShows: 'through' };
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(last<Report>(h).mask).toMatchObject({ imageShows: 'through' });
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { imageShows: 'none' } }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(last<Report>(h).mask).toBeUndefined();
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { imageShows: 'half' } }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
   });
   it('reads the given image files and folders, and tells those that no reference names', async () => {
     const { h, dir, file } = folder();
@@ -112,73 +159,18 @@ describe('theme check', () => {
     const { h, file } = folder();
     expect(await h.run('theme', 'check', file)).toBe(0);
     expect(h.lines[0]).toMatch(/stade-nuit.*OK/);
+    expect(h.all()).toMatch(/mask {4}subtle: night/);
   });
 });
 
-describe('theme check: opacities and text backdrops', () => {
-  const transparent = () => {
-    const doc = theme() as Record<string, any>;
-    doc.surfaceOpacity = 85;
-    doc.textBackdrop = 'block';
-    doc.variants.night.surfaces = { page: { opacity: 10 }, focusBar: { opacity: 20 }, postCard: { background: '#1A0F2E', text: '#F2F4F7', opacity: 45 }, quoteCard: { opacity: 80 }, block: { opacity: 60 } };
-    doc.variants.day.surfaces = { page: { opacity: 5 }, postCard: { opacity: 50 } };
-    return doc;
-  };
-  it('accepts the surface opacities, the default one, the text backdrop, and shows the text scrims', async () => {
-    const { h, file } = folder(transparent());
-    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
-    const r = last<Report & { opacity: { textBackdrop: string; opacities: Record<string, Record<string, number>>; textScrims: Record<string, Record<string, Record<string, number>>> } }>(h);
-    expect(r.ok).toBe(true);
-    expect(r.opacity.textBackdrop).toBe('block');
-    expect(r.opacity.opacities.night).toMatchObject({ page: 10, focusBar: 20, postCard: 45, quoteCard: 80, widget: 85, primaryButton: 100, badge: 100 });
-    expect(r.opacity.opacities.day).toMatchObject({ page: 5, postCard: 50, focusBar: 85 });
-    expect(Object.keys(r.opacity.textScrims.postCard)).toEqual(['body', 'secondary', 'large', 'control']);
-    expect(Object.keys(r.opacity.textScrims.postCard.body)).toEqual(['night', 'dim', 'day']);
-    expect(r.opacity.textScrims.primaryButton).toBeUndefined();
-    expect(await h.run('theme', 'check', file)).toBe(0);
-    expect(h.all()).toMatch(/opacity text backdrops; night: page 10, .*focusBar 20/);
-    expect(h.all()).toMatch(/scrim {3}postCard: body \d+\/\d+\/\d+/);
-  });
-  it('refuses text scrims, an opacity outside 0 to 100 or not an integer, a text backdrop other than block or surface', async () => {
-    const doc = transparent();
-    doc.textScrims = { postCard: {} };
-    doc.variants.night.surfaces.postCard.opacity = 120;
-    doc.variants.day.surfaces.page.opacity = 12.5;
-    doc.surfaceOpacity = -1;
-    doc.textBackdrop = 'blur';
-    const { h, file } = folder(doc);
-    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
-    const r = last<Report>(h);
-    const at = (code: string) => r.problems.filter((p) => p.code === code).map((p) => p.path);
-    expect(at('THEME_SCRIMS_COMPUTED')).toEqual(['textScrims']);
-    expect(r.problems.find((p) => p.code === 'THEME_SCRIMS_COMPUTED')!.path).toBe('textScrims');
-    expect(JSON.stringify(r.problems)).toContain('The scrims and the text scrims of a theme are computed by the social platform');
-    expect(at('THEME_OPACITY_INVALID')).toEqual(['surfaceOpacity', 'variants.night.surfaces.postCard.opacity', 'variants.day.surfaces.page.opacity']);
-    expect(at('THEME_TEXT_BACKDROP_INVALID')).toEqual(['textBackdrop']);
-  });
-  it('warns of a button or a badge below 100 (raised to 100) and of an opacity raised with a whole-surface backdrop', async () => {
-    const doc = transparent();
-    doc.variants.night.surfaces.badge = { opacity: 50 };
-    doc.variants.day.surfaces.primaryButton = { opacity: 0 };
-    doc.textBackdrop = 'surface';
-    const { h, file } = folder(doc);
-    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
-    const r = last<Report & { opacity: { textScrims: object; raised: { variant: string; surface: string; from: number; to: number }[]; floors: unknown[] } }>(h);
-    const raised = r.problems.filter((p) => p.code === 'THEME_OPACITY_RAISED');
-    expect(raised.map((p) => p.path)).toEqual(expect.arrayContaining(['variants.night.surfaces.badge.opacity', 'variants.day.surfaces.primaryButton.opacity', 'variants.night.surfaces.page.opacity']));
-    expect(raised.every((p) => p.severity === 'warning')).toBe(true);
-    expect(r.opacity.textScrims).toEqual({});
-    expect(r.opacity.raised.find((x) => x.variant === 'night' && x.surface === 'page')!.to).toBeGreaterThan(10);
-    expect(r.opacity.floors).toEqual([{ variant: 'night', surface: 'badge', from: 50 }, { variant: 'day', surface: 'primaryButton', from: 0 }]);
-    expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
-  });
-  it('refuses the opacities in the format 1', async () => {
-    const doc = theme() as Record<string, any>;
-    delete doc.format; delete doc.imageSlots; delete doc.surfaceRadius; delete doc.typography.accent; delete doc.variants.night.surfaces;
-    doc.surfaceOpacity = 80;
-    const { h, file } = folder(doc);
-    expect(await h.run('theme', 'check', file, '--json')).toBe(1);
-    expect(last<Report>(h).problems.filter((p) => p.code === 'THEME_FORMAT_INVALID').map((p) => p.path)).toContain('surfaceOpacity');
+describe('layouts check (design/lib/layout, offline)', () => {
+  it('passes the platform layouts of the design system, refuses with the codes of the publication, never calls the API', async () => {
+    const h = harness();
+    expect(await h.run('layouts', 'check', `@${join(design, 'layouts', 'platform', 'agora.json')}`, '--json')).toBe(0);
+    expect(last<{ ok: boolean; source: string; kind: string }>(h)).toMatchObject({ ok: true, source: 'offline', kind: 'public' });
+    expect(await h.run('layouts', 'check', '{"format":"break-rocks-layout/1","name":"1x","canvases":{}}', '--in', '%team.', '--json')).toBe(1);
+    expect(last<{ kind: string; refusals: { code: string }[] }>(h)).toMatchObject({ kind: 'private', refusals: expect.arrayContaining([expect.objectContaining({ code: 'LAYOUT_NAME_INVALID' })]) });
+    expect(await h.run('layouts', 'check', '{}', '--online', '--json')).toBe(2);
   });
 });
 
@@ -187,7 +179,7 @@ describe('theme pack and unpack', () => {
     const { h, dir, file } = folder();
     const zip = join(h.dir, 'out.zip');
     expect(await h.run('theme', 'pack', file, '--out', zip, '--json')).toBe(0);
-    expect(last<{ entries: { path: string }[] }>(h).entries.map((e) => e.path)).toEqual(['theme.json', 'page-day.jpg', 'page-night.png', 'page-header-day.png', 'card-texture-day.png']);
+    expect(last<{ entries: { path: string }[] }>(h).entries.map((e) => e.path)).toEqual(['theme.json', 'page-day.jpg', 'page-night.png', 'page-header-day.png']);
     expect(await h.run('theme', 'pack', file, '--out', zip, '--json')).toBe(2);
     const target = join(h.dir, 'back');
     expect(await h.run('theme', 'unpack', zip, '--out', target, '--json')).toBe(0);
@@ -247,22 +239,39 @@ describe('theme prompt', () => {
     expect(await h.run('theme', 'prompt', '--mood', 'x', '--name', 'abc', '--universe', '%x', '--json')).toBe(2);
     expect(await h.run('theme', 'prompt', '--field', 'tech', '--mood', 'x', '--name', 'abc', '--json')).toBe(2);
   });
-  it('asks for the opacities, the text backdrop and the secondary text of the buttons and the badge', () => {
-    const { prompt } = themePrompt({ field: 'sport', mood: 'stadium', name: 'stade', universe: '%football' });
-    for (const text of ['"surfaceOpacity": 85', '"textBackdrop": "block"', '"focusBar"', '"rail"', '**30 to 60**', '`quoteCard` **80**', '`textScrims`', '"secondaryText"']) expect(prompt).toContain(text);
-    const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(prompt)![1]);
-    expect(json.collection).toBe('SPORT');
-    expect(json.variants.night.surfaces.quoteCard.opacity).toBe(80);
-    expect(json.variants.night.surfaces.badge).toMatchObject({ secondaryText: '#…', opacity: 100 });
-    expect(Object.keys(json.imageSlots)).toEqual(['page', 'pageHeader', 'timeColumn', 'channelHeader']);
-    expect(prompt).not.toContain('card-texture');
-    expect(prompt).toContain('the **7 images** of the theme');
-    expect(prompt).toContain('Do not provide a card texture');
-    expect(themePrompt({ mood: 'ciel', name: 'abc', universal: true, language: 'fr' }).prompt).toContain('les **7 images** du thème');
+  it('writes the model of specs v99: the four families, one title typeface, the slots page and pageHeader; no radius, border, opacity nor backdrop', () => {
+    for (const language of ['en', 'fr'] as const) {
+      const { prompt } = themePrompt({ field: 'sport', mood: 'stadium', name: 'stade', universe: '%football', language });
+      const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(prompt)![1]);
+      expect(json.collection).toBe('SPORT');
+      expect(Object.keys(json.variants.night.surfaces)).toEqual(['page', 'sky', 'block', 'control']);
+      expect(json.variants.night.surfaces.control).toEqual({ background: '#…', text: '#…', secondaryText: '#…' });
+      expect(Object.keys(json.imageSlots)).toEqual(['page', 'pageHeader']);
+      expect(Object.keys(json.typography)).toEqual(['title']);
+      for (const gone of ['surfaceRadius', 'shape', 'surfaceOpacity', 'textBackdrop']) expect(json, gone).not.toHaveProperty(gone);
+      expect(JSON.stringify(json)).not.toMatch(/opacity|border|postCard|primaryButton/);
+      for (const text of ['`through`', '`subtle`', '`none`', '`scrims`']) expect(prompt).toContain(text);
+    }
+    expect(themePrompt({ field: 'sport', mood: 'x', name: 'stade', universe: '%f' }).prompt).toContain('the **4 images** of the theme');
+    expect(themePrompt({ mood: 'ciel', name: 'abc', universal: true, language: 'fr' }).prompt).toContain('les **4 images** du thème');
+    expect(themePrompt({ mood: 'ciel', name: 'abc', universal: true, language: 'fr' }).prompt).toContain('masque de lisibilité');
+    expect(() => themePrompt({ field: 'sport', mood: 'x', name: 'abc', universe: '%x', fonts: ['Orbitron', 'Anton'] })).toThrow(/One typeface/);
+  });
+  it('keeps the fields to fill as <…> with --template; the JSON of the prompt passes theme check once filled', async () => {
+    const r = themePrompt({ template: true, language: 'fr' });
+    expect(r.prompt).toContain('`<%nom-de-l-univers>`');
+    expect(r.prompt).toContain('"name": "<nom>"');
+    expect(r.prompt).toContain('<CULTURE | ENTERTAINMENT');
+    const filled = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(themePrompt({ field: 'sport', mood: 'x', name: 'stade', universe: '%f', fonts: ['Anton'] }).prompt)![1].replaceAll('#…', '#808080'));
+    filled.variants.night.palette = theme().variants.night.palette; filled.variants.day = theme().variants.day; filled.gradient = ['#0E1116', '#4CC2FF'];
+    filled.imageSlots = { page: null, pageHeader: null };
+    const h = harness();
+    writeFileSync(join(h.dir, 'p.json'), JSON.stringify(filled));
+    expect(await h.run('theme', 'check', join(h.dir, 'p.json'), '--json')).toBe(0);
   });
   it('writes the prompt of a universal theme: no field, the palette and the typeface of Socle, %root', async () => {
     const r = themePrompt({ mood: 'an open sky', name: 'universel-ciel', universal: true, language: 'fr' });
-    expect(r).toMatchObject({ field: null, universe: '%root', fonts: ['Montserrat', 'Montserrat'], universal: true });
+    expect(r).toMatchObject({ field: null, universe: '%root', fonts: ['Montserrat'], universal: true });
     const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
     expect(json.collection).toBeUndefined();
     expect(json.variants.night.palette).toEqual({ background: '#0E1116', surface: '#161B22', text: '#F2F4F7', primary: '#4C8DFF', accent: '#4CC2FF', link: '#7CC4FF' });

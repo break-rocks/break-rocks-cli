@@ -82,8 +82,9 @@ export const isUnauthorized = (error: unknown) => error instanceof CliError && e
  * error (`errorType`, with its errorInfo). A token refused (HTTP 401, or
  * Unauthorized) is the code "Unauthorized".
  */
-export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false): Promise<T> {
-  const res = await request(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token }, body: JSON.stringify({ query, variables }) });
+export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void } = {}): Promise<T> {
+  const res = await request(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token, ...extra.headers }, body: JSON.stringify({ query, variables }) });
+  extra.seen?.(res.headers);
   const body = await bodyOf(res) as { data?: T; errors?: GraphqlError[] };
   const first = body.errors?.[0];
   if (res.status === 401 || res.status === 403 || /^Unauthorized/.test(first?.errorType ?? '')) {
@@ -100,7 +101,7 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
       if (Number.isFinite(wait) && wait <= MAX_RETRY_SECONDS) {
         ctx.progress(`Rate limited: trying again in ${Math.max(0, wait)} s`);
         await ctx.io.sleep(Math.max(0, wait) * 1000);
-        return graphql<T>(ctx, url, token, query, variables, true, partial);
+        return graphql<T>(ctx, url, token, query, variables, true, partial, extra);
       }
     }
     throw platformRefusal(code, first.message ?? code, { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });

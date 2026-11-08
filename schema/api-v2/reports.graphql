@@ -79,6 +79,24 @@ type Report {
   When the status left RECEIVED; null before.
   """
   decidedAt: AWSDateTime
+  """
+  Since v99.1.0 (M-09): the details the reporter gave (0 to 1,000 characters); null without them.
+  """
+  details: String
+  """
+  Since v99.1.0 (M-09): the article of the platform rules the platform team applied in its decision on a report
+  sent to it; null before the decision, without an article, or for a report to the moderation of a universe.
+  """
+  decisionArticle: Int
+  """
+  Since v99.1.0 (M-09): the reason written by the member of the platform team for NO_ACTION; null otherwise.
+  """
+  decisionReason: String
+  """
+  Since v99.1.0 (M-09): whether the decision of the platform team was taken by automated means; false before the
+  decision and for a report to the moderation of a universe.
+  """
+  automatedDecision: Boolean!
 }
 
 """
@@ -198,14 +216,24 @@ Off-charter in the universe of a post (OFF_TOPIC, SPAM_OR_FLOOD, CHARTER_ARTICLE
 "article"), to the moderation of the universe (a private universe: OFF_TOPIC and SPAM_OR_FLOOD
 only, it has no charter; the root universe: none); ILLEGAL or PLATFORM_RULES (an "article" of
 the platform rules, optional), to the platform team. A message or a group chat: the platform team only.
+Since v87.5.0 (D-268, playlists.feature), always to the platform team: MISLEADING_LINK (a misleading or dangerous
+link: a course link only), COUNTERFEIT_DOCUMENT (a counterfeit document, its copyright: a course document only),
+UNDECLARED_COMMERCIAL (undeclared commercial content: a playlist or any of its items); another target:
+REPORT_REASON_NOT_ALLOWED. Since v87.6.0 (D-269): COUNTERFEIT_DOCUMENT also for a POST that is a post or a quote
+carrying a post document (the document reported with its post), to the platform team. A client shows an unknown reason as a generic sentence.
+Since v92.0.0 (D-284): SHOWS_ME, "I am in this image" or "I am in this video": a mask request to the author (with report(mask)), sent to the moderation only with another report.
 """
 enum ReportReason {
   CHARTER_ARTICLE
+  COUNTERFEIT_DOCUMENT
   ILLEGAL
   MISLEADING
+  MISLEADING_LINK
   OFF_TOPIC
   PLATFORM_RULES
+  SHOWS_ME
   SPAM_OR_FLOOD
+  UNDECLARED_COMMERCIAL
   WRONG_NAME
 }
 
@@ -234,7 +262,8 @@ enum ReportStatus {
 }
 
 """
-What a report is about (contracts/reports.md).
+What a report is about (contracts/reports.md). Since v87.5.0 (D-268): PLAYLIST, a playlist; PLAYLIST_ITEM, an item of
+a playlist. Since v92.1.0: ROUTE, a public or unlisted route (routeId).
 """
 enum ReportTarget {
   CHANNEL_MESSAGE
@@ -243,9 +272,15 @@ enum ReportTarget {
   GROUP_MESSAGE
   LAYOUT
   LOCATABLE
+  MAP_PRESENCE
+  PLACE_MESSAGE
   PLATFORM_AGENT_TEXT
   PLATFORM_SEARCH_WORD
+  PLAYLIST
+  PLAYLIST_ITEM
   POST
+  POST_PLACE
+  ROUTE
   THEME
   UNIVERSE_BANNER
   UNIVERSE_PAGE
@@ -256,7 +291,7 @@ enum ReportTarget {
 """
 What is reported, as an argument (report, dismissReports): its kind and the fields of that kind; a field
 of that kind missing, or a field of another kind given: INVALID_REQUEST.
-- POST: postId (a post or a reply).
+- POST: postId (a post or a reply). ROUTE (since v92.1.0): routeId.
 - DIRECT_MESSAGE: discussion { accountId } and messageId. GROUP_MESSAGE: discussion { groupChatId } and
   messageId.
 CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { groupChatId }.
@@ -264,12 +299,19 @@ CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { 
 - UNIVERSE_BANNER, UNIVERSE_TERRITORY: universe. UNIVERSE_PAGE: universe, name (the custom page), block
 (one of its free blocks, or none for the whole page).
 - LOCATABLE: universe, accountId (the locatable resident).
+- Since v84.0.0 (D-248): MAP_PRESENCE: accountId (the map cell or point shown to the reporter is kept with
+  the report). POST_PLACE: postId (the place of a placed post). PLACE_MESSAGE: discussion and messageId (a
+  place sent).
 - UNIVERSE_SEARCH_WORDS: universe. PLATFORM_SEARCH_WORD: universe, word (contracts/reports.md).
 - PLATFORM_AGENT_TEXT (since v77.1.0, D-213, platform-ai-agents.feature): agentText and proposalId (the
   proposal summary or the vote minutes of the proposal), or, since v78.0.0 (D-214), agentText, postId and
   imageId (AUTOMATIC_ALT); reported as a post of its universe. A conversation starter is a POST; the subtitles
   of a clip are reported with their POST, which copies them, and the alternative texts of its images, with the
   report as they are.
+- Since v87.5.0 (D-268, playlists.feature, contracts/reports.md § Playlists): PLAYLIST: playlistId (never
+  WATCH_LATER: REPORT_TARGET_NOT_ALLOWED). PLAYLIST_ITEM: playlistId and itemId (a course link, a course document:
+  PlaylistCourseItem.id) or postId (a video or a post of the playlist, reported as its post: the same report as
+  POST, the playlist kept as its context, UNDECLARED_COMMERCIAL admitted too).
 """
 input ReportTargetInput {
   kind: ReportTarget!
@@ -285,6 +327,9 @@ input ReportTargetInput {
   block: String
   accountId: ID
   word: String
+  itemId: ID
+  playlistId: ID
+  routeId: ID
 }
 
 """
@@ -343,6 +388,18 @@ type ReportTargetRef {
   The word.
   """
   word: String
+  """
+  Since v87.5.0: the course link or the course document reported (PLAYLIST_ITEM); null otherwise.
+  """
+  itemId: ID
+  """
+  Since v87.5.0: the playlist reported, or of the item reported (PLAYLIST, PLAYLIST_ITEM); null otherwise.
+  """
+  playlistId: ID
+  """
+  Since v92.1.0: ROUTE, the route reported; null otherwise.
+  """
+  routeId: ID
 }
 
 """
@@ -360,4 +417,237 @@ enum ThemeReportPart {
   THEME
   TIME_COLUMN
   WORDMARK
+}
+
+"""
+A platform measure the caller received (since v84.4.0, contracts/platform-measures.md), with its statement
+of reasons (DSA art. 17).
+"""
+type PlatformMeasure {
+  """
+  When a platform appeal can be filed until (6 months after the measure); null when none can (an authority
+  order).
+  """
+  appealableUntil: AWSDateTime
+  """
+  The platform appeal of the measure (since v85.0.0, D-250); null when none was filed.
+  """
+  appeal: PlatformAppeal
+  """
+  The article of the platform rules applied.
+  """
+  article: Int!
+  """
+  Whether the decision was taken by automated means.
+  """
+  automatedDecision: Boolean!
+  """
+  Whether the content was detected by automated means.
+  """
+  automatedDetection: Boolean!
+  """
+  Whether it was cancelled (on platform appeal or by the platform team): it no longer counts.
+  """
+  cancelled: Boolean!
+  """
+  The counted platform measures of the caller within the 90 days before it, it included.
+  """
+  countedWithin90Days: Int!
+  """
+  The duration in days of a posting ban, a suspension or a suspension of a delegated agent; null otherwise
+  and for a suspension until a human decides.
+  """
+  days: Int
+  """
+  When it ends; null for a removal and a ban.
+  """
+  endsAt: AWSDateTime
+  """
+  The identifier of the measure.
+  """
+  id: ID!
+  """
+  CONTENT_REMOVAL, POSTING_BAN, SUSPENSION, BAN or AGENT_SUSPENSION.
+  """
+  kind: PlatformMeasureKind!
+  """
+  The legal basis when the decision rests on the law (for example "code pénal, art. 227-23"); null otherwise.
+  """
+  legalBasis: String
+  """
+  Since v99.1.0 (M-17): the authority that ordered the measure (origin AUTHORITY_ORDER); null otherwise.
+  """
+  authority: String
+  """
+  Since v99.1.0 (M-17): the reference of the authority order (origin AUTHORITY_ORDER); null otherwise.
+  """
+  authorityReference: String
+  """
+  What comes next under the thresholds, as told (for example "at the 3rd, a platform suspension of 30 days").
+  """
+  next: String!
+  """
+  Where it came from.
+  """
+  origin: PlatformMeasureOrigin!
+  """
+  The version of the platform rules in force on the day of the decision.
+  """
+  rulesVersion: String!
+  """
+  A short copy of the content concerned (its date and place in "subjectAt" and "subjectWhere"); null for a
+  measure on an account.
+  """
+  snippet: String
+  """
+  When it took effect.
+  """
+  startsAt: AWSDateTime!
+  """
+  The facts, as written by the member of the platform team, or the fixed template of an automatic measure.
+  """
+  statement: String!
+  """
+  When the content concerned was published; null for a measure on an account.
+  """
+  subjectAt: AWSDateTime
+  """
+  Where the content concerned was (a universe address, "messages", "group chat"); null for a measure on an
+  account.
+  """
+  subjectWhere: String
+}
+
+"""
+A platform appeal (since v85.0.0, D-250, contracts/platform-measures.md § Platform appeals): one per measure.
+"""
+type PlatformAppeal {
+  """
+  Whether the author of the measure decided it alone, after the two reviews of the platform AI agents, no other
+  member holding the right; false while open.
+  """
+  decidedByAuthor: Boolean!
+  """
+  When it was decided; null while open.
+  """
+  decidedAt: AWSDateTime
+  """
+  When it was filed.
+  """
+  openedAt: AWSDateTime!
+  """
+  The outcome; null while open.
+  """
+  outcome: PlatformAppealOutcome
+  """
+  The reasons of the decision (10 to 5,000 characters); null while open.
+  """
+  reasons: String
+  """
+  The lesser measure a REDUCED outcome put in its place; null otherwise.
+  """
+  reducedTo: PlatformMeasureKind
+  """
+  The days of the lesser measure (1, 7 or 30) of a REDUCED outcome; null otherwise.
+  """
+  reducedToDays: Int
+  """
+  OPEN until decided, then DECIDED.
+  """
+  status: PlatformAppealStatus!
+  """
+  The text of the account (at most 2,000 characters); null without one.
+  """
+  text: String
+}
+
+"""
+The outcome of a platform appeal: CONFIRMED, CANCELLED (the measure lifted at once, no longer counted, a removed
+content put back) or REDUCED (a lesser measure in its place, still counted).
+"""
+enum PlatformAppealOutcome {
+  CANCELLED
+  CONFIRMED
+  REDUCED
+}
+
+"""
+The state of a platform appeal.
+"""
+enum PlatformAppealStatus {
+  DECIDED
+  OPEN
+}
+
+"""
+The kind of a platform measure (contracts/platform-measures.md § The measures).
+Since v92.0.0 (D-284): CONTENT_MASK, an area of a media hidden by the platform team instead of a removal.
+"""
+enum PlatformMeasureKind {
+  AGENT_SUSPENSION
+  BAN
+  CONTENT_MASK
+  CONTENT_REMOVAL
+  POSTING_BAN
+  SUSPENSION
+}
+
+"""
+Where a platform measure came from.
+"""
+enum PlatformMeasureOrigin {
+  AUTHORITY_ORDER
+  AUTOMATED_DETECTION
+  PLATFORM_TEAM
+  REPORT
+  TRUSTED_FLAGGER
+}
+
+"""
+A page of platform measures.
+"""
+type PlatformMeasurePage {
+  """
+  The measures.
+  """
+  items: [PlatformMeasure!]!
+  """
+  The cursor of the next page; null at the end.
+  """
+  next: String
+}
+
+"""
+The versions of the terms of use and of the platform rules an account accepted, and the latest published
+(since v84.4.0).
+"""
+type TermsAcceptance {
+  """
+  When the account last accepted.
+  """
+  acceptedAt: AWSDateTime!
+  """
+  The latest published version of the platform rules.
+  """
+  latestRules: String!
+  """
+  When the latest published version of the platform rules applies.
+  """
+  latestRulesAppliesAt: AWSDateTime!
+  """
+  The latest published version of the terms of use.
+  """
+  latestTerms: String!
+  """
+  When the latest published version of the terms of use applies.
+  """
+  latestTermsAppliesAt: AWSDateTime!
+  """
+  The version of the platform rules the account accepted.
+  """
+  rules: String!
+  """
+  The version of the terms of use the account accepted.
+  """
+  terms: String!
 }

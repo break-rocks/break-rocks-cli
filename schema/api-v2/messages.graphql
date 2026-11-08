@@ -158,13 +158,69 @@ type ChannelList {
 }
 
 """
-What a channel proposal does to a public channel.
+A vote card (since v101.0.0, D-300): the proposal, as the caller reads it (its support, its status, myBallot), and
+the moment it was posted.
+"""
+type VoteCard {
+  """
+  The proposal.
+  """
+  proposal: Proposal!
+  """
+  SUPPORT_OPENED, VOTE_OPENED or VOTE_ENDS_SOON (24 hours before its vote ends).
+  """
+  moment: VoteCardMoment!
+}
+
+"""
+When a vote card is posted (since v101.0.0): its support opens (a proposal of a resident), its vote opens, 24 hours
+before its vote ends.
+"""
+enum VoteCardMoment {
+  SUPPORT_OPENED
+  VOTE_ENDS_SOON
+  VOTE_OPENED
+}
+
+"""
+A mention of the caller in a universe discussion it takes no part in (since v101.0.0, D-302, the Mentions row of
+Messages): the discussion and the latest message that mentions the caller.
+"""
+type DiscussionMention {
+  """
+  The universe discussion.
+  """
+  discussion: UniverseDiscussion!
+  """
+  The latest message that mentions the caller there.
+  """
+  message: Message!
+}
+
+"""
+A page of the Mentions row (myDiscussionMentions, since v101.0.0).
+"""
+type DiscussionMentionPage {
+  """
+  The mentions of this page, the most recent first.
+  """
+  items: [DiscussionMention!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+What a channel proposal does to a public channel: OPEN, ARCHIVE, UNARCHIVE, DELETE, and since v101.0.0 (D-300)
+PLACE, which sets, changes or removes its place (ChannelActionInput point, zone, placeName).
 """
 enum ChannelProposalAction {
   OPEN
   ARCHIVE
   UNARCHIVE
   DELETE
+  PLACE
 }
 
 """
@@ -809,6 +865,28 @@ type Message {
   """
   link: LinkPreview
   """
+  The playlist card of the first playlist address or playlist URL of its text (since v86.1.0, playlists.feature,
+  contracts/text.md § Playlist card), built for the caller when read; null when the text carries none, with
+  images or a clip, and once deleted. A playlist URL shows no link preview (link null).
+  """
+  playlistCard: PlaylistCard
+  """
+  The discussion card of the first universe discussion address of its text (since v89.0.0, contracts/text.md §
+  Discussion card), built for the caller when read; null when none, when the caller cannot read it, once gone, with
+  images or a clip, and once deleted. With a playlist address too, the first of the two in the text has its card.
+  """
+  discussionCard: UniverseDiscussion
+  """
+  The vote card the system account posts in "&general" (since v101.0.0, D-300, proposals.feature): the proposal
+  and the moment; its action ("Support", "Vote") opens the ballot, never a message; null otherwise.
+  """
+  voteCard: VoteCard
+  """
+  The universe event the system account tells as created in the universe discussion it was proposed from with
+  "/event" (since v101.0.0, slash-commands.feature), with the action to attend it; null otherwise.
+  """
+  eventCard: UniverseEvent
+  """
   A place sent (a conversation or a group chat): no text; null once deleted.
   """
   place: Place
@@ -899,6 +977,23 @@ type Message {
   A message of a connection request still waiting for an answer (a conversation); false elsewhere.
   """
   pending: Boolean!
+  """
+  Its contribution score (since v88.0.0, D-276): its votes UP minus its votes DOWN, public; a message of a
+  temporary universe discussion only, 0 elsewhere and once removed. The voters are never served. A vote does not
+  move changedAt nor make a change of messageChanges: the score comes by reads and the event discussion.scores.
+  """
+  score: Int!
+  """
+  The contribution vote of the caller on it (since v88.0.0); null when none, outside a temporary universe
+  discussion, and in the real-time events (one event serves every reader: the app keeps the caller's own vote
+  from its reads and its mutations).
+  """
+  myVote: ContributionVote
+  """
+  Its stance (since v88.0.0, SendMessageInput.stance); null when none, and outside a temporary universe
+  discussion.
+  """
+  stance: DebateStance
 }
 
 """
@@ -1077,6 +1172,60 @@ input SendMessageInput {
   A conversation: unblocks the account first (the caller blocked it), as requestConnection does.
   """
   unblock: Boolean
+  """
+  The stance of a contribution (since v88.0.0, D-276, lively-debates.feature): a message of a temporary
+  universe discussion only (STANCE_NOT_ALLOWED elsewhere; a message thread reply, replyInThread, carries none);
+  none when absent. It stays as sent.
+  """
+  stance: DebateStance
+}
+
+"""
+The stance of a contribution of a temporary universe discussion (since v88.0.0, D-276), chosen in the
+composer: FOR, AGAINST or QUESTION. The stance gauge counts the latest FOR or AGAINST of each resident.
+"""
+enum DebateStance {
+  AGAINST
+  FOR
+  QUESTION
+}
+
+"""
+A contribution vote (since v88.0.0, D-276): UP adds 1 to the contribution score, DOWN takes 1 from it.
+"""
+enum ContributionVote {
+  DOWN
+  UP
+}
+
+"""
+The order of a page of messages (since v88.0.0, D-276): RECENT, the newest first (the default); TOP, the
+highest contribution score first, the newest first at equal score (a temporary universe discussion only).
+"""
+enum MessageOrder {
+  RECENT
+  TOP
+}
+
+"""
+The stance gauge of a temporary universe discussion (since v88.0.0, D-276): the residents whose latest stance
+in it is FOR or AGAINST, counted apart from the messages (a latest stance stays after its message expires, a
+removed message withdraws it).
+"""
+type StanceGauge {
+  """
+  The residents whose latest stance is FOR.
+  """
+  forCount: Int!
+  """
+  The residents whose latest stance is AGAINST.
+  """
+  againstCount: Int!
+  """
+  The share of FOR among FOR and AGAINST, rounded to the nearest percent, a half up (0 to 100); AGAINST is 100
+  minus it. A resident who left the universe is not counted.
+  """
+  forPercent: Int!
 }
 
 """

@@ -76,6 +76,21 @@ type ChannelAction {
   The name of the channel action.
   """
   name: String!
+  """
+  Since v101.2.0, with PLACE: the point of the place the proposal gives the channel; null with a zone, and when the
+  proposal removes its place (neither point nor zone).
+  """
+  point: Point
+  """
+  Since v101.2.0, with PLACE: the zone of the place the proposal gives the channel; null with a point, and when the
+  proposal removes its place.
+  """
+  zone: Zone
+  """
+  Since v101.2.0, with PLACE: the name of that place, 1 to 100 visible characters; null when the proposal removes
+  its place, and for another action.
+  """
+  placeName: String
 }
 
 """
@@ -85,6 +100,20 @@ input ChannelActionInput {
   action: ChannelProposalAction!
   universe: String!
   name: String!
+  """
+  Since v101.0.0 (D-300), with PLACE: the point of the place of the channel; neither point nor zone removes its
+  place (CHANNEL_PLACE_NOT_ALLOWED for a temporary universe discussion).
+  """
+  point: PointInput
+  """
+  Since v101.0.0, with PLACE: the zone of the place of the channel, in place of point (EVENT_POINT_AND_ZONE both).
+  """
+  zone: ZoneInput
+  """
+  Since v101.0.0, with PLACE: the name of the place, 1 to 100 visible characters (EVENT_PLACE_TOO_LONG beyond; since
+  v101.2.0, CHANNEL_PLACE_NAME_REQUIRED when a point or a zone is given without it).
+  """
+  placeName: String
 }
 
 """
@@ -175,9 +204,25 @@ PROPOSAL_FOLDING_COEFFICIENT_REQUIRED…).
 input FileProposalInput {
   universe: String!
   kind: ProposalKind!
+  """
+  Required, 1 to 140 visible characters (PROPOSAL_TITLE_INVALID); since v101.0.0 (D-300), the apps propose it from the
+  kind and the change, and send the title shown.
+  """
   title: String!
   text: String
+  """
+  Since v101.0.0 (D-300, universe-tags.feature): its free tags, in their canonical form; 1 to 5 for ACTION and OTHER
+  (FREE_TAGS_REQUIRED), 0 to 5 otherwise (FREE_TAGS_TOO_MANY, TAG_INVALID); its base tag is implied by its kind,
+  never given.
+  """
+  tags: [String!]
   change: ProposalChangeInput
+  """
+  The temporary universe discussion it comes from ("Propose a decision", since v88.1.0, lively-debates.feature):
+  its id, a temporary universe discussion of the same universe, open or closed in the last 24 hours
+  (PROPOSAL_DISCUSSION_INVALID otherwise); the discussion then shows the proposal (decisionProposal).
+  """
+  fromDiscussion: ID
 }
 
 """
@@ -872,6 +917,16 @@ type Proposal {
   """
   author: AccountRef!
   """
+  Its base tag (since v101.0.0, D-300, universe-tags.feature), implied by its kind, canonical in English
+  ("charter"), without "#"; the apps show it translated.
+  """
+  baseTag: String!
+  """
+  The address of the temporary universe discussion it was filed from (since v88.1.0, FileProposalInput.
+  fromDiscussion, "%paris&quiet-nights"); null otherwise. It stays after the discussion is gone.
+  """
+  fromDiscussion: String
+  """
   Whether the leadership created it (at once, without support).
   """
   byLeadership: Boolean!
@@ -887,6 +942,11 @@ type Proposal {
   When it was created.
   """
   createdAt: AWSDateTime!
+  """
+  Its proposal discussion (since v101.0.0, D-300, proposals.feature): opened when it is filed, closed when its vote
+  ends or when it is withdrawn or expires; null for a proposal filed before v101.0.0.
+  """
+  discussion: UniverseDiscussion
   """
   When it ends.
   """
@@ -959,6 +1019,10 @@ type Proposal {
   """
   supportedByMe: Boolean!
   """
+  Its free tags (since v101.0.0), in their canonical form, without "#"; empty when none.
+  """
+  tags: [String!]!
+  """
   The text as written.
   """
   text: String
@@ -1027,6 +1091,10 @@ type ProposalChange {
   """
   theme: ThemeRef
   """
+  The appearance it sets (APPEARANCE, since v87.4.0); null for any other kind.
+  """
+  appearance: ProposalAppearance
+  """
   The universe territory it sets; null with clear TERRITORY (no universe territory).
   """
   territory: Territory
@@ -1054,6 +1122,10 @@ type ProposalChange {
   The universe search words it sets ([] clears them); null: unchanged.
   """
   searchWords: [String!]
+  """
+  The tag conventions it sets (SHOWCASE, since v101.1.0; [] clears them); null: unchanged.
+  """
+  tagConventions: [String!]
   """
   Its action on a public channel (CHANNEL).
   """
@@ -1084,14 +1156,18 @@ recalled (RECALL).
 (DAILY_DIGEST); proposalSummaries (PROPOSAL_SUMMARIES, PROPOSAL_SUMMARIES_REQUIRED without it);
 conversationStarters (CONVERSATION_STARTERS, a public universe of the first level below "village", other than
 the root universe, PROPOSAL_CONVERSATION_STARTERS_REQUIRED without it); foldingCoefficient
-(FOLDING_COEFFICIENT, within the bounds of the social platform: FOLDING_COEFFICIENT_OUT_OF_BOUNDS); layoutRef (LAYOUT); theme (THEME, and SHOWCASE); territory
+(FOLDING_COEFFICIENT, within the bounds of the social platform: FOLDING_COEFFICIENT_OUT_OF_BOUNDS); layoutRef (LAYOUT; with restoreLayoutVersion, since v86.3.0, the proposal restores that version of the layout from the universe layout history: once adopted the universe is frozen on that version, as a direct restore by the leadership; LAYOUT_NOT_RESTORABLE if that version is not in the history); theme (THEME, and SHOWCASE); territory
 (TERRITORY); subUniverse (SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL); display (DISPLAY_CASE).
 - description, logo, watermark, searchWords (SHOWCASE: [] clears the search words; "" removes the
-description).
+description); tagConventions (SHOWCASE, since v101.1.0: [] clears them; TAG_CONVENTIONS_LIMIT, TAG_INVALID).
 - channelAction (CHANNEL); pinnedChannels (PINNED_CHANNELS, the addresses in their order).
 - local: the sub-universe of a local vote (the leadership, a local question: OTHER).
 - targetDate: an action proposal (ACTION), at least the day after (PROJECT_TARGET_DATE_INVALID).
 - clear: what the proposal removes (SHOWCASE: LOGO, WATERMARK; TERRITORY: TERRITORY).
+- playlistAction (PLAYLIST, since v86.0.0): the universe playlist to create, change, fill or delete.
+- appearance (APPEARANCE, since v87.4.0): the gestures of the appearance editor, its logo, its watermark and
+what it clears (contracts/themes.md § Customize); the theme is built at filing and published at
+adoption.
 """
 input ProposalChangeInput {
   accountId: ID
@@ -1103,6 +1179,7 @@ input ProposalChangeInput {
   conversationStarters: Boolean
   foldingCoefficient: Float
   layoutRef: LayoutRefInput
+  restoreLayoutVersion: Int
   theme: ThemeRefInput
   territory: TerritoryChoiceInput
   subUniverse: String
@@ -1111,19 +1188,27 @@ input ProposalChangeInput {
   logo: ImageAttachmentInput
   watermark: WatermarkSettingInput
   searchWords: [String!]
+  tagConventions: [String!]
   channelAction: ChannelActionInput
   pinnedChannels: [String!]
   local: String
   targetDate: AWSDate
   clear: [UniverseIdentityPart!]
+  playlistAction: PlaylistActionInput
+  appearance: UniverseAppearanceInput
 }
 
 """
 The kind of a proposal: what it changes, and how it is voted on (contracts/living-universes.md). ACTION
-engages the residents in something to do (the majority of the votes cast, no quorum).
+engages the residents in something to do (the majority of the votes cast, no quorum). Since v86.0.0, PLAYLIST
+creates or changes a universe playlist (playlists.feature). Since v87.4.0, APPEARANCE sets the appearance
+built by the appearance editor (customize-universe.feature): its theme, its logo and its watermark (the majority
+of the votes cast, no quorum).
 """
 enum ProposalKind {
   ACTION
+  ADVERTISING
+  APPEARANCE
   CHANNEL
   CHARTER
   CONVERSATION_STARTERS
@@ -1138,6 +1223,7 @@ enum ProposalKind {
   MODERATOR_REVOCATION
   OTHER
   PINNED_CHANNELS
+  PLAYLIST
   PROPOSAL_SUMMARIES
   RECALL
   SECOND_ROUND
@@ -1522,13 +1608,15 @@ type Sanction {
 
 """
 Since v50.1.0 (public-channels.feature): a message of a public channel removed, a writing ban in a public
-channel. Since v78.1.0 (platform-ai-agents.feature): PLATFORM_AGENT_TEXT_REMOVAL, a text of a platform AI agent
+channel (since v85.0.0, D-249, also in a temporary universe discussion: DEBATE_MESSAGE_REMOVAL removed, the
+former debates erased). Since v78.1.0 (platform-ai-agents.feature): PLATFORM_AGENT_TEXT_REMOVAL, a text of a platform AI agent
 removed by the moderation of the universe (removePlatformAgentText), in the moderation log only, never a
 sanction of an account.
+Since v92.0.0 (D-284): MEDIA_MASK, an area of a media hidden by a moderator instead of a removal, appealed as a removal.
 """
 enum SanctionKind {
   CHANNEL_MESSAGE_REMOVAL
-  DEBATE_MESSAGE_REMOVAL
+  MEDIA_MASK
   PLATFORM_AGENT_TEXT_REMOVAL
   POSTING_BAN
   POST_REMOVAL
@@ -1844,4 +1932,53 @@ are to define (product.md § Delegated voting).
 """
 enum VotingMethod {
   DELEGATED
+}
+
+"""
+A change of a universe playlist by a PLAYLIST proposal (since v86.0.0, playlists.feature), applied when it is
+adopted: exactly one of create (a PlaylistInput of kind UNIVERSE), or playlistId with change (PlaylistChangeInput),
+postIds (the videos, in order, replacing the list; 500 at most; since v101.3.0, for a playlist of the form ROUTE,
+every item then tied to no stage) or delete true (INVALID_REQUEST otherwise).
+"""
+input PlaylistActionInput {
+  create: PlaylistInput
+  playlistId: ID
+  change: PlaylistChangeInput
+  postIds: [ID!]
+  delete: Boolean
+}
+
+"""
+The appearance a proposal of the kind APPEARANCE sets (since v87.4.0, customize-universe.feature): the theme
+document built at filing, its contrast report, and the page of the universe before and after it. The logo and
+the watermark it sets are ProposalChange.logo and ProposalChange.watermark.
+"""
+type ProposalAppearance {
+  """
+  The theme document built at filing, of the format "break-rocks-theme/2", published at adoption.
+  """
+  document: AWSJSON!
+  """
+  Its contrast report.
+  """
+  contrast: AppearanceContrastReport!
+  """
+  The page of the universe with its universe theme at filing, at the three breakpoints, day and night, drawn
+  with sample posts; its URLs answered at filing, its files rendered within seconds.
+  """
+  before: Screenshots!
+  """
+  The page of the universe with the appearance, drawn the same way.
+  """
+  after: Screenshots!
+  """
+  True when adopting it removes the own universe banner of the universe (always false since v96.0.0: no
+  universe banner of its own).
+  """
+  removesBanner: Boolean!
+  """
+  The block "appearance" of the universe theme at filing (since v96.0.0, D-289), so that the apps show what
+  changes in each step; null when that theme carries none.
+  """
+  formerAppearance: AWSJSON
 }

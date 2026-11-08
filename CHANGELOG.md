@@ -5,6 +5,31 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-08
+
+Specs v101.3.3 (schema/api-v2 regenerated, `specs/common` and `design` v4.1.0 mounted as submodules). **The `--json` outputs change**: the fields added since v83.1.0 are selected, the deprecated ones no longer.
+
+### Added
+
+- `events create --tags` (1 to 5, required), `--route-id`, `--no-discussion`, `--from-discussion`; `proposals file --tags` (1 to 5 for ACTION and OTHER, at most 5 otherwise), `--from-discussion`, `--appearance`, `--tag-conventions`, `--playlist-action`, `--restore-layout-version`, the channel action PLACE (`--place-point`, `--place-zone`, `--place-name`).
+- `report`: the reasons of the contract, the targets `playlist`, `playlist-item`, `route`, `post-place`, `place-message`, `map-presence`, `--details` and `--good-faith` (required with ILLEGAL).
+- `debates propose` (`proposeUniverseDiscussion`); `universes appearance-history` and `universes appearance-restore` (`--propose`).
+- `layouts check` offline by `design/lib/layout` (`--online`: the API).
+- `doctor`: the version of the contract of the CLI and the check `contract` (`CLI_CONTRACT_BEHIND` when the API serves what the CLI does not know).
+- The extra usage of a delegated agent beyond its quota paid with x402 (`PAYMENT_REQUIRED`, then `PAYMENT-SIGNATURE`), `wallet set --extra-usage`, `BREAKROCKS_MAX_USD`; `agents tier <agent> --tier X10|X100 --months n`.
+- `theme prompt --template` (the fields left as `<…>`).
+
+### Changed
+
+- `theme check` and `theme publish` rest on the design system (JSON Schema and `design/lib/theme`): the four families page, sky, block, control; former surfaces read and deprecated; radii, borders, opacities, text backdrop and accent typeface ignored, never refused; image slots page and pageHeader; the readability mask computed. `theme prompt` and the MCP prompt `theme-prompt` rewritten on the model of specs v99, one title typeface (`--fonts` takes one).
+- `channels list|create|join|leave`, `debates list|show|open|support|close` and `governance pin` call the universe discussions; a channel is `%universe&name`.
+- `theme personal set`: the accent (`#RRGGBB` or `universe`) and the display settings only; `theme personal clear` removes the accent and the display mode.
+- `npm run build` bundles with esbuild in `dist/index.js`; CI checks the submodules out.
+
+### Removed
+
+- `themes star|unstar|starred|try|untry|trials`, `theme try|undo-try|copy`, `layouts retouch|reset-retouches`, `universes theme-follow`; `universes theme-history|theme-restore` (renamed appearance-history|appearance-restore). Withdrawn by the platform since specs v96 (D-289).
+
 ## [0.15.1] - 2026-11-01
 
 ### Added

@@ -1,6 +1,6 @@
 // The GraphQL contract at run time (src/api/schema.generated.ts): the type of an operation and of
 // its arguments, the selection of an answer built from its type (every field without a required
-// argument, the nested objects down to a depth, a type never inside itself), the document of a
+// argument nor @deprecated, the nested objects down to a depth, a type never inside itself), the document of a
 // request with the arguments given, and the JSON Schemas of the inputs and the outputs of the
 // commands, for --json, `breakrocks schema` and the MCP tools.
 import type { JsonSchema } from '../schema.js';
@@ -46,6 +46,9 @@ export function pageItemType(raw: string): string | undefined {
 
 /** A field with arguments: a navigable field of API v2 (Universe.posts), read on purpose, never in a default selection. */
 const requiresArgs = (field: SdlField) => Object.keys(field[1] ?? {}).length > 0;
+/** The fields marked @deprecated in the contract ("Type.field"): never in a default selection, so that the contract may remove them. */
+const DEPRECATED = new Set(SCHEMA.deprecated ?? []);
+export const isDeprecated = (typeName: string, field: string) => DEPRECATED.has(`${typeName}.${field}`);
 
 /**
  * The selection of [typeName]: its fields without arguments, scalar and enum, its object fields down
@@ -58,7 +61,7 @@ export function selection(typeName: string, depth = 2, path: readonly string[] =
   if (type.k === 'u') return '{ __typename }';
   const parts: string[] = [];
   for (const [name, field] of Object.entries(type.f ?? {})) {
-    if (requiresArgs(field)) continue;
+    if (requiresArgs(field) || isDeprecated(typeName, name)) continue;
     const inner = typeRef(field[0]).name;
     const kind = SCHEMA.types[inner]?.k;
     if (!kind || kind === 'e' || kind === 's') { parts.push(name); continue; }
@@ -115,7 +118,7 @@ export function outputSchema(raw: string, depth = 2, path: readonly string[] = [
     if (type?.k === 'o') {
       const props: Record<string, JsonSchema> = {};
       for (const [n, f] of Object.entries(type.f ?? {})) {
-        if (requiresArgs(f)) continue;
+        if (requiresArgs(f) || isDeprecated(t.name, n)) continue;
         const inner = typeRef(f[0]).name;
         const k = SCHEMA.types[inner]?.k;
         if (k === 'o' && (depth <= 0 || path.includes(inner) || inner === t.name)) continue;

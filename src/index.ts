@@ -12,3 +12,6 @@ export async function main(argv: string[], out?: Output): Promise<number> {
 if (process.argv[1] && /src[\\/]index\.ts$/.test(process.argv[1])) exitWhenDone(await main(process.argv.slice(2)));
 
 export { exitWhenDone };
+// For scripts/gen-completions.mjs (the static completion scripts, from the built CLI).
+export { completionModel } from './completion/model.js';
+export { SHELLS, completionScript } from './completion/scripts.js';
