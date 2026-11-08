@@ -2,6 +2,7 @@
 // time column, the live line, accounts, the life of a universe, notifications, the export of a
 // universe, a post rendered as plain text. Never more than the reader may read: the refusals are the
 // app's (PRIVATE_UNIVERSE_NOT_FOUND, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS…). No search: the API has none.
+import { discussionLine, type DiscussionView } from './discussions.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { apiCommand } from '../api/command.js';
@@ -277,12 +278,14 @@ export const debatesList = apiCommand({
   name: 'debates list', summary: 'The temporary universe discussions (debates) of a universe (universeDiscussions, lifetime TEMPORARY)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
   map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'TEMPORARY') } : l; },
   examples: ['breakrocks debates list %france', 'breakrocks debates list %france --all-levels --json'],
+  text: (r) => { const l = r as { items?: DiscussionView[] } | null; return l?.items?.length ? l.items.map(discussionLine).join('\n') : '(none)'; },
 });
 export const pollsList = apiCommand({ name: 'polls list', summary: 'The polls of a universe', kind: 'query', op: 'polls', positionals: ['universe'], examples: ['breakrocks polls list %france'] });
 export const channelsList = apiCommand({
   name: 'channels list', summary: 'The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
   map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'PERMANENT') } : l; },
   examples: ['breakrocks channels list %france --all-levels'],
+  text: (r) => { const l = r as { items?: DiscussionView[] } | null; return l?.items?.length ? l.items.map(discussionLine).join('\n') : '(none)'; },
 });
 
 type Notification = { id: string; read: boolean; updatedAt: string; [k: string]: unknown };
