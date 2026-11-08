@@ -299,6 +299,21 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA) | `breakrocks explore area --boundary R7444` |
 | `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
+| `map routes` | The routes that cross an area of the map: public routes and universe routes of public universes, 100 at most (mapRoutes) | `breakrocks map routes --cells 861fb4677ffffff` |
+| `map channels` | The placed channels of an area of the map, with their place, who is there and their last message (mapChannels) | `breakrocks map channels --cells 861fb4677ffffff --universe %paris` |
+| `map posts` | The placed posts of an area of the map the account may read, the most recent first, 200 at most (mapPosts) | `breakrocks map posts --cells 861fb4677ffffff` |
+| `map places` | The places of an area of the map with a placed post of less than 1 hour, the most recent first (mapRecentPlaces: the pulse ring) | `breakrocks map places --cells 861fb4677ffffff` |
+| `routes list` | The routes of the account, the most recent first (myMapRoutes) | `breakrocks routes list` |
+| `routes show` | A route by its id or its URL (/a/alice/w/canal-run), as the account may read it: the parts within the privacy zones of its author left out (mapRoute, mapRouteByUrl) | `breakrocks routes show <route id>` |
+| `routes create` | Save a new route: its points, its mode, snapped or as drawn, its stages and tags (saveMapRoute) | `breakrocks routes create canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap --tags running` |
+| `routes edit` | Change a route of one's own or of one's universe: its whole content (saveMapRoute) | `breakrocks routes edit <route id> canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap` |
+| `routes delete` | Delete a route of one's own (or of one's universe, by its leadership); the events that carry it keep a copy of its line (deleteMapRoute) (confirmation: `--yes`) | `breakrocks routes delete <route id> --yes` |
+| `routes copy` | "Do this route": copy a route one reads into one's own routes, PRIVATE, crediting the original (copyMapRoute) | `breakrocks routes copy <route id>` |
+| `routes gpx export` | Export a route to a GPX file, without the parts its privacy zones hide (mapRouteGpx; --out: the file, else the text) | `breakrocks routes gpx export <route id> --out canal-run.gpx` |
+| `routes gpx import` | Import a GPX file as a PRIVATE route: its track simplified to 1,000 points at most, its waypoints as stages (60 at most) (importGpxRoute) | `breakrocks routes gpx import canal-run.gpx --name canal-run --mode FOOT` |
+| `routes privacy-zones` | The privacy zones of the account: the parts of its routes within them are hidden from the others (myRoutePrivacyZones) | `breakrocks routes privacy-zones` |
+| `routes privacy-zones set` | Set the privacy zones of the account, 0 to 3, each of 200, 500 or 1,000 metres (setRoutePrivacyZones; --zones "": none) | `breakrocks routes privacy-zones set --zones "48.8566,2.3522,500"` |
+| `routes plan` | The route through 2 to 100 points (500 km at most), on foot or by bicycle, snapped to the streets and paths with --snap (route) | `breakrocks routes plan --mode FOOT --points "48.871,2.366;48.884,2.370" --snap` |
 | `time-column` | The time column of a universe: events, polls, debates, votes, projects | `breakrocks time-column %france` |
 | `live` | The live line of a universe (--watch: each change as it comes) | `breakrocks live %france` |
 | `accounts show` | The profile of an account (by @handle or id) | `breakrocks accounts show @alice` |

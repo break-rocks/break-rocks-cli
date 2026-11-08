@@ -26,6 +26,7 @@ import * as publish from './publish.js';
 import * as read from './read.js';
 import * as drafts from './drafts.js';
 import * as playlists from './playlists.js';
+import * as routes from './routes.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -53,7 +54,8 @@ register(
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
-  read.explore, geo.exploreArea, geo.placesSearch, geo.mapBoundary, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
+  read.explore, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces,
+  routes.routesList, routes.routesShow, routes.routesCreate, routes.routesEdit, routes.routesDelete, routes.routesCopy, routes.routesGpxExport, routes.routesGpxImport, routes.routesPrivacyZones, routes.routesPrivacyZonesSet, routes.routesPlan, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesPropose, publish.debatesSupport, publish.debatesClose,
