@@ -332,8 +332,8 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes history clear` | Clear the whole visit history (clearRecentUniverses) (confirmation: `--yes`) | `breakrocks universes history clear --yes` |
 | `universes visit` | Record a visit of a universe in the visit history, on purpose (recordUniverseVisit) | `breakrocks universes visit %paris` |
 | `settings history-pause` | Pause (on) or resume (off) the universe visit history: nothing new is recorded while paused, the entries stay (setSettings) | `breakrocks settings history-pause on` |
-| `theme prompt` | Write the prompt that asks an AI for a theme (theme.json and its images) (offline) | `breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football` |
-| `theme check` | Check a theme and its images as the platform does at publication (offline) (offline) | `breakrocks theme check theme.json` |
+| `theme prompt` | Write the prompt that asks an AI for a theme (theme.json and its images), on the model of specs v99 (offline) | `breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football` |
+| `theme check` | Check a theme and its images as the platform does at publication (offline; the model of specs v99) (offline) | `breakrocks theme check theme.json` |
 | `theme pack` | Pack a theme and its images in a ZIP for the import of the studio (offline) | `breakrocks theme pack theme.json --out stade-nuit.zip` |
 | `theme unpack` | Unpack the ZIP of a theme (an export of the studio, or theme pack) (offline) | `breakrocks theme unpack stade-nuit.zip --out stade-nuit/` |
 | `theme typefaces` | List the approved typefaces (shipped; --online: approvedTypefaces, compared) | `breakrocks theme typefaces` |
@@ -346,7 +346,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `theme delete` | Delete a theme one published (it stays applied where it is) (confirmation: `--yes`) | `breakrocks theme delete %paris/stade-nuit --yes` |
 | `layouts list` | The layout catalog (layoutCatalog) | `breakrocks layouts list --field SPORT` |
 | `layouts show` | A layout | `breakrocks layouts show %root/feed-first` |
-| `layouts check` | Check a layout document against the registry of the universe (checkLayout) | `breakrocks layouts check @layout.json --in %paris` |
+| `layouts check` | Check a layout document as the platform does at publication: offline by the shared library of the design system (--online: checkLayout) | `breakrocks layouts check @layout.json` |
 | `layouts publish` | Publish a layout in a universe: a layout of the same name gets its next version (publishLayout) | `breakrocks layouts publish @layout.json --in %paris` |
 | `layouts publish-version` | Publish a new version of a layout (publishLayout, as layouts publish: kept for the scripts) | `breakrocks layouts publish-version @layout.json --in %paris` |
 | `layouts apply` | Make a layout the default one of a universe (setUniverseProfile) | `breakrocks layouts apply %root/agora --to %paris` |
@@ -571,9 +571,9 @@ test USDC); covered by the tests.
   `break-rocks-layout/3` document (`--name` when it has several). Publication refusals are said in
   plain words, their code kept (`PAGE_VERSION_CONFLICT`, `PAGE_NAME_TAKEN`, `PAGES_LIMIT` and
   `CANVAS_ITEMS_LIMIT` with the back office limit `errorInfo.limit`…). **`page check` is
-  online** (`checkLayout` with `{ format: "break-rocks-layout/3", pages: [page] }`): the shared
-  design library (`design/lib/layout`) is neither copied nor mounted in this repository; exit 1 when a
-  refusal is returned.
+  online** (`checkLayout` with `{ format: "break-rocks-layout/3", pages: [page] }`: the limits of the
+  pages are the back office's); exit 1 when a refusal is returned. Since 0.16.0 the shared design library
+  is mounted (the submodule `design`): `layouts check` runs `design/lib/layout` offline (`--online`: the API).
 - **Governance page** (`living-universes.md` § The governance page): `governance proposals
   [--status] [--kind]`, `governance record` (`governanceRecords`, `--all`), `governance duties
   [--universe]` (`myJuryDuties`), `governance pinned` and `governance pin <u> <channel…>|--none`

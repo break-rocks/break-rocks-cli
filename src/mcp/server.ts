@@ -90,14 +90,14 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' |
   });
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: [...ACCOUNT_PROMPTS.map(({ name, title, description }) => ({ name, title, description })), {
-      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt: a theme.json of the format 2 (its opacities and text backdrop) and its images, for a field (or a universal theme), a mood, a name and a universe.',
+      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt, on the model of specs v99: a theme.json of the format 2 (the four families of theme surfaces page, sky, block and control, one title typeface, the image slots page and pageHeader; no radius, no border, no opacity, the readability mask computed by the platform) and its images, for a field (or a universal theme), a mood, a name and a universe.',
       arguments: [
         { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech (none for a universal theme)' },
         { name: 'mood', description: 'The mood, in a few words', required: true },
         { name: 'name', description: 'The name of the theme', required: true },
         { name: 'universe', description: 'The universe it will be published in (%name; %root by default for a universal theme)' },
         { name: 'universal', description: 'true: the prompt of a universal theme (no field, the palette and the typeface of Socle)' },
-        { name: 'fonts', description: 'The title typeface, then the accent one, separated by a comma (approved list)' },
+        { name: 'fonts', description: 'The title typeface (approved list; since specs v99 there is no accent typeface)' },
         { name: 'description', description: 'Its description (160 characters at most)' },
         { name: 'language', description: `The language of the prompt: ${LANGUAGES.join(' or ')} (default en)` },
       ],

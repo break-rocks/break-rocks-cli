@@ -1,37 +1,26 @@
-// The contrast of a theme as the platform raises it at publication:
-// WCAG 2.1, 4.5:1 for text and 3:1 for large text and controls, the
-// palette then each theme surface, in the night, dim and day display modes, each control against
-// each theme surface that may hold it. A port of the computation of the platform
-// backend (raisePalette), so that `theme check` tells offline what the platform would change; the
-// surface "block" included. The opacities: opacity.ts.
+// The contrast of a theme as the platform raises it at publication (specs contracts/themes.md § Validation at
+// publication, § Since v99.0.0): WCAG 2.1, 4.5:1 for text and 3:1 for large text and controls; the palette, then
+// the four families of theme surfaces (page, sky, block, control; design/lib/theme readTheme reads them, the former
+// theme surfaces included), in the night, dim and day display modes: the text and the secondary text of each
+// family against its background, the background of a control 3:1 against each family that holds it. A theme sets
+// no radius, no stroke and no opacity. So that `theme check` tells offline what the platform would change.
+import type { SurfaceColors } from './design.js';
 
 export type Variant = 'night' | 'day';
 export const PALETTE_KEYS = ['background', 'surface', 'text', 'primary', 'accent', 'link'] as const;
 export type PaletteKey = (typeof PALETTE_KEYS)[number];
 export type Palette = Record<PaletteKey, string>;
-export const SURFACE_KEYS = [
-  'page', 'pageHeader', 'widget', 'postCard', 'repostCard', 'quoteCard', 'replyCard', 'timeColumnCard', 'headRow', 'liveLine',
-  'channelHeader', 'channelBubble', 'rail', 'focusBar', 'primaryButton', 'secondaryButton', 'link', 'badge', 'divider', 'block',
-] as const;
-export type SurfaceKey = (typeof SURFACE_KEYS)[number];
-export const SURFACE_PARTS = ['background', 'text', 'secondaryText', 'border'] as const;
-export type SurfacePart = (typeof SURFACE_PARTS)[number];
-/** A theme surface as a theme gives it: its colors and its surface opacity (an integer from 0 to 100, opacity.ts). */
-export type SurfaceStyle = Partial<Record<SurfacePart, string>> & { opacity?: number };
-export type Surfaces = Partial<Record<SurfaceKey, SurfaceStyle>>;
-export const IMAGE_SLOTS = ['page', 'pageHeader', 'timeColumn', 'channelHeader', 'cardTexture'] as const;
-export type ImageSlot = (typeof IMAGE_SLOTS)[number];
+export const FAMILIES = ['page', 'sky', 'block', 'control'] as const;
+export type Family = (typeof FAMILIES)[number];
+export type Families = Partial<Record<Family, SurfaceColors>>;
+export type Resolved = Record<Family, Required<SurfaceColors>>;
+/** The families that hold a control (contracts/themes.md § Since v99.0.0: a control lies on the page, the sky or a block). */
+export const CONTROL_HOLDERS: readonly Family[] = ['page', 'sky', 'block'];
+/** The image slots read since v99.0.0 (the others are ignored). */
+export const IMAGE_SLOTS = ['page', 'pageHeader'] as const;
 
 export const AA_TEXT = 4.5;
 export const AA_LARGE = 3;
-
-const CARRIERS: SurfaceKey[] = ['widget', 'postCard', 'repostCard', 'quoteCard', 'replyCard', 'timeColumnCard', 'headRow', 'liveLine', 'channelHeader', 'channelBubble', 'pageHeader', 'block'];
-export const HOLDERS: Partial<Record<SurfaceKey, SurfaceKey[]>> = {
-  primaryButton: CARRIERS, secondaryButton: CARRIERS, link: CARRIERS, badge: CARRIERS, divider: CARRIERS,
-  quoteCard: ['postCard', 'replyCard', 'channelBubble'],
-  postCard: ['widget', 'page'], repostCard: ['widget', 'page'], replyCard: ['widget', 'page'], timeColumnCard: ['widget', 'page'],
-  headRow: ['page'], liveLine: ['page'], pageHeader: ['page'], widget: ['page'], rail: ['page'], focusBar: ['page'], block: ['page'],
-};
 
 const channel = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -58,34 +47,27 @@ export function raisedOn(fg: string, bgs: string[], ratio: number): string {
 }
 
 export const DIM_LIFT = 0.04;
+/** A background of the night variant in the dim display mode (the night with lighter backgrounds). */
 export const dimOf = (hex: string) => mixHex(hex, '#FFFFFF', DIM_LIFT);
 
-export type Resolved = Record<SurfaceKey, Required<Record<SurfacePart, string>>>;
-export type Mode = 'night' | 'dim' | 'day';
-
-/** Every theme surface of a variant with its four colors: the theme's, else from the palette. */
-export function resolveSurfaces(palette: Palette, surfaces: Surfaces = {}): Resolved {
-  const out = {} as Resolved;
+/** The four families of a variant with their three colors: the theme's, else from the palette (§ Since v99.0.0, Default). */
+export function resolveFamilies(palette: Palette, families: Families = {}): Resolved {
   const pick = (bg: string, ...options: string[]) => options.find((c) => contrast(c, bg) >= AA_TEXT) ?? options[options.length - 1];
-  const make = (key: SurfaceKey, base: { background: string; text?: string; border?: string }) => {
-    const own = surfaces[key] ?? {};
-    const background = own.background ?? base.background;
-    const text = own.text ?? base.text ?? palette.text;
-    out[key] = { background, text, secondaryText: own.secondaryText ?? mixHex(text, background, 0.3), border: own.border ?? base.border ?? mixHex(background, palette.text, 0.12) };
+  const make = (own: SurfaceColors | undefined, background: string, text?: string) => {
+    const bg = own?.background ?? background;
+    const t = own?.text ?? text ?? palette.text;
+    return { background: bg, text: t, secondaryText: own?.secondaryText ?? mixHex(t, bg, 0.3) };
   };
-  make('page', { background: palette.background });
-  for (const key of ['pageHeader', 'widget', 'postCard', 'timeColumnCard', 'liveLine', 'channelHeader', 'channelBubble', 'rail', 'focusBar', 'block'] as const) make(key, { background: palette.surface });
-  for (const key of ['repostCard', 'quoteCard', 'replyCard', 'headRow'] as const) make(key, { background: out.postCard.background, text: out.postCard.text, border: out.postCard.border });
-  make('primaryButton', { background: palette.primary, text: pick(surfaces.primaryButton?.background ?? palette.primary, palette.background, palette.text) });
-  make('secondaryButton', { background: palette.surface, border: palette.primary });
-  make('link', { background: palette.surface, text: palette.link });
-  make('badge', { background: palette.accent, text: pick(surfaces.badge?.background ?? palette.accent, palette.background, palette.text) });
-  make('divider', { background: palette.surface, border: mixHex(palette.surface, palette.text, 0.12) });
-  return out;
+  const controlBg = families.control?.background ?? palette.primary;
+  return {
+    page: make(families.page, palette.background), sky: make(families.sky, palette.surface), block: make(families.block, palette.surface),
+    control: make(families.control, palette.primary, pick(controlBg, palette.background, palette.text)),
+  };
 }
 
-/** A color the platform would raise: where ("night.palette.text"), the color given, the one it would keep, the ratio reached and required. */
+/** A color the platform would raise: where ("night.surfaces.control.text"), the color given, the one it would keep, the ratio reached and required. */
 export type Correction = { path: string; given: string; raised: string; ratio: number; required: number };
+const round = (n: number) => Math.round(n * 100) / 100;
 
 const PAIRS: [PaletteKey, PaletteKey, number][] = [
   ['text', 'background', AA_TEXT], ['text', 'surface', AA_TEXT], ['link', 'background', AA_TEXT], ['link', 'surface', AA_TEXT],
@@ -106,34 +88,24 @@ export function raisePalette(palette: Palette, variant: Variant): { palette: Pal
   return { palette: out, corrections };
 }
 
-const round = (n: number) => Math.round(n * 100) / 100;
-
-/** The theme surfaces of a variant with their contrast raised (night and dim for the night variant), and the corrections. */
-export function raiseSurfaces(palette: Palette, given: Surfaces, variant: Variant): { surfaces: Surfaces; corrections: Correction[] } {
-  const surfaces: Surfaces = JSON.parse(JSON.stringify(given ?? {}));
+/** The families of a variant with their contrast raised (night and dim for the night variant), and the corrections. */
+export function raiseFamilies(palette: Palette, given: Families, variant: Variant): { families: Families; resolved: Resolved; corrections: Correction[] } {
+  const families: Families = JSON.parse(JSON.stringify(given ?? {}));
   const corrections: Correction[] = [];
   const backgrounds = (bg: string) => (variant === 'night' ? [bg, dimOf(bg)] : [bg]);
-  const set = (key: SurfaceKey, part: SurfacePart, value: string, before: string, against: string[], required: number) => {
+  const set = (family: Family, part: keyof SurfaceColors, value: string, before: string, against: string[], required: number) => {
     if (value === before.toUpperCase()) return;
-    (surfaces[key] ??= {})[part] = value;
-    corrections.push({ path: `${variant}.surfaces.${key}.${part}`, given: before.toUpperCase(), raised: value, ratio: round(Math.min(...against.map((bg) => contrast(before, bg)))), required });
+    (families[family] ??= {})[part] = value;
+    corrections.push({ path: `${variant}.surfaces.${family}.${part}`, given: before.toUpperCase(), raised: value, ratio: round(Math.min(...against.map((bg) => contrast(before, bg)))), required });
   };
-  let r = resolveSurfaces(palette, surfaces);
-  const holders = (key: SurfaceKey) => (HOLDERS[key] ?? []).flatMap((h) => backgrounds(r[h].background));
-  const primaryHolders = holders('primaryButton');
-  set('primaryButton', 'background', raisedOn(r.primaryButton.background, primaryHolders, AA_LARGE), r.primaryButton.background, primaryHolders, AA_LARGE);
-  r = resolveSurfaces(palette, surfaces);
-  for (const key of SURFACE_KEYS) {
-    if (key === 'link' || key === 'divider') continue;
-    const s = r[key];
-    const bgs = backgrounds(s.background);
-    set(key, 'text', raisedOn(s.text, bgs, AA_TEXT), s.text, bgs, AA_TEXT);
-    set(key, 'secondaryText', raisedOn(s.secondaryText, bgs, AA_TEXT), s.secondaryText, bgs, AA_TEXT);
+  let r = resolveFamilies(palette, families);
+  const holders = CONTROL_HOLDERS.flatMap((h) => backgrounds(r[h].background));
+  set('control', 'background', raisedOn(r.control.background, holders, AA_LARGE), r.control.background, holders, AA_LARGE);
+  r = resolveFamilies(palette, families);
+  for (const family of FAMILIES) {
+    const bgs = backgrounds(r[family].background);
+    set(family, 'text', raisedOn(r[family].text, bgs, AA_TEXT), r[family].text, bgs, AA_TEXT);
+    set(family, 'secondaryText', raisedOn(r[family].secondaryText, bgs, AA_TEXT), r[family].secondaryText, bgs, AA_TEXT);
   }
-  r = resolveSurfaces(palette, surfaces);
-  const linkHolders = holders('link');
-  set('link', 'text', raisedOn(r.link.text, linkHolders, AA_TEXT), r.link.text, linkHolders, AA_TEXT);
-  const secondaryHolders = holders('secondaryButton');
-  set('secondaryButton', 'border', raisedOn(r.secondaryButton.border, secondaryHolders, AA_LARGE), r.secondaryButton.border, secondaryHolders, AA_LARGE);
-  return { surfaces, corrections };
+  return { families, resolved: resolveFamilies(palette, families), corrections };
 }
