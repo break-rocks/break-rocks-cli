@@ -35,6 +35,7 @@ import { meCommands } from './me.js';
 import { chatCommands } from './chats.js';
 import { billingCommands } from './billing.js';
 import { favoriteCommands } from './favorites.js';
+import { readingCommands, searchCommands } from './search.js';
 import { privateUniverseCommands } from './private-universes.js';
 import { civicCommands, civicGovernanceCommands } from './civic.js';
 import { discussionModerationCommands } from './discussions-moderation.js';
@@ -66,13 +67,13 @@ register(
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, ...favoriteCommands, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept, ...privateUniverseCommands,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
-  read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
+  read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, ...searchCommands, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
   map.presenceShow, map.presenceStart, map.presenceUpdate, map.presenceAudience, map.presenceGhostOn, map.presenceGhostOff, map.presenceStop,
   map.liveShareList, map.liveShareIn, map.liveShareStart, map.liveShareStop, map.liveSharePositions, map.liveShareSend,
   map.locatableShow, map.locatableResidents, map.locatableOn, map.locatableOff, map.locatableMove,
   map.meetupsAnswer, map.meetupsChange, map.meetupsCancel,
   map.nearbyToken, map.nearbyRequest, map.nearbyRequests, map.nearbyAccept, map.nearbyDecline, map.nearbyLeave, map.nearbySightings, map.postsPlace,
-  routes.routesList, routes.routesShow, routes.routesCreate, routes.routesEdit, routes.routesDelete, routes.routesCopy, routes.routesGpxExport, routes.routesGpxImport, routes.routesPrivacyZones, routes.routesPrivacyZonesSet, routes.routesPlan, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, read.notifications,
+  routes.routesList, routes.routesShow, routes.routesCreate, routes.routesEdit, routes.routesDelete, routes.routesCopy, routes.routesGpxExport, routes.routesGpxImport, routes.routesPrivacyZones, routes.routesPrivacyZonesSet, routes.routesPlan, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, ...readingCommands, read.notifications,
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,
   read.debatesList, publish.debatesShow, publish.debatesOpen, publish.debatesPropose, publish.debatesSupport, publish.debatesClose,

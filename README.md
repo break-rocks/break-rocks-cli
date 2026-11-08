@@ -388,6 +388,16 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `explore unmute` | Unmute a universe from discovery (unmuteUniverseDiscovery) | `breakrocks explore unmute %paris-foot` |
 | `explore reset` | Reset the recommendations: the interest profile, the recommendations of the last 7 days and the clip plays erased; the rest kept (resetRecommendations) (confirmation: `--yes`) | `breakrocks explore reset --yes` |
 | `resolve` | Resolve an address: its canonical address and URL, its address parameters, and the playlist, universe event or route it names (resolveAddress) | `breakrocks resolve "@erin>journey?t=90"` |
+| `search` | Search posts, accounts, universes, pages, discussions, playlists and tags (search: 2 to 200 characters, words and addresses) | `breakrocks search "velo paris"` |
+| `clips feed` | The clip feed that never ends: of an address, or of the follows (clipFeedSequence) | `breakrocks clips feed` |
+| `clips platform` | The platform clips: every vertical and square clip of the public universes ranked by its quality, the reader's languages first (platformClips) | `breakrocks clips platform --language fr` |
+| `clips popular` | The popular clips of the last 7 days in the reader's languages (popularClips) | `breakrocks clips popular --language fr` |
+| `interests show` | The interest profile of the account: the fields chosen, the interests inferred, the consents (myInterestProfile) | `breakrocks interests show` |
+| `interests add` | Add interests to the profile: tags, universes, fields (addInterests; 100 at most) | `breakrocks interests add --tags football,velo --universes %paris` |
+| `interests fields` | Choose 1 to 3 fields, once, while the choice is offered (--choices []: skip it) (chooseFields) | `breakrocks interests fields SPORT PLACES` |
+| `interests forget` | Forget interests (not inferred again for 90 days), or --all: the whole profile and its consents (forgetInterests) (confirmation: `--yes`) | `breakrocks interests forget --tags football --yes` |
+| `interests tags` | The tags the account engaged with (myEngagedTags) | `breakrocks interests tags` |
+| `interests not-interested` | What the account said it is not interested in: posts, accounts, tags, universes, until when (myNotInterested) | `breakrocks interests not-interested` |
 | `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA) | `breakrocks explore area --boundary R7444` |
 | `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
@@ -442,6 +452,13 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `accounts show` | The profile of an account (by @handle or id) | `breakrocks accounts show @alice` |
 | `accounts followers` | The followers of an account | `breakrocks accounts followers @alice --all` |
 | `accounts following` | What an account follows | `breakrocks accounts following @alice` |
+| `posts thread` | A post and its replies, in the order of the thread (thread; --hidden: the hidden replies of its root) | `breakrocks posts thread <post id>` |
+| `posts reposts` | The reposts of a post, the most recent first (reposts) | `breakrocks posts reposts <post id>` |
+| `posts link-preview` | The preview of a link before it is posted: title, description, image (linkPreview; none: no preview) | `breakrocks posts link-preview https://example.com/article` |
+| `posts reply-policy` | Set who can reply to one of your posts: everyone, following, mentioned or nobody (setReplyPolicy) | `breakrocks posts reply-policy <post id> mentioned` |
+| `accounts replies` | The replies of an account, the newest first, those you may read (replies) | `breakrocks accounts replies @alice` |
+| `accounts is-following` | Whether you follow an address: an account, an account in a universe, a universe (isFollowing) | `breakrocks accounts is-following @alice` |
+| `map avatar` | Your map avatar: its parts (myMapAvatar; choosing and buying parts are not served yet) | `breakrocks map avatar --json` |
 | `notifications` | The notifications (--unread; --mark-read marks those listed as read; --watch) | `breakrocks notifications --unread` |
 | `events list` | The events of a universe (--from, --to) | `breakrocks events list %france --from 2026-10-23T00:00:00Z` |
 | `events create` | Propose an event in a universe (createUniverseEvent): 1 to 5 free tags | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc` |

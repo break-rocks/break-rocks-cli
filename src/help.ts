@@ -30,6 +30,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',
   moderation: 'Moderation of a universe', governance: 'Governance of a universe',
   subscription: 'The paid tiers of the account (X2, X10): subscription, renewal, billing day, billing portal', 'gift-codes': 'Gift codes of the paid tiers: offer, bought, used, refunded',
+  search: 'Search posts, accounts, universes, pages, discussions, playlists and tags', clips: 'The clip feed, the platform clips, the popular clips', interests: 'The interest profile of the recommendations: shown, added, fields chosen, forgotten',
   sanctions: 'The sanctions of the account in universes and their appeal', jury: 'The jury of the appeal of a sanction: the draw, the reviews, the vote',
 };
 

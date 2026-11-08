@@ -10,6 +10,7 @@ import { chatCommands } from '../src/commands/chats.js';
 import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
 import { discussionModerationCommands } from '../src/commands/discussions-moderation.js';
 import { favoriteCommands } from '../src/commands/favorites.js';
+import { readingCommands, searchCommands } from '../src/commands/search.js';
 import { themePersonalSaved } from '../src/commands/themes-online.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
@@ -17,7 +18,7 @@ import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands, themePersonalSaved];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands, themePersonalSaved, ...searchCommands, ...readingCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -198,5 +199,31 @@ describe('favorite universes and their alerts', () => {
     expect(h.lines.at(-1)).toBe('%paris  alerts on\n%lyon');
     expect(await h.run('universes', 'favorite', 'alerts-on', '%paris')).toBe(0);
     expect(calls.at(-1)).toMatchObject({ field: 'setUniverseAlerts', variables: { universe: '%paris', alerts: true } });
+  });
+});
+
+describe('search, clips and interests', () => {
+  it('adds interests from --tags, --universes and --fields', async () => {
+    const { h, calls } = scripted({ addInterests: { chosenFields: [], fieldChoiceOffered: false, consents: [], inferred: [] } });
+    expect(await h.run('interests', 'add', '--tags', '#football,velo', '--universes', '%paris', '--universe-fields', 'POLITICS', '--consent')).toBe(0);
+    expect(calls[0].variables.interests).toEqual([{ tag: 'football' }, { tag: 'velo' }, { universe: '%paris' }, { field: 'POLITICS', consent: true }]);
+    expect(await h.run('interests', 'add')).toBe(2);
+    expect(await h.run('interests', 'add', '--interests', '[{"tag":"x"}]')).toBe(0);
+    expect(calls[1].variables.interests).toEqual([{ tag: 'x' }]);
+  });
+  it('forgets some interests, or the whole profile (null)', async () => {
+    const { h, calls } = scripted();
+    expect(await h.run('--yes', 'interests', 'forget', '--all')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ interests: null });
+    expect(await h.run('--yes', 'interests', 'forget', '--tags', 'x')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ interests: [{ tag: 'x' }] });
+    expect(await h.run('--yes', 'interests', 'forget')).toBe(2);
+    expect(await h.run('--yes', 'interests', 'forget', '--all', '--tags', 'x')).toBe(2);
+  });
+  it('searches and writes what it found', async () => {
+    const { h, calls } = scripted({ search: { addresses: ['%paris'], tags: ['velo'], accounts: [{ handle: 'alice' }], universeResults: [], posts: [{ id: 'p1', createdAt: '2026-11-08T10:00:00.000Z', author: { handle: 'bob' }, text: 'Velo in Paris', universe: '%paris' }], postsStatus: 'OK', next: 'n1' } });
+    expect(await h.run('search', 'velo paris', '--order', 'DATE')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ query: 'velo paris', order: 'DATE' });
+    expect(h.lines.at(-1)).toBe('addresses: %paris\ntags: #velo\naccounts: @alice\np1  2026-11-08T10:00:00.000Z  @bob  %paris  Velo in Paris\nnext: n1');
   });
 });
