@@ -204,6 +204,21 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `feed` | The feed of the account (timeline); --clips its clips, --new what is new since --since | `breakrocks feed` |
 | `render` | A post as plain text, its media as links (reading without HTML) | `breakrocks render 01a166cb-bfff-7237-81a6-fb564222fe97` |
 | `export` | Export the posts of a universe to a JSON lines file (when the reader may) | `breakrocks export %france --out posts.jsonl` |
+| `drafts list` | The post drafts and the scheduled posts of the account (postDrafts; --scheduled: the scheduled posts only, the earliest first) | `breakrocks drafts list` |
+| `drafts show` | A post draft or a scheduled post of the account (postDraft) | `breakrocks drafts show <draft id>` |
+| `drafts save` | Save a post draft: a new one, or the whole content of one (--draft-id) (savePostDraft) | `breakrocks drafts save "Match tonight #football" --in %test-village-sport` |
+| `drafts schedule` | Schedule a post draft: published at --at, 5 minutes to 30 days from now (--cancel: back to a draft) (schedulePostDraft) | `breakrocks drafts schedule <draft id> --at 2026-11-10T08:00:00Z` |
+| `drafts publish` | Publish a post draft now, as a post (publishPostDraft): the draft is deleted once posted | `breakrocks drafts publish <draft id>` |
+| `drafts delete` | Delete a post draft or a scheduled post, with the media it alone holds (deletePostDraft) (confirmation: `--yes`) | `breakrocks drafts delete <draft id> --yes` |
+| `reposts request` | Ask to repost a post of a private universe one is a member of into another universe (requestRepost; --text: as a quote) | `breakrocks reposts request <post id> --to %paris` |
+| `reposts requests` | The requests to repost a post of a private universe into a universe, waiting for its moderation (repostRequests) | `breakrocks reposts requests %paris` |
+| `reposts accept` | Accept a request to repost a post of a private universe into a universe one moderates (answerRepostRequest): the post is reposted | `breakrocks reposts accept <request id> --in %paris` |
+| `reposts decline` | Decline a request to repost a post of a private universe into a universe one moderates (answerRepostRequest) | `breakrocks reposts decline <request id> --in %paris` |
+| `posts alt` | Write the alternative text of an image of one's post in place of its automatic one, once per image (setImageAlt) | `breakrocks posts alt <post id> <image id> "The stadium at night"` |
+| `posts suggested-alt` | The alternative text a platform AI agent suggests for an image uploaded for a post (suggestedAlt) | `breakrocks posts suggested-alt <upload id> --language en` |
+| `posts subtitles on` | Turn the automatic subtitles of the clip of one's post back on (setAutomaticSubtitles) | `breakrocks posts subtitles on <post id>` |
+| `posts subtitles off` | Turn the automatic subtitles of the clip of one's post off (setAutomaticSubtitles) | `breakrocks posts subtitles off <post id>` |
+| `posts subtitles correct` | Correct the subtitles of the clip of one's post: every cue, in order, from a WebVTT or SRT file (correctSubtitles) | `breakrocks posts subtitles correct <post id> --file @clip.vtt` |
 | `post` | Publish a post: text, images (4) or a clip, a link, in an address (createPost) | `breakrocks post "Match tonight #football" --in %test-village-sport` |
 | `reply` | Reply to a post (replyTo), with images or a clip | `breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"` |
 | `quote` | Quote a post with a text of one's own (quote) | `breakrocks quote <id> "À lire" --in %paris` |

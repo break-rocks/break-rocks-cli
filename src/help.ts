@@ -21,7 +21,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   wallet: 'The x402 wallet: key, balance, caps', whoami: 'The account signed in', session: 'The session of the profile',
   usage: 'Usage and limits', capabilities: 'What the profile may do now', theme: 'Themes, offline: prompt, check, pack, unpack',
   mcp: 'The MCP server on stdio', completion: 'The completion script of a shell: bash, zsh, fish, pwsh',
-  posts: 'Posts: list, show, edit, delete, pin', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
+  posts: 'Posts: list, show, edit, delete, pin, alternative texts, subtitles', drafts: 'Post drafts and scheduled posts', reposts: 'Requests to repost a post of a private universe', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
   post: 'Publish a post', reply: 'Reply', quote: 'Quote', repost: 'Repost', like: 'Like', unlike: 'Unlike', dislike: 'Dislike', undislike: 'Undislike',
   'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
   universes: 'Universes: the page, Explore, residence, favorites, private universes, the universe territory, the pages', explore: 'Explore, and the universes of an area of the map', places: 'The places search', map: 'The cartography: the shapes of the boundaries', 'time-column': 'The time column', live: 'The live line',

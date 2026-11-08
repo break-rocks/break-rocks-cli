@@ -24,6 +24,7 @@ import { governanceCommands, governancePin, governancePinned, moderationCommands
 import * as pages from './pages.js';
 import * as publish from './publish.js';
 import * as read from './read.js';
+import * as drafts from './drafts.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -38,6 +39,9 @@ register(
   whoami, sessionCommand, usage, capabilities, doctor,
   read.postsList, read.postsShow, publish.postsEdit, publish.postsDelete, publish.postsPin, publish.postsUnpin,
   read.feed, read.render, read.exportPosts,
+  drafts.draftsList, drafts.draftsShow, drafts.draftsSave, drafts.draftsSchedule, drafts.draftsPublish, drafts.draftsDelete,
+  drafts.repostsRequest, drafts.repostsRequests, drafts.repostsAccept, drafts.repostsDecline,
+  drafts.postsAlt, drafts.postsSuggestedAlt, drafts.postsSubtitlesOn, drafts.postsSubtitlesOff, drafts.postsSubtitlesCorrect,
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
   read.universesShow, read.universesList, read.universesSub, publish.universesMembers, publish.universesAgentPosts, publish.universesJoin, publish.universesLeave, publish.universesAskToJoin,
