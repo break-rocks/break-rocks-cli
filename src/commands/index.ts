@@ -29,6 +29,7 @@ import * as playlists from './playlists.js';
 import * as routes from './routes.js';
 import * as map from './map.js';
 import * as appearance from './appearance.js';
+import * as measures from './measures.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -41,6 +42,7 @@ register(
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities, doctor,
+  measures.meMeasures, measures.meMeasuresAppeal, measures.meTerms, measures.meTermsAccept,
   read.postsList, read.postsShow, publish.postsEdit, publish.postsDelete, publish.postsPin, publish.postsUnpin,
   read.feed, read.render, read.exportPosts,
   drafts.draftsList, drafts.draftsShow, drafts.draftsSave, drafts.draftsSchedule, drafts.draftsPublish, drafts.draftsDelete,
@@ -83,6 +85,8 @@ register(
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themePersonalSet, themePersonalClear, themeExport, themeShots, themeDelete,
   ...layoutCommands, ...studioCommands, pages.studioMakePage,
+  measures.adsCampaigns, measures.adsShow, measures.adsCreate, measures.adsUpdate, measures.adsSubmit, measures.adsPause, measures.adsResume, measures.adsEnd, measures.adsPay,
+  measures.adsSuggest, measures.adsGroup, measures.adsRepository, measures.adsWhy, measures.adsInterests, measures.adsInterestsSet,
   batch,
   ...moderationCommands, ...governanceCommands, governancePinned, governancePin,
   mcpCommand,
