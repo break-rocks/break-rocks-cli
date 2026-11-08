@@ -25,9 +25,9 @@ describe('the MCP server', () => {
     const client = await connected(harness());
     const { tools } = await client.listTools();
     // Every command but the server itself, the completion of the shells, the update of the CLI, the
-    // sign-in and sign-out of a human, and the change of the current profile.
-    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'login', 'logout', 'mcp', 'profile use', 'update']);
-    expect(tools.length).toBe(commands().length - 6);
+    // sign-in and sign-out of a human, the change of its password, and the change of the current profile.
+    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'login', 'logout', 'mcp', 'me password', 'profile use', 'update']);
+    expect(tools.length).toBe(commands().length - 7);
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_theme_prompt', 'breakrocks_agent_login', 'breakrocks_profile_list']));
     for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_profile_use', 'breakrocks_update']) expect(names).not.toContain(name);

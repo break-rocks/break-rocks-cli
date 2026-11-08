@@ -63,7 +63,7 @@ describe('the completion scripts', () => {
     const file = scriptFile('bash');
     const cases: [string[], string][] = [
       [['po'], 'posts post polls'], [['posts', 'list', '--k'], '--kind'], [['posts', 'list', '--kind', ''], 'post clip'],
-      [['universes', 'favorite', ''], 'add remove move'], [['--json', 'completion', ''], 'bash zsh fish pwsh powershell'],
+      [['universes', 'favorite', ''], 'add remove move list alerts-on alerts-off skip'], [['--json', 'completion', ''], 'bash zsh fish pwsh powershell'],
     ];
     const lines = cases.map(([words]) => `t ${words.map((w) => `'${w}'`).join(' ')}`);
     const r = spawnSync('bash', ['-c', `source '${file}'; t() { COMP_WORDS=(breakrocks "$@"); COMP_CWORD=$#; COMPREPLY=(); __breakrocks; echo "\${COMPREPLY[*]}"; }; ${lines.join('; ')}`], { encoding: 'utf8' });
@@ -75,7 +75,7 @@ describe('the completion scripts', () => {
     const inputs = ['breakrocks po', 'breakrocks posts list --k', 'breakrocks posts list --kind ', 'breakrocks universes favorite '];
     const command = `. '${file.replace(/'/g, "''")}'; foreach ($l in @(${inputs.map((i) => `'${i}'`).join(', ')})) { ((TabExpansion2 -inputScript $l -cursorColumn $l.Length).CompletionMatches | ForEach-Object { $_.CompletionText }) -join ' ' }`;
     const r = spawnSync('pwsh', ['-NoProfile', '-Command', command], { encoding: 'utf8' });
-    expect(r.stdout.trim().split(/\r?\n/)).toEqual(['posts post polls', '--kind', 'post clip', 'add remove move']);
+    expect(r.stdout.trim().split(/\r?\n/)).toEqual(['posts post polls', '--kind', 'post clip', 'add remove move list alerts-on alerts-off skip']);
   }, 60_000);
 });
 

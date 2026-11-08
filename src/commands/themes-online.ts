@@ -174,6 +174,13 @@ export const themePersonalSet = apiCommand({ name: 'theme personal set', summary
   descriptions: { accent: 'The accent: "#RRGGBB", or "universe" (the accent of the universe visited)', clear: 'The settings removed (ACCENT, DEVICE_DISPLAY_MODE)' },
   examples: ['breakrocks theme personal set --accent "#11707A"', 'breakrocks theme personal set --accent universe --display-mode NIGHT --density DENSE'] });
 export const themePersonalClear = apiCommand({ name: 'theme personal clear', summary: 'Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear)', kind: 'mutation', op: 'setPersonalTheme', fixed: { 'input.clear': ['ACCENT', 'DEVICE_DISPLAY_MODE'] }, hide: ['theme', 'accent', 'density', 'device', 'deviceDisplayMode', 'displayMode', 'motion', 'myThemeEverywhere', 'postTransparency', 'readableTypeface', 'sounds', 'textScale'].map((f) => `input.${f}`), examples: ['breakrocks theme personal clear'] });
+/** The personal themes saved by the account (personalThemes, before specs v96.0.0: savePersonalTheme is deprecated). */
+export const themePersonalSaved = apiCommand({
+  name: 'theme personal saved', summary: 'The personal themes the account saved, the most recent first, 50 at most (personalThemes)', kind: 'query', op: 'personalThemes', depth: 1,
+  description: 'Saved before specs v96.0.0 (savePersonalTheme is deprecated): the personal theme is now Socle with an accent (theme personal set). --json gives their documents.',
+  text: (r) => (Array.isArray(r) && r.length ? (r as { name: string; updatedAt?: string; copiedFrom?: { universe?: string; name?: string } | null }[]).map((t) => `${t.name}  ${t.updatedAt ?? ''}${t.copiedFrom ? `  copied from ${t.copiedFrom.universe}/${t.copiedFrom.name}` : ''}`).join('\n') : '(none)'),
+  examples: ['breakrocks theme personal saved', 'breakrocks theme personal saved --json'],
+});
 export const themeDelete = apiCommand({ name: 'theme delete', summary: 'Delete a theme one published (it stays applied where it is)', kind: 'mutation', op: 'deleteTheme', positionals: ['theme'],
   extra: { theme: { type: 'string', pattern: REF, description: 'The theme: %universe/name' } }, hide: ['universe', 'name'], require: ['theme'], prepare: (i) => { const r = ref(String(i.theme)); return { ...i, universe: r.universe, name: r.name }; }, confirm: (i) => `Delete the theme ${i.theme}?`,
   examples: ['breakrocks theme delete %paris/stade-nuit --yes'] });
