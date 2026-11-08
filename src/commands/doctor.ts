@@ -73,7 +73,8 @@ export function schemaDrift(deployed: Introspected): { fields: string[]; depreca
   const operations = missing.splice(0);
   for (const [name, type] of Object.entries(SCHEMA.types)) if ((type.k === 'o' || type.k === 'i') && type.f) compare(name, Object.keys(type.f));
   const deprecated = new Set(SCHEMA.deprecated ?? []);
-  return { fields: missing.filter((f) => !deprecated.has(f)), deprecatedFields: missing.filter((f) => deprecated.has(f)), operations };
+  // An operation the contract deprecates and the API no longer serves: no command calls it (test/api.test.ts), a deprecated field among the others.
+  return { fields: missing.filter((f) => !deprecated.has(f)), deprecatedFields: [...operations.filter((f) => deprecated.has(f)), ...missing.filter((f) => deprecated.has(f))], operations: operations.filter((f) => !deprecated.has(f)) };
 }
 
 export const doctor: Command<Record<string, never>, DoctorResult> = {
@@ -138,7 +139,7 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
         if (missingOperations.length) add({ name: 'operations', status: 'warn', detail: `The API of ${env} does not serve ${missingOperations.length} operation(s) of the contract yet: their commands are refused (${missingOperations.slice(0, 6).join(', ')}${missingOperations.length > 6 ? ', …' : ''})` });
         const deprecatedNote = missingDeprecatedFields.length ? `; ${missingDeprecatedFields.length} deprecated field(s) are gone (${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}): their replacements are served` : '';
         add(missingFields.length ? { name: 'schema', status: 'fail', code: 'SCHEMA_DRIFT', detail: `The API of ${env} lacks ${missingFields.length} field(s) this CLI may ask for: ${missingFields.slice(0, 10).join(', ')}${missingFields.length > 10 ? ', …' : ''}. Update the CLI, or wait for the deployment of the API${deprecatedNote}` }
-          : missingDeprecatedFields.length ? { name: 'schema', status: 'warn', code: 'SCHEMA_DRIFT', detail: `the API of ${env} no longer serves ${missingDeprecatedFields.length} field(s) the contract marks deprecated: ${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}; the commands use their replacements` }
+          : missingDeprecatedFields.length ? { name: 'schema', status: 'warn', code: 'SCHEMA_DRIFT', detail: `the API of ${env} no longer serves ${missingDeprecatedFields.length} operation(s) or field(s) the contract marks deprecated: ${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}; the commands use their replacements` }
           : { name: 'schema', status: 'ok', detail: `the API of ${env} serves every field of the contract of this CLI` });
       } catch (error) { const e = asCliError(error); add({ name: 'schema', status: 'warn', code: e.code, detail: `introspection refused: ${e.message}` }); }
     } else add({ name: 'schema', status: 'skip', detail: 'needs a session' });
