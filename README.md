@@ -303,6 +303,37 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `map channels` | The placed channels of an area of the map, with their place, who is there and their last message (mapChannels) | `breakrocks map channels --cells 861fb4677ffffff --universe %paris` |
 | `map posts` | The placed posts of an area of the map the account may read, the most recent first, 200 at most (mapPosts) | `breakrocks map posts --cells 861fb4677ffffff` |
 | `map places` | The places of an area of the map with a placed post of less than 1 hour, the most recent first (mapRecentPlaces: the pulse ring) | `breakrocks map places --cells 861fb4677ffffff` |
+| `map presences` | The map presences of the connected accounts one may see in an area of the map (mapPresences; none in the ghost mode, none across a block) | `breakrocks map presences --cells 861fb4677ffffff` |
+| `map groups` | The groups of map presence of an area (3 people at least per map cell of resolution 8; never a minor) (mapPresenceGroups) | `breakrocks map groups --cells 861fb4677ffffff --universe %paris` |
+| `presence show` | The map presence of the account: its audience, its precision, until when, the ghost mode (myMapPresence) | `breakrocks presence show` |
+| `presence start` | Start (or replace) one's map presence for a duration, with an audience and a point (startMapPresence; a human only) | `breakrocks presence start --point 48.8566,2.3522 --duration ONE_HOUR --connections --precision NEIGHBOURHOOD` |
+| `presence update` | Move one's map presence to a point, every 5 minutes at most (updateMapPresence; MAP_PRESENCE_TOO_SOON) | `breakrocks presence update --point 48.8570,2.3530` |
+| `presence audience` | Change the audience of one's map presence, 30 times in 24 hours at most (setMapPresenceAudience) | `breakrocks presence audience --connections --precision CITY` |
+| `presence ghost on` | Turn the ghost mode on: nobody sees one's map presence, the audience not told (setGhostMode) | `breakrocks presence ghost on` |
+| `presence ghost off` | Turn the ghost mode off (setGhostMode) | `breakrocks presence ghost off` |
+| `presence stop` | Stop one's map presence; nothing is kept (stopMapPresence) | `breakrocks presence stop` |
+| `live-share list` | The live shares of the account in progress (myLiveShares) | `breakrocks live-share list` |
+| `live-share in` | The live shares in progress in a conversation (--with) or a group chat (--group) one takes part in (liveShares) | `breakrocks live-share in --with @alice` |
+| `live-share start` | Start a live share of one's position in a conversation or a group chat: 15 to 1,440 minutes, until an event or a meet-up (setLiveShare; a human only) | `breakrocks live-share start --with @alice --minutes 60` |
+| `live-share stop` | Stop a live share of one's own (setLiveShare) | `breakrocks live-share stop <share id>` |
+| `live-share positions` | The last position of each live share asked (20 at most) one may see; a minor sharer at the center of its map cell (livePositions) | `breakrocks live-share positions <share id> <share id>` |
+| `live-share send` | Send the last 1 to 3 positions of one's live share, at the time of sending (sendLivePositions; every 15 seconds at most: false beyond) | `breakrocks live-share send <share id> --positions 48.8566,2.3522` |
+| `locatable show` | Where the account is locatable now: its universes, activities and map cells (myLocatable) | `breakrocks locatable show` |
+| `locatable residents` | The locatable residents of a universe in an area of the map, to its residents (locatableResidents) | `breakrocks locatable residents %paris --cells 861fb4677ffffff` |
+| `locatable on` | Make oneself locatable in a public universe for an activity, 15 to 480 minutes, at a point turned into a map cell at once (setLocatable) | `breakrocks locatable on %paris-velo --activity "Ride to Vincennes" --point 48.8566,2.3522 --minutes 120` |
+| `locatable off` | Stop being locatable in a universe (setLocatable) | `breakrocks locatable off %paris-velo` |
+| `locatable move` | Move one's map cell as a locatable resident, once every 15 minutes at most (updateLocatableCell) | `breakrocks locatable move %paris-velo --point 48.8400,2.4200` |
+| `meetups answer` | Answer a meet-up of a discussion, ACCEPTED or DECLINED, until its time; again to change the answer (answerMeetUp) | `breakrocks meetups answer <message id> ACCEPTED --group <group id>` |
+| `meetups change` | Change a meet-up: its whole place, time and title, by its author or a group chat admin (changeMeetUp; a change of the day clears the answers) | `breakrocks meetups change <message id> --group <group id> --at 2026-11-12T18:00:00Z --point 48.8530,2.3499 --place-name "Notre-Dame" --title "Apéro"` |
+| `meetups cancel` | Cancel a meet-up until its time, by its author or a group chat admin: it stays as a message, cancelled (cancelMeetUp) (confirmation: `--yes`) | `breakrocks meetups cancel <message id> --group <group id> --yes` |
+| `nearby token` | The nearby token of the account to advertise (BLE), valid until its expiry (createNearbyToken) | `breakrocks nearby token` |
+| `nearby request` | Ask to connect with the account of a nearby token seen around (requestNearbyConnection; 10 in any 10 minutes) | `breakrocks nearby request <token>` |
+| `nearby requests` | The requests to connect through Nearby, sent and received (nearbyRequests) | `breakrocks nearby requests` |
+| `nearby accept` | Accept a request to connect through Nearby: the two accounts are connected (answerNearbyConnection) | `breakrocks nearby accept <request id>` |
+| `nearby decline` | Decline a request to connect through Nearby (answerNearbyConnection) | `breakrocks nearby decline <request id>` |
+| `nearby leave` | Stop Nearby: one's nearby token no longer works and one's requests waiting end (leaveNearby) | `breakrocks nearby leave` |
+| `nearby sightings` | Send the nearby tokens seen around with their closeness; the persons close by come back (recordNearbySightings) | `breakrocks nearby sightings --sightings '[{"token":"<token>","closeness":"NEAR"}]'` |
+| `posts place` | Place one's post at a point or a place, or remove its place (--remove) (setPostPlace) | `breakrocks posts place <post id> --point 48.8566,2.3522` |
 | `routes list` | The routes of the account, the most recent first (myMapRoutes) | `breakrocks routes list` |
 | `routes show` | A route by its id or its URL (/a/alice/w/canal-run), as the account may read it: the parts within the privacy zones of its author left out (mapRoute, mapRouteByUrl) | `breakrocks routes show <route id>` |
 | `routes create` | Save a new route: its points, its mode, snapped or as drawn, its stages and tags (saveMapRoute) | `breakrocks routes create canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap --tags running` |

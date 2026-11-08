@@ -98,7 +98,11 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
   'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages delete': { messageId: 'm', channel: '%x&general' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x&a'] },
   'drafts schedule': { draftId: 'd', at: '2026-11-10T08:00:00Z' }, 'videos chapters set': { postId: 'p', chapters: '0=Intro' },
-  'routes create': { name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' }, 'routes edit': { id: 'r', name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' },
+  'presence start': { point: '48.85,2.35', duration: 'ONE_HOUR', connections: true }, 'presence update': { point: '48.85,2.35' }, 'presence audience': { connections: true },
+  'live-share in': { group: 'g' }, 'live-share start': { group: 'g', minutes: 60 }, 'live-share send': { shareId: 's', positions: '48.85,2.35' },
+  'locatable on': { universe: '%x', point: '48.85,2.35', activity: 'x', minutes: 60 }, 'locatable move': { universe: '%x', point: '48.85,2.35' },
+  'meetups answer': { messageId: 'm', answer: 'ACCEPTED', group: 'g' }, 'meetups change': { messageId: 'm', group: 'g', at: '2026-11-12T18:00:00Z', point: '48.85,2.35', placeName: 'x' }, 'meetups cancel': { messageId: 'm', group: 'g' },
+  'posts place': { postId: 'p', point: '48.85,2.35' }, 'routes create': { name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' }, 'routes edit': { id: 'r', name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' },
   'routes privacy-zones set': { zones: '48.85,2.35,500' }, 'routes plan': { mode: 'FOOT', points: '48.85,2.35;48.86,2.36' }, 'posts subtitles correct': { postId: 'p', file: '[{"startMs":0,"endMs":1,"text":"x"}]' },
 };
 
