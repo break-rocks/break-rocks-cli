@@ -310,6 +310,44 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes conditions show` | The conditions of a universe (a version) | `breakrocks universes conditions show %club` |
 | `universes conditions set` | Set the conditions of a private universe | `breakrocks universes conditions set %club "Respect and good humour"` |
 | `universes conditions accept` | Accept the conditions of a universe | `breakrocks universes conditions accept %club --conditions-version 2` |
+| `universes join-requests` | The join requests waiting in a private universe joined by request, the oldest first (joinRequests; its owner and admins) | `breakrocks universes join-requests %club.` |
+| `universes join-requests accept` | Accept the join request of an account (answerJoinRequest) | `breakrocks universes join-requests accept %club. @alice` |
+| `universes join-requests decline` | Decline the join request of an account (answerJoinRequest) | `breakrocks universes join-requests decline %club. @alice` |
+| `universes join-requests accept-all` | Accept every waiting join request, up to the member tier (answerAllJoinRequests) | `breakrocks universes join-requests accept-all %club.` |
+| `universes join-requests decline-all` | Decline every waiting join request (answerAllJoinRequests) (confirmation: `--yes`) | `breakrocks universes join-requests decline-all %club. --yes` |
+| `universes invitations` | The invitations to private universes received, the most recent first (universeInvitations) | `breakrocks universes invitations` |
+| `universes invitations accept` | Accept an invitation to a private universe: join it, with the version of its conditions accepted (answerUniverseInvitation) | `breakrocks universes invitations accept %club. --conditions-version 2` |
+| `universes invitations decline` | Decline an invitation to a private universe (answerUniverseInvitation) | `breakrocks universes invitations decline %club.` |
+| `universes admins add` | Name a member admin of a private universe (setUniverseAdmin; its owner) | `breakrocks universes admins add %club. @alice` |
+| `universes admins remove` | Remove the admin role of a member (setUniverseAdmin) | `breakrocks universes admins remove %club. @alice` |
+| `universes transfer accept` | Accept the transfer of a private universe: become its owner (answerUniverseTransfer) (confirmation: `--yes`) | `breakrocks universes transfer accept %club. --yes` |
+| `universes transfer decline` | Decline the transfer of a private universe (answerUniverseTransfer) | `breakrocks universes transfer decline %club.` |
+| `universes delete` | Delete a private universe: hidden at once, deleted for good 30 days later unless cancelled (deletePrivateUniverse; its owner) (confirmation: `--yes`) | `breakrocks universes delete %club. --yes` |
+| `universes delete-cancel` | Cancel the deletion of a private universe before it is deleted for good (cancelUniverseDeletion) | `breakrocks universes delete-cancel %club.` |
+| `universes private set` | Change the settings of a private universe: display case, join mode, automatic alternative texts and subtitles (changePrivateUniverse; its owner) | `breakrocks universes private set %club. --join-mode REQUEST` |
+| `universes domains` | The own domains waiting for their DNS proof: the TXT record to publish (pendingDomains) | `breakrocks universes domains` |
+| `universes domains check` | Look for the DNS TXT record of an own domain: found, the private universe is created (checkDnsProof) | `breakrocks universes domains check example.com` |
+| `universes team-tier` | After a declaration found false: choose the free member tier of a team, 10 members (chooseTeamMemberTier; its owner) (confirmation: `--yes`) | `breakrocks universes team-tier %club. --yes` |
+| `universes declare` | Declare an association (its registration number) or an open-source project (its public repository): the member tier goes to 1,000, free (declareUniverse) | `breakrocks universes declare %club. OPEN_SOURCE https://github.com/example/club` |
+| `universes expose` | Expose a sub-universe of a private universe and everything below it: read, reply or participate (exposeUniverse) | `breakrocks universes expose %club./news --access REPLY` |
+| `universes hide` | Hide the exposed parts of a private universe again (hideUniverse) | `breakrocks universes hide %club./news` |
+| `universes reactivate` | Reactivate an archived universe: its 12 months start again (reactivateUniverse; its owner) | `breakrocks universes reactivate %club.` |
+| `universes reputation` | The reputation of a private universe, for its members (privateUniverseReputation) | `breakrocks universes reputation %club.` |
+| `universes reputation set` | Turn the reputation of a private universe on (from the next midnight UTC) or off (at once), and set its folding coefficient (setUniverseReputation; its owner) | `breakrocks universes reputation set %club. --turned-on --folding-coefficient 1.5` |
+| `universes search-words` | Set the universe search words of a universe: the whole list, 10 at most ([] or none: cleared) (setUniverseSearchWords) | `breakrocks universes search-words %paris velo bike cycling` |
+| `universes identity` | Set the banner, its night variant, the logo and the watermark of a universe (setUniverseIdentity; --clear: remove parts) | `breakrocks universes identity %club. --banner-file ./banner.jpg` |
+| `universes tiers offer` | Offer a subscription tier in a private universe joined by subscription, 3 at most (offerSubscriptionTier; its owner) | `breakrocks universes tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS` |
+| `universes tiers change` | Change a subscription tier: a rise applies 30 days later, a decrease at once (changeSubscriptionTier) | `breakrocks universes tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE` |
+| `universes tiers withdraw` | Withdraw a subscription tier: its paying members keep it until the end of their paid period (withdrawSubscriptionTier) (confirmation: `--yes`) | `breakrocks universes tiers withdraw %club. <tier id> --yes` |
+| `universes tiers subscribe` | Subscribe to a tier of a private universe: the address of the payment page, the membership starts once paid (startTierSubscription) | `breakrocks universes tiers subscribe %club. <tier id> --interval MONTH --automatic-renewal --no-immediate-access-consent --conditions-version 1` |
+| `universes tiers renewal on` | Turn the renewal of a tier subscription back on (setTierSubscriptionRenewal) | `breakrocks universes tiers renewal on %club.` |
+| `universes tiers renewal off` | Turn the renewal of a tier subscription off: it ends at its paid date, without refund (setTierSubscriptionRenewal) | `breakrocks universes tiers renewal off %club.` |
+| `universes residences` | The residences of the account in public universes, the most recent first (myPresences) | `breakrocks universes residences` |
+| `universes sub-map` | The sub-universe map of a universe (subUniverseMap; null when not offered) | `breakrocks universes sub-map %paris --json` |
+| `universes landing` | The landing page of a universe as shown without an account: its name, its theme, its governance level, never its content (universeLanding) | `breakrocks universes landing %paris --json` |
+| `universes land` | Mark a landing in a universe, as the apps do: whether it landed before; recorded in the visit history unless paused (markLanding) | `breakrocks universes land %paris` |
+| `universes listed` | Be listed on the members page of a public universe (setListedOnMembersPage; by default) | `breakrocks universes listed %paris` |
+| `universes unlisted` | Not be listed on the members page of a public universe (setListedOnMembersPage) | `breakrocks universes unlisted %paris` |
 | `universes territory get` | The universe territory of a universe: a boundary or a circle (Universe.territory) | `breakrocks universes territory get %paris` |
 | `universes territory set` | Set the universe territory of a universe: a boundary, or a circle around a place (setUniverseTerritory) | `breakrocks universes territory set %paris --boundary R7444` |
 | `universes territory remove` | Remove the universe territory of a universe (setUniverseTerritory clear; the leadership) | `breakrocks universes territory remove %paris` |

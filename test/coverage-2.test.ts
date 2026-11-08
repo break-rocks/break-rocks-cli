@@ -7,11 +7,12 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chatCommands } from '../src/commands/chats.js';
 import { meCommands } from '../src/commands/me.js';
+import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -21,7 +22,7 @@ export function words(example: string): string[] {
 }
 const opOf = (c: AnyCommand) => /The (?:query|mutation) (\w+) of the API/.exec(c.description ?? '')?.[1];
 /** The examples that need more than the command line (a file, the standard input): tested apart. */
-const APART = new Set(['breakrocks me profile set --avatar-file ./me.png', 'breakrocks me password', 'printf "%s\\n%s\\n" "$OLD" "$NEW" | breakrocks me password --password-stdin']);
+const APART = new Set(['breakrocks universes identity %club. --banner-file ./banner.jpg', 'breakrocks me profile set --avatar-file ./me.png', 'breakrocks me password', 'printf "%s\\n%s\\n" "$OLD" "$NEW" | breakrocks me password --password-stdin']);
 
 describe('the commands of the operations of before v83.1.0', () => {
   const titles = new Set(tools().map((t) => t.title));
@@ -96,5 +97,33 @@ describe('connections and private messages', () => {
     const { h, calls } = scripted();
     for (const argv of [['groups', 'mute', 'g1', '--mentions'], ['groups', 'unmute', 'g1'], ['messages', 'silence', '--group', 'g1', '--hours', '8'], ['messages', 'unsilence', '--group', 'g1'], ['messages', 'unpin', 'm1', '--group', 'g1']]) expect(await h.run(...argv)).toBe(0);
     expect(calls.map((c) => c.variables)).toMatchObject([{ muted: true, mentions: true }, { muted: false }, { silenced: true, hours: 8, discussion: { groupChatId: 'g1' } }, { silenced: false }, { pinned: false, messageId: 'm1' }]);
+  });
+});
+
+describe('private universes', () => {
+  it('sends a banner file, then sets the identity', async () => {
+    const { h, calls } = scripted({ requestMediaUpload: { id: 'up1', url: 'https://s3.test/up', fields: '{}' }, setUniverseIdentity: { name: '%club.' } });
+    writeFileSync(join(h.dir, 'banner.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+    h.io.cwd = h.dir;
+    expect(await h.run('universes', 'identity', '%club.', '--banner-file', 'banner.png', '--clear', 'LOGO')).toBe(0);
+    expect(calls.map((c) => c.field)).toEqual(['requestMediaUpload', 'POST https://s3.test/up', 'setUniverseIdentity']);
+    expect(calls[0].variables).toMatchObject({ i: { destination: 'UNIVERSE_BANNER' } });
+    expect(calls[2].variables).toMatchObject({ universe: '%club.', input: { banner: { id: 'up1' }, clear: ['LOGO'] } });
+    expect(await h.run('universes', 'identity', '%club.', '--banner-file', 'banner.png', '--banner', '{"id":"x"}')).toBe(2);
+  });
+  it('answers join requests one by one or all at once, and the decline of all asks first', async () => {
+    const { h, calls } = scripted({ accountByHandle: { id: 'a1' }, answerJoinRequest: { answered: 1, waiting: 2 }, answerAllJoinRequests: { answered: 2, waiting: 0 } });
+    expect(await h.run('universes', 'join-requests', 'accept', '%club.', '@alice')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'answerJoinRequest', variables: { accept: true, accountId: 'a1', universe: '%club.' } });
+    expect(h.lines.at(-1)).toBe('answered 1, waiting 2');
+    expect(await h.run('universes', 'join-requests', 'decline-all', '%club.')).toBe(2);
+    expect(await h.run('--yes', 'universes', 'join-requests', 'decline-all', '%club.')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'answerAllJoinRequests', variables: { accept: false } });
+  });
+  it('subscribes to a tier: the payment page', async () => {
+    const { h, calls } = scripted({ startTierSubscription: { url: 'https://pay.test/x', expiresAt: '2026-11-08T11:00:00.000Z', accessFrom: null } });
+    expect(await h.run('universes', 'tiers', 'subscribe', '%club.', 't1', '--interval', 'MONTH', '--automatic-renewal', '--immediate-access-consent', '--conditions-version', '1')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ universe: '%club.', input: { tierId: 't1', interval: 'MONTH', automaticRenewal: true, immediateAccessConsent: true, conditionsVersion: 1 } });
+    expect(h.lines.at(-1)).toContain('open to pay: https://pay.test/x');
   });
 });

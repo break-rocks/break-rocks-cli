@@ -33,6 +33,7 @@ import * as measures from './measures.js';
 import * as discovery from './discovery.js';
 import { meCommands } from './me.js';
 import { chatCommands } from './chats.js';
+import { privateUniverseCommands } from './private-universes.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -58,7 +59,7 @@ register(
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
   read.universesShow, read.universesList, read.universesSub, publish.universesMembers, publish.universesAgentPosts, publish.universesJoin, publish.universesLeave, publish.universesAskToJoin,
-  publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept,
+  publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept, ...privateUniverseCommands,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
   read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
