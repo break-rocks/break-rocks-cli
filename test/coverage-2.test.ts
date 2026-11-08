@@ -7,13 +7,14 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chatCommands } from '../src/commands/chats.js';
 import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
+import { discussionModerationCommands } from '../src/commands/discussions-moderation.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -148,5 +149,24 @@ describe('governance', () => {
     expect(await h.run('jury', 'vote', 's1', '--outcome', 'REDUCED', '--reduced-to-days', '2', '--reasons', 'A first time')).toBe(2);
     expect(await h.run('--yes', 'jury', 'vote', 's1', '--outcome', 'REDUCED', '--reduced-to-days', '2', '--reasons', 'A first time')).toBe(0);
     expect(calls[0].variables).toMatchObject({ sanctionId: 's1', outcome: 'REDUCED', reducedToDays: 2, reasons: 'A first time' });
+  });
+});
+
+describe('the moderation of universe discussions', () => {
+  it('names a universe discussion by its address, resolved to its id', async () => {
+    const { h, calls } = scripted({ universeDiscussion: (v: Record<string, unknown>) => ({ id: v.a === '%paris&velo' ? 'd1' : 'd2' }), moveUniverseDiscussion: { id: 'd1', address: '%paris&velo', lifetime: 'PERMANENT', status: 'OPEN' } });
+    expect(await h.run('discussions', 'move', '%paris&velo', '--before', '%paris&general')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'moveUniverseDiscussion', variables: { id: 'd1', before: 'd2' } });
+    expect(h.lines.at(-1)).toBe('%paris&velo  PERMANENT OPEN');
+    expect(await h.run('discussions', 'slow-mode', 'd9', '30')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'setUniverseDiscussionSlowMode', variables: { id: 'd9', seconds: 30 } });
+  });
+  it('bans after a confirmation, lifts without', async () => {
+    const { h, calls } = scripted({ accountByHandle: { id: 'a1' } });
+    expect(await h.run('discussions', 'ban', 'd1', '@spammer', '--hours', '24')).toBe(2);
+    expect(await h.run('--yes', 'discussions', 'ban', 'd1', '@spammer', '--hours', '24', '--article', '3')).toBe(0);
+    expect(calls.at(-1)!.variables).toMatchObject({ id: 'd1', accountId: 'a1', banned: true, hours: 24, article: 3 });
+    expect(await h.run('discussions', 'unban', 'd1', '@spammer')).toBe(0);
+    expect(calls.at(-1)!.variables).toMatchObject({ banned: false });
   });
 });

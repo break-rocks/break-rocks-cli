@@ -525,6 +525,31 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions unpin` | Unpin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions unpin %paris&velo` |
 | `discussions place set` | Set or change the place of a public channel: a point or a zone, with its name, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place set %paris&canal --point 48.8721,2.3654 --name "Canal Saint-Martin"` |
 | `discussions place remove` | Remove the place of a public channel, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place remove %paris&canal` |
+| `discussions mine` | The universe discussions you joined in a universe, at every level, the most recently active first, with their unread (myUniverseDiscussions) | `breakrocks discussions mine %paris` |
+| `discussions limits` | The limits of the universe discussions of a universe: the support a proposal needs, the cap of open temporary ones, your proposal waiting (universeDiscussionLimits) | `breakrocks discussions limits %paris` |
+| `discussions moderators` | The moderators of a universe discussion (universeDiscussionModerators) | `breakrocks discussions moderators %paris&general` |
+| `discussions moderators add` | Name a moderator of a universe discussion (setUniverseDiscussionModerator) | `breakrocks discussions moderators add %paris&velo @alice` |
+| `discussions moderators remove` | Remove a moderator of a universe discussion (setUniverseDiscussionModerator) | `breakrocks discussions moderators remove %paris&velo @alice` |
+| `discussions writing-bans` | The writing bans of a universe discussion (universeDiscussionWritingBans) | `breakrocks discussions writing-bans %paris&general` |
+| `discussions active` | Who wrote in a universe discussion in the last 24 hours, the most recent first, 50 at most ("/who"; universeDiscussionActiveMembers) | `breakrocks discussions active %paris&general` |
+| `discussions extend` | Extend a temporary universe discussion opened by the governance, once, 168 hours in all (extendUniverseDiscussion) | `breakrocks discussions extend %paris&budget 24` |
+| `discussions summary approve` | Approve the summary of a temporary universe discussion, within 24 hours of its end (answerUniverseDiscussionSummary; the leadership) | `breakrocks discussions summary approve %paris&budget` |
+| `discussions summary decline` | Decline the summary of a temporary universe discussion, within 24 hours of its end (answerUniverseDiscussionSummary; the leadership) | `breakrocks discussions summary decline %paris&budget` |
+| `discussions cap` | Raise the cap of open temporary universe discussions of a universe, from 10 up to 50 (setUniverseDiscussionCap; the governance) | `breakrocks discussions cap %paris 20` |
+| `discussions creation members` | Let the members of a private universe create its universe discussions (setUniverseDiscussionCreation) | `breakrocks discussions creation members %club.` |
+| `discussions creation managers` | Only the owner and the admins of a private universe create its universe discussions (setUniverseDiscussionCreation) | `breakrocks discussions creation managers %club.` |
+| `discussions archive` | Archive a universe discussion: read-only (setUniverseDiscussionArchived) | `breakrocks discussions archive %paris&velo` |
+| `discussions unarchive` | Take a universe discussion out of the archive (setUniverseDiscussionArchived) | `breakrocks discussions unarchive %paris&velo` |
+| `discussions move` | Move a universe discussion before another in the list of its universe (--before; none: to the end) (moveUniverseDiscussion) | `breakrocks discussions move %paris&velo --before %paris&general` |
+| `discussions slow-mode` | Set the slow mode of a universe discussion: seconds between two messages of an account, 0 to turn it off (setUniverseDiscussionSlowMode) | `breakrocks discussions slow-mode %paris&general 30` |
+| `discussions ban` | Ban an account from writing in a universe discussion (--hours; none: until lifted), citing an article (setUniverseDiscussionWritingBan) (confirmation: `--yes`) | `breakrocks discussions ban %paris&general @spammer --hours 24 --article 3 --yes` |
+| `discussions unban` | Lift the writing ban of an account in a universe discussion (setUniverseDiscussionWritingBan) | `breakrocks discussions unban %paris&general @alice` |
+| `discussions remove-message` | Remove a message of a universe discussion as a moderator, citing an article (removeUniverseDiscussionMessage) (confirmation: `--yes`) | `breakrocks discussions remove-message %paris&general <message id> --article 3 --yes` |
+| `discussions delete` | Delete an archived permanent universe discussion (deleteUniverseDiscussion) (confirmation: `--yes`) | `breakrocks discussions delete %paris&old --yes` |
+| `discussions agents forbid` | Forbid the delegated agents in a permanent universe discussion (setUniverseDiscussionAgents) | `breakrocks discussions agents forbid %paris&general` |
+| `discussions agents allow` | Allow the delegated agents in a permanent universe discussion (setUniverseDiscussionAgents) | `breakrocks discussions agents allow %paris&general` |
+| `discussions mute` | Mute a universe discussion for yourself (--mentions: still notified when mentioned) (setUniverseDiscussionMuted) | `breakrocks discussions mute %paris&general --mentions` |
+| `discussions unmute` | Unmute a universe discussion (setUniverseDiscussionMuted) | `breakrocks discussions unmute %paris&general` |
 | `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
 | `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
 | `messages ignore-mention` | Ignore a universe discussion of the Mentions row, until a later message mentions you there (ignoreDiscussionMention) | `breakrocks messages ignore-mention %paris&general` |
