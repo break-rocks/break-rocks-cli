@@ -1202,6 +1202,18 @@ an operation of the API take their options, their JSON schemas (help, `schema`, 
 selection of their answer from it. `test/api.test.ts` checks, with `graphql` (a development dependency),
 that every document sent by every command is valid against the contract.
 
+**Compatibility with a backend behind this CLI.** The API of an environment may be pinned on an older minor
+version of the specs than the CLI (a CLI released before the backend is deployed). AppSync then refuses, before
+running anything, a document that selects a field it does not serve yet (`Validation error of type FieldUndefined:
+Field 'x' in type 'Y' is undefined`). When every error of the answer is one of those, on fields of object types,
+the CLI sends the request again once with a degraded selection, without those fields (found by the types of the
+contract, aliases and fragments included; a selection left empty keeps `__typename`), and the command succeeds:
+the fields are `null` in the answer (in `--json` too), and stderr says it once per field (`The backend is behind
+this CLI …: the field Post.x is not served; null in the answer`, with `--json` too, never with `--quiet`). The
+degraded document is kept for the rest of the run (the next pages are sent degraded at once). A single retry, never
+a loop; an operation the backend does not serve (a field of `Query` or `Mutation`) and any other error are refused as
+before. `breakrocks doctor` lists what the API of the environment lacks (`SCHEMA_DRIFT`).
+
 `specs/common` (break-rocks-specs) is a private submodule: only `npm run update:schema` reads it, by hand, and
 neither CI nor the release checks it out; a clone builds and tests on `schema/api-v2/` alone. Not done yet: the
 same approach as the design library (a public read-only repository generated from the specifications, holding
