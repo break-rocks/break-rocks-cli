@@ -1509,8 +1509,8 @@ SEA binaries.
   `src/endpoints.ts`, `TEMPORARY`): `break.rocks` afterwards.
 - `src/srp.ts` is a copy of the back office CLI's (no shared package): a fix goes
   into both.
-- The operations of API v2 added since specs v83.1.0 (118, `audit` of 08/11) have no command yet: the next
-  lot (D-92: the CLI covers API v2 in full).
+- Every operation of API v2 that is not deprecated has a command since 0.18.0, but the 17 listed in § The operations of
+  before specs v83.1.0 (D-92: the CLI covers API v2 in full).
 - The submodule `specs/common` is a private repository of a public one: `npm run update:schema` needs read
   access to it (building and testing do not). A public read-only repository generated from the specifications
   (`contracts/api-v2`, `ui-actions.yaml`), as `design-lib` is for the design system (D-307), would remove it.
