@@ -15,6 +15,7 @@ import { MAX_POST_IMAGES, checkImage, checkText, checkVideo, uploadImage, upload
 import type { Command } from '../registry.js';
 import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
+import { discussionAddress, discussionIdOf } from './discussions.js';
 import { BOUNDARY_ID, territoryChoice } from './geo.js';
 
 const POST = selection('Post', 1);
@@ -303,10 +304,24 @@ export const proposalsVote: Command<{ id: string; choice?: 'for' | 'against'; ca
 };
 export const proposalsWithdraw = apiCommand({ name: 'proposals withdraw', summary: 'Withdraw one\'s proposal', kind: 'mutation', op: 'withdrawProposal', ...onProposal, confirm: (i) => `Withdraw the proposal ${i.id}?`, examples: ['breakrocks proposals withdraw <id> --yes'] });
 
-export const debatesOpen = apiCommand({ name: 'debates open', summary: 'Open a debate in a universe', kind: 'mutation', op: 'openDebate', positionals: ['universe', 'name'], descriptions: { ...u, name: 'Its name (&name)' }, examples: ['breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48'] });
-export const debatesSupport = apiCommand({ name: 'debates support', summary: 'Support a debate', kind: 'mutation', op: 'supportDebate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates support %paris velo'] });
-export const debatesClose = apiCommand({ name: 'debates close', summary: 'Close a debate', kind: 'mutation', op: 'closeDebate', positionals: ['universe', 'name'], descriptions: u, confirm: (i) => `Close the debate &${i.name} of ${i.universe}?`, examples: ['breakrocks debates close %paris velo --yes'] });
-export const debatesShow = apiCommand({ name: 'debates show', summary: 'A debate', kind: 'query', op: 'debate', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks debates show %paris velo'] });
+const onDiscussion = (what: string) => ({ positionals: ['universe', 'name'], extra: { universe: str('The universe (%name)'), name: str(`The name of the ${what} (without &)`) }, hide: ['id'], require: ['universe', 'name'] });
+const byAddress = async (i: Record<string, unknown>, ctx: Context) => { const { universe, name, ...rest } = i; return { ...rest, id: await discussionIdOf(ctx, discussionAddress(String(universe), String(name))) }; };
+export const debatesOpen = apiCommand({
+  name: 'debates open', summary: 'Open a temporary universe discussion, a debate (openUniverseDiscussion TEMPORARY: the governance)', kind: 'mutation', op: 'openUniverseDiscussion', positionals: ['universe', 'name'], fixed: { lifetime: 'TEMPORARY' },
+  description: '1 to 168 hours (--hours, 24 by default); --message-ttl-seconds from 3600 to its duration. The governance only (LEADERSHIP_ONLY): a resident proposes one with debates propose.',
+  descriptions: { ...u, name: 'Its name (without &)', subject: 'Its subject' }, examples: ['breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48'],
+});
+export const debatesPropose = apiCommand({
+  name: 'debates propose', summary: 'Propose a debate, a temporary universe discussion waiting for the support of the residents (proposeUniverseDiscussion)', kind: 'mutation', op: 'proposeUniverseDiscussion', positionals: ['universe', 'name'],
+  description: 'A resident who can vote; it waits for the support of 5 residents who can vote (or 1 percent of the active residents, at most 50) and expires after 24 hours; one waiting per resident.',
+  descriptions: { ...u, name: 'Its name (without &)', subject: 'Its subject' }, examples: ['breakrocks debates propose %paris velo --subject "More bike lanes?"'],
+});
+export const debatesSupport = apiCommand({ name: 'debates support', summary: 'Support a proposed debate (supportUniverseDiscussion)', kind: 'mutation', op: 'supportUniverseDiscussion', ...onDiscussion('debate'), prepare: byAddress, examples: ['breakrocks debates support %paris velo'] });
+export const debatesClose = apiCommand({ name: 'debates close', summary: 'Close a debate early (closeUniverseDiscussion)', kind: 'mutation', op: 'closeUniverseDiscussion', ...onDiscussion('debate'), prepare: byAddress, confirm: (i) => `Close the debate ${discussionAddress(String(i.universe), String(i.name))}?`, examples: ['breakrocks debates close %paris velo --yes'] });
+export const debatesShow = apiCommand({
+  name: 'debates show', summary: 'A debate (universeDiscussion)', kind: 'query', op: 'universeDiscussion', positionals: ['universe', 'name'], extra: { universe: str('The universe (%name)'), name: str('The name of the debate (without &)') }, hide: ['address'], require: ['universe', 'name'],
+  prepare: (i) => ({ address: discussionAddress(String(i.universe), String(i.name)) }), examples: ['breakrocks debates show %paris velo'],
+});
 
 export const pollsCreate = apiCommand({ name: 'polls create', summary: 'Create a poll in a universe', kind: 'mutation', op: 'createPoll', positionals: ['universe'], descriptions: { ...u, choices: 'The choices (repeat --choices, or commas)' }, examples: ['breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche'] });
 export const pollsPick = apiCommand({ name: 'polls pick', summary: 'Pick a choice of a poll (its index, from 0)', kind: 'mutation', op: 'pickPollChoice', positionals: ['pollId', 'choice'], rename: { pollId: 'id' }, descriptions: { id: 'The poll', choice: 'The index of the choice, from 0' }, examples: ['breakrocks polls pick <id> 1'] });
@@ -327,10 +342,11 @@ export const eventsAttend: Command<{ id: string; no?: boolean }, unknown> = {
   quiet: (r) => (r as { id?: string }).id,
 };
 
-const ch = { channel: 'The channel (%universe~name)' };
-export const channelsCreate = apiCommand({ name: 'channels create', summary: 'Create a channel in a universe', kind: 'mutation', op: 'createChannel', positionals: ['universe', 'name'], descriptions: u, examples: ['breakrocks channels create %paris velo'] });
-export const channelsJoin = apiCommand({ name: 'channels join', summary: 'Join a channel', kind: 'mutation', op: 'joinChannel', positionals: ['channel'], descriptions: ch, examples: ['breakrocks channels join %paris~velo'] });
-export const channelsLeave = apiCommand({ name: 'channels leave', summary: 'Leave a channel', kind: 'mutation', op: 'leaveChannel', positionals: ['channel'], descriptions: ch, examples: ['breakrocks channels leave %paris~velo'] });
+const ch = { channel: 'The channel: %universe&name, or its id' };
+export const channelsCreate = apiCommand({ name: 'channels create', summary: 'Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT)', kind: 'mutation', op: 'openUniverseDiscussion', positionals: ['universe', 'name'], fixed: { lifetime: 'PERMANENT' }, hide: ['hours', 'subject', 'messageTtlSeconds'], descriptions: { ...u, name: 'Its name (without &)' }, examples: ['breakrocks channels create %paris velo'] });
+const onChannel = { positionals: ['channel'], extra: { channel: str(ch.channel) }, hide: ['id'], require: ['channel'], prepare: async (i: Record<string, unknown>, ctx: Context) => { const { channel, ...rest } = i; return { ...rest, id: await discussionIdOf(ctx, String(channel)) }; } };
+export const channelsJoin = apiCommand({ name: 'channels join', summary: 'Join a channel (joinUniverseDiscussion)', kind: 'mutation', op: 'joinUniverseDiscussion', ...onChannel, examples: ['breakrocks channels join %paris&velo'] });
+export const channelsLeave = apiCommand({ name: 'channels leave', summary: 'Leave a channel (leaveUniverseDiscussion)', kind: 'mutation', op: 'leaveUniverseDiscussion', ...onChannel, examples: ['breakrocks channels leave %paris&velo'] });
 
 const REPORT_TARGETS = ['post', 'channel-message', 'direct-message', 'group-message', 'group', 'theme', 'layout', 'banner', 'page', 'territory', 'playlist', 'playlist-item', 'route', 'post-place', 'place-message', 'map-presence'] as const;
 /** The reasons of a report, read from the contract (ReportReason). */

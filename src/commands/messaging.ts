@@ -199,15 +199,15 @@ export const groupsAccept = apiCommand({ name: 'groups accept', summary: 'Accept
 export const groupsDecline = apiCommand({ name: 'groups decline', summary: 'Decline an invitation to a group chat (--openly, --reason; answerGroupChatInvitation)', kind: 'mutation', op: 'answerGroupChatInvitation', fixed: { accept: false }, ...invitation, examples: ['breakrocks groups decline <group id> --openly --reason "No time"'] });
 
 // The channels of a universe: their messages are those of a discussion { channel }.
-const ch = { channel: 'The channel (%universe~name)' };
+const ch = { channel: 'The channel (%universe&name)' };
 export const channelsSend: Command<ComposeInput & { channel: string; respondsTo?: string }, unknown> = {
-  name: 'channels send', summary: 'Send a message in a channel, with its media (sendMessage)', examples: ['breakrocks channels send %paris~velo "See you at 6 pm"'],
+  name: 'channels send', summary: 'Send a message in a channel, with its media (sendMessage)', examples: ['breakrocks channels send %paris&velo "See you at 6 pm"'],
   input: object({ channel: str(ch.channel), ...composeProps, ...messageRequestId, respondsTo: str('The message answered') }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { channel: i.channel }, i, 'sendMessage', { channel: i.channel }),
   quiet: (r) => (r as { id?: string }).id,
 };
 export const channelsRead: Command<{ channel: string } & ReadInput, unknown> = {
-  name: 'channels read', summary: 'The messages of a channel (--since, --all; --watch: its lease, then each new message)', examples: ['breakrocks channels read %paris~velo --json', 'breakrocks channels read %team-fra.~general --watch --jsonl'],
+  name: 'channels read', summary: 'The messages of a channel (--since, --all; --watch: its lease, then each new message)', examples: ['breakrocks channels read %paris&velo --json', 'breakrocks channels read %team-fra.&general --watch --jsonl'],
   input: object({ channel: str(ch.channel), ...readProps }, ['channel']), output: outputSchema('MessagePage', 2), args: { positionals: ['channel'] },
   run: async (ctx, i) => readDiscussion(ctx, { channel: i.channel }, i),
 };
@@ -234,7 +234,7 @@ export const connectionsState: Command<{ account: string }, unknown> = {
 export const messagingShow = apiCommand({ name: 'messaging settings show', summary: 'The settings of the messages (mySettings.messaging)', kind: 'query', op: 'mySettings', select: `{ messaging ${selection('MessagingSettings', 1)} }`, map: (d) => (d as { messaging?: unknown } | null)?.messaging ?? null, examples: ['breakrocks messaging settings show'] });
 export const messagingSet = apiCommand({
   name: 'messaging settings set', summary: 'Change the settings of the messages (read receipts, who may write or invite, agent requests…; setSettings)', kind: 'mutation', op: 'setSettings', flatten: ['input', 'input.messaging'],
-  hide: ['input.notifications', 'input.translation', 'input.recommendations', 'input.nearbyLabel', 'input.subtitles', 'input.tips', 'input.universeFrame', 'input.universeHistoryPaused', 'input.clear'],
+  hide: ['input.notifications', 'input.translation', 'input.recommendations', 'input.nearbyLabel', 'input.subtitles', 'input.tips', 'input.universeFrame', 'input.universeHistoryPaused', 'input.commandLanguage', 'input.privateAnalysisConsent', 'input.clear'],
   select: `{ messaging ${selection('MessagingSettings', 1)} }`, map: (d) => (d as { messaging?: unknown } | null)?.messaging ?? null,
   examples: ['breakrocks messaging settings set --read-receipts false', 'breakrocks messaging settings set --agent-requests decline'],
 });

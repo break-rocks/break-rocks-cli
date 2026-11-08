@@ -1,7 +1,7 @@
 // Themes, layouts and the studio, online: the catalog, a theme's page, the publication in one gesture as the studio imports
 // (theme check, each image named by the JSON sent with requestMediaUpload and replaced by its upload
-// id, then publishTheme: a theme of the same name gets its next version), applying, trying, the personal theme, the export
-// (the JSON and the images served, at their largest width), the screenshots, copies, deletion,
+// id, then publishTheme: a theme of the same name gets its next version), applying, the personal theme, the export
+// (the JSON and the images served, at their largest width), the screenshots, deletion,
 // reports; the layouts likewise; the drafts of the studio.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
@@ -165,16 +165,12 @@ export const themeApply = apiCommand({ name: 'theme apply', summary: 'Make a the
   descriptions: { to: 'The universe (%name)', theme: 'The theme: %universe/name' }, depth: 1,
   description: 'Without leadership, a public universe changes its theme by a proposal of the kind THEME: breakrocks proposals file %u --kind THEME --title … --theme %x/name.',
   examples: ['breakrocks theme apply %paris/stade-nuit --to %paris'] });
-export const themeTry = apiCommand({ name: 'theme try', summary: 'Try a theme as the personal theme for 24 hours (setTriedTheme)', kind: 'mutation', op: 'setTriedTheme', positionals: ['theme'], require: ['theme'],
-  descriptions: { theme: 'The theme: %universe/name' }, examples: ['breakrocks theme try %paris/stade-nuit'] });
-export const themeUndoTry = apiCommand({ name: 'theme undo-try', summary: 'Stop trying a theme: the former one comes back (setTriedTheme)', kind: 'mutation', op: 'setTriedTheme', fixed: { theme: null }, examples: ['breakrocks theme undo-try'] });
-export const themePersonalSet = apiCommand({ name: 'theme personal set', summary: 'Set the personal theme (and its settings: accent, density, motion, post transparency…)', kind: 'mutation', op: 'setPersonalTheme', positionals: ['input.theme'],
-  descriptions: { clear: 'The settings removed (ACCENT, DEVICE_DISPLAY_MODE)', postTransparency: 'The post transparency: OPAQUE (100), THEME (the surface opacity of the theme, the default), MORE (20 points less) or LIQUID (40 points less), at least 0; the post, repost, reply and quote cards and the frame of the composer, on every universe and on the home feed' },
-  examples: ['breakrocks theme personal set %paris/stade-nuit', 'breakrocks theme personal set --display-mode NIGHT --density DENSE', 'breakrocks theme personal set --post-transparency LIQUID'] });
-export const themePersonalClear = apiCommand({ name: 'theme personal clear', summary: 'Back to Socle as the personal theme', kind: 'mutation', op: 'setPersonalTheme', fixed: { 'input.theme': { universe: '%root', name: 'socle' } }, hide: ['accent', 'density', 'device', 'deviceDisplayMode', 'displayMode', 'motion', 'myThemeEverywhere', 'postTransparency', 'readableTypeface', 'sounds', 'textScale', 'clear'].map((f) => `input.${f}`), examples: ['breakrocks theme personal clear'] });
-export const themeCopy = apiCommand({ name: 'theme copy', summary: 'Copy a theme under a new name (a personal theme, or published in --target)', kind: 'mutation', op: 'copyTheme', positionals: ['theme'],
-  extra: { theme: { type: 'string', pattern: REF, description: 'The theme copied: %universe/name' } }, hide: ['universe', 'name'], require: ['theme'], prepare: (i) => { const r = ref(String(i.theme)); return { ...i, universe: r.universe, name: r.name }; }, rename: { targetUniverse: 'target' }, descriptions: { as: 'The name of the copy', target: 'The universe to publish the copy in' }, depth: 1,
-  examples: ['breakrocks theme copy %root/arena --as mon-arena', 'breakrocks theme copy %root/arena --as arena-paris --target %paris'] });
+export const themePersonalSet = apiCommand({ name: 'theme personal set', summary: 'Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme)', kind: 'mutation', op: 'setPersonalTheme',
+  description: 'Since specs v96.0.0 (D-289) the personal theme is Socle with an accent: "#RRGGBB" (the apps offer Slate #3F4752, Forest #1F6B45, Lagoon #11707A, Aubergine #5A2E5E, Brick #A8432C) or "universe", the accent of the universe visited.',
+  hide: ['input.theme', 'input.myThemeEverywhere', 'input.postTransparency'],
+  descriptions: { accent: 'The accent: "#RRGGBB", or "universe" (the accent of the universe visited)', clear: 'The settings removed (ACCENT, DEVICE_DISPLAY_MODE)' },
+  examples: ['breakrocks theme personal set --accent "#11707A"', 'breakrocks theme personal set --accent universe --display-mode NIGHT --density DENSE'] });
+export const themePersonalClear = apiCommand({ name: 'theme personal clear', summary: 'Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear)', kind: 'mutation', op: 'setPersonalTheme', fixed: { 'input.clear': ['ACCENT', 'DEVICE_DISPLAY_MODE'] }, hide: ['theme', 'accent', 'density', 'device', 'deviceDisplayMode', 'displayMode', 'motion', 'myThemeEverywhere', 'postTransparency', 'readableTypeface', 'sounds', 'textScale'].map((f) => `input.${f}`), examples: ['breakrocks theme personal clear'] });
 export const themeDelete = apiCommand({ name: 'theme delete', summary: 'Delete a theme one published (it stays applied where it is)', kind: 'mutation', op: 'deleteTheme', positionals: ['theme'],
   extra: { theme: { type: 'string', pattern: REF, description: 'The theme: %universe/name' } }, hide: ['universe', 'name'], require: ['theme'], prepare: (i) => { const r = ref(String(i.theme)); return { ...i, universe: r.universe, name: r.name }; }, confirm: (i) => `Delete the theme ${i.theme}?`,
   examples: ['breakrocks theme delete %paris/stade-nuit --yes'] });
@@ -277,8 +273,6 @@ export const layoutCommands = [
   apiCommand({ name: 'layouts apply', summary: 'Make a layout the default one of a universe (setUniverseProfile)', kind: 'mutation', op: 'setUniverseProfile', positionals: ['input.layoutRef'], rename: { universe: 'to', 'input.layoutRef': 'layout' }, require: ['layout'],
     hide: profileOnly('layoutRef'), descriptions: { to: 'The universe (%name)', layout: 'The layout: %universe/name' }, depth: 1, examples: ['breakrocks layouts apply %root/agora --to %paris'] }),
   apiCommand({ name: 'layouts copy', summary: 'Copy a layout under a new name', kind: 'mutation', op: 'copyLayout', positionals: ['layout'], extra: { ...layoutRefInput }, hide: ['universe', 'name'], require: ['layout'], prepare: fromLayout, rename: { targetUniverse: 'target' }, descriptions: { as: 'The name of the copy', target: 'The universe to publish the copy in' }, examples: ['breakrocks layouts copy %root/agora --as mon-agora --target %paris'] }),
-  apiCommand({ name: 'layouts retouch', summary: 'Retouch a layout for oneself in a universe (setLayoutRetouches)', kind: 'mutation', op: 'setLayoutRetouches', positionals: ['universe'], descriptions: { retouches: 'The retouches: a JSON array of { "widget", "canvas", "state", "variant" }', layout: 'The layout: %universe/name' }, examples: ['breakrocks layouts retouch %paris --layout %root/feed-first --retouches \'[{"widget":"agenda","canvas":"MAIN","state":"HIDDEN"}]\''] }),
-  apiCommand({ name: 'layouts reset-retouches', summary: 'Remove one\'s retouches in a universe', kind: 'mutation', op: 'resetLayoutRetouches', positionals: ['universe'], examples: ['breakrocks layouts reset-retouches %paris'] }),
   apiCommand({ name: 'layouts delete', summary: 'Delete a layout one published', kind: 'mutation', op: 'deleteLayout', positionals: ['layout'], extra: { ...layoutRefInput }, hide: ['universe', 'name'], require: ['layout'], prepare: fromLayout, confirm: (i) => `Delete the layout ${i.layout}?`, examples: ['breakrocks layouts delete %paris/ma-page --yes'] }),
 ];
 

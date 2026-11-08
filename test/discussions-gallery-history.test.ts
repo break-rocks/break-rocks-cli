@@ -100,47 +100,19 @@ describe('the theme gallery', () => {
     expect(await h.run('themes', 'gallery', '%paris', '--day', '--night', '--json')).toBe(2);
     expect(await h.run('themes', 'gallery', '--json')).toBe(2);
   });
-  it('stars, unstars and lists the starred themes', async () => {
-    const { h, calls } = scripted({ starTheme: { universe: '%root', name: 'socle', version: 1 }, unstarTheme: true, starredThemes: { items: [], next: null } });
-    expect(await h.run('themes', 'star', '%root/socle')).toBe(0);
-    expect(calls[0]).toMatchObject({ field: 'starTheme', variables: { theme: { universe: '%root', name: 'socle' } } });
-    expect(await h.run('themes', 'unstar', '%root/socle', '--json')).toBe(0);
-    expect(calls[1].field).toBe('unstarTheme');
-    expect(await h.run('themes', 'starred', '--variant', 'DAY', '--json')).toBe(0);
-    expect(calls[2]).toMatchObject({ field: 'starredThemes', variables: { variant: 'DAY' } });
-    expect(await h.run('themes', 'star', '%root/socle', '--dry-run', '--json')).toBe(0);
-    expect(calls).toHaveLength(3);
-  });
-  it('tries, ends and lists the gallery trials; a trial needs a theme or a layout', async () => {
-    const trial = { universe: '%paris', theme: { universe: '%root', name: 'socle', version: 1 }, layout: null, startedAt: '2026-11-01T10:00:00.000Z', endsAt: '2026-11-02T10:00:00.000Z' };
-    const { h, calls } = scripted({ startGalleryTrial: trial, endGalleryTrial: { name: '%paris', myGalleryTrial: null }, myGalleryTrials: [trial] });
-    expect(await h.run('themes', 'try', '%paris', '--theme', '%root/socle', '--layout', '%root/agora')).toBe(0);
-    expect(calls[0]).toMatchObject({ field: 'startGalleryTrial', variables: { universe: '%paris', theme: { universe: '%root', name: 'socle' }, layout: { universe: '%root', name: 'agora' } } });
-    expect(h.lines[0]).toBe('%paris: theme %root/socle v1 until 2026-11-02T10:00:00.000Z');
-    expect(await h.run('themes', 'try', '%paris', '--json')).toBe(2);
-    expect(last<{ error: { code: string } }>(h).error.code).toBe('GALLERY_TRIAL_EMPTY');
-    expect(await h.run('themes', 'untry', '%paris')).toBe(0);
-    expect(calls[1]).toMatchObject({ field: 'endGalleryTrial', variables: { universe: '%paris' } });
-    expect(await h.run('themes', 'trials', '--json')).toBe(0);
-    expect(calls[2].field).toBe('myGalleryTrials');
-    expect(await h.run('themes', 'try', '%paris', '--theme', '%root/socle', '--dry-run', '--json')).toBe(0);
-    expect(calls).toHaveLength(3);
-  });
-  it('reads the theme history, restores an entry, follows the updates', async () => {
+  it('reads the appearance history and restores an entry, or files the proposal (the theme history, stars and trials withdrawn)', async () => {
     const { h, calls } = scripted({
-      universeThemeHistory: { items: [{ id: 'e1', theme: { universe: '%root', name: 'socle', version: 2 }, setAt: '2026-10-01T00:00:00.000Z', endedAt: null, restorable: true }], next: null },
-      restoreUniverseTheme: { universe: { name: '%paris', themeHeldVersion: 2 }, proposal: null }, followThemeUpdates: { universe: { name: '%paris', themeHeldVersion: null }, proposal: null },
+      universeAppearanceHistory: [{ id: 'e1', setAt: '2026-10-01T00:00:00.000Z', live: true, trial: false, first: false, theme: { universe: '%paris', name: 'appearance', version: 2 }, accent: '#11707A', accentName: 'Lagoon', character: 'CALM' }],
+      restoreUniverseAppearance: { theme: { universe: '%paris', name: 'appearance', version: 3 }, proposal: null },
     });
-    expect(await h.run('universes', 'theme-history', '%paris')).toBe(0);
-    expect(h.lines[0]).toBe('e1  %root/socle v2  2026-10-01T00:00:00.000Z - now');
-    expect(await h.run('universes', 'theme-restore', '%paris', 'e1')).toBe(0);
-    expect(calls[1]).toMatchObject({ field: 'restoreUniverseTheme', variables: { universe: '%paris', entryId: 'e1' } });
-    expect(h.lines[1]).toBe('%paris: frozen at version 2');
-    expect(await h.run('universes', 'theme-follow', '%paris')).toBe(0);
-    expect(calls[2].field).toBe('followThemeUpdates');
-    expect(h.lines[2]).toBe('%paris: follows the latest version');
-    expect(await h.run('universes', 'theme-restore', '%paris', 'e1', '--dry-run', '--json')).toBe(0);
-    expect(calls).toHaveLength(3);
+    expect(await h.run('universes', 'appearance-history', '%paris')).toBe(0);
+    expect(h.lines[0]).toBe('e1  2026-10-01T00:00:00.000Z  %paris/appearance v2  #11707A Lagoon  CALM  (live)');
+    expect(await h.run('universes', 'appearance-restore', '%paris', 'e1', '--propose', '--text', 'Clearer')).toBe(0);
+    expect(calls[1]).toMatchObject({ field: 'restoreUniverseAppearance', variables: { universe: '%paris', entryId: 'e1', propose: true, text: 'Clearer' } });
+    expect(h.lines[1]).toBe('%paris/appearance v3 set');
+    expect(await h.run('universes', 'appearance-restore', '%paris', 'e1', '--dry-run', '--json')).toBe(0);
+    expect(calls).toHaveLength(2);
+    for (const gone of [['themes', 'star', '%root/socle'], ['themes', 'try', '%paris'], ['universes', 'theme-history', '%paris'], ['theme', 'try', '%root/socle'], ['theme', 'copy', '%root/socle'], ['layouts', 'retouch', '%paris']]) expect(await h.run(...gone, '--json'), gone.join(' ')).toBe(2);
   });
 });
 
@@ -181,11 +153,11 @@ describe('the universe visit history', () => {
 describe('MCP', () => {
   it('exposes every new command as a tool, "yes" only on the destructive one', () => {
     const all = tools();
-    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'messages_delete', 'themes_gallery', 'themes_star', 'themes_unstar', 'themes_starred', 'themes_try', 'themes_untry', 'themes_trials', 'universes_theme_history', 'universes_theme_restore', 'universes_theme_follow', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_visit', 'settings_history_pause'].map((n) => `breakrocks_${n}`);
+    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'messages_delete', 'themes_gallery', 'universes_appearance_history', 'universes_appearance_restore', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_visit', 'settings_history_pause'].map((n) => `breakrocks_${n}`);
     for (const n of names) expect(all.map((t) => t.name), n).toContain(n);
     expect(all.find((t) => t.name === 'breakrocks_universes_history_clear')!.inputSchema.properties).toHaveProperty('yes');
     expect(all.find((t) => t.name === 'breakrocks_universes_history_remove')!.inputSchema.properties).not.toHaveProperty('yes');
-    for (const n of ['messages_react', 'messages_unreact', 'messages_reply_thread', 'themes_star', 'themes_try', 'universes_visit', 'universes_history_clear', 'settings_history_pause']) expect(all.find((t) => t.name === `breakrocks_${n}`)!.inputSchema.properties, n).toHaveProperty('dryRun');
+    for (const n of ['messages_react', 'messages_unreact', 'messages_reply_thread', 'universes_appearance_restore', 'universes_visit', 'universes_history_clear', 'settings_history_pause']) expect(all.find((t) => t.name === `breakrocks_${n}`)!.inputSchema.properties, n).toHaveProperty('dryRun');
   });
 });
 

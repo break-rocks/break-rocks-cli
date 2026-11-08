@@ -3,7 +3,21 @@
 // reply is a write: --dry-run tells what would be sent, nothing more. The refusals are the platform's.
 import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
+import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
+import { api } from '../session.js';
+
+/** The id of a universe discussion given by its address (%paris&velo; a channel too) or by its id. */
+export async function discussionIdOf(ctx: Context, value: string): Promise<string> {
+  const v = value.trim();
+  if (!v.startsWith('%')) return v;
+  if (/~[^/~&]+$/.test(v)) throw usageError('INVALID_INPUT', `${v}: a channel is %universe&name ("~" is the sign of a live)`);
+  const d = (await api<{ universeDiscussion: { id: string } | null }>(ctx, 'query($a: String!) { universeDiscussion(address: $a) { id } }', { a: v })).universeDiscussion;
+  if (!d) throw usageError('CHANNEL_NOT_FOUND', `No universe discussion ${v}`, { address: v });
+  return d.id;
+}
+/** "%paris" and "velo" (or "&velo") → "%paris&velo". */
+export const discussionAddress = (universe: string, name: string) => `${universe}&${name.replace(/^&/, '')}`;
 
 type Silence = { until?: string | null; always?: boolean } | null;
 export type DiscussionView = {
@@ -102,7 +116,7 @@ export const messagesDelete = apiCommand({
   description: 'Name the discussion with exactly one of --channel (a channel or a universe discussion: %paris&general), --group (a group chat id) or --with (a conversation: @handle or id). You delete your own message; the same mutation also lets a group chat admin or a channel moderator delete the message of another for everyone (the platform decides: MESSAGE_NOT_AUTHOR otherwise). --for-me hides it for you only, whoever wrote it. Irreversible: asks for --yes. --dry-run tells what would be sent.',
   kind: 'mutation', op: 'deleteMessage', flatten: ['discussion'], positionals: ['messageId'], select: MESSAGE, dry: true,
   rename: { 'discussion.groupChatId': 'group', 'discussion.accountId': 'with' },
-  descriptions: { messageId: 'The message', channel: 'The channel or universe discussion that holds it (%paris&general, %paris~velo)', group: 'The group chat that holds it (its id)', with: 'The other account of the conversation that holds it: @handle or its id', forMe: 'Delete it for yourself only (it stays for the others)' },
+  descriptions: { messageId: 'The message', channel: 'The channel or universe discussion that holds it (%paris&general, %paris&velo)', group: 'The group chat that holds it (its id)', with: 'The other account of the conversation that holds it: @handle or its id', forMe: 'Delete it for yourself only (it stays for the others)' },
   prepare: (i) => {
     const targets = ['channel', 'group', 'with'].filter((k) => i[k] !== undefined);
     if (targets.length !== 1) throw usageError('DISCUSSION_TARGET_INVALID', 'Name the discussion with exactly one of --channel, --group or --with');

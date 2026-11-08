@@ -269,21 +269,22 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `proposals support` | Support a proposal | `breakrocks proposals support <id>` |
 | `proposals vote` | Vote on a proposal: for, against, or a candidate (voteOnProposal) | `breakrocks proposals vote <id> for` |
 | `proposals withdraw` | Withdraw one's proposal (confirmation: `--yes`) | `breakrocks proposals withdraw <id> --yes` |
-| `debates list` | The debates of a universe | `breakrocks debates list %france` |
-| `debates show` | A debate | `breakrocks debates show %paris velo` |
-| `debates open` | Open a debate in a universe | `breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48` |
-| `debates support` | Support a debate | `breakrocks debates support %paris velo` |
-| `debates close` | Close a debate (confirmation: `--yes`) | `breakrocks debates close %paris velo --yes` |
+| `debates list` | The temporary universe discussions (debates) of a universe (universeDiscussions, lifetime TEMPORARY) | `breakrocks debates list %france` |
+| `debates show` | A debate (universeDiscussion) | `breakrocks debates show %paris velo` |
+| `debates open` | Open a temporary universe discussion, a debate (openUniverseDiscussion TEMPORARY: the governance) | `breakrocks debates open %paris velo --subject "More bike lanes?" --hours 48` |
+| `debates propose` | Propose a debate, a temporary universe discussion waiting for the support of the residents (proposeUniverseDiscussion) | `breakrocks debates propose %paris velo --subject "More bike lanes?"` |
+| `debates support` | Support a proposed debate (supportUniverseDiscussion) | `breakrocks debates support %paris velo` |
+| `debates close` | Close a debate early (closeUniverseDiscussion) (confirmation: `--yes`) | `breakrocks debates close %paris velo --yes` |
 | `polls list` | The polls of a universe | `breakrocks polls list %france` |
 | `polls show` | A poll | `breakrocks polls show <id>` |
 | `polls create` | Create a poll in a universe | `breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche` |
 | `polls pick` | Pick a choice of a poll (its index, from 0) | `breakrocks polls pick <id> 1` |
-| `channels list` | The channels of a universe (--all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
-| `channels create` | Create a channel in a universe | `breakrocks channels create %paris velo` |
-| `channels join` | Join a channel | `breakrocks channels join %paris~velo` |
-| `channels leave` | Leave a channel | `breakrocks channels leave %paris~velo` |
-| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris~velo "See you at 6 pm"` |
-| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris~velo --json` |
+| `channels list` | The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
+| `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
+| `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
+| `channels leave` | Leave a channel (leaveUniverseDiscussion) | `breakrocks channels leave %paris&velo` |
+| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
+| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris&velo --json` |
 | `inbox` | The conversations and group chats, the unread first (--unread; --watch) | `breakrocks inbox` |
 | `dm` | Send a direct message: text, images or a clip, a link (sendMessage) | `breakrocks dm @alice "Hello!"` |
 | `dm read` | The conversation with an account (--since, --all; --watch: each new message) | `breakrocks dm read @alice` |
@@ -324,15 +325,8 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `themes list` | The theme catalog: by field, creator, order, universe, text (themeCatalog) | `breakrocks themes list --field SPORT` |
 | `themes show` | The page of a theme: screenshots, palette, typefaces, images, origin, use | `breakrocks themes show %test-village-multisport/sport-gabriel-04` |
 | `themes gallery` | The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day) | `breakrocks themes gallery %paris` |
-| `themes star` | Star a theme of the catalog (starTheme; 50 at most; starring it again changes nothing) | `breakrocks themes star %root/socle` |
-| `themes unstar` | Unstar a theme (unstarTheme; also when it was not starred) | `breakrocks themes unstar %root/socle` |
-| `themes starred` | The themes you starred, the most recent first, 50 at most (starredThemes; --variant NIGHT\|DAY) | `breakrocks themes starred` |
-| `themes try` | Try a theme, a layout or both on a universe, for yourself alone, for 24 hours (startGalleryTrial; it replaces your trial there) | `breakrocks themes try %paris --theme %root/socle` |
-| `themes untry` | End your gallery trial on a universe, theme and layout together (endGalleryTrial) | `breakrocks themes untry %paris` |
-| `themes trials` | Your gallery trials that run, one per universe, 20 at most (myGalleryTrials) | `breakrocks themes trials` |
-| `universes theme-history` | The history of the theme of a universe, the most recent first, one year (universeThemeHistory; who may set its theme) | `breakrocks universes theme-history %paris` |
-| `universes theme-restore` | Restore an entry of the theme history: the universe holds that theme at that version, or a proposal is filed (restoreUniverseTheme) | `breakrocks universes theme-restore %paris <entry id>` |
-| `universes theme-follow` | End the frozen version of a universe: its theme follows the latest version again (followThemeUpdates) | `breakrocks universes theme-follow %paris` |
+| `universes appearance-history` | The appearance history of a universe: its last 5 appearances, the one in use first (universeAppearanceHistory) | `breakrocks universes appearance-history %paris` |
+| `universes appearance-restore` | Restore an appearance of the history: the next version of its theme set, or a proposal APPEARANCE filed (restoreUniverseAppearance) | `breakrocks universes appearance-restore %paris <entry id>` |
 | `universes history` | The universe visit history of the account, the most recent visit first (universeHistory; 50 at most kept) | `breakrocks universes history` |
 | `universes history remove` | Remove one universe from the visit history (removeRecentUniverse; true also when absent) | `breakrocks universes history remove %paris` |
 | `universes history clear` | Clear the whole visit history (clearRecentUniverses) (confirmation: `--yes`) | `breakrocks universes history clear --yes` |
@@ -345,13 +339,10 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `theme typefaces` | List the approved typefaces (shipped; --online: approvedTypefaces, compared) | `breakrocks theme typefaces` |
 | `theme publish` | Publish a theme and its images in a universe, in one gesture (as the studio imports) | `breakrocks theme publish theme.json --in %test-village-sport` |
 | `theme apply` | Make a theme the theme of a universe (setUniverseProfile; the leadership, the owner, the admins) | `breakrocks theme apply %paris/stade-nuit --to %paris` |
-| `theme try` | Try a theme as the personal theme for 24 hours (setTriedTheme) | `breakrocks theme try %paris/stade-nuit` |
-| `theme undo-try` | Stop trying a theme: the former one comes back (setTriedTheme) | `breakrocks theme undo-try` |
-| `theme personal set` | Set the personal theme (and its settings: accent, density, motion, post transparency…) | `breakrocks theme personal set %paris/stade-nuit` |
-| `theme personal clear` | Back to Socle as the personal theme | `breakrocks theme personal clear` |
+| `theme personal set` | Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme) | `breakrocks theme personal set --accent "#11707A"` |
+| `theme personal clear` | Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear) | `breakrocks theme personal clear` |
 | `theme export` | Export a theme: its JSON and its images served (the largest width), or a ZIP (--zip) | `breakrocks theme export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `theme shots` | Download the screenshots of a theme (3 screens night and day, the page of a universe at 3 breakpoints) | `breakrocks theme shots %paris/stade-nuit --out shots/` |
-| `theme copy` | Copy a theme under a new name (a personal theme, or published in --target) | `breakrocks theme copy %root/arena --as mon-arena` |
 | `theme delete` | Delete a theme one published (it stays applied where it is) (confirmation: `--yes`) | `breakrocks theme delete %paris/stade-nuit --yes` |
 | `layouts list` | The layout catalog (layoutCatalog) | `breakrocks layouts list --field SPORT` |
 | `layouts show` | A layout | `breakrocks layouts show %root/feed-first` |
@@ -360,8 +351,6 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `layouts publish-version` | Publish a new version of a layout (publishLayout, as layouts publish: kept for the scripts) | `breakrocks layouts publish-version @layout.json --in %paris` |
 | `layouts apply` | Make a layout the default one of a universe (setUniverseProfile) | `breakrocks layouts apply %root/agora --to %paris` |
 | `layouts copy` | Copy a layout under a new name | `breakrocks layouts copy %root/agora --as mon-agora --target %paris` |
-| `layouts retouch` | Retouch a layout for oneself in a universe (setLayoutRetouches) | `breakrocks layouts retouch %paris --layout %root/feed-first --retouches '[{"widget":"agenda","canvas":"MAIN","state":"HIDDEN"}]'` |
-| `layouts reset-retouches` | Remove one's retouches in a universe | `breakrocks layouts reset-retouches %paris` |
 | `layouts delete` | Delete a layout one published (confirmation: `--yes`) | `breakrocks layouts delete %paris/ma-page --yes` |
 | `studio drafts` | The drafts of the studio | `breakrocks studio drafts --json` |
 | `studio show` | A draft of the studio | `breakrocks studio show <id>` |
@@ -419,7 +408,7 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance duties` | My jury duties (My duties), in every universe or in one (myJuryDuties) | `breakrocks governance duties` |
 | `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
-| `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev` |
+| `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
 
 ### Discussions, gallery and history (0.15.0, specs v83.1.0)
 

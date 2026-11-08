@@ -191,15 +191,20 @@ describe('universes pages', () => {
 
 describe('the governance page', () => {
   it('pins channels in their order, unpins them all with --none; reads the layout of the governance page', async () => {
-    const { h, calls } = scripted({ setPinnedChannels: (v) => ({ name: v.u, private: true, pinnedChannels: (v.c as string[]).map((address) => ({ address })) }), appliedLayout: () => ({ source: 'PLATFORM', retouched: false }) });
-    expect(await h.run('governance', 'pin', '%team.', '%team.~general', '%team.~dev')).toBe(0);
-    expect(calls[0].variables).toEqual({ u: '%team.', c: ['%team.~general', '%team.~dev'], r: expect.any(String) });
-    expect(h.lines.join('\n')).toContain('2. %team.~dev');
+    const { h, calls } = scripted({
+      universeDiscussion: (v) => ({ id: `id-${String(v.a).split('&')[1]}` }),
+      setPinnedUniverseDiscussions: (v) => ({ name: v.u, private: true, pinnedChannels: (v.ids as string[]).map((id) => ({ address: `%team.&${id.slice(3)}` })) }), appliedLayout: () => ({ source: 'PLATFORM', retouched: false }),
+    });
+    expect(await h.run('governance', 'pin', '%team.', '%team.&general', '%team.&dev')).toBe(0);
+    expect(calls.map((c) => c.field)).toEqual(['universeDiscussion', 'universeDiscussion', 'setPinnedUniverseDiscussions']);
+    expect(calls[2].variables).toEqual({ u: '%team.', ids: ['id-general', 'id-dev'], r: expect.any(String) });
+    expect(h.lines.join('\n')).toContain('2. %team.&dev');
     expect(await h.run('governance', 'pin', '%team.', '--none', '--json')).toBe(0);
-    expect(calls[1].variables).toEqual({ u: '%team.', c: [], r: expect.any(String) });
+    expect(calls[3].variables).toEqual({ u: '%team.', ids: [], r: expect.any(String) });
     expect(await h.run('governance', 'pin', '%team.', '--json')).toBe(2);
+    expect(await h.run('governance', 'pin', '%team.', '%team.~general', '--json')).toBe(2);
     expect(await h.run('governance', 'layout', '%paris', '--json')).toBe(0);
-    expect(calls[2].variables).toMatchObject({ universe: '%paris', page: 'GOVERNANCE' });
+    expect(calls.at(-1)!.variables).toMatchObject({ universe: '%paris', page: 'GOVERNANCE' });
   });
   it('reads the proposals by status, the record, the duties of a universe', async () => {
     const { h, calls } = scripted({ proposals: () => ({ items: [], next: null }), governanceRecords: () => ({ items: [], next: null }), myJuryDuties: () => ({ items: [], next: null }) });

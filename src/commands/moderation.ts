@@ -4,6 +4,7 @@
 import { apiCommand } from '../api/command.js';
 import { outputSchema, selection } from '../api/graphql.js';
 import { usageError } from '../errors.js';
+import { discussionIdOf } from './discussions.js';
 import type { Command } from '../registry.js';
 import { bool, list, object, openObject, str } from '../schema.js';
 import { uuidv7 } from '../ids.js';
@@ -84,14 +85,15 @@ export const governancePinned: Command<{ universe: string }, Pinned> = {
 };
 
 export const governancePin: Command<{ universe: string; channels?: string[]; none?: boolean }, Pinned> = {
-  name: 'governance pin', summary: 'Pin the channels of a private universe: the whole list, in its order (setPinnedChannels; --none unpins them all)',
-  description: 'The owner and the admins (CHANNEL_MANAGERS_ONLY); at most 5 (PINNED_CHANNELS_LIMIT), channels of that private universe at any of its levels, not archived, each once. A public universe: PRIVATE_UNIVERSE_NOT_FOUND.',
-  examples: ['breakrocks governance pin %team-fra. %team-fra.~general %team-fra./tech~dev', 'breakrocks governance pin %team-fra. --none'],
-  input: object({ universe: str('The universe (%name)'), channels: list('The channels, in their order (%universe~name)', { type: 'string' }, { maxItems: 5 }), none: bool('Unpin every channel') }, ['universe']),
+  name: 'governance pin', summary: 'Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all)',
+  description: 'The owner and the admins (CHANNEL_MANAGERS_ONLY); at most 5 (PINNED_CHANNELS_LIMIT), permanent universe discussions of that private universe at any of its levels, not archived, each once (UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary one). A public universe: PRIVATE_UNIVERSE_NOT_FOUND.',
+  examples: ['breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev', 'breakrocks governance pin %team-fra. --none'],
+  input: object({ universe: str('The universe (%name)'), channels: list('The channels, in their order (%universe&name, or their ids)', { type: 'string' }, { maxItems: 5 }), none: bool('Unpin every channel') }, ['universe']),
   output: pinnedOutput, args: { positionals: ['universe', 'channels'] },
   run: async (ctx, { universe, channels, none }) => {
     if (!!channels?.length === !!none) throw usageError('INVALID_INPUT', 'The channels to pin, or --none');
-    const r = (await api<{ setPinnedChannels: { name: string; private: boolean; pinnedChannels: unknown[] } }>(ctx, `mutation($u: String!, $c: [String!]!, $r: ID!) { setPinnedChannels(universe: $u, channels: $c, requestId: $r) { name private pinnedChannels ${CHANNEL} } }`, { u: universe, c: none ? [] : channels, r: uuidv7(ctx.now()) })).setPinnedChannels;
+    const ids = none ? [] : await Promise.all((channels ?? []).map((c) => discussionIdOf(ctx, c)));
+    const r = (await api<{ setPinnedUniverseDiscussions: { name: string; private: boolean; pinnedChannels: unknown[] } }>(ctx, `mutation($u: String!, $ids: [ID!]!, $r: ID!) { setPinnedUniverseDiscussions(universe: $u, ids: $ids, requestId: $r) { name private pinnedChannels ${CHANNEL} } }`, { u: universe, ids, r: uuidv7(ctx.now()) })).setPinnedUniverseDiscussions;
     return { universe: r?.name ?? universe, private: r?.private ?? true, pinnedChannels: r?.pinnedChannels ?? [] };
   },
   text: pinnedText,

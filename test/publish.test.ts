@@ -139,7 +139,7 @@ describe('the interactions', () => {
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--json')).toBe(2);
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--place-name', 'Bastille', '--json')).toBe(0);
     expect(calls[2].variables).toMatchObject({ input: { kind: 'CHANNEL', change: { channelAction: { action: 'PLACE', universe: '%paris', name: 'velo', point: { lat: 48.85, lon: 2.36 }, placeName: 'Bastille' } } } });
-    expect(calls[2].variables.input.tags).toBeUndefined();
+    expect((calls[2].variables.input as Record<string, unknown>).tags).toBeUndefined();
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'Tags', '--tag-conventions', 'velo', '--json')).toBe(0);
     expect(calls[3].variables).toMatchObject({ input: { change: { tagConventions: ['velo'] } } });
   });
@@ -235,11 +235,11 @@ describe('theme publish', () => {
 });
 
 describe('theme trials, draft previews and the post transparency', () => {
-  it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(postTransparency)', async () => {
+  it('sends startUniverseThemeTrial, endUniverseThemeTrial, startDraftPreview, endDraftPreview and setPersonalTheme(accent)', async () => {
     const { h, calls } = scripted({
       startUniverseThemeTrial: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, startedAt: '2026-10-27T10:00:00.000Z', endsAt: '2026-10-28T10:00:00.000Z', startedBy: { id: 'eu-1', handle: 'alice', displayName: 'Alice' } }),
       endUniverseThemeTrial: () => ({ name: '%paris' }), startDraftPreview: (v) => ({ universe: '%paris', draftId: v.draftId, version: 1, endsAt: '2026-10-28T10:00:00.000Z' }), endDraftPreview: () => ({ name: '%paris' }),
-      setPersonalTheme: (v) => ({ postTransparency: (v.input as { postTransparency?: string }).postTransparency }),
+      setPersonalTheme: (v) => ({ accent: (v.input as { accent?: string }).accent }),
     });
     expect(await h.run('studio', 'try', 'd-1')).toBe(0);
     expect(h.all()).toMatch(/%paris: trial of the draft d-1 \(v1\) until 2026-10-28T10:00:00.000Z/);
@@ -249,9 +249,12 @@ describe('theme trials, draft previews and the post transparency', () => {
     expect(await h.run('studio', 'preview', 'd-1', '--json')).toBe(0);
     expect(await h.run('studio', 'end-preview', '%paris', '--json')).toBe(0);
     expect(calls.map((c) => c.field)).toEqual(['startUniverseThemeTrial', 'endUniverseThemeTrial', 'startDraftPreview', 'endDraftPreview']);
-    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'LIQUID', '--json')).toBe(0);
-    expect(calls.at(-1)!.variables).toEqual({ input: { postTransparency: 'LIQUID' }, requestId: expect.stringMatching(UUID_V7) });
-    expect(await h.run('theme', 'personal', 'set', '--post-transparency', 'CLEAR', '--json')).toBe(2);
+    expect(await h.run('theme', 'personal', 'set', '--accent', 'universe', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ input: { accent: 'universe' }, requestId: expect.stringMatching(UUID_V7) });
+    // Withdrawn since specs v96.0.0 (D-289): no personal theme, no post transparency, no "my theme everywhere".
+    for (const flag of ['--post-transparency', '--my-theme-everywhere']) expect(await h.run('theme', 'personal', 'set', flag, 'LIQUID', '--json')).toBe(2);
+    expect(await h.run('theme', 'personal', 'clear', '--json')).toBe(0);
+    expect(calls.at(-1)!.variables).toEqual({ input: { clear: ['ACCENT', 'DEVICE_DISPLAY_MODE'] }, requestId: expect.stringMatching(UUID_V7) });
   });
 });
 

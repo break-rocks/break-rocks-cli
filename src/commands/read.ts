@@ -273,9 +273,17 @@ export const accountsFollowing = apiCommand({ name: 'accounts following', summar
 
 export const eventsList = apiCommand({ name: 'events list', summary: 'The events of a universe (--from, --to)', kind: 'query', op: 'universeEvents', positionals: ['universe'], examples: ['breakrocks events list %france --from 2026-10-23T00:00:00Z'] });
 export const proposalsList = apiCommand({ name: 'proposals list', summary: 'The proposals of a universe', kind: 'query', op: 'proposals', positionals: ['universe'], examples: ['breakrocks proposals list %france --all'] });
-export const debatesList = apiCommand({ name: 'debates list', summary: 'The debates of a universe', kind: 'query', op: 'debates', positionals: ['universe'], examples: ['breakrocks debates list %france'] });
+export const debatesList = apiCommand({
+  name: 'debates list', summary: 'The temporary universe discussions (debates) of a universe (universeDiscussions, lifetime TEMPORARY)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
+  map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'TEMPORARY') } : l; },
+  examples: ['breakrocks debates list %france', 'breakrocks debates list %france --all-levels --json'],
+});
 export const pollsList = apiCommand({ name: 'polls list', summary: 'The polls of a universe', kind: 'query', op: 'polls', positionals: ['universe'], examples: ['breakrocks polls list %france'] });
-export const channelsList = apiCommand({ name: 'channels list', summary: 'The channels of a universe (--all-levels: of its sub-universes too)', kind: 'query', op: 'channels', positionals: ['universe'], examples: ['breakrocks channels list %france --all-levels'] });
+export const channelsList = apiCommand({
+  name: 'channels list', summary: 'The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
+  map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'PERMANENT') } : l; },
+  examples: ['breakrocks channels list %france --all-levels'],
+});
 
 type Notification = { id: string; read: boolean; updatedAt: string; [k: string]: unknown };
 export const notifications: Command<{ unread?: boolean; markRead?: boolean; after?: string; all?: boolean; max?: number } & WatchInput, unknown> = {
