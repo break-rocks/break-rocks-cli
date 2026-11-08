@@ -94,6 +94,7 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
+  'groups meeting-point': { id: 'g', clear: true },
   post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, 'channels send': { channel: '%x&a', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'layouts check': { document: '{}', in: '%x', online: true },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
   'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages delete': { messageId: 'm', channel: '%x&general' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x&a'] },
@@ -131,6 +132,8 @@ describe('every command', () => {
       if (skipped.has(c.name) || operatorOnly(c.name)) continue;
       current = c.name;
       const input = SAMPLES[c.name] ?? Object.fromEntries(Object.entries(c.input.properties).filter(([k]) => (c.input.required ?? []).includes(k)).map(([k, v]) => [k, sample(v, k)]));
+      // A discussion named by one of --channel, --group or --with (DiscussionRefInput).
+      if (!SAMPLES[c.name] && ['channel', 'group', 'with'].every((k) => k in c.input.properties) && !['channel', 'group', 'with'].some((k) => k in input)) input.channel = '%x&general';
       try { await execute(ctx, c, input); } catch { /* local checks (files, inputs) may stop a command */ }
       ran++;
     }

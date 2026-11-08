@@ -442,6 +442,24 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `connections state` | Whether a request can be sent, whether a first message connects at once (connectionStates) | `breakrocks connections state @alice` |
 | `messaging settings show` | The settings of the messages (mySettings.messaging) | `breakrocks messaging settings show` |
 | `messaging settings set` | Change the settings of the messages (read receipts, who may write or invite, agent requests…; setSettings) | `breakrocks messaging settings set --read-receipts false` |
+| `connections mine` | The connected accounts, in a stable order, without those blocked either way (myConnections) | `breakrocks connections mine` |
+| `dm delete-conversation` | Delete a conversation for yourself: its messages are no longer shown to you (deleteConversation) (confirmation: `--yes`) | `breakrocks dm delete-conversation @alice --yes` |
+| `groups edit` | Change a group chat: its name, its description, announcements only, whether members may invite (changeGroupChat; its admins) | `breakrocks groups edit <group id> --name "Club ride" --members-can-invite` |
+| `groups remove` | Remove a member from a group chat (removeGroupChatMember; its admins) (confirmation: `--yes`) | `breakrocks groups remove <group id> @bob --yes` |
+| `groups meeting-point` | Set the meeting point of a group chat: a name and a point (--clear: remove it) (setMeetingPoint) | `breakrocks groups meeting-point <group id> --name "Bastille" --point 48.8532,2.3691` |
+| `groups step-down` | Stop being an admin of a group chat (stepDownAsGroupChatAdmin) (confirmation: `--yes`) | `breakrocks groups step-down <group id> --yes` |
+| `groups mute` | Mute a group chat for yourself (setGroupChatMuted; --mentions: still notified when mentioned) | `breakrocks groups mute <group id> --mentions` |
+| `groups unmute` | Unmute a group chat (setGroupChatMuted) | `breakrocks groups unmute <group id>` |
+| `messages edit` | Edit the text of one of your messages (changeMessage) | `breakrocks messages edit <message id> "See you at 8" --with @alice` |
+| `messages typing` | Say you are typing in a discussion: shown for 5 seconds, never stored (typing) | `breakrocks messages typing --with @alice` |
+| `messages changes` | Catch up: the messages of a discussion changed or deleted since a time, at most 30 days back (messageChanges) | `breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z` |
+| `messages pinned` | The pinned messages of a group chat or a universe discussion, the most recent first, 3 at most (pinnedMessages) | `breakrocks messages pinned --channel %paris&general` |
+| `messages pin` | Pin a message of a group chat or a universe discussion for everyone: its admins or moderators, 3 at most (setPinnedMessage) | `breakrocks messages pin <message id> --group <group id>` |
+| `messages unpin` | Unpin a message (setPinnedMessage) | `breakrocks messages unpin <message id> --group <group id>` |
+| `messages silence` | Silence a discussion for yourself: readable, without notifications, for 1, 8 or 24 hours, or always (setDiscussionSilence) | `breakrocks messages silence --channel %paris&general --hours 8` |
+| `messages unsilence` | End the silence of a discussion (setDiscussionSilence) | `breakrocks messages unsilence --channel %paris&general` |
+| `messages quick-poll` | Send a quick poll in a discussion: 2 to 10 choices, closed after 24 hours, not a poll of the governance (sendQuickPoll) | `breakrocks messages quick-poll "Ride on Sunday?" --choices yes,no --group <group id>` |
+| `messages quick-poll-pick` | Pick a choice of a quick poll (pickQuickPollChoice; the first choice is 0) | `breakrocks messages quick-poll-pick <message id> 0` |
 | `discussions list` | The universe discussions of a universe: present now, unread, mentions, silence, retention (universeDiscussions; --all-levels: of its sub-universes too) | `breakrocks discussions list %paris` |
 | `discussions show` | A universe discussion: its state, who reads it now, unread, mentions, silence, how long its messages are kept (universeDiscussion) | `breakrocks discussions show %paris&general` |
 | `discussions unread` | The universe discussions with unread messages, across the universes of the account, the latest message first (myUnreadDiscussions) | `breakrocks discussions unread` |

@@ -5,12 +5,13 @@
 import { describe, expect, it } from 'vitest';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { chatCommands } from '../src/commands/chats.js';
 import { meCommands } from '../src/commands/me.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -71,5 +72,29 @@ describe('the account', () => {
     expect(calls).toEqual([]);
     expect(await h.run('--yes', 'me', 'delete', '@alice')).toBe(0);
     expect(calls[0].variables).toMatchObject({ handle: 'alice' });
+  });
+});
+
+describe('connections and private messages', () => {
+  it('names the discussion with exactly one target', async () => {
+    const { h, calls } = scripted({ accountByHandle: { id: 'a2' }, changeMessage: { id: 'm1', text: 'See you at 8', author: { handle: 'me' }, createdAt: '2026-11-08T10:00:00.000Z' } });
+    expect(await h.run('messages', 'edit', 'm1', 'See you at 8', '--with', '@alice')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'changeMessage', variables: { messageId: 'm1', text: 'See you at 8', discussion: { accountId: 'a2' } } });
+    expect(h.lines.at(-1)).toBe('m1  2026-11-08T10:00:00.000Z  @me  See you at 8');
+    expect(await h.run('messages', 'edit', 'm1', 'x', '--with', '@alice', '--group', 'g1')).toBe(2);
+    expect(await h.run('messages', 'pin', 'm1')).toBe(2);
+  });
+  it('sets and clears the meeting point of a group chat', async () => {
+    const { h, calls } = scripted();
+    expect(await h.run('groups', 'meeting-point', 'g1', '--name', 'Bastille', '--point', '48.8532,2.3691')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ groupChatId: 'g1', place: { name: 'Bastille', point: { lat: 48.8532, lon: 2.3691 } } });
+    expect(await h.run('groups', 'meeting-point', 'g1', '--clear')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ place: null });
+    expect(await h.run('groups', 'meeting-point', 'g1', '--name', 'x')).toBe(2);
+  });
+  it('mutes, unmutes, silences and pins with fixed values', async () => {
+    const { h, calls } = scripted();
+    for (const argv of [['groups', 'mute', 'g1', '--mentions'], ['groups', 'unmute', 'g1'], ['messages', 'silence', '--group', 'g1', '--hours', '8'], ['messages', 'unsilence', '--group', 'g1'], ['messages', 'unpin', 'm1', '--group', 'g1']]) expect(await h.run(...argv)).toBe(0);
+    expect(calls.map((c) => c.variables)).toMatchObject([{ muted: true, mentions: true }, { muted: false }, { silenced: true, hours: 8, discussion: { groupChatId: 'g1' } }, { silenced: false }, { pinned: false, messageId: 'm1' }]);
   });
 });

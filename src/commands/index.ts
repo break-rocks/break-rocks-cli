@@ -32,6 +32,7 @@ import * as appearance from './appearance.js';
 import * as measures from './measures.js';
 import * as discovery from './discovery.js';
 import { meCommands } from './me.js';
+import { chatCommands } from './chats.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -75,7 +76,7 @@ register(
   msg.inbox, msg.dm, msg.dmRead, msg.dmDelete, msg.dmEphemeral,
   msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
   msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,
-  msg.messagingShow, msg.messagingSet,
+  msg.messagingShow, msg.messagingSet, ...chatCommands,
   disc.discussionsList, disc.discussionsShow, disc.discussionsUnread, disc.discussionsPin, disc.discussionsUnpin, disc.discussionsPlaceSet, disc.discussionsPlaceRemove,
   disc.messagesUniverses, disc.messagesMentions, disc.messagesIgnoreMention, disc.messagesRemoveDiscussion, disc.messagesBlockUniverse, disc.messagesUnblockUniverse, disc.messagesVote, disc.messagesUnvote,
   disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
