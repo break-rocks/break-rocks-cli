@@ -727,6 +727,72 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
 | `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
 
+### The operations of before specs v83.1.0 (0.18.0, specs v101.6.0)
+
+D-92, D-303 lot 4c: 0.18.0 covers the operations of API v2 of before v83.1.0 that are not deprecated and had no
+command: 181 commands for 159 operations (contract of specs **v101.6.0**, `specs/common` pinned on that tag; it
+changes the glossary only). With 0.17.0, every operation of the contract that is not deprecated has a command,
+but the 17 listed below. Each is an `apiCommand` of the registry: its help, its JSON schemas, its completion, its
+MCP tool; the writes offer `--dry-run` where a mistake costs, the irreversible ones and the payment pages ask
+`--yes`. A universe discussion is named by its address (`%paris&general`) or its id; a discussion of any kind by
+exactly one of `--with` (a conversation), `--group` (a group chat) or `--channel`.
+
+- **The account** (`me`): `profile set` (`--avatar-file`: `requestAvatarUpload`, then `updateProfile`), `handle
+  check|change`, `password` (asked without echo, or two lines with `--password-stdin`; not an MCP tool), `email
+  change|confirm`, `delete`, `delete confirm`, `data requests|copy|download|erase|erase-cancel|rectify`, `onboarding
+  [start|skip|record]`, `invitation-link [renew|read]`, `interactions`, `posts LIKED|REPOSTED`, `reports`,
+  `invite-exceptions add|remove`.
+- **Connections and messages**: `connections mine`, `dm delete-conversation`, `groups
+  edit|remove|meeting-point|step-down|mute|unmute`, `messages
+  edit|typing|changes|pinned|pin|unpin|silence|unsilence|quick-poll|quick-poll-pick`.
+- **Private universes** (`universes`): `join-requests [accept|decline|accept-all|decline-all]`, `invitations
+  [accept|decline]`, `admins add|remove`, `transfer accept|decline`, `delete`, `delete-cancel`, `private set`,
+  `domains [check]`, `team-tier`, `declare`, `expose`, `hide`, `reactivate`, `reputation [set]`, `search-words`,
+  `identity` (`--banner-file`, `--banner-night-file`, `--logo-file`), `tiers
+  offer|change|withdraw|subscribe|renewal on|renewal off`; for any universe: `residences`, `sub-map`, `landing`,
+  `land`, `listed`, `unlisted`, `favorite list|alerts-on|alerts-off|skip`.
+- **Governance**: `proposals votes|mine|projects|project-status|project-done|refusal-review|change`, `polls
+  support`, `events support|change|delete|attendees`, `governance
+  residents|welcome-wall|welcome|news|pulse|manifesto-versions|sub-governance|move-pinned|unpin-announcement|backup-delegate|votes-accept|votes-refuse|vote-holders|feed-reviews|feed-review-vote|like-question|unlike-question`,
+  `moderation remove-agent-text`; `sanctions list|appeal|publish-name`, `jury accept|decline|reviews|vote|withdraw`.
+- **Moderation of the universe discussions** (`discussions`): `mine`, `limits`, `moderators [add|remove]`,
+  `writing-bans`, `active`, `extend`, `summary approve|decline`, `cap`, `creation members|managers`,
+  `archive|unarchive`, `move`, `slow-mode`, `ban|unban`, `remove-message`, `delete`, `agents forbid|allow`,
+  `mute|unmute`.
+- **The paid tiers**: `subscription show|offer|start|renewal on|renewal off|billing-day offer|billing-day
+  set|portal|seller-verify`, `gift-codes offer|list|buy|redeem|refund`. A payment is made in a browser: the CLI
+  gives the address of the page.
+- **Search and reading**: `search`, `clips feed|platform|popular`, `interests
+  show|add|fields|forget|tags|not-interested`, `posts thread|reposts|link-preview|reply-policy`, `accounts
+  replies|is-following`, `map avatar`; `theme personal saved`. The delegated agents had nothing left.
+
+Not offered (17): what the platform defers (`NOT_IMPLEMENTED`: `avatarParts`, `setMapAvatar`, `buyAvatarPart`,
+`playlistTimeline`, `recordMontageView`, `maskPostMedia`, `answerMaskRequest`, `pointsOfView`); what only an app
+does: `recordAdImpression`, `recordAdClick` (an app that shows ads), `recordClipPlays` (the player of an app),
+`setPushDevice` (a device that receives pushes), `createCliSignInCode` (made by the web app for `login --browser`),
+`createNfcToken`, `confirmNfcConnection`, `checkNfcConnection` (two phones touching), `experienceKinds`
+(experiences withdrawn from the apps).
+
+Checked on dev on 2026-11-08: the reads with the profile `e2e-dev` (`me onboarding|interactions|data
+requests|invitation-link|handle check|posts|reports`, `connections mine`, `universes
+invitations|residences|favorite list|domains|sub-map|landing`, `subscription show|offer`, `gift-codes offer|list`,
+`interests show|tags|not-interested`, `theme personal saved`, `sanctions list`, `proposals mine|projects`, `map
+avatar`, `search`, `clips feed|platform|popular`, `discussions mine|limits`, `governance
+residents|welcome-wall|news|pulse|feed-reviews|vote-holders`, `accounts is-following`, `posts link-preview`); in a
+conversation, each undone: a quick poll sent, a choice picked, typing, the changes read, silenced then unsilenced, a
+message edited, both messages deleted. The writes of governance with the account « gouvernance » (resident of
+`%test-village-sport` and `%france`), each undone: votes refused then accepted, a backup delegate chosen then
+cleared, unlisted then listed, an invite exception added then removed, an interest added then forgotten, a favorite
+added, its alerts on then off, removed; a proposal filed, its votes read, refused when amended
+(`PROPOSAL_NOT_AMENDABLE`), `refusal-review` and `project-done` refused (`PROPOSAL_NOT_FOUND`,
+`PROJECT_NOT_ADOPTED`), then withdrawn. Refusals with their codes: `QUESTION_NOT_FOUND`, `POLL_NOT_FOUND`,
+`EVENT_NOT_FOUND`, `NOT_A_JUROR`, `PRIVATE_UNIVERSE_NOT_FOUND`, `DISCUSSION_TARGET_INVALID`. Not checked: what
+needs a leadership, a private universe owned, a temporary discussion, a sanction or a payment (no such state for
+these accounts), `me password|email|delete|data erase` (shared accounts). Seen on dev: an `Image` of an avatar
+answers null for `maskedAfterPosting` (non-null), so `vote-holders` and `invite-exceptions` select the accounts
+without their avatar; `extendUniverseDiscussion` on a permanent discussion answers `INVALID_REQUEST`, not one of its
+codes.
+
 ### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
 
 D-92: the CLI covers API v2, each command in text and in `--json`, each an MCP tool. 0.17.0 adds 135 commands
@@ -766,9 +832,9 @@ Not offered: what the platform defers since v101.5.0 (`NOT_IMPLEMENTED`: map ava
 and montages, masks after posting, placed videos and `pointsOfView`), `recordAdImpression` and `recordAdClick`
 (an app that shows ads), `experienceKinds` (experiences withdrawn from the apps). The delegated agents (tiers,
 plans, restrictions) were covered already (`agents tier|restrict`, `operator plan …`). The page opacity of the
-reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stays (about 155 operations
+reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stayed (about 155 operations
 that are not deprecated: account, private universes, governance, moderation of the universe discussions,
-subscription…).
+subscription…): covered by 0.18.0.
 
 Checked on dev on 2026-11-08 (profile `e2e-dev`, the human account `@user-royal-tapir-8evw`, created on
 2026-11-01): the reads (`drafts list`, `playlists hub|followed|show`, `videos list|quota`, `routes list|show|plan`
@@ -1080,7 +1146,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
-SDL files, one per domain, with their `"""…"""` descriptions; specs v101.5.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.6.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

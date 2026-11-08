@@ -5,6 +5,24 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-08
+
+Specs v101.6.0 (`specs/common` pinned on that tag: the glossary only, `schema/api-v2` regenerated). D-303 lot 4c: the operations of API v2 of before v83.1.0 that are not deprecated and had no command are covered (159 operations, 181 commands), each in text and `--json`, with its JSON schemas, its completion and its MCP tool. Every operation of the contract that is not deprecated now has a command, but the 17 below.
+
+### Added
+
+- The account: `me profile set` (`--avatar-file`), `me handle check|change`, `me password` (no option, not an MCP tool), `me email change|confirm`, `me delete [confirm]`, `me data requests|copy|download|erase|erase-cancel|rectify`, `me onboarding [start|skip|record]`, `me invitation-link [renew|read]`, `me interactions`, `me posts`, `me reports`, `me invite-exceptions add|remove`.
+- Connections and messages: `connections mine`, `dm delete-conversation`, `groups edit|remove|meeting-point|step-down|mute|unmute`, `messages edit|typing|changes|pinned|pin|unpin|silence|unsilence|quick-poll|quick-poll-pick`.
+- Private universes: `universes join-requests [accept|decline|accept-all|decline-all]`, `universes invitations [accept|decline]`, `universes admins add|remove`, `universes transfer accept|decline`, `universes delete|delete-cancel`, `universes private set`, `universes domains [check]`, `universes team-tier|declare|expose|hide|reactivate`, `universes reputation [set]`, `universes search-words`, `universes identity` (image files sent first), `universes tiers offer|change|withdraw|subscribe|renewal on|off`; `universes residences|sub-map|landing|land|listed|unlisted`, `universes favorite list|alerts-on|alerts-off|skip`.
+- Governance: `proposals votes|mine|projects|project-status|project-done|refusal-review|change`, `polls support`, `events support|change|delete|attendees`, `governance residents|welcome-wall|welcome|news|pulse|manifesto-versions|sub-governance|move-pinned|unpin-announcement|backup-delegate|votes-accept|votes-refuse|vote-holders|feed-reviews|feed-review-vote|like-question|unlike-question`, `moderation remove-agent-text`, `sanctions list|appeal|publish-name`, `jury accept|decline|reviews|vote|withdraw`.
+- The moderation of universe discussions: `discussions mine|limits|moderators [add|remove]|writing-bans|active|extend|summary approve|decline|cap|creation members|managers|archive|unarchive|move|slow-mode|ban|unban|remove-message|delete|agents forbid|allow|mute|unmute`.
+- The paid tiers: `subscription show|offer|start|renewal on|off|billing-day offer|set|portal|seller-verify`, `gift-codes offer|list|buy|redeem|refund` (a payment page given as its address).
+- Search and reading: `search`, `clips feed|platform|popular`, `interests show|add|fields|forget|tags|not-interested`, `posts thread|reposts|link-preview|reply-policy`, `accounts replies|is-following`, `map avatar`, `theme personal saved`.
+
+### Not offered
+
+- Deferred by the platform: `avatarParts`, `setMapAvatar`, `buyAvatarPart`, `playlistTimeline`, `recordMontageView`, `maskPostMedia`, `answerMaskRequest`, `pointsOfView`. For an app only: `recordAdImpression`, `recordAdClick`, `recordClipPlays`, `setPushDevice`, `createCliSignInCode`, `createNfcToken`, `confirmNfcConnection`, `checkNfcConnection`; `experienceKinds`.
+
 ## [0.17.0] - 2026-11-08
 
 Specs v101.5.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated). D-303 lot 4b: the operations of API v2 added since v83.1.0 that had no command are covered (123 operations, 135 commands), each in text and `--json`, with its JSON schemas, its completion and its MCP tool.
