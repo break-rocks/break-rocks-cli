@@ -77,7 +77,8 @@ describe('post', () => {
     expect(await code('post', 'x', '--image', join(h.dir, 'b.txt'))).toBe('IMAGE_TYPE_NOT_SUPPORTED');
     expect(await code('post', 'é'.repeat(1001))).toBe('POST_TEXT_TOO_LONG');
     expect(await code('post', 'x', '--image', join(h.dir, 'a.png'), '--alt', 'a', '--alt', 'b')).toBe('INVALID_INPUT');
-    expect(await h.run('post', 'Bonjour', '--in', '%paris', '--video', join(h.dir, 'c.mp4'), '--dry-run', '--json')).toBe(0);
+    expect(await code('post', 'Bonjour', '--in', '%paris', '--video', join(h.dir, 'c.mp4'), '--dry-run')).toBe('MEDIA_LICENSE_REQUIRED');
+    expect(await h.run('post', 'Bonjour', '--in', '%paris', '--video', join(h.dir, 'c.mp4'), '--license', 'CC0', '--dry-run', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ dryRun: true, operation: 'createPost', video: { type: 'video/mp4' } });
     expect(calls).toEqual([]);
   });

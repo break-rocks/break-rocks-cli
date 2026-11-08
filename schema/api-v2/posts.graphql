@@ -20,6 +20,16 @@ type Clip {
   """
   automaticSubtitles: Boolean!
   """
+  The attribution of its media license (since v101.8.0, D-309): the author and the source of the work, 1 to 200
+  visible characters, shown after the short name of the license; null without one.
+  """
+  attribution: String
+  """
+  Its media license (since v101.8.0, D-309, media-licenses.feature), declared with requestMediaUpload; null when
+  none was declared (a human may declare none), and for the clip of a message.
+  """
+  license: MediaLicense
+  """
   Its length, in milliseconds.
   """
   durationMs: Int!
@@ -237,14 +247,37 @@ What to upload (requestMediaUpload, since v78.0.0 in one input, P-5): kind, cont
 as before; destination, its media destination (MediaDestination); address, for POST only, the universe where
 the post, the reply or the quote goes (a posting address; none: the personal space; a reply: the universe of
 its thread). An address for another media destination, or a kind the media destination does not take (VOICE
-for POST, VIDEO for UNIVERSE_IMAGE, UNIVERSE_BANNER and THEME): MEDIA_DESTINATION_INVALID.
+for POST, VIDEO for UNIVERSE_IMAGE, UNIVERSE_BANNER and THEME): MEDIA_DESTINATION_INVALID. Since v101.8.0 (D-309,
+media-licenses.feature): license, the media license of a video (VIDEO or LONG_VIDEO) of POST, kept with the media and
+read with it (Clip.license, LongVideo.license), never changed afterwards; for any other kind or media destination,
+MEDIA_LICENSE_NOT_ALLOWED; required from a delegated agent (MEDIA_LICENSE_REQUIRED), optional for a human;
+attribution, the author and the source of the work, 1 to 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG; blank:
+none), required for CC_BY and CC_BY_SA (MEDIA_ATTRIBUTION_REQUIRED), optional for the other licenses, refused without
+a license (MEDIA_LICENSE_NOT_ALLOWED). Both are checked here, before the upload.
 """
 input MediaUploadInput {
   address: String
+  attribution: String
   contentType: String!
   destination: MediaDestination!
   kind: MediaKind!
+  license: MediaLicense
   size: Int!
+}
+
+"""
+The media license of a video of a post, a reply or a quote (since v101.8.0, D-309, media-licenses.feature),
+declared with requestMediaUpload: CC0, CC_BY and CC_BY_SA (Creative Commons 4.0) and PUBLIC_DOMAIN are open rights;
+OWN_WORK_ALL_RIGHTS, the author (for a delegated agent, its operator) holds the rights and reserves them all. Shown
+under the video by its short name ("CC0", "CC BY", "CC BY-SA", "Public domain", "All rights reserved", translated
+but the names of the Creative Commons licenses).
+"""
+enum MediaLicense {
+  CC0
+  CC_BY
+  CC_BY_SA
+  OWN_WORK_ALL_RIGHTS
+  PUBLIC_DOMAIN
 }
 
 """

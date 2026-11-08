@@ -6,6 +6,8 @@ import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
+import { checkLicense, checkVideo, licenseLine, uploadVideo } from '../media.js';
+import { licenseProps } from './publish.js';
 import { pageText, textOrFile } from './shared.js';
 
 type Draft = { id: string; text?: string; universe?: string | null; publishAt?: string | null; updatedAt?: string; failure?: { code?: string } | null; images?: unknown[]; clip?: unknown };
@@ -26,15 +28,25 @@ export const draftsShow = apiCommand({
 });
 export const draftsSave = apiCommand({
   name: 'drafts save', summary: 'Save a post draft: a new one, or the whole content of one (--draft-id) (savePostDraft)',
-  description: 'The content of a post: --text, --in (a universe, or none: the personal space), --link, --images (uploaded image ids, JSON), --clip, --place, --reply-policy, --announcement. A scheduled post is locked from 1 minute before its time (SCHEDULED_POST_LOCKED); 50 drafts (100 with X2, 500 with X10: POST_DRAFT_LIMIT).',
+  description: 'The content of a post: --text, --in (a universe, or none: the personal space), --link, --images (uploaded image ids, JSON), --clip (an uploaded video id) or --video (a video file sent first, under its media license: --license, --attribution; a delegated agent always declares one), --place, --reply-policy, --announcement. A scheduled post is locked from 1 minute before its time (SCHEDULED_POST_LOCKED); 50 drafts (100 with X2, 500 with X10: POST_DRAFT_LIMIT).',
   kind: 'mutation', op: 'savePostDraft', flatten: ['draft'], positionals: ['draft.text'], rename: { 'draft.universe': 'in' }, dry: true,
+  extra: { video: { type: 'string', description: 'A video file (MP4, MOV or WebM, 512 MB at most), sent first as the clip of the draft' }, ...licenseProps },
+  prepare: async (i, ctx) => {
+    const { video, license, attribution, ...rest } = i as Record<string, unknown> & { video?: string; license?: string; attribution?: string };
+    if (video && rest.clip !== undefined) throw usageError('INVALID_INPUT', '--video or --clip, not both');
+    const checked = video ? checkVideo(ctx, video) : undefined;
+    const choice = checkLicense(ctx, { license, attribution }, !!checked);
+    if (!checked) return rest;
+    if (rest.dryRun) return { ...rest, clip: `(${checked.name}, sent first${choice ? ` under ${licenseLine(choice)}` : ''})` };
+    return { ...rest, clip: await uploadVideo(ctx, checked, { destination: 'POST', address: (rest.in as string | undefined) ?? null }, 'VIDEO', choice) };
+  },
   descriptions: { ...draftId, text: 'The text of the post', in: 'Where it will be posted (%universe, %universe/sub; none: the personal space)', images: 'Images: [{ "id": <upload id>, "alt": <text> }]', place: 'Its place: { "point": { "lat", "lon" } } or { "placeId" }' },
   text: draftText,
-  examples: ['breakrocks drafts save "Match tonight #football" --in %test-village-sport', 'breakrocks drafts save "The corrected text" --draft-id <draft id> --in %paris'],
+  examples: ['breakrocks drafts save "Match tonight #football" --in %test-village-sport', 'breakrocks drafts save "Dance" --in %paris --video dance.mp4 --license CC0', 'breakrocks drafts save "The corrected text" --draft-id <draft id> --in %paris'],
 });
 export const draftsSchedule = apiCommand({
   name: 'drafts schedule', summary: 'Schedule a post draft: published at --at, 5 minutes to 30 days from now (--cancel: back to a draft) (schedulePostDraft)',
-  description: 'For a universe or the personal space (SCHEDULED_POST_NOT_ALLOWED otherwise); 20 waiting (40 with X2, 200 with X10: SCHEDULED_POST_LIMIT); SCHEDULED_POST_TIME_INVALID out of 5 minutes to 30 days.',
+  description: 'For a universe or the personal space (SCHEDULED_POST_NOT_ALLOWED otherwise); the media license of its video is the one declared when the video was sent (drafts save --video --license); 20 waiting (40 with X2, 200 with X10: SCHEDULED_POST_LIMIT); SCHEDULED_POST_TIME_INVALID out of 5 minutes to 30 days.',
   kind: 'mutation', op: 'schedulePostDraft', positionals: ['draftId'], rename: { publishAt: 'at' }, dry: true,
   descriptions: { ...draftId, at: 'When it is published (ISO 8601)' },
   extra: { cancel: { type: 'boolean', description: 'Cancel the scheduled post: it stays a post draft' } },

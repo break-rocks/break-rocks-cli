@@ -51,7 +51,7 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect({ ...parseSdl(readContract(source)), version: readFileSync(join(source, 'VERSION'), 'utf8').trim() }).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    expect(GENERATED.version).toBe('v101.6.0');
+    expect(GENERATED.version).toBe('v101.8.0');
     // The descriptions ("""…""") are not fields: Query holds the 202 reads of API v2, Mutation its 334 writes.
     expect(Object.keys(GENERATED.query).length).toBe(202);
     expect(Object.keys(GENERATED.mutation).length).toBe(334);

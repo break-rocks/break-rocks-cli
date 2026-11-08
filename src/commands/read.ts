@@ -9,6 +9,8 @@ import { apiCommand } from '../api/command.js';
 import { outputSchema, selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
+import { licenseLine } from '../media.js';
+import { renderText } from '../render.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { uuidv7 } from '../ids.js';
@@ -24,7 +26,8 @@ export const liveOf = (ctx: Context, target: { address?: string | null; channel?
 /** The channel of the account: /users/<account id>. */
 export const accountChannel = (types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({ channels: async (id) => [`/users/${id}`], matches: (e) => types.includes(e.type) && match(e) });
 
-type Post = { id: string; createdAt: string; kind: string; language?: string | null; clip?: unknown; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
+type MediaOfPost = { url?: string; license?: string | null; attribution?: string | null } | null;
+type Post = { id: string; createdAt: string; kind: string; language?: string | null; clip?: MediaOfPost; longVideo?: MediaOfPost; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
 type Page<T> = { items: T[]; next: string | null; [k: string]: unknown };
 
 const POST = selection('Post', 1);
@@ -96,8 +99,11 @@ export function renderPosts(r: unknown): string {
   const page = r as Page<Post> & { watched?: boolean };
   if (page.watched) return `Watched: ${JSON.stringify(r)}`;
   if (!page.items?.length) return '(no post)';
-  return [...page.items.map((p) => `@${p.author?.handle} in ${p.universe}, ${p.createdAt}  [${p.id}]\n${p.display}${p.images?.length ? `\n${p.images.map((i) => `[image] ${i.url}`).join('\n')}` : ''}`), ...(page.next ? [`next: ${page.next}`] : [])].join('\n\n');
+  return [...page.items.map((p) => `@${p.author?.handle} in ${p.universe}, ${p.createdAt}  [${p.id}]\n${p.display}${p.images?.length ? `\n${p.images.map((i) => `[image] ${i.url}`).join('\n')}` : ''}${mediaLicenseOf(p) ? `\n[media license] ${mediaLicenseOf(p)}` : ''}`), ...(page.next ? [`next: ${page.next}`] : [])].join('\n\n');
 }
+
+/** The line of the media license of the video of a post (its clip or its long video; specs v101.8.0, D-309): "CC BY · Jane Doe"; none: undefined. */
+export const mediaLicenseOf = (p: { clip?: MediaOfPost; longVideo?: MediaOfPost } | null | undefined) => licenseLine(p?.clip) ?? licenseLine(p?.longVideo);
 
 export const postsShow: Command<{ id: string; thread?: boolean; reposts?: boolean; replies?: boolean }, unknown> = {
   name: 'posts show', summary: 'A post; with --thread its thread, --reposts its reposts', examples: ['breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread'],
@@ -109,6 +115,8 @@ export const postsShow: Command<{ id: string; thread?: boolean; reposts?: boolea
     if (reposts) parts.push(`reposts(postId: $id) ${PAGE_OF_POSTS}`);
     return api(ctx, `query($id: ID!) { ${parts.join(' ')} }`, { id });
   },
+  // The plain text of every field, then the line of the media license of its video, as shown under it.
+  text: (r) => { const line = mediaLicenseOf((r as { post?: Post | null }).post); return [renderText(r), ...(line ? [`media license: ${line}`] : [])].join('\n'); },
   quiet: () => undefined,
 };
 
@@ -336,18 +344,18 @@ export const exportPosts: Command<{ universe: string; out: string; max?: number;
   quiet: (r) => r.out,
 };
 
-type Rendered = { id: string; author: string; universe: string; createdAt: string; text: string; images: { url: string; alt: string | null }[]; clip: string | null; link: string | null; url: string; replies: number; likes: number; reposts: number };
+type Rendered = { id: string; author: string; universe: string; createdAt: string; text: string; images: { url: string; alt: string | null }[]; clip: string | null; license: string | null; attribution: string | null; link: string | null; url: string; replies: number; likes: number; reposts: number };
 export const render: Command<{ id: string }, Rendered> = {
   name: 'render', summary: 'A post as plain text, its media as links (reading without HTML)', examples: ['breakrocks render 01a166cb-bfff-7237-81a6-fb564222fe97'],
   input: object({ id: str('The id of the post') }, ['id']),
-  output: openObject({ id: str('Post'), author: str('@handle'), universe: str('Where'), createdAt: str('When'), text: str('Its text (display)'), images: list('Images', openObject({ url: str('URL'), alt: { type: ['string', 'null'] } })), clip: { type: ['string', 'null'] }, link: { type: ['string', 'null'] }, url: str('Its web address') }),
+  output: openObject({ id: str('Post'), author: str('@handle'), universe: str('Where'), createdAt: str('When'), text: str('Its text (display)'), images: list('Images', openObject({ url: str('URL'), alt: { type: ['string', 'null'] } })), clip: { type: ['string', 'null'] }, license: { type: ['string', 'null'], description: 'The media license of its video (MediaLicense), null without one' }, attribution: { type: ['string', 'null'], description: 'The attribution of the media license' }, link: { type: ['string', 'null'] }, url: str('Its web address') }),
   args: { positionals: ['id'] },
   run: async (ctx, { id }) => {
-    const p = (await api<{ post: Post & { clip?: { url?: string } | null } | null }>(ctx, `query($id: ID!) { post(id: $id) ${POST} }`, { id })).post;
+    const p = (await api<{ post: Post | null }>(ctx, `query($id: ID!) { post(id: $id) ${POST} }`, { id })).post;
     if (!p) throw usageError('POST_NOT_FOUND', `No post ${id}`);
-    return { id: p.id, author: `@${p.author.handle}`, universe: p.universe, createdAt: p.createdAt, text: p.display, images: p.images.map((i) => ({ url: i.url, alt: i.alt ?? null })), clip: (p.clip as { url?: string } | null)?.url ?? null, link: p.link?.url ?? null, url: p.url, replies: p.replyCount, likes: p.likeCount, reposts: p.repostCount };
+    return { id: p.id, author: `@${p.author.handle}`, universe: p.universe, createdAt: p.createdAt, text: p.display, images: p.images.map((i) => ({ url: i.url, alt: i.alt ?? null })), clip: p.clip?.url ?? null, license: p.clip?.license ?? p.longVideo?.license ?? null, attribution: (p.clip?.license ? p.clip.attribution : p.longVideo?.attribution) ?? null, link: p.link?.url ?? null, url: p.url, replies: p.replyCount, likes: p.likeCount, reposts: p.repostCount };
   },
-  text: (r) => [`${r.author} in ${r.universe}, ${r.createdAt}`, '', r.text, ...(r.images.length || r.clip || r.link ? [''] : []), ...r.images.map((i, n) => `[image ${n + 1}] ${i.url}${i.alt ? ` (${i.alt})` : ''}`), ...(r.clip ? [`[clip] ${r.clip}`] : []), ...(r.link ? [`[link] ${r.link}`] : []), '', `${r.replies} replies, ${r.likes} likes, ${r.reposts} reposts   ${r.url}`].join('\n'),
+  text: (r) => [`${r.author} in ${r.universe}, ${r.createdAt}`, '', r.text, ...(r.images.length || r.clip || r.license || r.link ? [''] : []), ...r.images.map((i, n) => `[image ${n + 1}] ${i.url}${i.alt ? ` (${i.alt})` : ''}`), ...(r.clip ? [`[clip] ${r.clip}`] : []), ...(r.license ? [`[media license] ${licenseLine(r)}`] : []), ...(r.link ? [`[link] ${r.link}`] : []), '', `${r.replies} replies, ${r.likes} likes, ${r.reposts} reposts   ${r.url}`].join('\n'),
   quiet: (r) => r.id,
 };
 
