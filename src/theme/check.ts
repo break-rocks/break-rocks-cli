@@ -2,8 +2,8 @@
 // them at publication (specs v99.0.0, D-293: contracts/themes.md § Since v99.0.0, § Validation at publication;
 // features/cli/offline-theme-tools.feature), plus what the studio checks at the import (each image named by
 // the JSON matched with a file). The structure is the JSON Schema of the design system
-// (design/schemas/theme-v2.schema.json) and the theme is read as the apps draw it by its shared library
-// (design/lib/theme readTheme): four families of theme surfaces (page, sky, block, control), the former theme
+// (design-lib/schemas/theme-v2.schema.json) and the theme is read as the apps draw it by its shared library
+// (design-lib/lib/theme readTheme): four families of theme surfaces (page, sky, block, control), the former theme
 // surfaces read into their family, deprecated and told; the radii fixed by the platform (surfaceRadius, shape,
 // border ignored, never refused); typography.accent ignored; the image slots page and pageHeader only; the
 // readability mask computed (images read as black and white offline). The contrast is raised by the platform,
@@ -54,7 +54,7 @@ export type CheckReport = {
   /** The four families per variant as the platform would draw them (the colors kept), and the key each was read from. */
   families?: Record<Variant, Resolved>;
   readFrom?: Record<Variant, Partial<Record<Family, string>>>;
-  /** What the platform ignores (design/lib/theme readTheme), as paths. */
+  /** What the platform ignores (design-lib/lib/theme readTheme), as paths. */
   ignored: string[];
   mask?: MaskReport;
 };
@@ -201,7 +201,7 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   }
   if (doc.format !== FORMAT_1 && doc.format !== FORMAT_2) return report(format, doc);
 
-  // 4. The theme read as the apps draw it (design/lib/theme): the families, what is ignored.
+  // 4. The theme read as the apps draw it (design-lib/lib/theme): the families, what is ignored.
   const read = readTheme(structural);
   ignored = read.ignored;
   for (const path of read.ignored) warn('THEME_KEY_IGNORED', path.replace(/ \(.*\)$/, ''), `Ignored since specs v99.0.0 (the platform no longer draws it)${/\((.*)\)$/.exec(path)?.[1] ? `: ${/\((.*)\)$/.exec(path)![1]}` : ''}`);

@@ -5,6 +5,16 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-08
+
+D-307: the shared library of the design system comes from the public repository break-rocks-design-lib, generated from break-rocks-design.
+
+### Changed
+
+- The submodule `design` (break-rocks-design v4.1.0, private) is replaced by `design-lib` (`https://github.com/break-rocks/break-rocks-design-lib.git`, public, MIT) pinned on v4.2.0; the imports, the build (esbuild), the lint and the types read `design-lib/`. A clone builds and tests without any token.
+- CI and the release check out `design-lib` only, without `SUBMODULES_TOKEN`; `specs/common` (private) is read by `npm run update:schema` alone, by hand.
+- `layouts check` follows the design system v4.2.0: a layout no longer has to place the live line (`LAYOUT_LIVE_LINE_REQUIRED` is no longer raised); a live line placed before is accepted and ignored.
+
 ## [0.18.0] - 2026-11-08
 
 Specs v101.6.0 (`specs/common` pinned on that tag: the glossary only, `schema/api-v2` regenerated). D-303 lot 4c: the operations of API v2 of before v83.1.0 that are not deprecated and had no command are covered (159 operations, 181 commands), each in text and `--json`, with its JSON schemas, its completion and its MCP tool. Every operation of the contract that is not deprecated now has a command, but the 17 below.

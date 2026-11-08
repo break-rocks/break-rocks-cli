@@ -3,7 +3,7 @@
 // (checkLayout with { format: "break-rocks-layout/3", pages: [page] }: the backend has no
 // checkUniversePage), hiding, order, deletion, the export and the import of the pages, the report of
 // a page or of one of its free blocks. The check is online: the shared library of the design
-// (design/lib/layout) is not shipped in the CLI.
+// (design-lib/lib/layout) is not shipped in the CLI.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { apiCommand } from '../api/command.js';

@@ -29,13 +29,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
-      # The submodules design (break-rocks-design: the shared library of the themes and the layouts, bundled
-      # in dist/) and specs/common (break-rocks-specs) are private: SUBMODULES_TOKEN, an organization secret,
-      # a fine-grained token that reads them (Contents: read).
+      # The submodule design-lib (break-rocks-design-lib, public: the shared library of the themes and the
+      # layouts, bundled in dist/), without a token. specs/common (break-rocks-specs, private) is not checked
+      # out: only npm run update:schema reads it, by hand (README § The API contract).
       - uses: actions/checkout@v7
-        with:
-          submodules: true
-          token: ${{ secrets.SUBMODULES_TOKEN }}
+      - name: The submodule design-lib
+        shell: bash
+        run: git submodule update --init design-lib
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: |
           npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
-          node -e "const [p]=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const f=p.files.map((x)=>x.path); for (const need of ['bin/breakrocks.js','dist/index.js','completions/breakrocks.bash','README.md']) if (!f.includes(need)) { console.error('missing', need); process.exit(1); } const bad=f.filter((x)=>/^(src|test|scripts|schema|design|specs)\//.test(x)); if (bad.length) { console.error('unexpected', bad); process.exit(1); } console.log(p.name, p.version, f.length, 'files', p.size, 'bytes')" "$RUNNER_TEMP/pack.json"
+          node -e "const [p]=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); const f=p.files.map((x)=>x.path); for (const need of ['bin/breakrocks.js','dist/index.js','completions/breakrocks.bash','README.md']) if (!f.includes(need)) { console.error('missing', need); process.exit(1); } const bad=f.filter((x)=>/^(src|test|scripts|schema|design-lib|specs)\//.test(x)); if (bad.length) { console.error('unexpected', bad); process.exit(1); } console.log(p.name, p.version, f.length, 'files', p.size, 'bytes')" "$RUNNER_TEMP/pack.json"
       - name: The MCP server on stdio
         shell: bash
         env:
