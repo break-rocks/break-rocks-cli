@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { migrateConfig, MIGRATED_NOTE } from '../src/config.js';
 import { macKeychain, secretService } from '../src/keychain.js';
-import { schemaDrift } from '../src/commands/doctor.js';
+import { contractLag, schemaDrift } from '../src/commands/doctor.js';
 import { SCHEMA } from '../src/api/schema.generated.js';
 import { fakePayer, onPlatform } from './fake-platform.js';
 import { fakeKeychain, last, tempDir } from './helpers.js';
@@ -118,6 +118,17 @@ describe('a local agent', () => {
     const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !(name === 'Universe' && f === 'agentPostsForbidden')).map((n) => ({ name: n })), inputFields: null }));
     types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
     expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], deprecatedFields: [], operations: [] });
+  });
+
+  it('doctor tells a CLI behind the API: what the API serves that its contract does not know', () => {
+    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: t.k === 'e' ? 'ENUM' : 'OBJECT', fields: Object.keys(t.f ?? {}).map((n) => ({ name: n })), inputFields: null, enumValues: (t.v ?? []).map((n) => ({ name: n })) }));
+    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null, enumValues: [] }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null, enumValues: [] });
+    const deployed = { __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } };
+    expect(contractLag(deployed)).toEqual({ operations: [], types: [], fields: [], enumValues: [] });
+    const newer = types.map((t) => (t.name === 'Query' ? { ...t, fields: [...t.fields, { name: 'futureThing' }] } : t.name === 'ReportReason' ? { ...t, enumValues: [...t.enumValues, { name: 'FUTURE' }] } : t.name === 'Universe' ? { ...t, fields: [...t.fields, { name: 'future' }] } : t));
+    newer.push({ name: 'FutureType', kind: 'OBJECT', fields: [], inputFields: null, enumValues: [] });
+    expect(contractLag({ __schema: { ...deployed.__schema, types: newer } })).toEqual({ operations: ['Query.futureThing'], types: ['FutureType'], fields: ['Universe.future'], enumValues: ['ReportReason.FUTURE'] });
+    expect(SCHEMA.version).toBe('v101.3.3');
   });
 
   it('doctor only warns about the missing fields the contract deprecates', () => {

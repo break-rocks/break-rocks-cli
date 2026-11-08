@@ -1,7 +1,7 @@
 // The GraphQL documents of the CLI against the contract: the generated schema is the one of
 // schema/api-v2/*.graphql (API v2), every operation's document with its selection is valid,
 // and every command sends only valid documents (a fake API validates them with graphql-js).
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSchema, execute as run, getNamedType, isEnumType, isListType, isNonNullType, isObjectType, isScalarType, parse, validate, type GraphQLFieldResolver, type GraphQLOutputType, type GraphQLSchema } from 'graphql';
 import { describe, expect, it } from 'vitest';
@@ -50,7 +50,8 @@ describe('the contract of the API', () => {
     const source = join(import.meta.dirname, '..', 'schema', 'api-v2');
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
-    expect(parseSdl(readContract(source))).toEqual(JSON.parse(JSON.stringify(GENERATED)));
+    expect({ ...parseSdl(readContract(source)), version: readFileSync(join(source, 'VERSION'), 'utf8').trim() }).toEqual(JSON.parse(JSON.stringify(GENERATED)));
+    expect(GENERATED.version).toBe('v101.3.3');
     // The descriptions ("""…""") are not fields: Query holds the 202 reads of API v2, Mutation its 334 writes.
     expect(Object.keys(GENERATED.query).length).toBe(202);
     expect(Object.keys(GENERATED.mutation).length).toBe(334);

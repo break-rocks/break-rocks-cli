@@ -6,7 +6,7 @@
 //   folder are read) or a folder of those files. Nothing is fetched: the copy is the files given, committed
 //   with the CLI.
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,5 +22,9 @@ const target = join(root, 'schema', 'api-v2');
 rmSync(target, { recursive: true, force: true });
 mkdirSync(target, { recursive: true });
 for (const f of files) copyFileSync(join(source, f), join(target, f));
-console.log(`schema/api-v2: ${files.length} files copied from ${source}`);
+// The version of the specifications the contract comes from (their tag), for doctor: schema/api-v2/VERSION.
+let version = process.argv[3];
+if (!version) { try { version = execFileSync('git', ['-C', source, 'describe', '--tags', '--exact-match'], { encoding: 'utf8' }).trim(); } catch { /* not a tagged checkout */ } }
+if (version) writeFileSync(join(target, 'VERSION'), `${version}\n`);
+console.log(`schema/api-v2: ${files.length} files copied from ${source}${version ? ` (${version})` : ', no version (give it: npm run update:schema -- <path> <vX.Y.Z>)'}`);
 execFileSync(process.execPath, [join(root, 'scripts', 'gen-schema.mjs')], { stdio: 'inherit' });

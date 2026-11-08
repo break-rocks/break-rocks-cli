@@ -15,7 +15,7 @@ import { VERSION } from '../version.js';
 import { compareVersions, readRelease } from './update.js';
 
 export type Check = { name: string; status: 'ok' | 'warn' | 'fail' | 'skip'; detail: string; code?: string };
-export type DoctorResult = { ok: boolean; version: string; profile: string; agent?: string; env: string; checks: Check[]; missingFields: string[]; missingDeprecatedFields: string[]; missingOperations: string[] };
+export type DoctorResult = { ok: boolean; version: string; contract?: string; profile: string; agent?: string; env: string; checks: Check[]; missingFields: string[]; missingDeprecatedFields: string[]; missingOperations: string[]; unknown?: { operations: string[]; types: string[]; fields: string[]; enumValues: string[] } };
 
 export const NPM_LATEST = 'https://registry.npmjs.org/breakrocks/latest';
 
@@ -27,8 +27,32 @@ async function latestVersion(ctx: Context): Promise<string | undefined> {
   try { return (await readRelease(ctx)).tag_name.replace(/^v/, ''); } catch { return undefined; }
 }
 
-const INTROSPECTION = '{ __schema { queryType { name } mutationType { name } types { name kind fields { name } inputFields { name } } } }';
-type Introspected = { __schema: { queryType: { name: string } | null; mutationType: { name: string } | null; types: { name: string; kind: string; fields: { name: string }[] | null; inputFields: { name: string }[] | null }[] } };
+const INTROSPECTION = '{ __schema { queryType { name } mutationType { name } types { name kind fields { name } inputFields { name } enumValues { name } } } }';
+type Introspected = { __schema: { queryType: { name: string } | null; mutationType: { name: string } | null; types: { name: string; kind: string; fields: { name: string }[] | null; inputFields: { name: string }[] | null; enumValues?: { name: string }[] | null }[] } };
+
+/**
+ * What the deployed API serves that the contract embedded in this CLI does not know: the CLI is behind the API
+ * (the API does not announce the version of its contract: what it serves tells it). Its operations ("Query.x"),
+ * its types and their fields ("Universe.tagConventions"), its enum values ("ReportReason.SHOWS_ME").
+ */
+export function contractLag(deployed: Introspected): { operations: string[]; types: string[]; fields: string[]; enumValues: string[] } {
+  const out = { operations: [] as string[], types: [] as string[], fields: [] as string[], enumValues: [] as string[] };
+  const query = deployed.__schema.queryType?.name ?? 'Query', mutation = deployed.__schema.mutationType?.name ?? 'Mutation';
+  for (const t of deployed.__schema.types) {
+    if (t.name.startsWith('__') || ['String', 'Int', 'Float', 'Boolean', 'ID'].includes(t.name)) continue;
+    if (t.name === query || t.name === mutation) {
+      const known = t.name === query ? SCHEMA.query : SCHEMA.mutation;
+      for (const f of t.fields ?? []) if (!(f.name in known)) out.operations.push(`${t.name === query ? 'Query' : 'Mutation'}.${f.name}`);
+      continue;
+    }
+    const known = SCHEMA.types[t.name];
+    if (!known) { if (t.kind !== 'SCALAR') out.types.push(t.name); continue; }
+    for (const f of [...(t.fields ?? []), ...(t.inputFields ?? [])]) if (!known.f || !(f.name in known.f)) out.fields.push(`${t.name}.${f.name}`);
+    for (const v of t.enumValues ?? []) if (!(known.v ?? []).includes(v.name)) out.enumValues.push(`${t.name}.${v.name}`);
+  }
+  return out;
+}
+const some = (items: string[], n = 6) => `${items.slice(0, n).join(', ')}${items.length > n ? ', …' : ''}`;
 
 /**
  * What of the contract the deployed schema lacks: its operations ("Query.x", "Mutation.y": only their
@@ -53,17 +77,18 @@ export function schemaDrift(deployed: Introspected): { fields: string[]; depreca
 }
 
 export const doctor: Command<Record<string, never>, DoctorResult> = {
-  name: 'doctor', summary: 'Check what keeps the CLI from working: version, profile, agent, session, API, schema drift',
-  description: 'Each check is ok, warn, fail or skip; the exit code is 1 when one fails. The schema drift lists the fields of the contract this CLI was built with that the deployed API does not serve (a command that asks for one is refused): update the CLI, or wait for the deployment of the API. With --agent <name>, the local agent and its session.',
+  name: 'doctor', summary: 'Check what keeps the CLI from working: version, profile, agent, session, API, contract behind the API, schema drift',
+  description: 'Each check is ok, warn, fail or skip; the exit code is 1 when one fails. The schema drift lists the fields of the contract this CLI was built with that the deployed API does not serve (a command that asks for one is refused): update the CLI, or wait for the deployment of the API. The contract check compares the contract embedded in this CLI (its specs version) with what the API serves (introspection: operations, types, fields, enum values): what the API serves and the CLI does not know means the CLI is behind (a warning, CLI_CONTRACT_BEHIND: update it). With --agent <name>, the local agent and its session.',
   examples: ['breakrocks doctor', 'breakrocks doctor --agent herald --json'],
   input: object({}),
-  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, session, api, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingDeprecatedFields: list('Type.field of the contract that the API lacks and the contract marks deprecated (a warning)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
+  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), contract: str('The version of the specifications of its contract (v101.3.3)'), unknown: openObject({ operations: list('Query.x, Mutation.y'), types: list('Types'), fields: list('Type.field'), enumValues: list('Enum.VALUE') }, 'What the API serves that the contract of this CLI does not know'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, session, api, contract, operations, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingDeprecatedFields: list('Type.field of the contract that the API lacks and the contract marks deprecated (a warning)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
   run: async (ctx) => {
     const checks: Check[] = [];
     const add = (c: Check) => { checks.push(c); return c.status !== 'fail'; };
     const failed = (name: string, error: unknown): Check => { const e = asCliError(error); return { name, status: 'fail', detail: e.message, code: e.code }; };
     let env = ctx.flags.env ?? 'prod';
     let missingFields: string[] = [], missingDeprecatedFields: string[] = [], missingOperations: string[] = [];
+    let unknown: DoctorResult['unknown'];
 
     const latest = await latestVersion(ctx);
     add(latest === undefined ? { name: 'version', status: 'warn', detail: `${VERSION}; the latest published version could not be read` }
@@ -104,7 +129,12 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
 
     if (session && at) {
       try {
-        ({ fields: missingFields, deprecatedFields: missingDeprecatedFields, operations: missingOperations } = schemaDrift(await graphql<Introspected>(ctx, at.api, apiToken(session), INTROSPECTION)));
+        const deployed = await graphql<Introspected>(ctx, at.api, apiToken(session), INTROSPECTION);
+        ({ fields: missingFields, deprecatedFields: missingDeprecatedFields, operations: missingOperations } = schemaDrift(deployed));
+        unknown = contractLag(deployed);
+        const n = unknown.operations.length + unknown.types.length + unknown.fields.length + unknown.enumValues.length;
+        add(n ? { name: 'contract', status: 'warn', code: 'CLI_CONTRACT_BEHIND', detail: `This CLI knows the contract of specs ${SCHEMA.version ?? '(unknown version)'}; the API of ${env} serves a newer one: ${unknown.operations.length} operation(s) (${some(unknown.operations)}), ${unknown.types.length} type(s), ${unknown.fields.length} field(s) and ${unknown.enumValues.length} enum value(s) it does not know. Update the CLI: breakrocks update` }
+          : { name: 'contract', status: 'ok', detail: `the API of ${env} serves nothing the contract of this CLI (specs ${SCHEMA.version ?? '?'}) does not know` });
         if (missingOperations.length) add({ name: 'operations', status: 'warn', detail: `The API of ${env} does not serve ${missingOperations.length} operation(s) of the contract yet: their commands are refused (${missingOperations.slice(0, 6).join(', ')}${missingOperations.length > 6 ? ', …' : ''})` });
         const deprecatedNote = missingDeprecatedFields.length ? `; ${missingDeprecatedFields.length} deprecated field(s) are gone (${missingDeprecatedFields.slice(0, 10).join(', ')}${missingDeprecatedFields.length > 10 ? ', …' : ''}): their replacements are served` : '';
         add(missingFields.length ? { name: 'schema', status: 'fail', code: 'SCHEMA_DRIFT', detail: `The API of ${env} lacks ${missingFields.length} field(s) this CLI may ask for: ${missingFields.slice(0, 10).join(', ')}${missingFields.length > 10 ? ', …' : ''}. Update the CLI, or wait for the deployment of the API${deprecatedNote}` }
@@ -113,8 +143,8 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
       } catch (error) { const e = asCliError(error); add({ name: 'schema', status: 'warn', code: e.code, detail: `introspection refused: ${e.message}` }); }
     } else add({ name: 'schema', status: 'skip', detail: 'needs a session' });
 
-    return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, profile: ctx.profileName, ...(ctx.agentName ? { agent: ctx.agentName } : {}), env, checks, missingFields, missingDeprecatedFields, missingOperations };
+    return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, ...(SCHEMA.version ? { contract: SCHEMA.version } : {}), ...(unknown ? { unknown } : {}), profile: ctx.profileName, ...(ctx.agentName ? { agent: ctx.agentName } : {}), env, checks, missingFields, missingDeprecatedFields, missingOperations };
   },
-  text: (r) => [...r.checks.map((c) => `${{ ok: 'ok  ', warn: 'warn', fail: 'FAIL', skip: 'skip' }[c.status]}  ${c.name.padEnd(8)} ${c.detail}`), r.ok ? 'All good.' : 'Something fails: see above.'].join('\n'),
+  text: (r) => [`breakrocks ${r.version}${r.contract ? `, contract of specs ${r.contract}` : ''}`, ...r.checks.map((c) => `${{ ok: 'ok  ', warn: 'warn', fail: 'FAIL', skip: 'skip' }[c.status]}  ${c.name.padEnd(8)} ${c.detail}`), r.ok ? 'All good.' : 'Something fails: see above.'].join('\n'),
   exitCode: (r) => (r.ok ? 0 : 1),
 };
