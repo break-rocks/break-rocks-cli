@@ -1380,7 +1380,7 @@ type Query {
   resolveAddress(address: String!): ResolvedAddress
 
   """
-  Since v86.0.0: the video quota of the caller.
+  Since v86.0.0: the video quota of the caller; since v101.8.0 (D-309), a delegated agent's own.
   """
   myVideoQuota: VideoQuota
 }
@@ -1775,7 +1775,10 @@ type Mutation {
   deleted, with the suggested alternative text of an image. The avatar keeps requestAvatarUpload. Since
   v78.0.0 (D-214), its arguments in one input (MediaUploadInput) with its media destination, kept with the
   media: the media is attached to that media destination only, and for POST in the universe declared
-  (MEDIA_DESTINATION_MISMATCH otherwise, from the operation that attaches it); MEDIA_DESTINATION_INVALID.
+  (MEDIA_DESTINATION_MISMATCH otherwise, from the operation that attaches it); MEDIA_DESTINATION_INVALID. Since
+  v101.8.0 (D-309), the media license and its attribution of a video of POST (MediaUploadInput, MediaLicense):
+  MEDIA_LICENSE_REQUIRED, MEDIA_ATTRIBUTION_REQUIRED, MEDIA_ATTRIBUTION_TOO_LONG, MEDIA_LICENSE_NOT_ALLOWED. A
+  delegated agent uploads VIDEO and LONG_VIDEO as a human does, LONG_VIDEO against its own video quota.
   """
   requestMediaUpload(input: MediaUploadInput!, requestId: ID!): MediaUpload
 
