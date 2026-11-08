@@ -589,6 +589,24 @@ reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0
 that are not deprecated: account, private universes, governance, moderation of the universe discussions,
 subscription…).
 
+Checked on dev on 2026-11-08 (profile `e2e-dev`, the human account `@user-royal-tapir-8evw`, created on
+2026-11-01): the reads (`drafts list`, `playlists hub|followed|show`, `videos list|quota`, `routes list|show|plan`
+(snapped, 1.8 km), `routes privacy-zones`, `map routes|posts|places|channels|presences|groups`, `presence show`,
+`live-share list`, `locatable show`, `nearby requests`, `appearance looks`, `universes tags suggestions|view`,
+`messages universes|mentions`, `channels levels`, `me measures|terms`, `ads campaigns|interests|repository`,
+`explore muted`, `resolve`); the writes without governance, each undone: a draft saved, scheduled, cancelled,
+deleted, another published then its post deleted; a route created, changed, exported to GPX, imported again,
+copied, then the three deleted; a playlist of the form ROUTE on that route, read back with its route, then
+deleted; a course with a course link and a markdown document (sent, CHECKING), its items removed, then deleted;
+privacy zones set then cleared; a map presence started, ghosted, stopped; locatable on then off; a nearby token
+then `nearby leave`; a universe muted from discovery then unmuted, blocked in Messages then unblocked; a
+discussion pinned for oneself then unpinned. The platform's refusals came back with their codes
+(`MAP_PRESENCE_TOO_SOON`, `PLAYLIST_CHECKMARKS_NOT_HIDDEN`, `MESSAGE_ORDER_NOT_ALLOWED`, `THEME_SET_NOT_ALLOWED`).
+Not checked: the writes of governance (`appearance apply`, `universes tags conventions`, `discussions place`,
+`reposts accept`: the account is too recent to hold a role), `me terms accept` and `me measures appeal` (the
+account is shared), `ads` writes (`ADS_NOT_OPEN` expected), live shares and meet-ups (no connection), contribution
+votes (no temporary discussion open). `videos list` selects no `adSlots`: dev answers null for that non-null field.
+
 ### Contract of specs v101 and the theme model of v99 (0.16.0)
 
 - **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (v101.5.0 since 0.17.0; 14 SDL files: 202 queries, 334

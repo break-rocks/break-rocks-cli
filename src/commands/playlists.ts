@@ -171,7 +171,7 @@ export const playlistsTracks = apiCommand({
 
 type PostLine = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string; universe?: string };
 export const videosList = apiCommand({
-  name: 'videos list', summary: 'The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos)', kind: 'query', op: 'longVideos', positionals: ['address'], depth: 1,
+  name: 'videos list', summary: 'The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos)', kind: 'query', op: 'longVideos', positionals: ['address'], select: `{ items ${selection('Post', 1)} next }`,
   descriptions: { address: 'The address (%universe, @handle, #tag); none: what the account follows', query: 'A text searched in their posts' },
   text: pageText((p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.handle ? `@${p.author.handle}` : '-'}  ${p.universe ?? ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 60)}`),
   examples: ['breakrocks videos list %paris', 'breakrocks videos list --query "final" --json'],

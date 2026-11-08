@@ -89,6 +89,7 @@ describe('long videos', () => {
     const { h, calls } = scripted({ longVideos: { items: [{ id: 'p1', createdAt: '2026-11-01T10:00:00.000Z', author: { handle: 'erin' }, universe: '%paris', text: 'The match' }], next: null }, proposedChapters: [{ startSeconds: 0, title: 'Intro' }, { startSeconds: 95, title: 'Kick-off' }], setChapters: { id: 'v1', chapters: [{ startSeconds: 0, title: 'Intro' }] }, recordPlayback: true, myVideoQuota: { limitMinutes: 60, minutesLeft: 42, nextReturnAt: null }, playlist: { id: 'pl1' } });
     expect(await h.run('videos', 'list', '%paris', '--query', 'match')).toBe(0);
     expect(calls[0].variables).toEqual({ address: '%paris', query: 'match' });
+    expect(calls[0].query).not.toContain('adSlots');
     expect(h.lines.at(-1)).toBe('p1  2026-11-01T10:00:00.000Z  @erin  %paris  The match');
     expect(await h.run('videos', 'chapters', 'propose', 'p1')).toBe(0);
     expect(h.lines.at(-1)).toBe('0:00  Intro\n1:35  Kick-off');
