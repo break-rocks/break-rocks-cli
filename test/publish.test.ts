@@ -108,12 +108,40 @@ describe('the interactions', () => {
     expect(calls).toEqual([]);
     expect(await h.run('posts', 'delete', 'p1', '--yes', '--json')).toBe(0);
   });
-  it('report a theme by its address, with its reason and its part', async () => {
+  it('report a theme by its address, with its reason and its part; ILLEGAL needs --good-faith', async () => {
     const { h, calls } = scripted({ report: () => ({ id: 'r1' }) });
-    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--json')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ t: { kind: 'THEME', universe: '%paris', name: 'stade-nuit', themePart: 'BANNER' }, reason: 'ILLEGAL', article: null, r: expect.stringMatching(UUID_V7) });
-    expect(await h.run('report', 'channel-message', 'm1', '--channel', '%club~general', '--reason', 'SPAM_OR_FLOOD', '--json')).toBe(0);
-    expect(calls[1].variables.t).toEqual({ kind: 'CHANNEL_MESSAGE', discussion: { channel: '%club~general' }, messageId: 'm1' });
+    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--json')).toBe(2);
+    expect(calls).toEqual([]);
+    expect(await h.run('report', 'theme', '%paris/stade-nuit', '--reason', 'ILLEGAL', '--part', 'BANNER', '--details', 'Not theirs', '--good-faith', '--json')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ t: { kind: 'THEME', universe: '%paris', name: 'stade-nuit', themePart: 'BANNER' }, reason: 'ILLEGAL', article: null, details: 'Not theirs', goodFaith: true, r: expect.stringMatching(UUID_V7) });
+    expect(await h.run('report', 'channel-message', 'm1', '--channel', '%club&general', '--reason', 'SPAM_OR_FLOOD', '--json')).toBe(0);
+    expect(calls[1].variables.t).toEqual({ kind: 'CHANNEL_MESSAGE', discussion: { channel: '%club&general' }, messageId: 'm1' });
+  });
+  it('report the targets of specs v84 to v101: a route, a playlist item, a place sent, with the reasons of the contract', async () => {
+    const { h, calls } = scripted({ report: () => ({ id: 'r1' }) });
+    expect(await h.run('report', 'route', 'rt1', '--reason', 'MISLEADING', '--json')).toBe(0);
+    expect(calls[0].variables.t).toEqual({ kind: 'ROUTE', routeId: 'rt1' });
+    expect(await h.run('report', 'playlist-item', 'pl1', '--post', 'p1', '--reason', 'UNDECLARED_COMMERCIAL', '--json')).toBe(0);
+    expect(calls[1].variables.t).toEqual({ kind: 'PLAYLIST_ITEM', playlistId: 'pl1', postId: 'p1' });
+    expect(await h.run('report', 'place-message', 'm1', '--channel', '%paris&velo', '--reason', 'MISLEADING_LINK', '--json')).toBe(0);
+    expect(calls[2].variables.t).toEqual({ kind: 'PLACE_MESSAGE', discussion: { channel: '%paris&velo' }, messageId: 'm1' });
+    expect(await h.run('report', 'playlist-item', 'pl1', '--reason', 'OFF_TOPIC', '--json')).toBe(2);
+  });
+  it('events create and proposals file take 1 to 5 free tags (ACTION, OTHER, an event), at most 5 otherwise', async () => {
+    const { h, calls } = scripted({ createUniverseEvent: () => ({ id: 'e1' }), fileProposal: () => ({ id: 'pr1' }) });
+    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--json')).toBe(2);
+    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--tags', '#picnic,parc', '--json')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ input: { universe: '%paris', title: 'Picnic', minutes: 60, tags: ['picnic', 'parc'] } });
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'OTHER', '--title', 'Q', '--tags', 'a,b,c,d,e,f', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--tags', 'bancs', '--from-discussion', 'd1', '--json')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ input: { universe: '%paris', kind: 'ACTION', tags: ['bancs'], fromDiscussion: 'd1' } });
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--json')).toBe(2);
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--place-name', 'Bastille', '--json')).toBe(0);
+    expect(calls[2].variables).toMatchObject({ input: { kind: 'CHANNEL', change: { channelAction: { action: 'PLACE', universe: '%paris', name: 'velo', point: { lat: 48.85, lon: 2.36 }, placeName: 'Bastille' } } } });
+    expect(calls[2].variables.input.tags).toBeUndefined();
+    expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'Tags', '--tag-conventions', 'velo', '--json')).toBe(0);
+    expect(calls[3].variables).toMatchObject({ input: { change: { tagConventions: ['velo'] } } });
   });
 });
 

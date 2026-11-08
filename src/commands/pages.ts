@@ -147,13 +147,14 @@ export const pageDelete = apiCommand({
   name: 'universes page delete', summary: 'Delete a custom page, its versions and its free blocks (deleteUniversePage)', kind: 'mutation', op: 'deleteUniversePage', positionals: ['universe', 'name'],
   descriptions: u, confirm: (i) => `Delete the page ${i.name} of ${i.universe}, its versions and the images of its blocks?`, examples: ['breakrocks universes page delete %paris market --yes'],
 });
-const TARGET_FIELDS = ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'universe', 'name', 'themePart', 'block', 'accountId', 'word'];
+const TARGET_FIELDS = ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'universe', 'name', 'themePart', 'block', 'accountId', 'word', 'itemId', 'playlistId', 'routeId'];
 export const pageReport = apiCommand({
   name: 'universes page report', summary: 'Report a custom page or one of its free blocks (report UNIVERSE_PAGE)', kind: 'mutation', op: 'report', flatten: ['target'], positionals: ['target.universe', 'target.name'],
-  fixed: { 'target.kind': 'UNIVERSE_PAGE' }, hide: TARGET_FIELDS.filter((f) => !['universe', 'name', 'block'].includes(f)).map((f) => `target.${f}`), rename: { 'target.name': 'page' }, require: ['universe', 'page'],
+  fixed: { 'target.kind': 'UNIVERSE_PAGE' }, hide: [...TARGET_FIELDS.filter((f) => !['universe', 'name', 'block'].includes(f)).map((f) => `target.${f}`), 'mask'], rename: { 'target.name': 'page' }, require: ['universe', 'page'],
   description: 'In a public universe OFF_TOPIC, SPAM_OR_FLOOD and CHARTER_ARTICLE go to its moderation, ILLEGAL and PLATFORM_RULES to the platform team; in a private universe ILLEGAL and PLATFORM_RULES only. A base page is not reported (REPORT_TARGET_INVALID).',
   descriptions: { universe: u.universe, page: 'The name of the page', block: 'The id of a free block of the page (absent: the page)' }, depth: 1,
   examples: ['breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES'],
+  prepare: (i) => { if (i.reason === 'ILLEGAL' && !i.goodFaith) throw usageError('REPORT_GOOD_FAITH_REQUIRED', 'ILLEGAL: --good-faith is required (you declare in good faith that the content is illegal)'); return i; },
 });
 pageReport.input.properties.reason = { type: 'string', enum: ['OFF_TOPIC', 'SPAM_OR_FLOOD', 'CHARTER_ARTICLE', 'ILLEGAL', 'PLATFORM_RULES'], description: 'The reason (ReportReason)' };
 

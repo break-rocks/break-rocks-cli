@@ -158,10 +158,11 @@ export const territoryRemove: Command<{ universe: string }, TerritoryAnswer> = {
 
 export const territoryReport = apiCommand({
   name: 'universes territory report', summary: 'Report the universe territory of a universe to the platform team (report UNIVERSE_TERRITORY)', kind: 'mutation', op: 'report', flatten: ['target'], positionals: ['target.universe'], require: ['universe'],
-  fixed: { 'target.kind': 'UNIVERSE_TERRITORY' }, hide: ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'name', 'themePart', 'block', 'accountId', 'word'].map((f) => `target.${f}`),
+  fixed: { 'target.kind': 'UNIVERSE_TERRITORY' }, hide: [...['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'name', 'themePart', 'block', 'accountId', 'word', 'itemId', 'playlistId', 'routeId'].map((f) => `target.${f}`), 'mask'],
   description: 'MISLEADING (it does not match the universe), PLATFORM_RULES or ILLEGAL; always to the platform team. One\'s own: REPORT_OWN_CONTENT; none: TERRITORY_NOT_FOUND.',
   descriptions: { universe: 'The universe (%name)', article: 'The article of the platform rules (with PLATFORM_RULES)' }, depth: 1,
   examples: ['breakrocks universes territory report %paris --reason MISLEADING'],
+  prepare: (i) => { if (i.reason === 'ILLEGAL' && !i.goodFaith) throw usageError('REPORT_GOOD_FAITH_REQUIRED', 'ILLEGAL: --good-faith is required (you declare in good faith that the content is illegal)'); return i; },
 });
 territoryReport.input.properties.reason = { type: 'string', enum: ['MISLEADING', 'PLATFORM_RULES', 'ILLEGAL'], description: 'The reason: MISLEADING, PLATFORM_RULES or ILLEGAL' };
 

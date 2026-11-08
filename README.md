@@ -218,7 +218,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `unblock` | Unblock an account (setBlock) | `breakrocks unblock @alice` |
 | `mute` | Mute an account (setMute) | `breakrocks mute @alice` |
 | `unmute` | Unmute an account (setMute) | `breakrocks unmute @alice` |
-| `report` | Report a post, a message, a group, a theme, a layout, a banner, a page or a territory (report) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
+| `report` | Report a post, a message, a group, a theme, a layout, a banner, a page, a territory, a playlist, a route, a place or a map presence (report) | `breakrocks report post <id> --reason SPAM_OR_FLOOD` |
 | `universes show` | The page of a universe: display, field, theme and its origin, theme trial, layout, governance, residents, pinned rules, territory, pages, proposals waiting for support | `breakrocks universes show %test-village-multisport` |
 | `universes list` | Explore the universes: by field, by language, recent, active, new, close to a level, mine | `breakrocks universes list --field SPORT` |
 | `universes sub` | The sub-universes of a universe (--map: their map) | `breakrocks universes sub %france` |
@@ -261,11 +261,11 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `accounts following` | What an account follows | `breakrocks accounts following @alice` |
 | `notifications` | The notifications (--unread; --mark-read marks those listed as read; --watch) | `breakrocks notifications --unread` |
 | `events list` | The events of a universe (--from, --to) | `breakrocks events list %france --from 2026-10-23T00:00:00Z` |
-| `events create` | Create an event in a universe | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont"` |
+| `events create` | Propose an event in a universe (createUniverseEvent): 1 to 5 free tags | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc` |
 | `events attend` | Attend an event (--no: no longer) | `breakrocks events attend <id>` |
 | `proposals list` | The proposals of a universe | `breakrocks proposals list %france --all` |
 | `proposals show` | A proposal | `breakrocks proposals show <id>` |
-| `proposals file` | File a proposal in a universe (fileProposal) | `breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square"` |
+| `proposals file` | File a proposal in a universe (fileProposal) | `breakrocks proposals file %paris --kind ACTION --title "One more bench" --text "Market square" --tags bancs --tags place-du-marche` |
 | `proposals support` | Support a proposal | `breakrocks proposals support <id>` |
 | `proposals vote` | Vote on a proposal: for, against, or a candidate (voteOnProposal) | `breakrocks proposals vote <id> for` |
 | `proposals withdraw` | Withdraw one's proposal (confirmation: `--yes`) | `breakrocks proposals withdraw <id> --yes` |
