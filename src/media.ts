@@ -102,6 +102,13 @@ export async function uploadVideo(ctx: Context, video: CheckedVideo, target: Med
   return send(ctx, await requestUpload(ctx, kind, video, target), video);
 }
 
+/** Sends the avatar of the account (requestAvatarUpload: a JPEG, PNG or WebP image): its upload id, for updateProfile. */
+export async function uploadAvatar(ctx: Context, image: CheckedImage): Promise<string> {
+  ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
+  const form = (await api<{ requestAvatarUpload: Form }>(ctx, 'mutation($c: String!, $r: ID!) { requestAvatarUpload(contentType: $c, requestId: $r) { id url fields } }', { c: image.type, r: uuidv7(ctx.now()) })).requestAvatarUpload;
+  return send(ctx, form, image);
+}
+
 /** A course document or a post document (specs v87.5.0, D-268): a PDF of 20 MB at most, or a markdown text of 200 KB at most. */
 export const DOCUMENT_TYPES: Record<string, { type: string; max: number }> = { '.pdf': { type: 'application/pdf', max: 20 * 1024 * 1024 }, '.md': { type: 'text/markdown', max: 200 * 1024 }, '.markdown': { type: 'text/markdown', max: 200 * 1024 } };
 export type CheckedDocument = { path: string; name: string; type: string; bytes: number };

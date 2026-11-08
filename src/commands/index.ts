@@ -31,6 +31,7 @@ import * as map from './map.js';
 import * as appearance from './appearance.js';
 import * as measures from './measures.js';
 import * as discovery from './discovery.js';
+import { meCommands } from './me.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -43,7 +44,7 @@ register(
   agentLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities, doctor,
-  measures.meMeasures, measures.meMeasuresAppeal, measures.meTerms, measures.meTermsAccept,
+  measures.meMeasures, measures.meMeasuresAppeal, measures.meTerms, measures.meTermsAccept, ...meCommands,
   read.postsList, read.postsShow, publish.postsEdit, publish.postsDelete, publish.postsPin, publish.postsUnpin,
   read.feed, read.render, read.exportPosts,
   drafts.draftsList, drafts.draftsShow, drafts.draftsSave, drafts.draftsSchedule, drafts.draftsPublish, drafts.draftsDelete,

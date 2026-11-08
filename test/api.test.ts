@@ -158,8 +158,8 @@ describe('every command', () => {
     const calling = sent.map((s) => ({ command: s.command, op: /^\w+[^{]*\{\s*(\w+)/.exec(s.doc)?.[1] ?? '' })).filter((s) => deprecated.includes(s.op)).map((s) => `${s.command}: ${s.op}`);
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
-    // Those that read a local file first (a document, a GPX file, an image).
-    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary', 'playlists add-doc', 'routes gpx import']);
+    // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
+    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

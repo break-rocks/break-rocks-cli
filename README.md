@@ -199,6 +199,32 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me measures appeal` | Appeal a platform measure, once, free, within 6 months, with a text of 2,000 characters at most (appealPlatformMeasure; DSA art. 20) (confirmation: `--yes`) | `breakrocks me measures appeal <measure id> --text "The post quoted a news article" --yes` |
 | `me terms` | The versions of the terms of use and of the platform rules the account accepted, and the latest published (myTermsAcceptance) | `breakrocks me terms` |
 | `me terms accept` | Accept the latest published versions of the terms of use and of the platform rules (acceptTerms; the latest read first when not given) (confirmation: `--yes`) | `breakrocks me terms accept --yes` |
+| `me profile set` | Change the profile: display name, bio, links, avatar, AI description, organization name (updateProfile; --avatar-file: an image sent first) | `breakrocks me profile set --display-name "Alice" --bio "Cyclist in Paris"` |
+| `me handle check` | Whether a handle is free to take (handleAvailability) | `breakrocks me handle check alice` |
+| `me handle change` | Change the handle of the account (changeHandle) (confirmation: `--yes`) | `breakrocks me handle change alice2 --yes` |
+| `me password` | Change the password (changePassword): asked without echo, or two lines on the standard input | `breakrocks me password` |
+| `me email change` | Ask to change the email address: a code is sent to the new one (requestEmailChange) | `breakrocks me email change new@example.com` |
+| `me email confirm` | Confirm the change of the email address with the code received (confirmEmailChange) | `breakrocks me email confirm 123456` |
+| `me delete` | Ask to delete the account: a confirmation link is sent by email (requestAccountDeletion; --handle: the handle typed again) (confirmation: `--yes`) | `breakrocks me delete alice --yes` |
+| `me delete confirm` | Delete the account with the token of the confirmation email (confirmAccountDeletion) (confirmation: `--yes`) | `breakrocks me delete confirm <token> --yes` |
+| `me data requests` | The data requests of the account: copies, bulk erasures, rectifications (myDataRequests) | `breakrocks me data requests` |
+| `me data copy` | Ask for a copy of the data of the account, prepared apart and announced by email (requestDataCopy) | `breakrocks me data copy --locale fr` |
+| `me data download` | The download address of a part of a data copy (dataCopyDownload) | `breakrocks me data download <data request id> 1` |
+| `me data erase` | Ask for the bulk erasure of a scope: hidden at once, cancellable 24 hours, then erased for good (requestBulkErasure) (confirmation: `--yes`) | `breakrocks me data erase LIKES_AND_REPOSTS --yes` |
+| `me data erase-cancel` | Cancel a bulk erasure within its 24 hours (cancelBulkErasure) | `breakrocks me data erase-cancel <data request id>` |
+| `me data rectify` | Ask for the rectification of data of the account, in a text (requestRectification) | `breakrocks me data rectify "My birth year is 1990, not 1909"` |
+| `me onboarding` | The onboarding of the account: its status and its steps (onboarding) | `breakrocks me onboarding` |
+| `me onboarding start` | Start the onboarding (startOnboarding) | `breakrocks me onboarding start` |
+| `me onboarding skip` | Skip the onboarding (skipOnboarding) | `breakrocks me onboarding skip` |
+| `me onboarding record` | Record an activity of the onboarding: an address visited, the help opened (recordOnboardingActivity) | `breakrocks me onboarding record ADDRESS_VISITED %paris` |
+| `me invitation-link` | The personal invitation link of the account and who joined through it (personalInvitationLink) | `breakrocks me invitation-link` |
+| `me invitation-link renew` | Renew the personal invitation link: the old one stops working (renewPersonalInvitationLink) (confirmation: `--yes`) | `breakrocks me invitation-link renew --yes` |
+| `me invitation-link read` | What an invitation link of someone shows: whether it works, and who invites (publicInvitationLink) | `breakrocks me invitation-link read <code>` |
+| `me interactions` | What the account did, counted: posts, replies, likes, reposts, follows, residences, votes, reports… (myInteractions) | `breakrocks me interactions` |
+| `me posts` | The posts the account liked or reposted (myPosts LIKED or REPOSTED) | `breakrocks me posts LIKED` |
+| `me reports` | The reports the account sent, and what became of them (myReports) | `breakrocks me reports` |
+| `me invite-exceptions add` | Add an account to the exceptions of who may invite the account to a universe (setInviteException; invite policy "except", 1,000 at most) | `breakrocks me invite-exceptions add @alice` |
+| `me invite-exceptions remove` | Remove an account from the exceptions of who may invite the account (setInviteException) | `breakrocks me invite-exceptions remove @alice` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
 | `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "The corrected text"` |
