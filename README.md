@@ -413,7 +413,7 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 
 ### Contract of specs v101 and the theme model of v99 (0.16.0)
 
-- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (14 SDL files: 202 queries, 334
+- **Contract**: `schema/api-v2/` is the contract of specs **v101.5.0** (14 SDL files: 202 queries, 334
   mutations; `schema/api-v2/VERSION`), taken from the submodule `specs/common` pinned on that tag
   (`npm run update:schema`). The default selections leave out the fields marked `@deprecated`, and no
   command calls an operation the contract deprecates (a test checks it). **The `--json` outputs grow**
@@ -704,7 +704,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
-SDL files, one per domain, with their `"""…"""` descriptions; specs v101.3.3, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.5.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

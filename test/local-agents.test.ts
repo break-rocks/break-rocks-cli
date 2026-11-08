@@ -128,7 +128,7 @@ describe('a local agent', () => {
     const newer = types.map((t) => (t.name === 'Query' ? { ...t, fields: [...t.fields, { name: 'futureThing' }] } : t.name === 'ReportReason' ? { ...t, enumValues: [...t.enumValues, { name: 'FUTURE' }] } : t.name === 'Universe' ? { ...t, fields: [...t.fields, { name: 'future' }] } : t));
     newer.push({ name: 'FutureType', kind: 'OBJECT', fields: [], inputFields: null, enumValues: [] });
     expect(contractLag({ __schema: { ...deployed.__schema, types: newer } })).toEqual({ operations: ['Query.futureThing'], types: ['FutureType'], fields: ['Universe.future'], enumValues: ['ReportReason.FUTURE'] });
-    expect(SCHEMA.version).toBe('v101.3.3');
+    expect(SCHEMA.version).toBe('v101.5.0');
   });
 
   it('doctor only warns about the missing fields the contract deprecates', () => {
