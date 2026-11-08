@@ -9,13 +9,14 @@ import { billingCommands } from '../src/commands/billing.js';
 import { chatCommands } from '../src/commands/chats.js';
 import { civicCommands, civicGovernanceCommands } from '../src/commands/civic.js';
 import { discussionModerationCommands } from '../src/commands/discussions-moderation.js';
+import { favoriteCommands } from '../src/commands/favorites.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
 import type { AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
-export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands];
+export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands];
 
 /** The words of an example, as a shell splits them (quotes kept together), without "breakrocks". */
 export function words(example: string): string[] {
@@ -185,5 +186,16 @@ describe('the paid tiers', () => {
     const { h, calls } = scripted({ billingDayOffer: { amount: 120, currency: 'EUR' } });
     expect(await h.run('subscription', 'billing-day', 'offer', '15', '--kind', 'TIER_SUBSCRIPTION', '--universe', '%club.', '--settle-now')).toBe(0);
     expect(calls[0].variables).toEqual({ input: { day: 15, settleNow: true }, subscription: { kind: 'TIER_SUBSCRIPTION', universe: '%club.' } });
+  });
+});
+
+describe('favorite universes and their alerts', () => {
+  it('lists them and turns the alerts of one on', async () => {
+    const favorites = { offered: false, items: [{ universe: '%paris', alerts: true, private: false }, { universe: '%lyon', alerts: false, private: false }] };
+    const { h, calls } = scripted({ favoriteUniverses: favorites, setUniverseAlerts: favorites });
+    expect(await h.run('universes', 'favorite', 'list')).toBe(0);
+    expect(h.lines.at(-1)).toBe('%paris  alerts on\n%lyon');
+    expect(await h.run('universes', 'favorite', 'alerts-on', '%paris')).toBe(0);
+    expect(calls.at(-1)).toMatchObject({ field: 'setUniverseAlerts', variables: { universe: '%paris', alerts: true } });
   });
 });

@@ -319,6 +319,10 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes favorite add` | Add a favorite universe | `breakrocks universes favorite add %paris` |
 | `universes favorite remove` | Remove a favorite universe | `breakrocks universes favorite remove %paris` |
 | `universes favorite move` | Move a favorite universe (before another, or last) | `breakrocks universes favorite move %paris --before %lyon` |
+| `universes favorite list` | The favorite universes, in their order, with their alerts (favoriteUniverses) | `breakrocks universes favorite list` |
+| `universes favorite alerts-on` | Turn the alerts of a favorite universe on (setUniverseAlerts) | `breakrocks universes favorite alerts-on %paris` |
+| `universes favorite alerts-off` | Turn the alerts of a favorite universe off (setUniverseAlerts) | `breakrocks universes favorite alerts-off %paris` |
+| `universes favorite skip` | No longer offer the pick of favorite universes, on any device (skipFavoriteUniverses) | `breakrocks universes favorite skip` |
 | `universes create-private` | Create a private universe (hosted name or own domain) | `breakrocks universes create-private --hosted-name club-echecs --join-mode REQUEST --legal-space fra --member-tier 1` |
 | `universes invite` | Invite an account (or an email) to a private universe | `breakrocks universes invite %club --account @alice` |
 | `universes conditions show` | The conditions of a universe (a version) | `breakrocks universes conditions show %club` |
