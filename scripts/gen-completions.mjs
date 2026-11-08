@@ -5,9 +5,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import '../dist/commands/index.js';
-import { completionModel } from '../dist/completion/model.js';
-import { SHELLS, completionScript } from '../dist/completion/scripts.js';
+import { SHELLS, completionModel, completionScript } from '../dist/index.js';
 
 const out = fileURLToPath(new URL('../completions/', import.meta.url));
 mkdirSync(out, { recursive: true });

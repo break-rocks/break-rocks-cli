@@ -36,7 +36,13 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
+      # The submodules design (break-rocks-design: the shared library of the themes and the layouts, bundled
+      # in dist/) and specs/common (break-rocks-specs) are private: SUBMODULES_TOKEN, an organization secret,
+      # a fine-grained token that reads them (Contents: read).
       - uses: actions/checkout@v7
+        with:
+          submodules: true
+          token: ${{ secrets.SUBMODULES_TOKEN }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -135,6 +141,9 @@ jobs:
         run: echo "::notice title=npm::NPM_PUBLISH=true is missing; the package breakrocks is not published to npm (README § npm publication and going public)"
       - uses: actions/checkout@v7
         if: env.PUBLISH == 'true'
+        with:
+          submodules: true
+          token: ${{ secrets.SUBMODULES_TOKEN }}
       - uses: actions/setup-node@v7
         if: env.PUBLISH == 'true'
         with:
