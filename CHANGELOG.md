@@ -5,6 +5,10 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+### Added
+
+- Tolerance to a backend behind this CLI (pinned on an older minor version of the specs): a request refused by AppSync because it selects a field the backend does not serve yet (`Validation error of type FieldUndefined`) is sent again once with a degraded selection, without those fields; the command succeeds, the fields are `null` in the answer (`--json` included), and a warning on stderr names them once per run. One retry, no loop; an operation not served is refused as before (README, The API contract).
+
 ## [0.19.0] - 2026-11-08
 
 Specs v101.8.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated). D-309: the videos of delegated agents under a declared media license.

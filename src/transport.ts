@@ -4,6 +4,8 @@
 // retryAt is within 60 seconds likewise. A refusal is a CliError with the code of the contract.
 import type { Context } from './context.js';
 import { CliError, EXIT, networkError, platformRefusal } from './errors.js';
+import { CONTRACT } from './api/graphql.js';
+import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
 
 export const MAX_RETRY_SECONDS = 60;
 
@@ -80,9 +82,12 @@ export const isUnauthorized = (error: unknown) => error instanceof CliError && e
 /**
  * A GraphQL request to [url] with [token] (Authorization as is): its data, or the refusal of its first
  * error (`errorType`, with its errorInfo). A token refused (HTTP 401, or
- * Unauthorized) is the code "Unauthorized".
+ * Unauthorized) is the code "Unauthorized". A field the backend does not serve yet (it is behind the contract
+ * of this CLI): the request sent again once without it, the field null in the answer (src/api/degrade.ts).
  */
-export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void } = {}): Promise<T> {
+export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void; degraded?: boolean } = {}): Promise<T> {
+  const known = extra.degraded ? undefined : degradedOf(ctx).get(query);
+  if (known) return nullRemoved(await graphql<T>(ctx, url, token, known.document, variables, retried, partial, { ...extra, degraded: true }), known.removed);
   const res = await request(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token, ...extra.headers }, body: JSON.stringify({ query, variables }) });
   extra.seen?.(res.headers);
   const body = await bodyOf(res) as { data?: T; errors?: GraphqlError[] };
@@ -93,6 +98,14 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
   if (res.status >= 500 && !first) throw networkError('SERVER_ERROR', `The API answered ${res.status}`, { status: res.status }, 'platform');
   // An answer with its data and errors (createGroupChat and GROUP_INVITATIONS_REFUSED): both, when asked.
   if (first && partial && body.data && Object.values(body.data as object).some((v) => v != null)) return { ...(body.data as object), _errors: body.errors } as T;
+  // A backend behind this CLI refuses a field it does not serve yet: the request is sent again once without it.
+  const unserved = first && !extra.degraded ? unservedFields(body.errors) : undefined;
+  const degraded = unserved && degrade(query, unserved);
+  if (degraded) {
+    degradedOf(ctx).set(query, degraded);
+    warnUnserved(ctx, degraded);
+    return nullRemoved(await graphql<T>(ctx, url, token, degraded.document, variables, retried, partial, { ...extra, degraded: true }), degraded.removed);
+  }
   if (first) {
     const code = first.errorType ?? 'GRAPHQL_ERROR';
     const info = (first.errorInfo ?? undefined) as { retryAt?: string } | undefined;
@@ -108,4 +121,19 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
   }
   if (!res.ok) throw platformRefusal(`HTTP_${res.status}`, `The API answered ${res.status}`, { status: res.status });
   return (body.data ?? {}) as T;
+}
+
+/** The degraded documents of a run (by their original document), so that the next pages do not fail first; the fields already said. */
+const DEGRADED = new WeakMap<Context, Map<string, Degraded>>();
+const WARNED = new WeakMap<Context, Set<string>>();
+const degradedOf = (ctx: Context) => { let m = DEGRADED.get(ctx); if (!m) DEGRADED.set(ctx, m = new Map()); return m; };
+
+/** Says once per field, on stderr (with --json too), that the backend is behind this CLI and the field is null. */
+function warnUnserved(ctx: Context, degraded: Degraded): void {
+  let warned = WARNED.get(ctx);
+  if (!warned) WARNED.set(ctx, warned = new Set());
+  const fields = [...new Set(degraded.removed.map((r) => `${r.type}.${r.field}`))].filter((f) => !warned.has(f));
+  if (!fields.length) return;
+  for (const f of fields) warned.add(f);
+  ctx.notice(`The backend is behind this CLI (contract of specs ${CONTRACT.version ?? '?'}), likely by one minor version: the field${fields.length > 1 ? 's' : ''} ${fields.join(', ')} ${fields.length > 1 ? 'are' : 'is'} not served; null in the answer (breakrocks doctor tells more)`);
 }
