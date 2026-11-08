@@ -53,13 +53,13 @@ export function videoTypeOf(head: Uint8Array, name: string): string | undefined 
 }
 
 /** A video checked before it is sent. */
-export function checkVideo(ctx: Context, path: string): CheckedVideo {
+export function checkVideo(ctx: Context, path: string, maxBytes = MAX_CLIP_BYTES): CheckedVideo {
   const full = fileAt(ctx, path);
   const type = videoTypeOf(new Uint8Array(readFileSync(full).subarray(0, 64)), full);
   if (!type || !VIDEO_TYPES.includes(type)) throw usageError('VIDEO_TYPE_NOT_SUPPORTED', `${path}: a video is an MP4, a MOV or a WebM`, { path });
   const bytes = statSync(full).size;
   if (bytes < 1) throw usageError('VIDEO_SIZE_INVALID', `${path} is empty`, { path });
-  if (bytes > MAX_CLIP_BYTES) throw usageError('CLIP_TOO_LARGE', `${path}: at most 512 MB`, { path, bytes });
+  if (bytes > maxBytes) throw usageError('CLIP_TOO_LARGE', `${path}: at most ${Math.round(maxBytes / 1048576)} MB`, { path, bytes });
   return { path: full, name: basename(full), type, bytes };
 }
 
@@ -85,7 +85,7 @@ async function send(ctx: Context, form: Form, file: { path: string; type: string
 /** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
 export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null };
 
-async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO', file: { type: string; bytes: number }, target: MediaTarget): Promise<Form> {
+async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO' | 'LONG_VIDEO', file: { type: string; bytes: number }, target: MediaTarget): Promise<Form> {
   const input = { kind, contentType: file.type, size: file.bytes, destination: target.destination, ...(target.destination === 'POST' && target.address ? { address: target.address } : {}) };
   return (await api<{ requestMediaUpload: Form }>(ctx, 'mutation($i: MediaUploadInput!, $r: ID!) { requestMediaUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestMediaUpload;
 }
@@ -97,9 +97,29 @@ export async function uploadImage(ctx: Context, image: CheckedImage, target: Med
 }
 
 /** Sends a video checked for [target]: its upload id (the clip of a post or a message once converted). */
-export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget): Promise<string> {
+export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, kind: 'VIDEO' | 'LONG_VIDEO' = 'VIDEO'): Promise<string> {
   ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)…`);
-  return send(ctx, await requestUpload(ctx, 'VIDEO', video, target), video);
+  return send(ctx, await requestUpload(ctx, kind, video, target), video);
+}
+
+/** A course document or a post document (specs v87.5.0, D-268): a PDF of 20 MB at most, or a markdown text of 200 KB at most. */
+export const DOCUMENT_TYPES: Record<string, { type: string; max: number }> = { '.pdf': { type: 'application/pdf', max: 20 * 1024 * 1024 }, '.md': { type: 'text/markdown', max: 200 * 1024 }, '.markdown': { type: 'text/markdown', max: 200 * 1024 } };
+export type CheckedDocument = { path: string; name: string; type: string; bytes: number };
+export function checkDocument(ctx: Context, path: string): CheckedDocument {
+  const full = fileAt(ctx, path);
+  const kind = DOCUMENT_TYPES[extname(full).toLowerCase()];
+  if (!kind) throw usageError('DOCUMENT_FORMAT_NOT_ALLOWED', `${path}: a document is a PDF (.pdf) or a markdown text (.md)`, { path });
+  if (kind.type === 'application/pdf' && String.fromCharCode(...readFileSync(full).subarray(0, 4)) !== '%PDF') throw usageError('DOCUMENT_FORMAT_NOT_ALLOWED', `${path} is not a PDF`, { path });
+  const bytes = statSync(full).size;
+  if (bytes > kind.max) throw usageError('DOCUMENT_TOO_LARGE', `${path}: at most ${kind.max >= 1048576 ? `${kind.max / 1048576} MB` : `${kind.max / 1024} KB`}`, { path, bytes, max: kind.max });
+  return { path: full, name: basename(full), type: kind.type, bytes };
+}
+/** Sends a document checked (requestDocumentUpload; for a course, its playlist): its upload id. */
+export async function uploadDocument(ctx: Context, doc: CheckedDocument, playlistId?: string): Promise<string> {
+  ctx.progress(`Sending ${doc.name} (${Math.ceil(doc.bytes / 1024)} KB)…`);
+  const input = { contentType: doc.type, size: doc.bytes, ...(playlistId ? { playlistId } : {}) };
+  const form = (await api<{ requestDocumentUpload: Form }>(ctx, 'mutation($i: DocumentUploadInput!, $r: ID!) { requestDocumentUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestDocumentUpload;
+  return send(ctx, form, doc);
 }
 
 /**

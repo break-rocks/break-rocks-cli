@@ -123,21 +123,29 @@ async function universeOfPost(ctx: Context, p: Plan, postId: string): Promise<st
 export const wait = (p: Plan) => (p.video ? { stepMs: 5000, maxMs: 10 * 60_000 } : { stepMs: 2000, maxMs: 2 * 60_000 });
 const composeOutput = outputSchema('Post', 1);
 
-export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; announcement?: boolean }, unknown> = {
-  name: 'post', summary: 'Publish a post: text, images (4) or a clip, a link, in an address (createPost)',
-  description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
-  examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
-  input: object({ ...composeProps, in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
+/** A long video (specs v86.0.0, long-videos.feature): horizontal, at most 4 hours, counted in the video quota; never with a clip or images. */
+export const MAX_LONG_VIDEO_BYTES = 20 * 1024 * 1024 * 1024;
+export const post: Command<ComposeInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string }, unknown> = {
+  name: 'post', summary: 'Publish a post: text, images (4), a clip or a long video, a link, in an address (createPost)',
+  description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --long-video: a horizontal video of 4 hours at most, counted in the video quota (videos quota; VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED), never with a clip or images. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
+  examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'breakrocks post "The whole match" --in %paris --long-video match.mp4', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
+  input: object({ ...composeProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
   output: composeOutput, args: { positionals: ['text'] },
   run: async (ctx, input) => {
-    const p = await plan(ctx, input);
-    if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement });
+    const long = input.longVideo ? checkVideo(ctx, input.longVideo, MAX_LONG_VIDEO_BYTES) : undefined;
+    if (long && (input.video || input.image?.length)) throw usageError('POST_IMAGES_AND_CLIP', 'A long video comes without a clip or images');
+    // A post whose only media is a long video needs no text.
+    const p = await plan(ctx, input).catch((e: unknown) => { if (long && (e as { code?: string }).code === 'POST_EMPTY') return emptyPlan(ctx, input); throw e; });
+    if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement, ...(long ? { longVideo: { file: long.name, type: long.type, bytes: long.bytes } } : {}) });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? null });
-    const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
-    return whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).createPost, wait(p));
+    const longVideo = long ? await uploadVideo(ctx, long, { destination: 'POST', address: input.in ?? null }, 'LONG_VIDEO') : null;
+    const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, longVideo, sources: p.sources ?? null };
+    return whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p));
   },
   quiet: (r) => (r as { id?: string }).id,
 };
+/** The plan of a post whose only media is a long video (no text needed). */
+const emptyPlan = (ctx: Context, input: ComposeInput): Plan => ({ text: '', images: [], ...(input.link ? { link: input.link } : {}), ...(sourcesOf(input.source) ? { sources: sourcesOf(input.source) } : {}), requestId: input.requestId ?? uuidv7(ctx.now()) });
 
 export const reply: Command<ComposeInput & { id: string }, unknown> = {
   name: 'reply', summary: 'Reply to a post (replyTo), with images or a clip', examples: ['breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"', 'breakrocks reply <id> --file reply.txt --image a.png'],

@@ -195,6 +195,10 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `usage` | Usage and the limits left: the minute, the hour, the quota of 24 hours (myUsage) | `breakrocks usage` |
 | `capabilities` | What the profile may do now: its restrictions, its limits left, the state of its operator | `breakrocks capabilities --json` |
 | `doctor` | Check what keeps the CLI from working: version, profile, agent, session, API, contract behind the API, schema drift | `breakrocks doctor` |
+| `me measures` | The platform measures the account received in the last 2 years, each with its statement of reasons and its appeal (myPlatformMeasures) | `breakrocks me measures` |
+| `me measures appeal` | Appeal a platform measure, once, free, within 6 months, with a text of 2,000 characters at most (appealPlatformMeasure; DSA art. 20) (confirmation: `--yes`) | `breakrocks me measures appeal <measure id> --text "The post quoted a news article" --yes` |
+| `me terms` | The versions of the terms of use and of the platform rules the account accepted, and the latest published (myTermsAcceptance) | `breakrocks me terms` |
+| `me terms accept` | Accept the latest published versions of the terms of use and of the platform rules (acceptTerms; the latest read first when not given) (confirmation: `--yes`) | `breakrocks me terms accept --yes` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
 | `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "The corrected text"` |
@@ -204,7 +208,51 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `feed` | The feed of the account (timeline); --clips its clips, --new what is new since --since | `breakrocks feed` |
 | `render` | A post as plain text, its media as links (reading without HTML) | `breakrocks render 01a166cb-bfff-7237-81a6-fb564222fe97` |
 | `export` | Export the posts of a universe to a JSON lines file (when the reader may) | `breakrocks export %france --out posts.jsonl` |
-| `post` | Publish a post: text, images (4) or a clip, a link, in an address (createPost) | `breakrocks post "Match tonight #football" --in %test-village-sport` |
+| `drafts list` | The post drafts and the scheduled posts of the account (postDrafts; --scheduled: the scheduled posts only, the earliest first) | `breakrocks drafts list` |
+| `drafts show` | A post draft or a scheduled post of the account (postDraft) | `breakrocks drafts show <draft id>` |
+| `drafts save` | Save a post draft: a new one, or the whole content of one (--draft-id) (savePostDraft) | `breakrocks drafts save "Match tonight #football" --in %test-village-sport` |
+| `drafts schedule` | Schedule a post draft: published at --at, 5 minutes to 30 days from now (--cancel: back to a draft) (schedulePostDraft) | `breakrocks drafts schedule <draft id> --at 2026-11-10T08:00:00Z` |
+| `drafts publish` | Publish a post draft now, as a post (publishPostDraft): the draft is deleted once posted | `breakrocks drafts publish <draft id>` |
+| `drafts delete` | Delete a post draft or a scheduled post, with the media it alone holds (deletePostDraft) (confirmation: `--yes`) | `breakrocks drafts delete <draft id> --yes` |
+| `reposts request` | Ask to repost a post of a private universe one is a member of into another universe (requestRepost; --text: as a quote) | `breakrocks reposts request <post id> --to %paris` |
+| `reposts requests` | The requests to repost a post of a private universe into a universe, waiting for its moderation (repostRequests) | `breakrocks reposts requests %paris` |
+| `reposts accept` | Accept a request to repost a post of a private universe into a universe one moderates (answerRepostRequest): the post is reposted | `breakrocks reposts accept <request id> --in %paris` |
+| `reposts decline` | Decline a request to repost a post of a private universe into a universe one moderates (answerRepostRequest) | `breakrocks reposts decline <request id> --in %paris` |
+| `playlists hub` | The playlists of the account: its own, those it follows, and "Watch later" (playlistsHub) | `breakrocks playlists hub` |
+| `playlists followed` | The playlists the account follows, the most recently changed first (followedPlaylists) | `breakrocks playlists followed` |
+| `playlists show` | A playlist and its items (50 at most), as the account reads it: its form, its route and the stage of each item, the progress (playlist) | `breakrocks playlists show @erin>journey` |
+| `playlists create` | Create a playlist: an account playlist, a series, or a universe playlist; its form, a route for the form ROUTE (createPlaylist) | `breakrocks playlists create journey --kind ACCOUNT --visibility PUBLIC` |
+| `playlists edit` | Change a playlist: its name, description, form, route, visibility, sections or course (updatePlaylist; a field not given stays) | `breakrocks playlists edit @erin>journey --visibility UNLISTED` |
+| `playlists delete` | Delete a playlist (never "Watch later"); its videos stay (deletePlaylist) (confirmation: `--yes`) | `breakrocks playlists delete @erin>journey --yes` |
+| `playlists add` | Add a post with a video (a post without one to a course) to a playlist, at a position, in a section, tied to a stage of its route (addToPlaylist) | `breakrocks playlists add @erin>journey <post id>` |
+| `playlists remove` | Remove a video from a playlist (removeFromPlaylist) | `breakrocks playlists remove @erin>journey <post id>` |
+| `playlists move` | Move a video of a playlist to a position (from 1) and, in a course, a section (movePlaylistItem) | `breakrocks playlists move @erin>journey <post id> 1` |
+| `playlists follow` | Follow a playlist (setPlaylistFollow) | `breakrocks playlists follow @erin>journey` |
+| `playlists unfollow` | Stop following a playlist (setPlaylistFollow) | `breakrocks playlists unfollow @erin>journey` |
+| `playlists pin` | Pin a universe playlist on the page of its universe, by its leadership (pinPlaylist; 3 at most) | `breakrocks playlists pin %paris>walks` |
+| `playlists unpin` | Unpin a universe playlist on the page of its universe, by its leadership (pinPlaylist) | `breakrocks playlists unpin %paris>walks` |
+| `playlists add-link` | Add a course link to a course (form CHAPTERS): its title and its https destination, reviewed as the destination of an ad (addLinkToPlaylist) | `breakrocks playlists add-link @erin>course --title "The reference" --url https://example.org/ref` |
+| `playlists add-doc` | Add a course document to a course (or a new version of one, --item-id): a PDF of 20 MB or a markdown text of 200 KB, sent then checked (requestDocumentUpload, addDocumentToPlaylist) | `breakrocks playlists add-doc @erin>course notes.pdf --title "The notes" --rights-confirmed` |
+| `playlists item-edit` | Change a course link or a course document: its title, the URL of a link, its place, its tags (updatePlaylistCourseItem) | `breakrocks playlists item-edit @erin>course <item id> --title "The reference, 2nd edition"` |
+| `playlists item-remove` | Remove a course link or a course document from a course (its file deleted) (removePlaylistCourseItem) (confirmation: `--yes`) | `breakrocks playlists item-remove @erin>course <item id> --yes` |
+| `playlists check` | Check a post of a course for oneself, once opened from it (checkPlaylistItem; a video is checked by videos playback) | `breakrocks playlists check @erin>course <post id>` |
+| `playlists check-item` | Check a course link or a course document for oneself, once opened (checkPlaylistCourseItem) | `breakrocks playlists check-item @erin>course <item id>` |
+| `playlists reset-progress` | Clear every checkmark of one's own in a playlist, every track together; the resume point stays (resetPlaylistProgress) (confirmation: `--yes`) | `breakrocks playlists reset-progress @erin>course --yes` |
+| `playlists checkmarks` | Show (--shown) or hide (--no-shown) the checkmarks of a SIMPLE playlist for oneself (setPlaylistCheckmarks) | `breakrocks playlists checkmarks @erin>journey --no-shown` |
+| `playlists tags` | Set the playlist tags of an item, all at once (none: --tags ""; 8 per playlist) (setPlaylistItemTags) | `breakrocks playlists tags @erin>course <post id> basics video` |
+| `playlists track` | Pick one's playlist track (none: back to the track by default) (setPlaylistTrack) | `breakrocks playlists track @erin>course quick` |
+| `playlists tracks` | Set the playlist tracks of a playlist, all at once, in order (10 at most; [] none) (setPlaylistTracks) | `breakrocks playlists tracks @erin>course --tracks '[{"name":"quick","title":"The quick way","tags":["basics"]}]'` |
+| `videos list` | The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos) | `breakrocks videos list %paris` |
+| `videos chapters propose` | The chapters the platform proposes from the subtitles of one's long video, shown to nobody until set (proposedChapters) | `breakrocks videos chapters propose <post id>` |
+| `videos chapters set` | Set the chapters of one's long video, all at once ("" removes them) (setChapters) | `breakrocks videos chapters set <post id> --chapters "0=Intro;1:30=The match"` |
+| `videos playback` | Record where one is in a long video (the second; --watched once at 90 %), from a playlist or not (recordPlayback) | `breakrocks videos playback <post id> 120` |
+| `videos quota` | The video quota of the account: its minutes, those left, when minutes come back (myVideoQuota) | `breakrocks videos quota` |
+| `posts alt` | Write the alternative text of an image of one's post in place of its automatic one, once per image (setImageAlt) | `breakrocks posts alt <post id> <image id> "The stadium at night"` |
+| `posts suggested-alt` | The alternative text a platform AI agent suggests for an image uploaded for a post (suggestedAlt) | `breakrocks posts suggested-alt <upload id> --language en` |
+| `posts subtitles on` | Turn the automatic subtitles of the clip of one's post back on (setAutomaticSubtitles) | `breakrocks posts subtitles on <post id>` |
+| `posts subtitles off` | Turn the automatic subtitles of the clip of one's post off (setAutomaticSubtitles) | `breakrocks posts subtitles off <post id>` |
+| `posts subtitles correct` | Correct the subtitles of the clip of one's post: every cue, in order, from a WebVTT or SRT file (correctSubtitles) | `breakrocks posts subtitles correct <post id> --file @clip.vtt` |
+| `post` | Publish a post: text, images (4), a clip or a long video, a link, in an address (createPost) | `breakrocks post "Match tonight #football" --in %test-village-sport` |
 | `reply` | Reply to a post (replyTo), with images or a clip | `breakrocks reply 01a166cb-bfff-7237-81a6-fb564222fe97 "Bien vu !"` |
 | `quote` | Quote a post with a text of one's own (quote) | `breakrocks quote <id> "À lire" --in %paris` |
 | `repost` | Repost a post (--universe: in another universe) | `breakrocks repost <id>` |
@@ -252,9 +300,61 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes pages import` | Import a document break-rocks-layout/3: one studio draft per page (importUniversePages) | `breakrocks universes pages import %paris --file paris-pages.json` |
 | `universes page report` | Report a custom page or one of its free blocks (report UNIVERSE_PAGE) | `breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES` |
 | `explore` | Explore: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow | `breakrocks explore` |
+| `explore why` | "Why this post": why a post was shown in "For you" or the clip feed, from what was shown in the last 7 days (whyRecommended) | `breakrocks explore why <post id>` |
+| `explore muted` | The universes muted from discovery (myMutedUniverses) | `breakrocks explore muted` |
+| `explore mute` | Mute a universe from discovery, its sub-universes included (muteUniverseDiscovery; 500 at most) | `breakrocks explore mute %paris-foot` |
+| `explore unmute` | Unmute a universe from discovery (unmuteUniverseDiscovery) | `breakrocks explore unmute %paris-foot` |
+| `explore reset` | Reset the recommendations: the interest profile, the recommendations of the last 7 days and the clip plays erased; the rest kept (resetRecommendations) (confirmation: `--yes`) | `breakrocks explore reset --yes` |
+| `resolve` | Resolve an address: its canonical address and URL, its address parameters, and the playlist, universe event or route it names (resolveAddress) | `breakrocks resolve "@erin>journey?t=90"` |
 | `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA) | `breakrocks explore area --boundary R7444` |
 | `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
+| `map routes` | The routes that cross an area of the map: public routes and universe routes of public universes, 100 at most (mapRoutes) | `breakrocks map routes --cells 861fb4677ffffff` |
+| `map channels` | The placed channels of an area of the map, with their place, who is there and their last message (mapChannels) | `breakrocks map channels --cells 861fb4677ffffff --universe %paris` |
+| `map posts` | The placed posts of an area of the map the account may read, the most recent first, 200 at most (mapPosts) | `breakrocks map posts --cells 861fb4677ffffff` |
+| `map places` | The places of an area of the map with a placed post of less than 1 hour, the most recent first (mapRecentPlaces: the pulse ring) | `breakrocks map places --cells 861fb4677ffffff` |
+| `map presences` | The map presences of the connected accounts one may see in an area of the map (mapPresences; none in the ghost mode, none across a block) | `breakrocks map presences --cells 861fb4677ffffff` |
+| `map groups` | The groups of map presence of an area (3 people at least per map cell of resolution 8; never a minor) (mapPresenceGroups) | `breakrocks map groups --cells 861fb4677ffffff --universe %paris` |
+| `presence show` | The map presence of the account: its audience, its precision, until when, the ghost mode (myMapPresence) | `breakrocks presence show` |
+| `presence start` | Start (or replace) one's map presence for a duration, with an audience and a point (startMapPresence; a human only) | `breakrocks presence start --point 48.8566,2.3522 --duration ONE_HOUR --connections --precision NEIGHBOURHOOD` |
+| `presence update` | Move one's map presence to a point, every 5 minutes at most (updateMapPresence; MAP_PRESENCE_TOO_SOON) | `breakrocks presence update --point 48.8570,2.3530` |
+| `presence audience` | Change the audience of one's map presence, 30 times in 24 hours at most (setMapPresenceAudience) | `breakrocks presence audience --connections --precision CITY` |
+| `presence ghost on` | Turn the ghost mode on: nobody sees one's map presence, the audience not told (setGhostMode) | `breakrocks presence ghost on` |
+| `presence ghost off` | Turn the ghost mode off (setGhostMode) | `breakrocks presence ghost off` |
+| `presence stop` | Stop one's map presence; nothing is kept (stopMapPresence) | `breakrocks presence stop` |
+| `live-share list` | The live shares of the account in progress (myLiveShares) | `breakrocks live-share list` |
+| `live-share in` | The live shares in progress in a conversation (--with) or a group chat (--group) one takes part in (liveShares) | `breakrocks live-share in --with @alice` |
+| `live-share start` | Start a live share of one's position in a conversation or a group chat: 15 to 1,440 minutes, until an event or a meet-up (setLiveShare; a human only) | `breakrocks live-share start --with @alice --minutes 60` |
+| `live-share stop` | Stop a live share of one's own (setLiveShare) | `breakrocks live-share stop <share id>` |
+| `live-share positions` | The last position of each live share asked (20 at most) one may see; a minor sharer at the center of its map cell (livePositions) | `breakrocks live-share positions <share id> <share id>` |
+| `live-share send` | Send the last 1 to 3 positions of one's live share, at the time of sending (sendLivePositions; every 15 seconds at most: false beyond) | `breakrocks live-share send <share id> --positions 48.8566,2.3522` |
+| `locatable show` | Where the account is locatable now: its universes, activities and map cells (myLocatable) | `breakrocks locatable show` |
+| `locatable residents` | The locatable residents of a universe in an area of the map, to its residents (locatableResidents) | `breakrocks locatable residents %paris --cells 861fb4677ffffff` |
+| `locatable on` | Make oneself locatable in a public universe for an activity, 15 to 480 minutes, at a point turned into a map cell at once (setLocatable) | `breakrocks locatable on %paris-velo --activity "Ride to Vincennes" --point 48.8566,2.3522 --minutes 120` |
+| `locatable off` | Stop being locatable in a universe (setLocatable) | `breakrocks locatable off %paris-velo` |
+| `locatable move` | Move one's map cell as a locatable resident, once every 15 minutes at most (updateLocatableCell) | `breakrocks locatable move %paris-velo --point 48.8400,2.4200` |
+| `meetups answer` | Answer a meet-up of a discussion, ACCEPTED or DECLINED, until its time; again to change the answer (answerMeetUp) | `breakrocks meetups answer <message id> ACCEPTED --group <group id>` |
+| `meetups change` | Change a meet-up: its whole place, time and title, by its author or a group chat admin (changeMeetUp; a change of the day clears the answers) | `breakrocks meetups change <message id> --group <group id> --at 2026-11-12T18:00:00Z --point 48.8530,2.3499 --place-name "Notre-Dame" --title "Apéro"` |
+| `meetups cancel` | Cancel a meet-up until its time, by its author or a group chat admin: it stays as a message, cancelled (cancelMeetUp) (confirmation: `--yes`) | `breakrocks meetups cancel <message id> --group <group id> --yes` |
+| `nearby token` | The nearby token of the account to advertise (BLE), valid until its expiry (createNearbyToken) | `breakrocks nearby token` |
+| `nearby request` | Ask to connect with the account of a nearby token seen around (requestNearbyConnection; 10 in any 10 minutes) | `breakrocks nearby request <token>` |
+| `nearby requests` | The requests to connect through Nearby, sent and received (nearbyRequests) | `breakrocks nearby requests` |
+| `nearby accept` | Accept a request to connect through Nearby: the two accounts are connected (answerNearbyConnection) | `breakrocks nearby accept <request id>` |
+| `nearby decline` | Decline a request to connect through Nearby (answerNearbyConnection) | `breakrocks nearby decline <request id>` |
+| `nearby leave` | Stop Nearby: one's nearby token no longer works and one's requests waiting end (leaveNearby) | `breakrocks nearby leave` |
+| `nearby sightings` | Send the nearby tokens seen around with their closeness; the persons close by come back (recordNearbySightings) | `breakrocks nearby sightings --sightings '[{"token":"<token>","closeness":"NEAR"}]'` |
+| `posts place` | Place one's post at a point or a place, or remove its place (--remove) (setPostPlace) | `breakrocks posts place <post id> --point 48.8566,2.3522` |
+| `routes list` | The routes of the account, the most recent first (myMapRoutes) | `breakrocks routes list` |
+| `routes show` | A route by its id or its URL (/a/alice/w/canal-run), as the account may read it: the parts within the privacy zones of its author left out (mapRoute, mapRouteByUrl) | `breakrocks routes show <route id>` |
+| `routes create` | Save a new route: its points, its mode, snapped or as drawn, its stages and tags (saveMapRoute) | `breakrocks routes create canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap --tags running` |
+| `routes edit` | Change a route of one's own or of one's universe: its whole content (saveMapRoute) | `breakrocks routes edit <route id> canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap` |
+| `routes delete` | Delete a route of one's own (or of one's universe, by its leadership); the events that carry it keep a copy of its line (deleteMapRoute) (confirmation: `--yes`) | `breakrocks routes delete <route id> --yes` |
+| `routes copy` | "Do this route": copy a route one reads into one's own routes, PRIVATE, crediting the original (copyMapRoute) | `breakrocks routes copy <route id>` |
+| `routes gpx export` | Export a route to a GPX file, without the parts its privacy zones hide (mapRouteGpx; --out: the file, else the text) | `breakrocks routes gpx export <route id> --out canal-run.gpx` |
+| `routes gpx import` | Import a GPX file as a PRIVATE route: its track simplified to 1,000 points at most, its waypoints as stages (60 at most) (importGpxRoute) | `breakrocks routes gpx import canal-run.gpx --name canal-run --mode FOOT` |
+| `routes privacy-zones` | The privacy zones of the account: the parts of its routes within them are hidden from the others (myRoutePrivacyZones) | `breakrocks routes privacy-zones` |
+| `routes privacy-zones set` | Set the privacy zones of the account, 0 to 3, each of 200, 500 or 1,000 metres (setRoutePrivacyZones; --zones "": none) | `breakrocks routes privacy-zones set --zones "48.8566,2.3522,500"` |
+| `routes plan` | The route through 2 to 100 points (500 km at most), on foot or by bicycle, snapped to the streets and paths with --snap (route) | `breakrocks routes plan --mode FOOT --points "48.871,2.366;48.884,2.370" --snap` |
 | `time-column` | The time column of a universe: events, polls, debates, votes, projects | `breakrocks time-column %france` |
 | `live` | The live line of a universe (--watch: each change as it comes) | `breakrocks live %france` |
 | `accounts show` | The profile of an account (by @handle or id) | `breakrocks accounts show @alice` |
@@ -284,8 +384,9 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
 | `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
 | `channels leave` | Leave a channel (leaveUniverseDiscussion) | `breakrocks channels leave %paris&velo` |
-| `channels send` | Send a message in a channel, with its media (sendMessage) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
-| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message) | `breakrocks channels read %paris&velo --json` |
+| `channels send` | Send a message in a channel or a universe discussion, with its media (sendMessage; --stance in a temporary one) | `breakrocks channels send %paris&velo "See you at 6 pm"` |
+| `channels read` | The messages of a channel (--since, --all; --watch: its lease, then each new message; --top: the best contributions first) | `breakrocks channels read %paris&velo --json` |
+| `channels levels` | The levels where a channel proposal may open a channel in a public universe of the first level: the universe and its public sub-universes (channelProposalLevels) | `breakrocks channels levels %paris` |
 | `inbox` | The conversations and group chats, the unread first (--unread; --watch) | `breakrocks inbox` |
 | `dm` | Send a direct message: text, images or a clip, a link (sendMessage) | `breakrocks dm @alice "Hello!"` |
 | `dm read` | The conversation with an account (--since, --all; --watch: each new message) | `breakrocks dm read @alice` |
@@ -318,6 +419,18 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions list` | The universe discussions of a universe: present now, unread, mentions, silence, retention (universeDiscussions; --all-levels: of its sub-universes too) | `breakrocks discussions list %paris` |
 | `discussions show` | A universe discussion: its state, who reads it now, unread, mentions, silence, how long its messages are kept (universeDiscussion) | `breakrocks discussions show %paris&general` |
 | `discussions unread` | The universe discussions with unread messages, across the universes of the account, the latest message first (myUnreadDiscussions) | `breakrocks discussions unread` |
+| `discussions pin` | Pin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions pin %paris&velo` |
+| `discussions unpin` | Unpin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions unpin %paris&velo` |
+| `discussions place set` | Set or change the place of a public channel: a point or a zone, with its name, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place set %paris&canal --point 48.8721,2.3654 --name "Canal Saint-Martin"` |
+| `discussions place remove` | Remove the place of a public channel, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place remove %paris&canal` |
+| `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
+| `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
+| `messages ignore-mention` | Ignore a universe discussion of the Mentions row, until a later message mentions you there (ignoreDiscussionMention) | `breakrocks messages ignore-mention %paris&general` |
+| `messages remove-discussion` | Remove a universe discussion from the Universes section of Messages without leaving it; it comes back when you write or join (removeDiscussionFromMessages) | `breakrocks messages remove-discussion %paris&general` |
+| `messages block-universe` | Block a universe in Messages: none of its discussions in the Universes section nor the Mentions row, its mentions no longer notify; you still read and write there (setUniverseBlockedInMessages) | `breakrocks messages block-universe %paris` |
+| `messages unblock-universe` | Lift the block of a universe in Messages (setUniverseBlockedInMessages) | `breakrocks messages unblock-universe %paris` |
+| `messages vote` | Give your contribution vote, UP or DOWN, to a message of an open temporary universe discussion (voteOnContribution; a human acting itself only) | `breakrocks messages vote <message id> UP` |
+| `messages unvote` | Withdraw your contribution vote from a message (withdrawContributionVote) | `breakrocks messages unvote <message id>` |
 | `messages react` | React to a message of a universe discussion with one emoji (reactToMessage; adding it again changes nothing) | `breakrocks messages react <message id> 👍` |
 | `messages unreact` | Remove your reaction from a message of a universe discussion (unreactToMessage; one you did not add: nothing changes) | `breakrocks messages unreact <message id> 👍` |
 | `messages thread` | The thread replies of a message of a universe discussion, the oldest first (threadMessages; --all) | `breakrocks messages thread <message id>` |
@@ -328,6 +441,13 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `themes gallery` | The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day) | `breakrocks themes gallery %paris` |
 | `universes appearance-history` | The appearance history of a universe: its last 5 appearances, the one in use first (universeAppearanceHistory) | `breakrocks universes appearance-history %paris` |
 | `universes appearance-restore` | Restore an appearance of the history: the next version of its theme set, or a proposal APPEARANCE filed (restoreUniverseAppearance) | `breakrocks universes appearance-restore %paris <entry id>` |
+| `appearance looks` | The looks of quick start: the themes of the field collections, 3 by field, each with its character, its layout and its accent (appearanceLooks) | `breakrocks appearance looks` |
+| `appearance palette` | The candidate colors of an image (5 at most) and the one proposed as the accent: an image file sent first, or an upload id (imagePalette) | `breakrocks appearance palette --image sky.jpg` |
+| `appearance build` | Build an appearance of a universe from its gestures: the theme document, its contrast report and the side of its name; nothing stored nor applied (buildUniverseAppearance) | `breakrocks appearance build %paris --image sky.jpg --image-shows THROUGH --character AGORA` |
+| `appearance apply` | Apply an appearance to a universe at once, or propose it (--propose, or a resident who can vote: a proposal APPEARANCE) (applyUniverseAppearance) | `breakrocks appearance apply %team. --image sky.jpg --accent "#5A2E5E" --character GALLERY` |
+| `universes tags conventions` | Set the tag conventions of the showcase of a public universe: the whole list, in order, 10 at most (--none clears it) (setUniverseTagConventions) | `breakrocks universes tags conventions %paris marche brocante velo` |
+| `universes tags suggestions` | The suggested free tags of a universe, 20 at most: its tag conventions first, then the most used of the last 30 days (universeTagSuggestions) | `breakrocks universes tags suggestions %paris` |
+| `universes tags view` | The view of a universe and a tag (%paris#market): its events, proposals and universe routes with the tag, the newest first (universeTagView; its posts: posts list %paris#market) | `breakrocks universes tags view %paris#market` |
 | `universes history` | The universe visit history of the account, the most recent visit first (universeHistory; 50 at most kept) | `breakrocks universes history` |
 | `universes history remove` | Remove one universe from the visit history (removeRecentUniverse; true also when absent) | `breakrocks universes history remove %paris` |
 | `universes history clear` | Clear the whole visit history (clearRecentUniverses) (confirmation: `--yes`) | `breakrocks universes history clear --yes` |
@@ -365,6 +485,21 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `studio end-preview` | End one's draft preview on a universe (endDraftPreview) | `breakrocks studio end-preview %paris` |
 | `studio make-layout` | Publish a layout draft and make it the layout of its universe, or file the proposal (useStudioDraft) | `breakrocks studio make-layout <draft id>` |
 | `studio make-page` | Publish a page draft as the custom page of its universe (useStudioDraft) | `breakrocks studio make-page <draft id>` |
+| `ads campaigns` | The ad campaigns of the account, the most recent first (myAdCampaigns) | `breakrocks ads campaigns` |
+| `ads show` | An ad campaign of the account: its creatives, states, budget and daily aggregates (adCampaign) | `breakrocks ads show <campaign id>` |
+| `ads create` | Create an ad campaign, DRAFT: its creatives, targeting (universes, groups, interests), bid and dates (createAdCampaign; a human of full age or a verified organization) | `breakrocks ads create --name "Autumn" --creatives '[{"format":"IMAGE","headline":"Repairs","text":"Same day","mediaId":"<upload id>","callToAction":"LEARN_MORE","destinationUrl":"https://example.org"}]' --universes %paris --territories FR --languages fr --max-cpm 4 --currency EUR --starts-at 2026-11-15T00:00:00Z` |
+| `ads update` | Change an ad campaign, its whole content (updateAdCampaign; a creative changed sends it back to the review) | `breakrocks ads update <campaign id> --name "Autumn" --creatives '[…]' --universes %paris --territories FR --languages fr --max-cpm 5 --currency EUR --starts-at 2026-11-15T00:00:00Z` |
+| `ads submit` | Send an ad campaign to the review of its creatives (submitAdCampaign; AD_BUDGET_REQUIRED, IDENTITY_NOT_VERIFIED) | `breakrocks ads submit <campaign id>` |
+| `ads pause` | Pause an ad campaign (setAdCampaignState PAUSED) | `breakrocks ads pause <campaign id>` |
+| `ads resume` | Resume an ad campaign (setAdCampaignState RUNNING) | `breakrocks ads resume <campaign id>` |
+| `ads end` | End an ad campaign (setAdCampaignState ENDED) (confirmation: `--yes`) | `breakrocks ads end <campaign id> --yes` |
+| `ads pay` | Prepay the budget of a campaign, 10 EUR at least: by card (a page of the payment provider) or from the universe cash of --universe by its leadership (payAdBudget) (confirmation: `--yes`) | `breakrocks ads pay <campaign id> 50 --currency EUR --source CARD --yes` |
+| `ads suggest` | At most 20 public universes with ads on for an offer, the best first, from public content only (adUniverseSuggestions; 20 a day) | `breakrocks ads suggest --text "Repairs of bicycles in Paris" --territories FR --languages fr` |
+| `ads group` | The universe group of a public universe as seed: the universes it gathers (adUniverseGroup) | `breakrocks ads group %paris` |
+| `ads repository` | The public ad repository: the ads served in the last 12 months, by advertiser or universe (adRepository) | `breakrocks ads repository --universe %paris` |
+| `ads why` | "Why this ad" for the token of an ad slot (adWhy; DSA art. 26) | `breakrocks ads why <slot token>` |
+| `ads interests` | The declared ad interests of the account: offered, on or off, and which (myAdInterests) | `breakrocks ads interests` |
+| `ads interests set` | Turn one's declared ad interests on with 0 to 10 of them, or off, which erases them at once (setAdInterests; a human of full age) | `breakrocks ads interests set SPORTS TRAVEL --enabled` |
 | `batch` | Run the actions of a JSON lines file, one per line, each with its requestId | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio: every command as a tool, for Claude Code, Codex, an agent (offline) | `breakrocks mcp` |
 
@@ -411,9 +546,70 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
 
+### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
+
+D-92: the CLI covers API v2, each command in text and in `--json`, each an MCP tool. 0.17.0 adds 135 commands
+for 123 operations added since v83.1.0 that had none (contract of specs **v101.5.0**, `specs/common` pinned on
+that tag). Each one is an `apiCommand` of the registry: its help, its JSON schemas (`breakrocks schema`), its
+completion, its MCP tool `breakrocks_<group>_<action>`; the writes offer `--dry-run`, the irreversible ones ask
+`--yes`. A playlist is named by its address (`@erin>journey`) or its id, a universe discussion by its address
+(`%paris&general`) or its id, an account by its `@handle`; points are `<lat>,<lon>` (lists: `;`), and the
+areas of the map are 1 to 4 map cells of resolution 6 (`--cells`; no H3 library in the CLI).
+
+- **Posts**: `drafts list|show|save|schedule|publish|delete` (drafts and scheduled posts, v85.1.0);
+  `reposts request|requests|accept|decline` (a post of a private universe reposted into another);
+  `posts alt`, `posts suggested-alt`, `posts subtitles on|off|correct` (a WebVTT or SRT file); `posts place`;
+  `post --long-video <file>` (sent as `LONG_VIDEO`).
+- **Playlists** (v86 to v101.3): `playlists hub|followed|show|create|edit|delete|add|remove|move|follow|unfollow|pin|unpin`,
+  the form `ROUTE` (`create --form ROUTE --route-id`, `add --stage <n>`, `show` tells the stage of each item),
+  courses (`add-link`, `add-doc` sends a PDF or a markdown file, `item-edit`, `item-remove`, `check`,
+  `check-item`), the reader (`reset-progress`, `checkmarks`, `tags`, `track`, `tracks`). **Long videos**:
+  `videos list|playback|quota`, `videos chapters propose|set`.
+- **Routes** (v92.1, v101.4): `routes list|show|create|edit|delete|copy|plan`, `routes gpx export|import`,
+  `routes privacy-zones [set]`; the layers of an area: `map routes|channels|posts|places|presences|groups`.
+- **People on the map**: `presence show|start|update|audience|ghost on|ghost off|stop`; `live-share
+  list|in|start|stop|positions|send` (a minor sharer is read at the center of its map cell, v94.0.0 and
+  v101.4.0); `locatable show|residents|on|off|move`; `meetups answer|change|cancel`; `nearby
+  token|request|requests|accept|decline|leave|sightings`.
+- **Appearance and tags**: `appearance looks|palette|build|apply` (`--image` sent with the destination THEME and
+  waited for, `--image-shows NONE|SUBTLE|THROUGH`, `--focal`, `--character`, `--propose`); `universes tags
+  conventions|suggestions|view` (`%paris#market`).
+- **Discussions** (v88 to v101): `messages universes|mentions|ignore-mention|remove-discussion|block-universe|unblock-universe`,
+  `discussions pin|unpin` (for oneself), `discussions place set|remove`, `messages vote|unvote` (contribution
+  votes), `channels read --top`, `channels send --stance FOR|AGAINST|QUESTION`, `channels levels`.
+- **Measures and terms**: `me measures`, `me measures appeal`, `me terms`, `me terms accept`. **Advertising**:
+  `ads campaigns|show|create|update|submit|pause|resume|end|pay|suggest|group|repository|why`, `ads interests
+  [set]`. **Discovery**: `explore why|muted|mute|unmute|reset`; `resolve <address>`.
+
+Not offered: what the platform defers since v101.5.0 (`NOT_IMPLEMENTED`: map avatars, continuous play, passages
+and montages, masks after posting, placed videos and `pointsOfView`), `recordAdImpression` and `recordAdClick`
+(an app that shows ads), `experienceKinds` (experiences withdrawn from the apps). The delegated agents (tiers,
+plans, restrictions) were covered already (`agents tier|restrict`, `operator plan …`). The page opacity of the
+reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stays (about 155 operations
+that are not deprecated: account, private universes, governance, moderation of the universe discussions,
+subscription…).
+
+Checked on dev on 2026-11-08 (profile `e2e-dev`, the human account `@user-royal-tapir-8evw`, created on
+2026-11-01): the reads (`drafts list`, `playlists hub|followed|show`, `videos list|quota`, `routes list|show|plan`
+(snapped, 1.8 km), `routes privacy-zones`, `map routes|posts|places|channels|presences|groups`, `presence show`,
+`live-share list`, `locatable show`, `nearby requests`, `appearance looks`, `universes tags suggestions|view`,
+`messages universes|mentions`, `channels levels`, `me measures|terms`, `ads campaigns|interests|repository`,
+`explore muted`, `resolve`); the writes without governance, each undone: a draft saved, scheduled, cancelled,
+deleted, another published then its post deleted; a route created, changed, exported to GPX, imported again,
+copied, then the three deleted; a playlist of the form ROUTE on that route, read back with its route, then
+deleted; a course with a course link and a markdown document (sent, CHECKING), its items removed, then deleted;
+privacy zones set then cleared; a map presence started, ghosted, stopped; locatable on then off; a nearby token
+then `nearby leave`; a universe muted from discovery then unmuted, blocked in Messages then unblocked; a
+discussion pinned for oneself then unpinned. The platform's refusals came back with their codes
+(`MAP_PRESENCE_TOO_SOON`, `PLAYLIST_CHECKMARKS_NOT_HIDDEN`, `MESSAGE_ORDER_NOT_ALLOWED`, `THEME_SET_NOT_ALLOWED`).
+Not checked: the writes of governance (`appearance apply`, `universes tags conventions`, `discussions place`,
+`reposts accept`: the account is too recent to hold a role), `me terms accept` and `me measures appeal` (the
+account is shared), `ads` writes (`ADS_NOT_OPEN` expected), live shares and meet-ups (no connection), contribution
+votes (no temporary discussion open). `videos list` selects no `adSlots`: dev answers null for that non-null field.
+
 ### Contract of specs v101 and the theme model of v99 (0.16.0)
 
-- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (14 SDL files: 202 queries, 334
+- **Contract**: `schema/api-v2/` is the contract of specs **v101.3.3** (v101.5.0 since 0.17.0; 14 SDL files: 202 queries, 334
   mutations; `schema/api-v2/VERSION`), taken from the submodule `specs/common` pinned on that tag
   (`npm run update:schema`). The default selections leave out the fields marked `@deprecated`, and no
   command calls an operation the contract deprecates (a test checks it). **The `--json` outputs grow**
@@ -462,8 +658,7 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 - **Build**: `npm run build` bundles the CLI with esbuild (`scripts/build.mjs`, `dist/index.js`); `tsc` only
   checks the types; CI and the release check the submodules out (`SUBMODULES_TOKEN`).
 
-Not yet covered (the next lot): the operations added since v83.1.0 (drafts and scheduled posts, playlists,
-routes and map presence, appearance editor, long videos, advertising, platform measures and terms…).
+The operations added since v83.1.0 are covered since 0.17.0 (below).
 
 ### Discussions, gallery and history (0.15.0, specs v83.1.0)
 
@@ -704,7 +899,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
-SDL files, one per domain, with their `"""…"""` descriptions; specs v101.3.3, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.5.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

@@ -679,7 +679,8 @@ type Query {
   The view of a universe and a tag (`%paris#market`, since v101.1.0, universe-tags.feature): the universe
   events, the proposals and the universe routes of the universe that carry the tag (a free tag or, for a
   proposal, its base tag, in its canonical form), the newest created first, each as the caller may read it
-  (the others left out); its posts are read with posts(address: "%paris#market"). tag: with or without its
+  (the others left out); since v101.5.0, written here: the universe routes are in it like the other objects,
+  as soon as saveMapRoute saves them. Its posts are read with posts(address: "%paris#market"). tag: with or without its
   "#", put in its canonical form (TAG_INVALID otherwise). An unknown universe or tag gives an empty page.
   limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """

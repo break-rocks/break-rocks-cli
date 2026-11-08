@@ -5,6 +5,24 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-08
+
+Specs v101.5.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated). D-303 lot 4b: the operations of API v2 added since v83.1.0 that had no command are covered (123 operations, 135 commands), each in text and `--json`, with its JSON schemas, its completion and its MCP tool.
+
+### Added
+
+- Posts: `drafts list|show|save|schedule|publish|delete` (drafts and scheduled posts); `reposts request|requests|accept|decline`; `posts alt`, `posts suggested-alt`, `posts subtitles on|off|correct` (WebVTT, SRT or JSON cues); `posts place`; `post --long-video <file>`.
+- Playlists: `playlists hub|followed|show|create|edit|delete|add|remove|move|follow|unfollow|pin|unpin|add-link|add-doc|item-edit|item-remove|check|check-item|reset-progress|checkmarks|tags|track|tracks`, the form ROUTE (`--route-id`, `add --stage`, the stage of each item in `show`). Long videos: `videos list|playback|quota`, `videos chapters propose|set`.
+- Routes: `routes list|show|create|edit|delete|copy|plan`, `routes gpx export|import`, `routes privacy-zones [set]`; `map routes|channels|posts|places|presences|groups` (map cells of resolution 6).
+- The people on the map: `presence show|start|update|audience|ghost on|ghost off|stop`, `live-share list|in|start|stop|positions|send` (a minor sharer read at the center of its map cell), `locatable show|residents|on|off|move`, `meetups answer|change|cancel`, `nearby token|request|requests|accept|decline|leave|sightings`.
+- Appearance: `appearance looks|palette|build|apply` (an image sent with the destination THEME and waited for, `--image-shows`, `--focal`, `--character`, `--propose`). Tags: `universes tags conventions|suggestions|view`.
+- Discussions: `messages universes|mentions|ignore-mention|remove-discussion|block-universe|unblock-universe|vote|unvote`, `discussions pin|unpin|place set|place remove`, `channels levels`; `channels read --top`, `channels send --stance`.
+- Measures and terms: `me measures`, `me measures appeal`, `me terms`, `me terms accept`. Advertising: `ads campaigns|show|create|update|submit|pause|resume|end|pay|suggest|group|repository|why`, `ads interests [set]`. Discovery: `explore why|muted|mute|unmute|reset`; `resolve`.
+
+### Not offered
+
+- What the platform defers since v101.5.0 (`NOT_IMPLEMENTED`): map avatars, continuous play, passages and montages, masks after posting, placed videos (`pointsOfView`, `videosOnly`, the precision of a place); `recordAdImpression`, `recordAdClick`; `experienceKinds`.
+
 ## [0.16.0] - 2026-11-08
 
 Specs v101.3.3 (schema/api-v2 regenerated, `specs/common` and `design` v4.1.0 mounted as submodules). **The `--json` outputs change**: the fields added since v83.1.0 are selected, the deprecated ones no longer.
