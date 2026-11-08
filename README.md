@@ -199,6 +199,46 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me measures appeal` | Appeal a platform measure, once, free, within 6 months, with a text of 2,000 characters at most (appealPlatformMeasure; DSA art. 20) (confirmation: `--yes`) | `breakrocks me measures appeal <measure id> --text "The post quoted a news article" --yes` |
 | `me terms` | The versions of the terms of use and of the platform rules the account accepted, and the latest published (myTermsAcceptance) | `breakrocks me terms` |
 | `me terms accept` | Accept the latest published versions of the terms of use and of the platform rules (acceptTerms; the latest read first when not given) (confirmation: `--yes`) | `breakrocks me terms accept --yes` |
+| `me profile set` | Change the profile: display name, bio, links, avatar, AI description, organization name (updateProfile; --avatar-file: an image sent first) | `breakrocks me profile set --display-name "Alice" --bio "Cyclist in Paris"` |
+| `me handle check` | Whether a handle is free to take (handleAvailability) | `breakrocks me handle check alice` |
+| `me handle change` | Change the handle of the account (changeHandle) (confirmation: `--yes`) | `breakrocks me handle change alice2 --yes` |
+| `me password` | Change the password (changePassword): asked without echo, or two lines on the standard input | `breakrocks me password` |
+| `me email change` | Ask to change the email address: a code is sent to the new one (requestEmailChange) | `breakrocks me email change new@example.com` |
+| `me email confirm` | Confirm the change of the email address with the code received (confirmEmailChange) | `breakrocks me email confirm 123456` |
+| `me delete` | Ask to delete the account: a confirmation link is sent by email (requestAccountDeletion; --handle: the handle typed again) (confirmation: `--yes`) | `breakrocks me delete alice --yes` |
+| `me delete confirm` | Delete the account with the token of the confirmation email (confirmAccountDeletion) (confirmation: `--yes`) | `breakrocks me delete confirm <token> --yes` |
+| `me data requests` | The data requests of the account: copies, bulk erasures, rectifications (myDataRequests) | `breakrocks me data requests` |
+| `me data copy` | Ask for a copy of the data of the account, prepared apart and announced by email (requestDataCopy) | `breakrocks me data copy --locale fr` |
+| `me data download` | The download address of a part of a data copy (dataCopyDownload) | `breakrocks me data download <data request id> 1` |
+| `me data erase` | Ask for the bulk erasure of a scope: hidden at once, cancellable 24 hours, then erased for good (requestBulkErasure) (confirmation: `--yes`) | `breakrocks me data erase LIKES_AND_REPOSTS --yes` |
+| `me data erase-cancel` | Cancel a bulk erasure within its 24 hours (cancelBulkErasure) | `breakrocks me data erase-cancel <data request id>` |
+| `me data rectify` | Ask for the rectification of data of the account, in a text (requestRectification) | `breakrocks me data rectify "My birth year is 1990, not 1909"` |
+| `me onboarding` | The onboarding of the account: its status and its steps (onboarding) | `breakrocks me onboarding` |
+| `me onboarding start` | Start the onboarding (startOnboarding) | `breakrocks me onboarding start` |
+| `me onboarding skip` | Skip the onboarding (skipOnboarding) | `breakrocks me onboarding skip` |
+| `me onboarding record` | Record an activity of the onboarding: an address visited, the help opened (recordOnboardingActivity) | `breakrocks me onboarding record ADDRESS_VISITED %paris` |
+| `me invitation-link` | The personal invitation link of the account and who joined through it (personalInvitationLink) | `breakrocks me invitation-link` |
+| `me invitation-link renew` | Renew the personal invitation link: the old one stops working (renewPersonalInvitationLink) (confirmation: `--yes`) | `breakrocks me invitation-link renew --yes` |
+| `me invitation-link read` | What an invitation link of someone shows: whether it works, and who invites (publicInvitationLink) | `breakrocks me invitation-link read <code>` |
+| `me interactions` | What the account did, counted: posts, replies, likes, reposts, follows, residences, votes, reports… (myInteractions) | `breakrocks me interactions` |
+| `me posts` | The posts the account liked or reposted (myPosts LIKED or REPOSTED) | `breakrocks me posts LIKED` |
+| `me reports` | The reports the account sent, and what became of them (myReports) | `breakrocks me reports` |
+| `me invite-exceptions add` | Add an account to the exceptions of who may invite the account to a universe (setInviteException; invite policy "except", 1,000 at most) | `breakrocks me invite-exceptions add @alice` |
+| `me invite-exceptions remove` | Remove an account from the exceptions of who may invite the account (setInviteException) | `breakrocks me invite-exceptions remove @alice` |
+| `subscription show` | The paid tier subscription of the account (mySubscription; none: no subscription) | `breakrocks subscription show` |
+| `subscription offer` | The prices of the paid tiers in a currency, and the payment providers (subscriptionOffer) | `breakrocks subscription offer` |
+| `subscription start` | Subscribe to a paid tier: the address of the payment page, the subscription starts once the provider confirms (startSubscription) (confirmation: `--yes`) | `breakrocks subscription start X2 --interval MONTH --automatic-renewal --yes` |
+| `subscription renewal on` | Turn the automatic renewal back on (setAutomaticRenewal) | `breakrocks subscription renewal on` |
+| `subscription renewal off` | Turn the automatic renewal off: the subscription ends at its paid date, without refund (setAutomaticRenewal) | `breakrocks subscription renewal off` |
+| `subscription billing-day offer` | What a billing day would cost, changing nothing (billingDayOffer) | `breakrocks subscription billing-day offer 15 --kind PAID_TIER` |
+| `subscription billing-day set` | Choose the billing day of a subscription paid by card, once per paid period (setBillingDay) (confirmation: `--yes`) | `breakrocks subscription billing-day set 15 --kind PAID_TIER --yes` |
+| `subscription portal` | The billing portal of the payment provider: payment methods and invoices (openBillingPortal) | `breakrocks subscription portal` |
+| `subscription seller-verify` | The page of the payment provider that verifies you as a seller, valid 5 minutes (verifySellerIdentity) | `breakrocks subscription seller-verify` |
+| `gift-codes offer` | The gift codes offered in a currency: one per paid tier and number of months (giftCodeOffer) | `breakrocks gift-codes offer --currency EUR` |
+| `gift-codes list` | The gift codes the account bought (myGiftCodes) | `breakrocks gift-codes list` |
+| `gift-codes buy` | Buy a gift code of a paid tier for 1, 3 or 12 months: the address of the payment page; the code is made once paid (buyGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes buy X2 3 --yes` |
+| `gift-codes redeem` | Use a gift code: its tier for its months (redeemGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes redeem ABCD-EFGH --yes` |
+| `gift-codes refund` | Ask the refund of an unused gift code within 14 days of its purchase (refundGiftCode) (confirmation: `--yes`) | `breakrocks gift-codes refund ABCD-EFGH --yes` |
 | `posts list` | The posts of an address: a universe, a sub-universe, a tag, an account (posts) | `breakrocks posts list %france/paris#sport --limit 20` |
 | `posts show` | A post; with --thread its thread, --reposts its reposts | `breakrocks posts show 01a166cb-bfff-7237-81a6-fb564222fe97 --thread` |
 | `posts edit` | Change the text of one's post and its post sources (within 1 hour) | `breakrocks posts edit <id> "The corrected text"` |
@@ -279,11 +319,53 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes favorite add` | Add a favorite universe | `breakrocks universes favorite add %paris` |
 | `universes favorite remove` | Remove a favorite universe | `breakrocks universes favorite remove %paris` |
 | `universes favorite move` | Move a favorite universe (before another, or last) | `breakrocks universes favorite move %paris --before %lyon` |
+| `universes favorite list` | The favorite universes, in their order, with their alerts (favoriteUniverses) | `breakrocks universes favorite list` |
+| `universes favorite alerts-on` | Turn the alerts of a favorite universe on (setUniverseAlerts) | `breakrocks universes favorite alerts-on %paris` |
+| `universes favorite alerts-off` | Turn the alerts of a favorite universe off (setUniverseAlerts) | `breakrocks universes favorite alerts-off %paris` |
+| `universes favorite skip` | No longer offer the pick of favorite universes, on any device (skipFavoriteUniverses) | `breakrocks universes favorite skip` |
 | `universes create-private` | Create a private universe (hosted name or own domain) | `breakrocks universes create-private --hosted-name club-echecs --join-mode REQUEST --legal-space fra --member-tier 1` |
 | `universes invite` | Invite an account (or an email) to a private universe | `breakrocks universes invite %club --account @alice` |
 | `universes conditions show` | The conditions of a universe (a version) | `breakrocks universes conditions show %club` |
 | `universes conditions set` | Set the conditions of a private universe | `breakrocks universes conditions set %club "Respect and good humour"` |
 | `universes conditions accept` | Accept the conditions of a universe | `breakrocks universes conditions accept %club --conditions-version 2` |
+| `universes join-requests` | The join requests waiting in a private universe joined by request, the oldest first (joinRequests; its owner and admins) | `breakrocks universes join-requests %club.` |
+| `universes join-requests accept` | Accept the join request of an account (answerJoinRequest) | `breakrocks universes join-requests accept %club. @alice` |
+| `universes join-requests decline` | Decline the join request of an account (answerJoinRequest) | `breakrocks universes join-requests decline %club. @alice` |
+| `universes join-requests accept-all` | Accept every waiting join request, up to the member tier (answerAllJoinRequests) | `breakrocks universes join-requests accept-all %club.` |
+| `universes join-requests decline-all` | Decline every waiting join request (answerAllJoinRequests) (confirmation: `--yes`) | `breakrocks universes join-requests decline-all %club. --yes` |
+| `universes invitations` | The invitations to private universes received, the most recent first (universeInvitations) | `breakrocks universes invitations` |
+| `universes invitations accept` | Accept an invitation to a private universe: join it, with the version of its conditions accepted (answerUniverseInvitation) | `breakrocks universes invitations accept %club. --conditions-version 2` |
+| `universes invitations decline` | Decline an invitation to a private universe (answerUniverseInvitation) | `breakrocks universes invitations decline %club.` |
+| `universes admins add` | Name a member admin of a private universe (setUniverseAdmin; its owner) | `breakrocks universes admins add %club. @alice` |
+| `universes admins remove` | Remove the admin role of a member (setUniverseAdmin) | `breakrocks universes admins remove %club. @alice` |
+| `universes transfer accept` | Accept the transfer of a private universe: become its owner (answerUniverseTransfer) (confirmation: `--yes`) | `breakrocks universes transfer accept %club. --yes` |
+| `universes transfer decline` | Decline the transfer of a private universe (answerUniverseTransfer) | `breakrocks universes transfer decline %club.` |
+| `universes delete` | Delete a private universe: hidden at once, deleted for good 30 days later unless cancelled (deletePrivateUniverse; its owner) (confirmation: `--yes`) | `breakrocks universes delete %club. --yes` |
+| `universes delete-cancel` | Cancel the deletion of a private universe before it is deleted for good (cancelUniverseDeletion) | `breakrocks universes delete-cancel %club.` |
+| `universes private set` | Change the settings of a private universe: display case, join mode, automatic alternative texts and subtitles (changePrivateUniverse; its owner) | `breakrocks universes private set %club. --join-mode REQUEST` |
+| `universes domains` | The own domains waiting for their DNS proof: the TXT record to publish (pendingDomains) | `breakrocks universes domains` |
+| `universes domains check` | Look for the DNS TXT record of an own domain: found, the private universe is created (checkDnsProof) | `breakrocks universes domains check example.com` |
+| `universes team-tier` | After a declaration found false: choose the free member tier of a team, 10 members (chooseTeamMemberTier; its owner) (confirmation: `--yes`) | `breakrocks universes team-tier %club. --yes` |
+| `universes declare` | Declare an association (its registration number) or an open-source project (its public repository): the member tier goes to 1,000, free (declareUniverse) | `breakrocks universes declare %club. OPEN_SOURCE https://github.com/example/club` |
+| `universes expose` | Expose a sub-universe of a private universe and everything below it: read, reply or participate (exposeUniverse) | `breakrocks universes expose %club./news --access REPLY` |
+| `universes hide` | Hide the exposed parts of a private universe again (hideUniverse) | `breakrocks universes hide %club./news` |
+| `universes reactivate` | Reactivate an archived universe: its 12 months start again (reactivateUniverse; its owner) | `breakrocks universes reactivate %club.` |
+| `universes reputation` | The reputation of a private universe, for its members (privateUniverseReputation) | `breakrocks universes reputation %club.` |
+| `universes reputation set` | Turn the reputation of a private universe on (from the next midnight UTC) or off (at once), and set its folding coefficient (setUniverseReputation; its owner) | `breakrocks universes reputation set %club. --turned-on --folding-coefficient 1.5` |
+| `universes search-words` | Set the universe search words of a universe: the whole list, 10 at most ([] or none: cleared) (setUniverseSearchWords) | `breakrocks universes search-words %paris velo bike cycling` |
+| `universes identity` | Set the banner, its night variant, the logo and the watermark of a universe (setUniverseIdentity; --clear: remove parts) | `breakrocks universes identity %club. --banner-file ./banner.jpg` |
+| `universes tiers offer` | Offer a subscription tier in a private universe joined by subscription, 3 at most (offerSubscriptionTier; its owner) | `breakrocks universes tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS` |
+| `universes tiers change` | Change a subscription tier: a rise applies 30 days later, a decrease at once (changeSubscriptionTier) | `breakrocks universes tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE` |
+| `universes tiers withdraw` | Withdraw a subscription tier: its paying members keep it until the end of their paid period (withdrawSubscriptionTier) (confirmation: `--yes`) | `breakrocks universes tiers withdraw %club. <tier id> --yes` |
+| `universes tiers subscribe` | Subscribe to a tier of a private universe: the address of the payment page, the membership starts once paid (startTierSubscription) | `breakrocks universes tiers subscribe %club. <tier id> --interval MONTH --automatic-renewal --no-immediate-access-consent --conditions-version 1` |
+| `universes tiers renewal on` | Turn the renewal of a tier subscription back on (setTierSubscriptionRenewal) | `breakrocks universes tiers renewal on %club.` |
+| `universes tiers renewal off` | Turn the renewal of a tier subscription off: it ends at its paid date, without refund (setTierSubscriptionRenewal) | `breakrocks universes tiers renewal off %club.` |
+| `universes residences` | The residences of the account in public universes, the most recent first (myPresences) | `breakrocks universes residences` |
+| `universes sub-map` | The sub-universe map of a universe (subUniverseMap; null when not offered) | `breakrocks universes sub-map %paris --json` |
+| `universes landing` | The landing page of a universe as shown without an account: its name, its theme, its governance level, never its content (universeLanding) | `breakrocks universes landing %paris --json` |
+| `universes land` | Mark a landing in a universe, as the apps do: whether it landed before; recorded in the visit history unless paused (markLanding) | `breakrocks universes land %paris` |
+| `universes listed` | Be listed on the members page of a public universe (setListedOnMembersPage; by default) | `breakrocks universes listed %paris` |
+| `universes unlisted` | Not be listed on the members page of a public universe (setListedOnMembersPage) | `breakrocks universes unlisted %paris` |
 | `universes territory get` | The universe territory of a universe: a boundary or a circle (Universe.territory) | `breakrocks universes territory get %paris` |
 | `universes territory set` | Set the universe territory of a universe: a boundary, or a circle around a place (setUniverseTerritory) | `breakrocks universes territory set %paris --boundary R7444` |
 | `universes territory remove` | Remove the universe territory of a universe (setUniverseTerritory clear; the leadership) | `breakrocks universes territory remove %paris` |
@@ -306,6 +388,16 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `explore unmute` | Unmute a universe from discovery (unmuteUniverseDiscovery) | `breakrocks explore unmute %paris-foot` |
 | `explore reset` | Reset the recommendations: the interest profile, the recommendations of the last 7 days and the clip plays erased; the rest kept (resetRecommendations) (confirmation: `--yes`) | `breakrocks explore reset --yes` |
 | `resolve` | Resolve an address: its canonical address and URL, its address parameters, and the playlist, universe event or route it names (resolveAddress) | `breakrocks resolve "@erin>journey?t=90"` |
+| `search` | Search posts, accounts, universes, pages, discussions, playlists and tags (search: 2 to 200 characters, words and addresses) | `breakrocks search "velo paris"` |
+| `clips feed` | The clip feed that never ends: of an address, or of the follows (clipFeedSequence) | `breakrocks clips feed` |
+| `clips platform` | The platform clips: every vertical and square clip of the public universes ranked by its quality, the reader's languages first (platformClips) | `breakrocks clips platform --language fr` |
+| `clips popular` | The popular clips of the last 7 days in the reader's languages (popularClips) | `breakrocks clips popular --language fr` |
+| `interests show` | The interest profile of the account: the fields chosen, the interests inferred, the consents (myInterestProfile) | `breakrocks interests show` |
+| `interests add` | Add interests to the profile: tags, universes, fields (addInterests; 100 at most) | `breakrocks interests add --tags football,velo --universes %paris` |
+| `interests fields` | Choose 1 to 3 fields, once, while the choice is offered (--choices []: skip it) (chooseFields) | `breakrocks interests fields SPORT PLACES` |
+| `interests forget` | Forget interests (not inferred again for 90 days), or --all: the whole profile and its consents (forgetInterests) (confirmation: `--yes`) | `breakrocks interests forget --tags football --yes` |
+| `interests tags` | The tags the account engaged with (myEngagedTags) | `breakrocks interests tags` |
+| `interests not-interested` | What the account said it is not interested in: posts, accounts, tags, universes, until when (myNotInterested) | `breakrocks interests not-interested` |
 | `explore area` | The universes of an area of the map: those whose universe territory meets its map cells (exploreUniverses AREA) | `breakrocks explore area --boundary R7444` |
 | `places search` | Search a place in an area: its point, its kind, the universes whose territory holds it (places) | `breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary of the cartography: its name, level, box and map cells (--geojson: the whole GeoJSON Feature) | `breakrocks map boundary R7444` |
@@ -360,6 +452,13 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `accounts show` | The profile of an account (by @handle or id) | `breakrocks accounts show @alice` |
 | `accounts followers` | The followers of an account | `breakrocks accounts followers @alice --all` |
 | `accounts following` | What an account follows | `breakrocks accounts following @alice` |
+| `posts thread` | A post and its replies, in the order of the thread (thread; --hidden: the hidden replies of its root) | `breakrocks posts thread <post id>` |
+| `posts reposts` | The reposts of a post, the most recent first (reposts) | `breakrocks posts reposts <post id>` |
+| `posts link-preview` | The preview of a link before it is posted: title, description, image (linkPreview; none: no preview) | `breakrocks posts link-preview https://example.com/article` |
+| `posts reply-policy` | Set who can reply to one of your posts: everyone, following, mentioned or nobody (setReplyPolicy) | `breakrocks posts reply-policy <post id> mentioned` |
+| `accounts replies` | The replies of an account, the newest first, those you may read (replies) | `breakrocks accounts replies @alice` |
+| `accounts is-following` | Whether you follow an address: an account, an account in a universe, a universe (isFollowing) | `breakrocks accounts is-following @alice` |
+| `map avatar` | Your map avatar: its parts (myMapAvatar; choosing and buying parts are not served yet) | `breakrocks map avatar --json` |
 | `notifications` | The notifications (--unread; --mark-read marks those listed as read; --watch) | `breakrocks notifications --unread` |
 | `events list` | The events of a universe (--from, --to) | `breakrocks events list %france --from 2026-10-23T00:00:00Z` |
 | `events create` | Propose an event in a universe (createUniverseEvent): 1 to 5 free tags | `breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc` |
@@ -380,6 +479,26 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `polls show` | A poll | `breakrocks polls show <id>` |
 | `polls create` | Create a poll in a universe | `breakrocks polls create %paris --question "Quel jour ?" --choices samedi --choices dimanche` |
 | `polls pick` | Pick a choice of a poll (its index, from 0) | `breakrocks polls pick <id> 1` |
+| `proposals votes` | The votes of the representatives on a proposal, the largest first: those who hold lent votes, never the choice of the others (proposalVotes) | `breakrocks proposals votes <id>` |
+| `proposals mine` | The proposals the account filed (--voted: those it voted on), the most recent first (myProposals) | `breakrocks proposals mine` |
+| `proposals projects` | The projects of a universe: action proposals adopted and not done, in progress first (projects) | `breakrocks proposals projects %paris` |
+| `proposals project-status` | Set the status of a project with a note: in progress or done (setProjectStatus; the leadership, without leadership the residents) | `breakrocks proposals project-status <id> IN_PROGRESS --note "Works start in March"` |
+| `proposals project-done` | Declare the project of an adopted action proposal done (declareProjectDone; its author) | `breakrocks proposals project-done <id>` |
+| `proposals refusal-review` | Ask the platform team, once, to review the refusal of a proposal when filed (askProposalRefusalReview; its author) (confirmation: `--yes`) | `breakrocks proposals refusal-review <id> --yes` |
+| `proposals change` | Amend a proposal: always refused by the platform, a proposal is withdrawn and filed again (changeProposal) | `breakrocks proposals change <id> --text "A new text"` |
+| `polls support` | Support a poll waiting for support (supportPoll; a resident) | `breakrocks polls support <id>` |
+| `events support` | Support a universe event proposed by a resident (supportUniverseEvent; a resident who can vote) | `breakrocks events support <id>` |
+| `events change` | Change a universe event: title, start, length, place, link, tags, its point, zone or route (changeUniverseEvent; the attendees are told) | `breakrocks events change <id> --title "Night ride" --starts-at 2026-11-20T19:00:00Z` |
+| `events delete` | Delete a universe event (deleteUniverseEvent) (confirmation: `--yes`) | `breakrocks events delete <id> --yes` |
+| `events attendees` | The attendees of a universe event, to the residents of its universe (universeEventAttendees) | `breakrocks events attendees <id> --all` |
+| `sanctions list` | The sanctions of the account in universes, the newest first (mySanctions) | `breakrocks sanctions list` |
+| `sanctions appeal` | Appeal a sanction before its date, to a jury of residents (appealSanction; --publish-name: your name published with it) (confirmation: `--yes`) | `breakrocks sanctions appeal <id> --no-publish-name --yes` |
+| `sanctions publish-name` | Whether your name is published with your appeal, until the decision (setAppealPublishName) | `breakrocks sanctions publish-name <id> off` |
+| `jury accept` | Accept your draw as a juror for the appeal of a sanction, before its answer date (answerJuryDraw) | `breakrocks jury accept <sanction id>` |
+| `jury decline` | Decline your draw as a juror for the appeal of a sanction, before its answer date (answerJuryDraw) | `breakrocks jury decline <sanction id>` |
+| `jury reviews` | Ask, for the jury, the two platform AI agents to review the sanction against the charter, one for and one against, once per appeal (askSanctionReviews) | `breakrocks jury reviews <sanction id>` |
+| `jury vote` | Vote as a juror on an appeal: an outcome with its reasons (--reduced-to-days for a reduction), or --dismiss (voteAsJuror) (confirmation: `--yes`) | `breakrocks jury vote <sanction id> --outcome REDUCED --reduced-to-days 2 --reasons "A first time" --yes` |
+| `jury withdraw` | Withdraw from the jury of an appeal before its vote (withdrawFromJury) (confirmation: `--yes`) | `breakrocks jury withdraw <sanction id> --yes` |
 | `channels list` | The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too) | `breakrocks channels list %france --all-levels` |
 | `channels create` | Open a channel, a permanent universe discussion (openUniverseDiscussion PERMANENT) | `breakrocks channels create %paris velo` |
 | `channels join` | Join a channel (joinUniverseDiscussion) | `breakrocks channels join %paris&velo` |
@@ -416,6 +535,24 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `connections state` | Whether a request can be sent, whether a first message connects at once (connectionStates) | `breakrocks connections state @alice` |
 | `messaging settings show` | The settings of the messages (mySettings.messaging) | `breakrocks messaging settings show` |
 | `messaging settings set` | Change the settings of the messages (read receipts, who may write or invite, agent requests…; setSettings) | `breakrocks messaging settings set --read-receipts false` |
+| `connections mine` | The connected accounts, in a stable order, without those blocked either way (myConnections) | `breakrocks connections mine` |
+| `dm delete-conversation` | Delete a conversation for yourself: its messages are no longer shown to you (deleteConversation) (confirmation: `--yes`) | `breakrocks dm delete-conversation @alice --yes` |
+| `groups edit` | Change a group chat: its name, its description, announcements only, whether members may invite (changeGroupChat; its admins) | `breakrocks groups edit <group id> --name "Club ride" --members-can-invite` |
+| `groups remove` | Remove a member from a group chat (removeGroupChatMember; its admins) (confirmation: `--yes`) | `breakrocks groups remove <group id> @bob --yes` |
+| `groups meeting-point` | Set the meeting point of a group chat: a name and a point (--clear: remove it) (setMeetingPoint) | `breakrocks groups meeting-point <group id> --name "Bastille" --point 48.8532,2.3691` |
+| `groups step-down` | Stop being an admin of a group chat (stepDownAsGroupChatAdmin) (confirmation: `--yes`) | `breakrocks groups step-down <group id> --yes` |
+| `groups mute` | Mute a group chat for yourself (setGroupChatMuted; --mentions: still notified when mentioned) | `breakrocks groups mute <group id> --mentions` |
+| `groups unmute` | Unmute a group chat (setGroupChatMuted) | `breakrocks groups unmute <group id>` |
+| `messages edit` | Edit the text of one of your messages (changeMessage) | `breakrocks messages edit <message id> "See you at 8" --with @alice` |
+| `messages typing` | Say you are typing in a discussion: shown for 5 seconds, never stored (typing) | `breakrocks messages typing --with @alice` |
+| `messages changes` | Catch up: the messages of a discussion changed or deleted since a time, at most 30 days back (messageChanges) | `breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z` |
+| `messages pinned` | The pinned messages of a group chat or a universe discussion, the most recent first, 3 at most (pinnedMessages) | `breakrocks messages pinned --channel %paris&general` |
+| `messages pin` | Pin a message of a group chat or a universe discussion for everyone: its admins or moderators, 3 at most (setPinnedMessage) | `breakrocks messages pin <message id> --group <group id>` |
+| `messages unpin` | Unpin a message (setPinnedMessage) | `breakrocks messages unpin <message id> --group <group id>` |
+| `messages silence` | Silence a discussion for yourself: readable, without notifications, for 1, 8 or 24 hours, or always (setDiscussionSilence) | `breakrocks messages silence --channel %paris&general --hours 8` |
+| `messages unsilence` | End the silence of a discussion (setDiscussionSilence) | `breakrocks messages unsilence --channel %paris&general` |
+| `messages quick-poll` | Send a quick poll in a discussion: 2 to 10 choices, closed after 24 hours, not a poll of the governance (sendQuickPoll) | `breakrocks messages quick-poll "Ride on Sunday?" --choices yes,no --group <group id>` |
+| `messages quick-poll-pick` | Pick a choice of a quick poll (pickQuickPollChoice; the first choice is 0) | `breakrocks messages quick-poll-pick <message id> 0` |
 | `discussions list` | The universe discussions of a universe: present now, unread, mentions, silence, retention (universeDiscussions; --all-levels: of its sub-universes too) | `breakrocks discussions list %paris` |
 | `discussions show` | A universe discussion: its state, who reads it now, unread, mentions, silence, how long its messages are kept (universeDiscussion) | `breakrocks discussions show %paris&general` |
 | `discussions unread` | The universe discussions with unread messages, across the universes of the account, the latest message first (myUnreadDiscussions) | `breakrocks discussions unread` |
@@ -423,6 +560,31 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions unpin` | Unpin a universe discussion for yourself only, apart from the pinned channels of the universe (setUniverseDiscussionPinnedByMe) | `breakrocks discussions unpin %paris&velo` |
 | `discussions place set` | Set or change the place of a public channel: a point or a zone, with its name, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place set %paris&canal --point 48.8721,2.3654 --name "Canal Saint-Martin"` |
 | `discussions place remove` | Remove the place of a public channel, by the leadership (setUniverseDiscussionPlace) | `breakrocks discussions place remove %paris&canal` |
+| `discussions mine` | The universe discussions you joined in a universe, at every level, the most recently active first, with their unread (myUniverseDiscussions) | `breakrocks discussions mine %paris` |
+| `discussions limits` | The limits of the universe discussions of a universe: the support a proposal needs, the cap of open temporary ones, your proposal waiting (universeDiscussionLimits) | `breakrocks discussions limits %paris` |
+| `discussions moderators` | The moderators of a universe discussion (universeDiscussionModerators) | `breakrocks discussions moderators %paris&general` |
+| `discussions moderators add` | Name a moderator of a universe discussion (setUniverseDiscussionModerator) | `breakrocks discussions moderators add %paris&velo @alice` |
+| `discussions moderators remove` | Remove a moderator of a universe discussion (setUniverseDiscussionModerator) | `breakrocks discussions moderators remove %paris&velo @alice` |
+| `discussions writing-bans` | The writing bans of a universe discussion (universeDiscussionWritingBans) | `breakrocks discussions writing-bans %paris&general` |
+| `discussions active` | Who wrote in a universe discussion in the last 24 hours, the most recent first, 50 at most ("/who"; universeDiscussionActiveMembers) | `breakrocks discussions active %paris&general` |
+| `discussions extend` | Extend a temporary universe discussion opened by the governance, once, 168 hours in all (extendUniverseDiscussion) | `breakrocks discussions extend %paris&budget 24` |
+| `discussions summary approve` | Approve the summary of a temporary universe discussion, within 24 hours of its end (answerUniverseDiscussionSummary; the leadership) | `breakrocks discussions summary approve %paris&budget` |
+| `discussions summary decline` | Decline the summary of a temporary universe discussion, within 24 hours of its end (answerUniverseDiscussionSummary; the leadership) | `breakrocks discussions summary decline %paris&budget` |
+| `discussions cap` | Raise the cap of open temporary universe discussions of a universe, from 10 up to 50 (setUniverseDiscussionCap; the governance) | `breakrocks discussions cap %paris 20` |
+| `discussions creation members` | Let the members of a private universe create its universe discussions (setUniverseDiscussionCreation) | `breakrocks discussions creation members %club.` |
+| `discussions creation managers` | Only the owner and the admins of a private universe create its universe discussions (setUniverseDiscussionCreation) | `breakrocks discussions creation managers %club.` |
+| `discussions archive` | Archive a universe discussion: read-only (setUniverseDiscussionArchived) | `breakrocks discussions archive %paris&velo` |
+| `discussions unarchive` | Take a universe discussion out of the archive (setUniverseDiscussionArchived) | `breakrocks discussions unarchive %paris&velo` |
+| `discussions move` | Move a universe discussion before another in the list of its universe (--before; none: to the end) (moveUniverseDiscussion) | `breakrocks discussions move %paris&velo --before %paris&general` |
+| `discussions slow-mode` | Set the slow mode of a universe discussion: seconds between two messages of an account, 0 to turn it off (setUniverseDiscussionSlowMode) | `breakrocks discussions slow-mode %paris&general 30` |
+| `discussions ban` | Ban an account from writing in a universe discussion (--hours; none: until lifted), citing an article (setUniverseDiscussionWritingBan) (confirmation: `--yes`) | `breakrocks discussions ban %paris&general @spammer --hours 24 --article 3 --yes` |
+| `discussions unban` | Lift the writing ban of an account in a universe discussion (setUniverseDiscussionWritingBan) | `breakrocks discussions unban %paris&general @alice` |
+| `discussions remove-message` | Remove a message of a universe discussion as a moderator, citing an article (removeUniverseDiscussionMessage) (confirmation: `--yes`) | `breakrocks discussions remove-message %paris&general <message id> --article 3 --yes` |
+| `discussions delete` | Delete an archived permanent universe discussion (deleteUniverseDiscussion) (confirmation: `--yes`) | `breakrocks discussions delete %paris&old --yes` |
+| `discussions agents forbid` | Forbid the delegated agents in a permanent universe discussion (setUniverseDiscussionAgents) | `breakrocks discussions agents forbid %paris&general` |
+| `discussions agents allow` | Allow the delegated agents in a permanent universe discussion (setUniverseDiscussionAgents) | `breakrocks discussions agents allow %paris&general` |
+| `discussions mute` | Mute a universe discussion for yourself (--mentions: still notified when mentioned) (setUniverseDiscussionMuted) | `breakrocks discussions mute %paris&general --mentions` |
+| `discussions unmute` | Unmute a universe discussion (setUniverseDiscussionMuted) | `breakrocks discussions unmute %paris&general` |
 | `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
 | `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
 | `messages ignore-mention` | Ignore a universe discussion of the Mentions row, until a later message mentions you there (ignoreDiscussionMention) | `breakrocks messages ignore-mention %paris&general` |
@@ -462,6 +624,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `theme apply` | Make a theme the theme of a universe (setUniverseProfile; the leadership, the owner, the admins) | `breakrocks theme apply %paris/stade-nuit --to %paris` |
 | `theme personal set` | Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme) | `breakrocks theme personal set --accent "#11707A"` |
 | `theme personal clear` | Back to the default personal theme: the accent of the universe visited, the display mode of the device (setPersonalTheme clear) | `breakrocks theme personal clear` |
+| `theme personal saved` | The personal themes the account saved, the most recent first, 50 at most (personalThemes) | `breakrocks theme personal saved` |
 | `theme export` | Export a theme: its JSON and its images served (the largest width), or a ZIP (--zip) | `breakrocks theme export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `theme shots` | Download the screenshots of a theme (3 screens night and day, the page of a universe at 3 breakpoints) | `breakrocks theme shots %paris/stade-nuit --out shots/` |
 | `theme delete` | Delete a theme one published (it stays applied where it is) (confirmation: `--yes`) | `breakrocks theme delete %paris/stade-nuit --yes` |
@@ -545,6 +708,90 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance layout` | The layout of the governance page of a universe, as it applies (appliedLayout page GOVERNANCE) | `breakrocks governance layout %paris --json` |
 | `governance pinned` | The pinned channels of a private universe, in their order (Universe.pinnedChannels) | `breakrocks governance pinned %team-fra.` |
 | `governance pin` | Pin the channels of a private universe: the whole list, in its order (setPinnedUniverseDiscussions; --none unpins them all) | `breakrocks governance pin %team-fra. %team-fra.&general %team-fra./tech&dev` |
+| `governance residents` | The residents of a public universe: the leadership first, then the moderators, then by recent activity (universeResidents) | `breakrocks governance residents %paris --role LEADERSHIP` |
+| `governance welcome-wall` | The welcome wall: the new residents of the last 7 days (welcomeWall) | `breakrocks governance welcome-wall %paris` |
+| `governance welcome` | Welcome a new resident on the welcome wall, once (welcomeResident) | `breakrocks governance welcome %paris @newcomer` |
+| `governance news` | The news of a universe: the badges of its dashboard and its now page (universeNews) | `breakrocks governance news %paris --json` |
+| `governance pulse` | The pulse of a public universe, from 10 residents (universePulse) | `breakrocks governance pulse %paris --json` |
+| `governance manifesto-versions` | The versions of the manifesto of a private universe, the most recent first (universeManifestoVersions) | `breakrocks governance manifesto-versions %club.` |
+| `governance sub-governance` | Give a sub-universe a governance of its own: an account and its powers (giveSubUniverseGovernance; the leadership) (confirmation: `--yes`) | `breakrocks governance sub-governance %paris/velo @alice --powers ANNOUNCEMENTS,PINNED_POSTS --yes` |
+| `governance move-pinned` | Move a pinned post before another (--before; none: to the end) (movePinnedPost) | `breakrocks governance move-pinned %paris <post id> --before <post id>` |
+| `governance unpin-announcement` | Unpin an announcement, those of a former leadership included (unpinAnnouncement; the leadership in place) | `breakrocks governance unpin-announcement %paris <post id>` |
+| `governance backup-delegate` | Choose a backup delegate in a universe (--clear: none) (setBackupDelegate) | `breakrocks governance backup-delegate %paris @alice` |
+| `governance votes-accept` | Accept the votes lent to you in a universe (--everywhere: in all) (setVoteReception) | `breakrocks governance votes-accept %paris` |
+| `governance votes-refuse` | Refuse the votes lent to you in a universe (--everywhere: in all) (setVoteReception) | `breakrocks governance votes-refuse %paris` |
+| `governance vote-holders` | The top holders of lent votes of a universe, or the votes one account holds (--account) (voteHolders) | `breakrocks governance vote-holders %paris` |
+| `governance feed-reviews` | The feed removal reviews of a public universe, the newest first (feedRemovalReviews) | `breakrocks governance feed-reviews %paris` |
+| `governance feed-review-vote` | Vote on the feed removal review of a post while it is open (48 hours): KEEP_REMOVED or BACK_TO_FEEDS (voteOnFeedRemovalReview) | `breakrocks governance feed-review-vote <post id> BACK_TO_FEEDS` |
+| `governance like-question` | Like a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance like-question <id>` |
+| `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
+| `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
+
+### The operations of before specs v83.1.0 (0.18.0, specs v101.6.0)
+
+D-92, D-303 lot 4c: 0.18.0 covers the operations of API v2 of before v83.1.0 that are not deprecated and had no
+command: 181 commands for 159 operations (contract of specs **v101.6.0**, `specs/common` pinned on that tag; it
+changes the glossary only). With 0.17.0, every operation of the contract that is not deprecated has a command,
+but the 17 listed below. Each is an `apiCommand` of the registry: its help, its JSON schemas, its completion, its
+MCP tool; the writes offer `--dry-run` where a mistake costs, the irreversible ones and the payment pages ask
+`--yes`. A universe discussion is named by its address (`%paris&general`) or its id; a discussion of any kind by
+exactly one of `--with` (a conversation), `--group` (a group chat) or `--channel`.
+
+- **The account** (`me`): `profile set` (`--avatar-file`: `requestAvatarUpload`, then `updateProfile`), `handle
+  check|change`, `password` (asked without echo, or two lines with `--password-stdin`; not an MCP tool), `email
+  change|confirm`, `delete`, `delete confirm`, `data requests|copy|download|erase|erase-cancel|rectify`, `onboarding
+  [start|skip|record]`, `invitation-link [renew|read]`, `interactions`, `posts LIKED|REPOSTED`, `reports`,
+  `invite-exceptions add|remove`.
+- **Connections and messages**: `connections mine`, `dm delete-conversation`, `groups
+  edit|remove|meeting-point|step-down|mute|unmute`, `messages
+  edit|typing|changes|pinned|pin|unpin|silence|unsilence|quick-poll|quick-poll-pick`.
+- **Private universes** (`universes`): `join-requests [accept|decline|accept-all|decline-all]`, `invitations
+  [accept|decline]`, `admins add|remove`, `transfer accept|decline`, `delete`, `delete-cancel`, `private set`,
+  `domains [check]`, `team-tier`, `declare`, `expose`, `hide`, `reactivate`, `reputation [set]`, `search-words`,
+  `identity` (`--banner-file`, `--banner-night-file`, `--logo-file`), `tiers
+  offer|change|withdraw|subscribe|renewal on|renewal off`; for any universe: `residences`, `sub-map`, `landing`,
+  `land`, `listed`, `unlisted`, `favorite list|alerts-on|alerts-off|skip`.
+- **Governance**: `proposals votes|mine|projects|project-status|project-done|refusal-review|change`, `polls
+  support`, `events support|change|delete|attendees`, `governance
+  residents|welcome-wall|welcome|news|pulse|manifesto-versions|sub-governance|move-pinned|unpin-announcement|backup-delegate|votes-accept|votes-refuse|vote-holders|feed-reviews|feed-review-vote|like-question|unlike-question`,
+  `moderation remove-agent-text`; `sanctions list|appeal|publish-name`, `jury accept|decline|reviews|vote|withdraw`.
+- **Moderation of the universe discussions** (`discussions`): `mine`, `limits`, `moderators [add|remove]`,
+  `writing-bans`, `active`, `extend`, `summary approve|decline`, `cap`, `creation members|managers`,
+  `archive|unarchive`, `move`, `slow-mode`, `ban|unban`, `remove-message`, `delete`, `agents forbid|allow`,
+  `mute|unmute`.
+- **The paid tiers**: `subscription show|offer|start|renewal on|renewal off|billing-day offer|billing-day
+  set|portal|seller-verify`, `gift-codes offer|list|buy|redeem|refund`. A payment is made in a browser: the CLI
+  gives the address of the page.
+- **Search and reading**: `search`, `clips feed|platform|popular`, `interests
+  show|add|fields|forget|tags|not-interested`, `posts thread|reposts|link-preview|reply-policy`, `accounts
+  replies|is-following`, `map avatar`; `theme personal saved`. The delegated agents had nothing left.
+
+Not offered (17): what the platform defers (`NOT_IMPLEMENTED`: `avatarParts`, `setMapAvatar`, `buyAvatarPart`,
+`playlistTimeline`, `recordMontageView`, `maskPostMedia`, `answerMaskRequest`, `pointsOfView`); what only an app
+does: `recordAdImpression`, `recordAdClick` (an app that shows ads), `recordClipPlays` (the player of an app),
+`setPushDevice` (a device that receives pushes), `createCliSignInCode` (made by the web app for `login --browser`),
+`createNfcToken`, `confirmNfcConnection`, `checkNfcConnection` (two phones touching), `experienceKinds`
+(experiences withdrawn from the apps).
+
+Checked on dev on 2026-11-08: the reads with the profile `e2e-dev` (`me onboarding|interactions|data
+requests|invitation-link|handle check|posts|reports`, `connections mine`, `universes
+invitations|residences|favorite list|domains|sub-map|landing`, `subscription show|offer`, `gift-codes offer|list`,
+`interests show|tags|not-interested`, `theme personal saved`, `sanctions list`, `proposals mine|projects`, `map
+avatar`, `search`, `clips feed|platform|popular`, `discussions mine|limits`, `governance
+residents|welcome-wall|news|pulse|feed-reviews|vote-holders`, `accounts is-following`, `posts link-preview`); in a
+conversation, each undone: a quick poll sent, a choice picked, typing, the changes read, silenced then unsilenced, a
+message edited, both messages deleted. The writes of governance with the account « gouvernance » (resident of
+`%test-village-sport` and `%france`), each undone: votes refused then accepted, a backup delegate chosen then
+cleared, unlisted then listed, an invite exception added then removed, an interest added then forgotten, a favorite
+added, its alerts on then off, removed; a proposal filed, its votes read, refused when amended
+(`PROPOSAL_NOT_AMENDABLE`), `refusal-review` and `project-done` refused (`PROPOSAL_NOT_FOUND`,
+`PROJECT_NOT_ADOPTED`), then withdrawn. Refusals with their codes: `QUESTION_NOT_FOUND`, `POLL_NOT_FOUND`,
+`EVENT_NOT_FOUND`, `NOT_A_JUROR`, `PRIVATE_UNIVERSE_NOT_FOUND`, `DISCUSSION_TARGET_INVALID`. Not checked: what
+needs a leadership, a private universe owned, a temporary discussion, a sanction or a payment (no such state for
+these accounts), `me password|email|delete|data erase` (shared accounts). Seen on dev: an `Image` of an avatar
+answers null for `maskedAfterPosting` (non-null), so `vote-holders` and `invite-exceptions` select the accounts
+without their avatar; `extendUniverseDiscussion` on a permanent discussion answers `INVALID_REQUEST`, not one of its
+codes.
 
 ### The operations added since specs v83.1.0 (0.17.0, specs v101.5.0)
 
@@ -585,9 +832,9 @@ Not offered: what the platform defers since v101.5.0 (`NOT_IMPLEMENTED`: map ava
 and montages, masks after posting, placed videos and `pointsOfView`), `recordAdImpression` and `recordAdClick`
 (an app that shows ads), `experienceKinds` (experiences withdrawn from the apps). The delegated agents (tiers,
 plans, restrictions) were covered already (`agents tier|restrict`, `operator plan …`). The page opacity of the
-reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stays (about 155 operations
+reader (D-299) is not in the contract of v101.5.0. The backlog of before v83.1.0 stayed (about 155 operations
 that are not deprecated: account, private universes, governance, moderation of the universe discussions,
-subscription…).
+subscription…): covered by 0.18.0.
 
 Checked on dev on 2026-11-08 (profile `e2e-dev`, the human account `@user-royal-tapir-8evw`, created on
 2026-11-01): the reads (`drafts list`, `playlists hub|followed|show`, `videos list|quota`, `routes list|show|plan`
@@ -899,7 +1146,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
-SDL files, one per domain, with their `"""…"""` descriptions; specs v101.5.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v101.6.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
