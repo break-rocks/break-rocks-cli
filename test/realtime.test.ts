@@ -12,8 +12,8 @@ type Sent = Record<string, unknown>;
 function fakeSocket(behaviour: (msg: Sent, socket: any) => void) {
   const sockets: FakeSocket[] = [];
   class FakeSocket {
-    url: string; protocols: string[]; sent: Sent[] = []; listeners: Record<string, ((e: unknown) => void)[]> = {};
-    constructor(url: string, protocols: string[]) { this.url = url; this.protocols = protocols; sockets.push(this); setTimeout(() => this.emit('open', {}), 0); }
+    url: string; protocols: string[]; headers: Record<string, string>; sent: Sent[] = []; listeners: Record<string, ((e: unknown) => void)[]> = {};
+    constructor(url: string, init: { protocols: string[]; headers: Record<string, string> }) { this.url = url; this.protocols = init.protocols; this.headers = init.headers; sockets.push(this); setTimeout(() => this.emit('open', {}), 0); }
     addEventListener(type: string, f: (e: unknown) => void) { (this.listeners[type] ??= []).push(f); }
     emit(type: string, e: unknown) { for (const f of this.listeners[type] ?? []) f(e); }
     message(m: unknown) { this.emit('message', { data: JSON.stringify(m) }); }
@@ -38,7 +38,7 @@ describe('the Event API', () => {
     h.io.WebSocket = Socket;
     const events: unknown[] = [];
     const c = await connect(new Context(h.io, NO_FLAGS), { realtimeUrl: 'wss://rt.test/event/realtime', httpUrl: 'https://ev.test/event', token: 'tok', channels: ['/users/eu-a'], onEvent: (e) => events.push(e) });
-    const s = sockets[0] as unknown as { url: string; protocols: string[]; sent: Sent[] };
+    const s = sockets[0] as unknown as { url: string; protocols: string[]; headers: Record<string, string>; sent: Sent[] };
     expect(s.url).toBe('wss://rt.test/event/realtime');
     expect(s.protocols[0]).toBe('aws-appsync-event-ws');
     expect(JSON.parse(Buffer.from(s.protocols[1].replace(/^header-/, ''), 'base64url').toString())).toEqual({ host: 'ev.test', Authorization: 'tok' });

@@ -10,7 +10,7 @@ import type { Context } from './context.js';
 import type { Environment, Profile } from './config.js';
 import { readJson, writePrivate } from './config.js';
 import { cliRefusal, networkError } from './errors.js';
-import { request } from './transport.js';
+import { apiRequest, request } from './transport.js';
 
 export const APPS_HOSTS: Record<Environment, string> = { dev: 'https://apps.dev.break.rocks', staging: 'https://apps.staging.break.rocks', prod: 'https://apps.break.rocks' };
 export const CELL_MAP_SECONDS = 300;
@@ -64,7 +64,7 @@ export const DIRECTORY_HOSTS: Record<Environment, string> = { dev: 'https://dire
 export async function cellOfEmail(ctx: Context, env: Environment, email: string): Promise<string | undefined> {
   const base = (ctx.env.BREAKROCKS_DIRECTORY_URL ?? DIRECTORY_HOSTS[env]).replace(/\/+$/, '');
   try {
-    const res = await request(ctx, `${base}/v1/cell`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ email }) });
+    const res = await apiRequest(ctx, `${base}/v1/cell`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify({ email }) });
     if (!res.ok) return undefined;
     const { cell } = await res.json() as { cell?: unknown };
     return typeof cell === 'string' && /^[a-z]{2}$/.test(cell) ? cell : undefined;

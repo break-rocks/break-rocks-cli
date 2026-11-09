@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Context } from './context.js';
 import { CliError, EXIT } from './errors.js';
+import { clientHeaders } from './transport.js';
 
 export type RealtimeEvent = { id: string; at?: string; type: string; [field: string]: unknown };
 export type RealtimeMode = 'auto' | 'on' | 'off';
@@ -44,7 +45,7 @@ export async function connect(ctx: Context, options: { realtimeUrl: string; http
   const host = new URL(options.httpUrl).host;
   const auth = { host, Authorization: options.token };
   const seen = options.seen ?? new Set<string>();
-  const socket = new Socket(options.realtimeUrl, ['aws-appsync-event-ws', `header-${b64url(auth)}`]);
+  const socket = new Socket(options.realtimeUrl, { protocols: ['aws-appsync-event-ws', `header-${b64url(auth)}`], headers: clientHeaders() });
   let socketClosed = false;
   socket.addEventListener('close', () => { if (!socketClosed) { socketClosed = true; lingering--; } });
   lingering++;

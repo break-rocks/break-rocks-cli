@@ -9,7 +9,7 @@ import { localAgentKey, requireLocalAgent } from '../local-agents.js';
 import type { Command } from '../registry.js';
 import { list, object, openObject, str } from '../schema.js';
 import { agentFromEnv, apiToken, ensureSession, type Session } from '../session.js';
-import { graphql, request } from '../transport.js';
+import { apiRequest, graphql, request } from '../transport.js';
 import { endpoints, type Endpoints } from '../endpoints.js';
 import { VERSION } from '../version.js';
 import { compareVersions, readRelease } from './update.js';
@@ -124,7 +124,7 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
 
     try {
       at ??= await endpoints(ctx, ctx.profile());
-      const res = await request(ctx, at.api, { method: 'POST', headers: { 'content-type': 'application/json', ...(session ? { authorization: apiToken(session) } : {}) }, body: JSON.stringify({ query: '{ __typename }' }) });
+      const res = await apiRequest(ctx, at.api, { method: 'POST', headers: { 'content-type': 'application/json', ...(session ? { authorization: apiToken(session) } : {}) }, body: JSON.stringify({ query: '{ __typename }' }) });
       add(res.status < 500 ? { name: 'api', status: 'ok', detail: `${new URL(at.api).host} answers (${res.status})` } : { name: 'api', status: 'fail', code: 'SERVER_ERROR', detail: `${new URL(at.api).host} answered ${res.status}` });
     } catch (error) { add(failed('api', error)); }
 

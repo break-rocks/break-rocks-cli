@@ -6,6 +6,7 @@ import type { Context } from './context.js';
 import { CliError, EXIT, networkError, platformRefusal } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
 import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
+import { VERSION } from './version.js';
 
 export const MAX_RETRY_SECONDS = 60;
 
@@ -27,6 +28,16 @@ export function retryAfterSeconds(headers: Headers, now: number): number {
   if (Number.isFinite(seconds)) return Math.max(0, seconds);
   const at = Date.parse(value);
   return Number.isFinite(at) ? Math.max(0, Math.ceil((at - now) / 1000)) : 1;
+}
+
+/** The headers of every request to the break-rocks API (specs v101.20.0, contracts/app-versions.md § The client headers): the client, its version, and the user agent. */
+export function clientHeaders(): Record<string, string> {
+  return { 'user-agent': `breakrocks/${VERSION}`, 'x-breakrocks-client': 'CLI', 'x-breakrocks-app-version': VERSION };
+}
+
+/** A request to the break-rocks API (GraphQL, the agents host): [request] with the client headers, those of [init] winning. */
+export function apiRequest(ctx: Context, url: string, init: RequestInit): Promise<Response> {
+  return request(ctx, url, { ...init, headers: { ...clientHeaders(), ...(init.headers as Record<string, string> | undefined) } });
 }
 
 /** A request, tried again once after a 429 (when the wait is at most 60 seconds). */
@@ -51,7 +62,7 @@ async function bodyOf(res: Response): Promise<Record<string, unknown>> {
 
 /** A POST to the agents host ([base]: `https://agents…/v1`), its answer whatever its status. */
 export async function agentsPost(ctx: Context, base: string, path: string, body: unknown, headers: Record<string, string> = {}): Promise<HttpAnswer> {
-  const res = await request(ctx, `${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', ...headers }, body: JSON.stringify(body) });
+  const res = await apiRequest(ctx, `${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', ...headers }, body: JSON.stringify(body) });
   return { status: res.status, json: await bodyOf(res), headers: res.headers };
 }
 
@@ -88,7 +99,7 @@ export const isUnauthorized = (error: unknown) => error instanceof CliError && e
 export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void; degraded?: boolean } = {}): Promise<T> {
   const known = extra.degraded ? undefined : degradedOf(ctx).get(query);
   if (known) return nullRemoved(await graphql<T>(ctx, url, token, known.document, variables, retried, partial, { ...extra, degraded: true }), known.removed);
-  const res = await request(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token, ...extra.headers }, body: JSON.stringify({ query, variables }) });
+  const res = await apiRequest(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token, ...extra.headers }, body: JSON.stringify({ query, variables }) });
   extra.seen?.(res.headers);
   const body = await bodyOf(res) as { data?: T; errors?: GraphqlError[] };
   const first = body.errors?.[0];
