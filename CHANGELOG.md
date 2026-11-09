@@ -5,8 +5,13 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-09
+
+Specs v101.20.0 (`specs/common` pinned on that tag; D-323, `contracts/app-versions.md` § The client headers).
+
 ### Added
 
+- The client headers sent to the API: every request of the CLI to the GraphQL API, to the agents host (`/v1/...`, the sign-in included) and the handshake of the real-time connection carries `x-breakrocks-client: CLI`, `x-breakrocks-app-version: <version of the CLI>` and `user-agent: breakrocks/<version>`, from the very first request after the sign-in. The MCP server goes through the same transport. The calls to other hosts (Cognito, the media storage, GitHub, npm) do not carry them.
 - Tolerance to a backend behind this CLI (pinned on an older minor version of the specs): a request refused by AppSync because it selects a field the backend does not serve yet (`Validation error of type FieldUndefined`) is sent again once with a degraded selection, without those fields; the command succeeds, the fields are `null` in the answer (`--json` included), and a warning on stderr names them once per run. One retry, no loop; an operation not served is refused as before (README, The API contract).
 
 ## [0.19.0] - 2026-11-08
