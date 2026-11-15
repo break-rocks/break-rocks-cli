@@ -95,6 +95,20 @@ describe('the named presence', () => {
     expect(await h.run('settings', 'presence', 'nobody', '--json')).toBe(2);
     expect(await h.run('settings', 'presence', '--json')).toBe(2);
   });
+  it('reads the presence choice made everywhere (settings presence show), none when there is no choice', async () => {
+    const { h, calls } = scripted({ mySettings: { presenceVisibility: 'CONNECTIONS' } });
+    expect(await h.run('settings', 'presence', 'show')).toBe(0);
+    expect(calls[0]).toMatchObject({ field: 'mySettings' });
+    expect(calls[0].query).toContain('presenceVisibility');
+    expect(h.lines.at(-1)).toBe('presence visible to: connections');
+    expect(await h.run('settings', 'presence', 'show', '--json')).toBe(0);
+    expect(h.values.at(-1)).toEqual({ presenceVisibility: 'CONNECTIONS' });
+    const none = scripted({ mySettings: { presenceVisibility: null } });
+    expect(await none.h.run('settings', 'presence', 'show')).toBe(0);
+    expect(none.h.lines.at(-1)).toBe('presence visible to: none');
+    expect(await none.h.run('settings', 'presence', 'show', '--json')).toBe(0);
+    expect(none.h.values.at(-1)).toEqual({ presenceVisibility: null });
+  });
   it('reads the present residents of a discussion by its address or its id', async () => {
     const { h, calls } = scripted({ universeDiscussion: { id: 'd1' }, universeDiscussionPresent: [{ account: { id: 'a1', handle: 'alice', displayName: 'Alice' }, connected: true, role: 'MODERATOR' }, { account: { id: 'a2', handle: 'bob', displayName: 'Bob' }, connected: false, role: null }] });
     expect(await h.run('discussions', 'present', '%paris&general')).toBe(0);

@@ -595,6 +595,7 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `events relays proposals` | The proposals of relay of universe events waiting for their supports in a public universe, the one that ends soonest first (eventRelayProposals) | `breakrocks events relays proposals %paris` |
 | `events catalog` | The event catalog: its event families and event types, and which event types are on the map of Explore (eventCatalog) | `breakrocks events catalog` |
 | `settings presence` | Choose who sees you by name among the present residents of the universe discussions: hidden, connections or everyone (setPresenceVisibility) | `breakrocks settings presence connections` |
+| `settings presence show` | The presence choice made everywhere: who sees you by name among the present residents of the universe discussions; none when no choice was made (mySettings.presenceVisibility) | `breakrocks settings presence show` |
 | `discussions present` | The present residents of a universe discussion you may see by name: leadership, moderators, connections, then the others, 12 at most (universeDiscussionPresent) | `breakrocks discussions present %paris&general` |
 | `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
 | `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
@@ -759,6 +760,14 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   hours resumes and sends only the missing parts; the file is removed once the post is created. At 500 MB or below,
   `requestMediaUpload` as before. `--dry-run` tells `upload: multipart|single`.
 - **`universes show`** tells the long videos mode (`hasLongVideos`: offered from the first public long video).
+
+### The presence choice made everywhere, read (0.23.0, specs v123.1.0)
+
+`specs/common` pinned on **v123.1.0** and `schema/api-v2` regenerated (15 SDL files: 219 queries, 353 mutations). The
+contract adds `Settings.presenceVisibility` (nullable): the choice made with `setPresenceVisibility` without a universe
+(`settings presence hidden|connections|everyone`). `settings presence show` reads it (`mySettings`) and tells `none` when
+no choice was made everywhere (each universe then falls back to its own default: `capabilities --universe %u`); with
+`--json`: `{"presenceVisibility": "CONNECTIONS" | "HIDDEN" | "EVERYONE" | null}`.
 
 ### Universe events on the map of Explore, relays, named presence (0.21.0, specs v122.2.0)
 
@@ -1290,7 +1299,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v123.0.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v123.1.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
