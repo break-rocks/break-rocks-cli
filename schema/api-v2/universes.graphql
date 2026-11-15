@@ -933,10 +933,21 @@ type Universe {
   """
   layoutOf: String
   """
+  The layout of its governance page its leadership chose in Pages (since v101.16.0, D-318, governance-page.feature;
+  the owner and the admins in a private universe; setUniverseProfile governanceLayoutRef); null: the platform layout
+  "governance", "governance-private" in a private universe.
+  """
+  governanceLayoutRef: LayoutRef
+  """
   Its default layout: its own or of its nearest universe above that has one (layoutOf); version read with the
   universe: the apps read appliedLayout again when it changed. G-8: defaultLayout is gone.
   """
   layoutRef: LayoutRef
+  """
+  The editors of its pages its leadership named (since v101.16.0, D-318, pages.feature; setPageEditor), in the order
+  they were named, 10 at most; empty when none.
+  """
+  pageEditors: [AccountRef!]!
   """
   The legal space of a private universe (its applicable law); null otherwise.
   """
@@ -1253,7 +1264,8 @@ type UniverseDeletion {
 }
 
 """
-A universe event: its title, time, place or zone, route, attendees.
+A universe event: its title, time, place or zone, route, attendees; since v117.0.0 (D-376), its event type, event
+facts, event state, participation modes, event cover and event interest count.
 """
 type UniverseEvent {
   """
@@ -1261,12 +1273,14 @@ type UniverseEvent {
   """
   attendeeCount: Int!
   """
-  Its first attendees; universeEventAttendees reads them all.
+  Its first attendees; universeEventAttendees reads them all. Since v117.0.0 (D-376), for a sensitive event type, only
+  those who show their attending (attendeeCount counts them all).
   """
   attendees: AccountRefPage
   """
   Since v52.0.0 (D-128, D-137 (15); contracts/map.md): 3 attendees at most, for a resident reader, those it
-  follows first, then the first who said they attend; null otherwise (attendeeCount as before).
+  follows first, then the first who said they attend; null otherwise (attendeeCount as before). Since v117.0.0
+  (D-376), for a sensitive event type, only among those who show their attending.
   """
   attendeesPreview: [AccountRef!]
   """
@@ -1298,6 +1312,13 @@ type UniverseEvent {
   """
   minutes: Int!
   """
+  Whether it is drawn on the map of Explore (since v122.0.0, D-382, D-383): it has a place, a zone or a route,
+  its format is not "online", its access is "public" or not given, its event state is not "cancelled", and
+  either its event type is on the map of Explore and it starts within 7 days (exploreMapChoice BY_TYPE), or its
+  event organizer asked for it (SHOWN) and it starts within 30 days; never with KEPT.
+  """
+  onExploreMap: Boolean!
+  """
   The place.
   """
   place: String
@@ -1317,6 +1338,11 @@ type UniverseEvent {
   for it, or none.
   """
   routeId: ID
+  """
+  What its event organizer chose for the map of Explore (since v122.0.0, D-383): SHOWN, beyond its universe;
+  KEPT, in its universe only; BY_TYPE, as its event type says (EventType.onExploreMap), the default.
+  """
+  exploreMapChoice: ExploreMapChoice!
   """
   When it starts.
   """
@@ -1364,15 +1390,391 @@ type UniverseEvent {
   slash-commands.feature), where its creation is told; null otherwise.
   """
   fromDiscussion: String
+  """
+  Since v117.0.0 (D-376, event-types.feature): the key of its event type in the event catalog (eventCatalog);
+  "other" for a universe event created before v117.0.0 and, since v118.0.0 (D-377), when its event organizer chose it.
+  """
+  eventType: String!
+  """
+  Since v117.0.0 (D-376): the key of the event family of its event type; null for the event type "other", which
+  belongs to no event family.
+  """
+  eventFamily: String
+  """
+  Since v117.0.0 (D-376): whether its event type is a sensitive event type: the attending of each person is then
+  counted, and named only when that person shows it (setUniverseEventShown); since v118.0.0 (D-377), the event interest
+  is named to nobody, whatever the event type.
+  """
+  sensitive: Boolean!
+  """
+  Since v117.0.0 (D-376): its event cover, the photo of its event organizer or a picture of the event cover library
+  of its event type.
+  """
+  cover: UniverseEventCover!
+  """
+  Since v117.0.0 (D-376): its event state, set by its event organizer; SCHEDULED for a universe event created before
+  v117.0.0.
+  """
+  state: UniverseEventState!
+  """
+  Since v117.0.0 (D-376): its event facts, all optional, for information only.
+  """
+  facts: UniverseEventFacts!
+  """
+  Since v117.0.0 (D-376): its participation modes: its conditions of participation and the actions offered.
+  """
+  participation: UniverseEventParticipation!
+  """
+  Since v117.0.0 (D-376): its event interest count, public, the people who said "Interested" (setUniverseEventInterest);
+  since v118.0.0 (D-377), their handles are served to nobody.
+  """
+  interestCount: Int!
+  """
+  Since v117.0.0 (D-376): whether the caller said "Interested"; false for a visitor not signed in.
+  """
+  interested: Boolean!
+  """
+  Since v117.0.0 (D-376): for a sensitive event type, whether the caller shows its attending (setUniverseEventShown);
+  false otherwise (since v118.0.0, D-377, the event interest is never shown).
+  """
+  shownByMe: Boolean!
+  """
+  Since v117.0.0 (D-376, later: README.md § Operations not served yet): the experience kind it links, by its name in
+  the registry of experience kinds; null when none. Since v118.0.0 (D-377): deferred while no experience kind produces
+  experience feats.
+  """
+  experienceKind: String
+}
+
+"""
+Since v117.0.0 (D-376, event-types.feature): the event cover of a universe event: the photo of its event organizer
+(photo set, scanned as every media), else a picture of the event cover library of its event type (libraryUrl set), the
+same variant at every read of that universe event.
+"""
+type UniverseEventCover {
+  """
+  The photo its event organizer gave; null when the event cover comes from the event cover library.
+  """
+  photo: Image
+  """
+  The picture of the event cover library; null when the event cover is the photo of its event organizer.
+  """
+  libraryUrl: AWSURL
+}
+
+"""
+Since v117.0.0 (D-376, event-types.feature): the event facts of a universe event, each null (or empty, or false) when
+its event organizer did not give it; for information only, the social platform checks nothing of them and refuses no
+attending for them.
+"""
+type UniverseEventFacts {
+  """
+  The number of places its event organizer declares, from 1 to 100,000 (since v118.0.0, D-377); null when none.
+  """
+  places: Int
+  """
+  Its price; null when not given.
+  """
+  price: UniverseEventPrice
+  """
+  The length of its course, in metres (shown in the units of the language of the app of the reader, since v118.0.0,
+  D-377); null when not given.
+  """
+  courseMetres: Int
+  """
+  Its difficulty; null when not given.
+  """
+  difficulty: UniverseEventDifficulty
+  """
+  Its languages, 3 at most, sign languages included, as BCP 47 tags; empty when not given.
+  """
+  languages: [String!]!
+  """
+  Its access; null when not given.
+  """
+  access: UniverseEventAccess
+  """
+  Its equipment; null when not given.
+  """
+  equipment: UniverseEventEquipment
+  """
+  Its format; null when not given.
+  """
+  format: UniverseEventFormat
+  """
+  Whether its event organizer says it has a step-free access; false when not said.
+  """
+  stepFree: Boolean!
+  """
+  The number of players wanted; null when not given.
+  """
+  playersWanted: Int
+  """
+  The number of volunteers wanted; null when not given.
+  """
+  volunteersWanted: Int
+  """
+  Its sport format, at most 12 visible characters ("5 × 5"); null when not given.
+  """
+  sportFormat: String
+  """
+  The progress of its fundraising, a percentage from 0 its event organizer updates; above 100, shown as "100 %" (since
+  v118.0.0, D-377); null when not given.
+  """
+  fundraisingPercent: Int
+}
+
+"""
+Since v117.0.0 (D-376): the price of a universe event: FREE (amount and currency null), AMOUNT (an amount with its
+currency) or FROM (from an amount with its currency).
+"""
+type UniverseEventPrice {
+  """
+  FREE, AMOUNT or FROM.
+  """
+  kind: UniverseEventPriceKind!
+  """
+  The amount, in the smallest unit of its currency (cents); null for FREE.
+  """
+  amount: Int
+  """
+  Its currency (ISO 4217); null for FREE.
+  """
+  currency: String
+}
+
+"""
+Since v117.0.0 (D-376, event-types.feature): the participation modes of a universe event; the social platform manages
+no reservation and sells no ticket.
+"""
+type UniverseEventParticipation {
+  """
+  Its conditions of participation, at most 280 visible characters; null when none.
+  """
+  conditions: String
+  """
+  The external registration link of its conditions of participation, an https link; null when none.
+  """
+  registrationLink: AWSURL
+  """
+  Whether "Interested" is offered (setUniverseEventInterest); true by default.
+  """
+  offersInterested: Boolean!
+  """
+  Whether "Going" is offered (attendUniverseEvent); true by default; never refused for its places nor for the event
+  state FULL.
+  """
+  offersGoing: Boolean!
+}
+
+"""
+Since v117.0.0 (D-376): the event facts of a universe event to set (createUniverseEvent, changeUniverseEvent): given,
+they replace all its event facts, a field not given being removed. languages: 3 at most; sportFormat: at most 12
+visible characters; fundraisingPercent: from 0 (above 100 accepted, shown as "100 %"); places: from 1 to 100,000
+(since v118.0.0, D-377); courseMetres, playersWanted and volunteersWanted: from 1 (EVENT_FACT_INVALID otherwise,
+errorInfo.fact).
+"""
+input UniverseEventFactsInput {
+  places: Int
+  price: UniverseEventPriceInput
+  courseMetres: Int
+  difficulty: UniverseEventDifficulty
+  languages: [String!]
+  access: UniverseEventAccess
+  equipment: UniverseEventEquipment
+  format: UniverseEventFormat
+  stepFree: Boolean
+  playersWanted: Int
+  volunteersWanted: Int
+  sportFormat: String
+  fundraisingPercent: Int
+}
+
+"""
+Since v117.0.0 (D-376): a price to set: kind FREE without amount nor currency; AMOUNT or FROM with an amount (from 0, in
+the smallest unit of the currency) and a currency (ISO 4217) (EVENT_FACT_INVALID otherwise).
+"""
+input UniverseEventPriceInput {
+  kind: UniverseEventPriceKind!
+  amount: Int
+  currency: String
+}
+
+"""
+Since v117.0.0 (D-376): the participation modes to set: given, they replace them; conditions at most 280 visible
+characters (EVENT_CONDITIONS_TOO_LONG); registrationLink an https link (EVENT_LINK_INVALID); at least one of
+offersInterested and offersGoing true (EVENT_ACTIONS_REQUIRED).
+"""
+input UniverseEventParticipationInput {
+  conditions: String
+  registrationLink: String
+  offersInterested: Boolean!
+  offersGoing: Boolean!
+}
+
+"""
+Since v117.0.0 (D-376): the kind of a price: FREE, AMOUNT (an amount), FROM (from an amount).
+"""
+enum UniverseEventPriceKind {
+  AMOUNT
+  FREE
+  FROM
+}
+
+"""
+Since v117.0.0 (D-376): the difficulty of a universe event: BEGINNERS, ALL_LEVELS, or LEVEL_1 to LEVEL_4.
+"""
+enum UniverseEventDifficulty {
+  ALL_LEVELS
+  BEGINNERS
+  LEVEL_1
+  LEVEL_2
+  LEVEL_3
+  LEVEL_4
+}
+
+"""
+Since v117.0.0 (D-376): the access a universe event tells, for information only: PUBLIC, MEMBERS or INVITATION (on
+invitation).
+"""
+enum UniverseEventAccess {
+  INVITATION
+  MEMBERS
+  PUBLIC
+}
+
+"""
+Since v117.0.0 (D-376): the equipment of a universe event: PROVIDED or TO_BRING.
+"""
+enum UniverseEventEquipment {
+  PROVIDED
+  TO_BRING
+}
+
+"""
+Since v117.0.0 (D-376): the format of a universe event: OUTDOOR, INDOOR, ONLINE or HYBRID.
+"""
+enum UniverseEventFormat {
+  HYBRID
+  INDOOR
+  ONLINE
+  OUTDOOR
+}
+
+"""
+Since v117.0.0 (D-376, event-types.feature): the event state of a universe event, set by its event organizer, never by
+the social platform: SCHEDULED (by default), POSTPONED, CANCELLED or FULL. Not its status (UniverseEventStatus).
+"""
+enum UniverseEventState {
+  CANCELLED
+  FULL
+  POSTPONED
+  SCHEDULED
+}
+
+"""
+Since v117.0.0 (D-376): an event fact an event type suggests (EventType.suggestedFacts).
+"""
+enum UniverseEventFactKind {
+  ACCESS
+  COURSE_LENGTH
+  DIFFICULTY
+  EQUIPMENT
+  FORMAT
+  FUNDRAISING
+  LANGUAGES
+  PLACES
+  PLAYERS_WANTED
+  PRICE
+  SPORT_FORMAT
+  STEP_FREE
+  VOLUNTEERS_WANTED
+}
+
+"""
+Since v117.0.0 (D-376, event-types.feature): the event catalog, a setting of the platform changed by the platform team
+without a new version of the apps: its event families and their event types, in the language asked.
+"""
+type EventCatalog {
+  """
+  Its event families, in the order of the event catalog.
+  """
+  families: [EventFamily!]!
+  """
+  When the platform team last changed it.
+  """
+  updatedAt: AWSDateTime!
+}
+
+"""
+Since v117.0.0 (D-376): an event family of the event catalog, by which the maps and the agenda page filter.
+"""
+type EventFamily {
+  """
+  Its key ("sport", "outdoors", "civic-life"…), the value of UniverseEvent.eventFamily.
+  """
+  key: String!
+  """
+  Its name in the language asked.
+  """
+  name: String!
+  """
+  Its icon, drawn on the event tile; never one of the reserved icons of the information badges.
+  """
+  iconUrl: AWSURL!
+  """
+  Its event types, in the order of the event catalog.
+  """
+  types: [EventType!]!
+}
+
+"""
+Since v117.0.0 (D-376): an event type of the event catalog.
+"""
+type EventType {
+  """
+  Its key ("quiz", "running"…), the value of UniverseEvent.eventType.
+  """
+  key: String!
+  """
+  Its name in the language asked.
+  """
+  name: String!
+  """
+  Its icon.
+  """
+  iconUrl: AWSURL!
+  """
+  Whether a universe event of this event type is drawn on the map of Explore without its event organizer
+  asking for it (since v122.0.0, D-382): a setting of the event catalog.
+  """
+  onExploreMap: Boolean!
+  """
+  Whether it is a sensitive event type.
+  """
+  sensitive: Boolean!
+  """
+  The event facts it suggests, offered first to its event organizer.
+  """
+  suggestedFacts: [UniverseEventFactKind!]!
 }
 
 """
 A universe event to change (changeUniverseEvent): a field not given stays; an empty place or link removes
 it (link is a String so that "" can be sent; a link that is not an https URL: EVENT_LINK_INVALID); a zone
-replaces the point, a point the zone (EVENT_POINT_AND_ZONE when both); clear removes a part.
+replaces the point, a point the zone (EVENT_POINT_AND_ZONE when both); clear removes a part. Since v117.0.0 (D-376),
+the event cover is given or cleared until the universe event ends (EVENT_COVER_ENDED after).
 """
 input UniverseEventChangeInput {
   eventId: ID!
+  """
+  Since v122.0.0 (D-383): SHOWN shows the universe event on the map of Explore beyond its universe, KEPT keeps
+  it in its universe, BY_TYPE follows its event type; left out, nothing changes (at its creation: BY_TYPE).
+  SHOWN is refused without a place, a zone or a route, with the format "online", with an access other than
+  "public" (EVENT_EXPLORE_MAP_NOT_ALLOWED), and beyond 3 upcoming universe events of the universe shown that
+  way (EVENT_EXPLORE_MAP_LIMIT).
+  """
+  exploreMapChoice: ExploreMapChoice
   title: String
   startsAt: AWSDateTime
   minutes: Int
@@ -1395,6 +1797,31 @@ input UniverseEventChangeInput {
   Since v101.0.0: false turns its event discussion off, true back on, until it opens (EVENT_DISCUSSION_OPEN after).
   """
   discussion: Boolean
+  """
+  Since v117.0.0 (D-376): the key of its event type in the event catalog, or "other" since v118.0.0 (D-377)
+  (EVENT_TYPE_REQUIRED when not in it).
+  """
+  eventType: String
+  """
+  Since v117.0.0 (D-376): its event state, set by its event organizer.
+  """
+  state: UniverseEventState
+  """
+  Since v117.0.0 (D-376): its event facts, replacing them all.
+  """
+  facts: UniverseEventFactsInput
+  """
+  Since v117.0.0 (D-376): its participation modes, replacing them (both actions offered when never given).
+  """
+  participation: UniverseEventParticipationInput
+  """
+  Since v117.0.0 (D-376): the photo of its event organizer as its event cover, scanned as every media.
+  """
+  cover: ImageAttachmentInput
+  """
+  Since v117.0.0 (D-376, later): the experience kind it links, by its name in the registry of experience kinds.
+  """
+  experienceKind: String
 }
 
 """
@@ -1402,6 +1829,14 @@ A universe event to create (createUniverseEvent): point or zone (EVENT_POINT_AND
 route.
 """
 input UniverseEventInput {
+  """
+  Since v122.0.0 (D-383): SHOWN shows the universe event on the map of Explore beyond its universe, KEPT keeps
+  it in its universe, BY_TYPE follows its event type; left out, nothing changes (at its creation: BY_TYPE).
+  SHOWN is refused without a place, a zone or a route, with the format "online", with an access other than
+  "public" (EVENT_EXPLORE_MAP_NOT_ALLOWED), and beyond 3 upcoming universe events of the universe shown that
+  way (EVENT_EXPLORE_MAP_LIMIT).
+  """
+  exploreMapChoice: ExploreMapChoice
   universe: String!
   title: String!
   startsAt: AWSDateTime!
@@ -1429,16 +1864,42 @@ input UniverseEventInput {
   creation is told (CHANNEL_NOT_FOUND).
   """
   fromDiscussion: ID
+  """
+  Since v117.0.0 (D-376): the key of its event type in the event catalog, required for a new universe event; since
+  v118.0.0 (D-377), "other" too, the event type of no event family (EVENT_TYPE_REQUIRED when missing, or neither
+  "other" nor in the event catalog).
+  """
+  eventType: String
+  """
+  Since v117.0.0 (D-376): its event facts, replacing them all.
+  """
+  facts: UniverseEventFactsInput
+  """
+  Since v117.0.0 (D-376): its participation modes, replacing them (both actions offered when never given).
+  """
+  participation: UniverseEventParticipationInput
+  """
+  Since v117.0.0 (D-376): the photo of its event organizer as its event cover, scanned as every media.
+  """
+  cover: ImageAttachmentInput
+  """
+  Since v117.0.0 (D-376, later): the experience kind it links, by its name in the registry of experience kinds.
+  """
+  experienceKind: String
 }
 
 """
 A part of a universe event to remove (changeUniverseEvent clear): its point, its zone (and what it hides),
-its route.
+its route; since v117.0.0 (D-376), COVER, the photo of its event cover (the picture of the event cover library comes
+back), FACTS, all its event facts, and EXPERIENCE_KIND, the experience kind it links.
 """
 enum UniverseEventPart {
   POINT
   ZONE
   ROUTE
+  COVER
+  FACTS
+  EXPERIENCE_KIND
 }
 
 """
@@ -1795,7 +2256,10 @@ The profile of a universe to change (setUniverseProfile); a field not given stay
 requestMediaUpload. theme: a theme of the theme catalog the universe can read. layoutRef: the default layout
 (a layout of the catalog the universe can read); switcherLayouts: at most 4 (an empty list removes them).
 firstFocus: a public universe only, and since v79.0.0 POSTS, CLIPS, MAP or DEBATES (UNIVERSE_FOCUS_NOT_OFFERED
-otherwise).
+otherwise). governanceLayoutRef (since v101.16.0, D-318): a layout of the governance page of the catalog the universe
+can read, set by the leadership (the owner and the admins in a private universe), with the invariants of the
+governance page (contracts/layouts.md § The governance page; LAYOUT_PAGE_INVALID for a layout of another page);
+clear GOVERNANCE_LAYOUT goes back to the platform layout.
 """
 input UniverseProfileInput {
   description: String
@@ -1803,6 +2267,7 @@ input UniverseProfileInput {
   theme: ThemeRefInput
   universeStrip: Boolean
   firstFocus: UniverseFocus
+  governanceLayoutRef: LayoutRefInput
   layoutRef: LayoutRefInput
   switcherLayouts: [LayoutRefInput!]
   readerRetouches: Boolean
@@ -1811,11 +2276,13 @@ input UniverseProfileInput {
 
 """
 A part of the profile of a universe to remove (setUniverseProfile clear): its image, its first focus (back
-to the one of its field), its default layout (none).
+to the one of its field), its default layout (none), the layout of its governance page (since v101.16.0: the
+platform layout).
 """
 enum UniverseProfilePart {
   IMAGE
   FIRST_FOCUS
+  GOVERNANCE_LAYOUT
   LAYOUT
 }
 
@@ -1922,6 +2389,12 @@ whether it is listed on the members page, whether it landed there before. One re
 universe opens; served by the cell of the caller (its own data, P-16).
 """
 type UniverseStanding {
+  """
+  Who sees the caller by name among the present residents of the universe discussions of this universe
+  (since v122.0.0, D-384): what the caller chose for this universe, else what they chose everywhere, else
+  EVERYONE for a member of its leadership or one of its moderators and CONNECTIONS for anyone else.
+  """
+  presenceVisibility: PresenceVisibility!
   """
   The address of the universe, with its sign ("%paris").
   """
@@ -2058,6 +2531,12 @@ type UniverseDiscussion {
   Its address, with its signs ("%paris&general").
   """
   address: String!
+  """
+  Who writes in it (since v101.16.0, D-318, public-channels.feature; setUniverseDiscussionWriters): RESIDENTS by
+  default; VOTERS, the residents who can vote; LEADERSHIP_AND_MODERATORS. Always RESIDENTS for a temporary universe
+  discussion and for a channel of a private universe (its members write there).
+  """
+  writers: ChannelWriters!
   """
   Whether delegated agents are forbidden to write in it (since v81.2.0).
   """
@@ -2422,4 +2901,53 @@ type UniverseTagObjectPage {
   The cursor of the next page (the argument after); null on the last page.
   """
   next: String
+}
+
+"""
+Who writes in a public channel (since v101.16.0, D-318, public-channels.feature): the residents of its universe
+(RESIDENTS, by default), the residents who can vote (VOTERS), or its leadership and its moderators only
+(LEADERSHIP_AND_MODERATORS); a message of anyone else: CHANNEL_WRITERS_ONLY.
+"""
+enum ChannelWriters {
+  LEADERSHIP_AND_MODERATORS
+  RESIDENTS
+  VOTERS
+}
+
+"""
+Who sees a resident by name among the present residents of a universe discussion (since v122.0.0, D-384):
+HIDDEN, nobody; CONNECTIONS, the accounts connected with them; EVERYONE, every reader of the discussion.
+"""
+enum PresenceVisibility {
+  CONNECTIONS
+  EVERYONE
+  HIDDEN
+}
+
+"""
+A present resident of a universe discussion the reader may see by name (since v122.0.0, D-384).
+"""
+type PresentAccount {
+  """
+  The account.
+  """
+  account: AccountRef!
+  """
+  Whether the reader is connected with it.
+  """
+  connected: Boolean!
+  """
+  Its role in the universe now, a member of its leadership or one of its moderators; null otherwise.
+  """
+  role: PostAuthorRole
+}
+
+"""
+What the event organizer of a universe event chose for the map of Explore (since v122.0.0, D-383): BY_TYPE, as
+its event type says; SHOWN, beyond its universe; KEPT, in its universe only.
+"""
+enum ExploreMapChoice {
+  BY_TYPE
+  KEPT
+  SHOWN
 }

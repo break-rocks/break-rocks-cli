@@ -43,13 +43,17 @@ type LivePosition {
   """
   secondsToMeetingPoint: Int
   """
-  The time to arrival at the place of the meet-up the live share is for, in seconds (0 to 86,400), computed by the sharer's app; null when unknown or when the live share is not for a meet-up. Kept with the last position only.
+  The time to arrival at the place of the meet-up the live share is for, in seconds (0 to 86,400), computed by the sharer's app; null when unknown, when the live share is not for a meet-up, since D-348 when the estimate is above 86,400 seconds, and for a minor sharer. Kept with the last position only.
   """
   secondsToMeetUp: Int
   """
   How the sharer travels to the meet-up (FOOT or BICYCLE); null with secondsToMeetUp.
   """
   meetUpMode: RouteMode
+  """
+  Since D-348: true when secondsToMeetUp is estimated on the sharer's device while the directions cannot be computed (shown "about N minutes"); false when secondsToMeetUp is the time of the directions or is null, and when the live share is not for a meet-up. Always present.
+  """
+  meetUpEstimated: Boolean!
   """
   The live share.
   """
@@ -334,13 +338,17 @@ input PositionInput {
   lon: Float!
   secondsToMeetingPoint: Int
   """
-  The time to arrival at the place of the meet-up, in seconds, 0 to 86,400; only for the live share of a meet-up. Out of range, or without meetUpMode, POSITIONS_INVALID.
+  The time to arrival at the place of the meet-up, in seconds, 0 to 86,400; only for the live share of a meet-up. Out of range, or without meetUpMode, POSITIONS_INVALID. Since D-348, the app sends null for an estimate above 86,400 seconds (no time to arrival is shown), and the app of a minor always sends null.
   """
   secondsToMeetUp: Int
   """
   How the sharer travels to the meet-up: FOOT or BICYCLE only. Any other value, POSITIONS_INVALID.
   """
   meetUpMode: RouteMode
+  """
+  Since D-348: true when secondsToMeetUp is estimated on the device while the directions cannot be computed, false or null when it is the time of the directions. True with secondsToMeetUp null, POSITIONS_INVALID.
+  """
+  meetUpEstimated: Boolean
 }
 
 """
@@ -650,7 +658,8 @@ type AvatarPart {
   """
   owned: Boolean!
   """
-  The price of a paid cosmetic part in the currency of the caller, in minor units; null for a free part.
+  The price of a paid cosmetic part in the currency of the caller, in minor units; null for a free part. Since
+  v101.15.0: computed from the cost estimate of the part by the selling price rule (D-316, subscriptions.feature).
   """
   priceMinor: Int
   """
@@ -923,7 +932,8 @@ type MapPost {
   """
   postId: ID!
   """
-  The address of its universe ("%paris").
+  The full path of its universe, a sub-universe included ("%paris/velo" for a post of "%paris/velo"), never its
+  universe of the first level only (D-359).
   """
   universe: String!
   """
@@ -938,6 +948,37 @@ type MapPost {
   Since v92.0.0 (D-285): whether it carries a clip or a long video (the layer "Videos").
   """
   video: Boolean!
+  """
+  Since v101.21.0 (D-285): the poster of its clip or long video (the pin of the layer "Videos"), on the media CDN;
+  null for a post without a video.
+  """
+  posterUrl: AWSURL
+  """
+  Since v101.21.0 (D-285): the duration of its clip or long video, in milliseconds; null without a video.
+  """
+  durationMs: Int
+  """
+  Since v114.2.0 (map-markers.feature, D-349, D-350; contracts/map.md § "Since v114.2.0"): the photo of a placed post
+  with a photo, drawn in its portrait on the map: its first image (Post.images, the first), on the media CDN, as the
+  URL of one variant of that image that exists (<url>/<width>.webp, a width among its Image.widths): the smallest
+  width served of at least 192 pixels (twice the 96 pixels of a map marker), else, for an image narrower than that,
+  the largest width served. The client reads this URL as given and never builds a URL nor asks a width of its own.
+  The same image the post shows (an area hidden after posting stays hidden), under the same visibility rules as the
+  post. Null for a post without an image and for a post with a clip or a long video (posterUrl).
+  """
+  photoUrl: AWSURL
+  """
+  Since D-368 (gathering-sheet.feature; contracts/map.md § The gathering sheet): its author, as shown (the avatar of a
+  gathering thumbnail). Asked by the gathering sheet (mapGathering, placeCard) only: the reads that draw the map
+  (mapPosts) do not ask it and keep their cost; the files of the map highlights keep the id of the author only. A
+  deleted account as AccountRef shows it.
+  """
+  author: AccountRef!
+  """
+  Since D-368 (gathering-sheet.feature): for the post of a published experience feat, the id of its place feat
+  (placeFeat(id), startPlaceFeatRun: its feat card and "Do it too"); null for another post.
+  """
+  placeFeatId: ID
 }
 
 """
@@ -1043,6 +1084,47 @@ type MapRoute {
 }
 
 """
+A route in its light form, for the map (since D-374, routes.feature, mapRouteMarkers): what its route start marker,
+its route end marker and its route marker card need, never its line nor its stages. Its points depend on the reader
+(since D-375): for another reader than its author, where a privacy zone of its author hides its start or its end, the
+point where its line leaves or enters that privacy zone; for its author, its start and its end.
+"""
+type MapRouteMarker {
+  """
+  The identifier of the route (mapRoute(id) reads its line).
+  """
+  id: ID!
+  """
+  Its name.
+  """
+  name: String!
+  """
+  How it is travelled: on foot or by bicycle (the icon of its route start marker).
+  """
+  mode: RouteMode!
+  """
+  Its length, in metres, of the whole route, the parts its privacy zones hide included, as the route shows it (since
+  D-375, the length of its route marker card); null when unknown.
+  """
+  metres: Int
+  """
+  The point of its route start marker: for another reader than its author, its first point that no privacy zone of its
+  author hides; for its author, its first point (since D-375).
+  """
+  start: Point!
+  """
+  The point of its route end marker: for another reader than its author, its last point that no privacy zone of its
+  author hides; for its author, its last point (since D-375); null for a loop, which has its route start marker only.
+  """
+  end: Point
+  """
+  Its free tags, 0 to 5, in their canonical form, without "#" (since D-375, contracts/map.md § Routes): the map filter
+  counts them.
+  """
+  tags: [String!]!
+}
+
+"""
 A page of routes, the most recent first (since v92.1.0).
 """
 type MapRoutePage {
@@ -1092,4 +1174,123 @@ A privacy zone to set (since v92.1.0).
 input RoutePrivacyZoneInput {
   point: PointInput!
   metres: Int!
+}
+
+"""
+A map kind of the row of the map kinds (map.kinds, map-highlights.feature): POSTS "Posts and photos", VIDEOS "Videos", FEATS
+"Feats", EVENTS "Events", PEOPLE "People", UNIVERSES "Universes" (the map of Explore only), ROUTES "Routes".
+"""
+enum MapKind {
+  EVENTS
+  FEATS
+  PEOPLE
+  POSTS
+  ROUTES
+  UNIVERSES
+  VIDEOS
+}
+
+"""
+Since D-355 (nearestActivity): the nearest activity of an empty area: what it is, the point its distance is measured to
+(the apps show its direction and its distance from the center of the area, and move the map over it at the zoom 12).
+"""
+type NearestActivity {
+  """
+  Its map kind: POSTS, VIDEOS, FEATS, EVENTS, UNIVERSES or ROUTES (never PEOPLE).
+  """
+  kind: MapKind!
+  """
+  Its id: the postId of a placed post or a placed video, the placeId of a place with a place feat, the id of a universe
+  event or of a route, the key of a public universe (its name in lowercase, without "%").
+  """
+  id: ID!
+  """
+  The point its distance is measured to: the point of a content, the start of a route, the nearest point of the universe
+  territory of a public universe (the center of the area shown when it lies within it).
+  """
+  point: Point!
+  """
+  Its distance from the center of the area shown, in metres (0 to 500,000).
+  """
+  metres: Int!
+}
+
+"""
+Since D-358 (placeCard): the place card of a place without a place feat.
+"""
+type PlaceCard {
+  """
+  The id of its point of interest.
+  """
+  placeId: String!
+  """
+  The name of the place.
+  """
+  name: String!
+  """
+  Its point.
+  """
+  point: Point!
+  """
+  Since D-362: its postal address as one line ("172 Boulevard Saint-Germain, 75006 Paris"), read from the cartography at
+  the time of the read, never kept by the social platform; null when the cartography gives none or does not cover the
+  place.
+  """
+  address: String
+  """
+  Its contents, 20 at most: the universe events to come first, then the placed posts and placed videos.
+  """
+  contents: [PlaceContent!]!
+}
+
+"""
+Since D-358: a content of a place card: a universe event (kind EVENTS, event set) or a placed post (kind POSTS, post set) or a
+placed video, a vertical clip or a long video (kind VIDEOS, post set). Since D-368, a content of a gathering sheet too
+(mapGathering, MapGatheringKind.contents), with the kind FEATS: a place with a place feat (place set) or a published
+experience feat (post set, its post, MapPost.placeFeatId set); placeCard never answers FEATS.
+"""
+type PlaceContent {
+  """
+  EVENTS, POSTS or VIDEOS; since D-368, FEATS (mapGathering only).
+  """
+  kind: MapKind!
+  """
+  The universe event as the caller reads it; null for a placed post.
+  """
+  event: UniverseEvent
+  """
+  The placed post or placed video (since D-368, or the post of a published experience feat, kind FEATS); null for a
+  universe event and for a place.
+  """
+  post: MapPost
+  """
+  Since D-368 (mapGathering): a place with a place feat, kind FEATS, with its name (place.name), its place feat count
+  (publishedCount) and its photo (photoUrl), as mapPlaceFeats answers it; null otherwise.
+  """
+  place: MapPlaceFeats
+}
+
+"""
+Since D-368 (mapGathering, gathering-sheet.feature; contracts/map.md § The gathering sheet): the things of one map kind
+that a touched map marker gathers: a gathering filter, its count and its first 20 gathering thumbnails.
+"""
+type MapGatheringKind {
+  """
+  POSTS (the gathering filter "Posts": the placed posts, with or without a photo), VIDEOS ("Clips": every placed video),
+  FEATS ("Feats": the places with a place feat and the published experience feats) or EVENTS ("Events"). Each thing in
+  one kind only: a published experience feat in FEATS, never in POSTS nor VIDEOS.
+  """
+  kind: MapKind!
+  """
+  The number of the things of that kind the map marker gathers that the caller may see, 1 or more (a kind with nothing
+  is not answered): the count of its gathering filter; the gathering sheet shows "+N" after the contents, N this count
+  less the number of the contents. "All" counts the sum of the kinds (and the people the app holds).
+  """
+  count: Int!
+  """
+  Its first 20 contents at most, in the order of the map highlights (each by its rank, contracts/map.md § The map
+  highlights and the map kinds: a placed post or a placed video by its highlight score, a place by how lively it is then
+  its place feat count, a universe event in progress first, then the next 7 days by attendees, then the soonest).
+  """
+  contents: [PlaceContent!]!
 }

@@ -131,9 +131,11 @@ export const routesPlan = apiCommand({
 
 const cells = { parentMapCells: 'cells' };
 const universeFilter = { universe: 'The universe filter: one public universe (none: every public universe)' };
+type RouteMarker = { id: string; name: string; mode?: string; metres?: number | null; tags?: string[] };
 export const mapRoutes = apiCommand({
-  name: 'map routes', summary: 'The routes that cross an area of the map: public routes and universe routes of public universes, 100 at most (mapRoutes)', kind: 'query', op: 'mapRoutes', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
-  text: listText(routeLine), examples: ['breakrocks map routes --cells 861fb4677ffffff', 'breakrocks map routes --cells 861fb4677ffffff --universe %paris --json'],
+  name: 'map routes', summary: 'The route markers of an area of the map: public routes and universe routes of public universes, 100 at most (mapRouteMarkers)', kind: 'query', op: 'mapRouteMarkers', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
+  description: 'Since specs v118 (D-374) the map reads the markers of the routes (their start and end, no line): routes show <id> reads the line of one (mapRoute). mapRoutes is deprecated.',
+  text: listText((r: RouteMarker) => `${r.id}  ${r.name}  ${r.mode ?? ''}  ${km(r.metres)}${r.tags?.length ? `  #${r.tags.join(' #')}` : ''}`), examples: ['breakrocks map routes --cells 861fb4677ffffff', 'breakrocks map routes --cells 861fb4677ffffff --universe %paris --json'],
 });
 type Channel = { address: string; presentCount?: number; place?: { name?: string } | null; lastMessage?: { text?: string | null } | null };
 export const mapChannels = apiCommand({

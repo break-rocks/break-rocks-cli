@@ -117,10 +117,13 @@ enum AdCallToAction {
 }
 
 """
-The states of a campaign: DRAFT, IN_REVIEW, APPROVED (scheduled), RUNNING, PAUSED, REJECTED, ENDED.
+The states of a campaign: DRAFT, IN_REVIEW, APPROVED (scheduled), RUNNING, PAUSED, REJECTED, ENDED; since v103.0.0
+(D-327), CORRECTION_REQUESTED: a member of the platform team asked a correction of a creative under an ad rule
+(AdCampaign.correctionRequest); the campaign does not run; a creative changed sends it back to IN_REVIEW.
 """
 enum AdCampaignState {
   APPROVED
+  CORRECTION_REQUESTED
   DRAFT
   ENDED
   IN_REVIEW
@@ -286,6 +289,24 @@ input AdUniverseSuggestionsInput {
 }
 
 """
+Since v103.0.0 (D-327): a correction of a creative the platform team asks its advertiser, under an ad rule.
+"""
+type AdCorrectionRequest {
+  """
+  The title of the ad rule, in the language of the advertiser.
+  """
+  adRule: String!
+  """
+  The correction asked (10 to 1,000 characters).
+  """
+  message: String!
+  """
+  When it was asked.
+  """
+  requestedAt: AWSDateTime!
+}
+
+"""
 A campaign of an advertiser.
 """
 type AdCampaign {
@@ -305,6 +326,10 @@ type AdCampaign {
   The reason and the rule of a refusal; null unless REJECTED.
   """
   rejectionReason: String
+  """
+  Since v103.0.0 (D-327): the correction asked by the platform team; null unless CORRECTION_REQUESTED.
+  """
+  correctionRequest: AdCorrectionRequest
   """
   Its creatives.
   """

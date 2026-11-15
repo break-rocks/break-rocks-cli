@@ -223,6 +223,31 @@ describe('theme publish', () => {
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version')).toBe(0);
     expect(h.all()).toMatch(/corrected night\.surfaces\.control\.text: #0E1116/);
   });
+  it('publishes the archive of a theme as the import of the apps reads it, the screenshots of an export removed', async () => {
+    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 1 }) });
+    const dir = join(h.dir, 't'); mkdirSync(dir);
+    const exported = { ...doc, imageSlots: { page: { day: 'page-day.png' }, pageHeader: { day: 'page-header-day.png' } }, screenshots: ['https://media.example/themes/a.webp'], appearance: { accent: '#E5484D', imageShows: 'through', sky: 'band' } };
+    writeFileSync(join(dir, 'theme.json'), JSON.stringify(exported));
+    writeFileSync(join(dir, 'page-day.png'), png(2400, 1800));
+    writeFileSync(join(dir, 'page-header-day.png'), png(2400, 800));
+    expect(await h.run('theme', 'pack', join(dir, 'theme.json'), '--out', join(h.dir, 'cli2-test.zip'), '--allow-invalid', '--json')).toBe(0);
+    expect(await h.run('theme', 'check', join(h.dir, 'cli2-test.zip'), '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ file: join(h.dir, 'cli2-test.zip'), appearance: { kept: true, imageShows: 'through', sky: 'band' }, images: [{ place: 'page', file: 'page-day.png' }, { place: 'pageHeader', file: 'page-header-day.png' }] });
+    expect(await h.run('theme', 'publish', join(h.dir, 'cli2-test.zip'), '--in', '%paris', '--json')).toBe(0);
+    expect(uploads.length).toBe(2);
+    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishTheme')!.variables.t));
+    expect(sent).toMatchObject({ imageSlots: { page: { day: 'up-1' }, pageHeader: { day: 'up-2' } }, appearance: { accent: '#E5484D', imageShows: 'through', sky: 'band' } });
+    expect(sent.screenshots).toBeUndefined();
+    expect(last(h)).toMatchObject({ removed: ['screenshots'] });
+  });
+  it('refuses an archive without a theme document', async () => {
+    const { h, calls } = scripted({});
+    const { writeZip } = await import('../src/theme/zip.js');
+    writeFileSync(join(h.dir, 'empty.zip'), writeZip([{ path: 'page-day.png', bytes: png(10, 10) }]));
+    expect(await h.run('theme', 'publish', join(h.dir, 'empty.zip'), '--in', '%paris', '--json')).toBe(2);
+    expect(last(h)).toMatchObject({ error: { code: 'IMPORT_NO_JSON' } });
+    expect(calls).toEqual([]);
+  });
   it('names each file missing, before anything is sent', async () => {
     const { h, calls } = scripted({});
     const dir = join(h.dir, 't'); mkdirSync(dir);
@@ -230,6 +255,34 @@ describe('theme publish', () => {
     expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(1);
     expect(last(h)).toMatchObject({ error: { code: 'IMAGE_FILE_MISSING', missing: ['imageSlots.page.day', 'imageSlots.pageHeader.day'] } });
     expect(calls).toEqual([]);
+  });
+});
+
+describe('the theme catalog and the page of a theme', () => {
+  it('lists the themes of quick start by group and image, with their reason', async () => {
+    const item = { theme: { universe: '%root', name: 'belgique', version: 2 }, reason: 'COUNTRY', universeCount: 3, accountCount: 0, hasImage: true, look: null };
+    const { h, calls } = scripted({ themeCatalog: () => ({ items: [item], next: null }) });
+    expect(await h.run('themes', 'list', '--order', 'QUICK_START', '--universe', '%paris', '--group', 'COUNTRY', '--with-image')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ o: 'QUICK_START', u: '%paris', g: 'COUNTRY', wi: true });
+    expect(h.lines.at(-1)).toBe('%root/belgique v2  COUNTRY  with image  3 universes, 0 accounts');
+    expect(await h.run('themes', 'list', '--order', 'QUICK_START', '--universe', '%paris', '--without-image', '--json')).toBe(0);
+    expect(calls[1].variables).toMatchObject({ wi: false, g: null });
+    expect(await h.run('themes', 'list', '--with-image', '--without-image', '--json')).toBe(2);
+  });
+  it('shows a theme with its image slots, their widths and its screenshots', async () => {
+    const theme = {
+      universe: '%paris', name: 'stade-nuit', version: 3, collection: 'SPORT', official: false, contrastLevel: 'AA', creator: { handle: 'alice' }, typography: { title: 'Bebas Neue' }, universeCount: 1, accountCount: 0, corrected: ['night.text'],
+      document: JSON.stringify({ appearance: { accent: '#E5484D', imageShows: 'through', sky: 'band' } }),
+      imageSlots: { page: { url: 'https://media.example/posts/u1', widths: [2160, 1080], urlNight: 'https://media.example/posts/u2', widthsNight: [2160], removed: false }, pageHeader: null, timeColumn: null },
+      screenshots: ['a', 'b', 'c'], screenshotsDay: ['d', 'e', 'f'], pageScreenshots: { desktop: { url: 'x', urlNight: 'y' }, tablet: null, phone: { url: 'z', urlNight: null } },
+    };
+    const { h } = scripted({ theme: () => theme });
+    expect(await h.run('themes', 'show', '%paris/stade-nuit')).toBe(0);
+    expect(h.all()).toContain('%paris/stade-nuit v3  SPORT  by @alice');
+    expect(h.all()).toContain('image of the page shows through, sky band');
+    expect(h.all()).toContain('slot page: day https://media.example/posts/u1 (2160, 1080), night https://media.example/posts/u2 (2160)');
+    expect(h.all()).toContain('screenshots: 3 night, 3 day; page of a universe: desktop, phone');
+    expect(h.all()).toContain('corrected at publication: night.text');
   });
 });
 

@@ -90,7 +90,7 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' |
   });
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: [...ACCOUNT_PROMPTS.map(({ name, title, description }) => ({ name, title, description })), {
-      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt, on the model of specs v99: a theme.json of the format 2 (the four families of theme surfaces page, sky, block and control, one title typeface, the image slots page and pageHeader; no radius, no border, no opacity, the readability mask computed by the platform) and its images, for a field (or a universal theme), a mood, a name and a universe.',
+      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt, in the format the platform accepts today (specs v122): a theme.json of the format 2 (the four families of theme surfaces page, sky, block and control, one title typeface, the image slots page and pageHeader by day and by night, the block appearance with how the image of the page shows and the sky; no radius, no border, no opacity, the scrims and the readability mask computed by the platform) and the list of its 4 images (size, content, what lies over them), for a field (or a universal theme), a mood, a name and a universe.',
       arguments: [
         { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech (none for a universal theme)' },
         { name: 'mood', description: 'The mood, in a few words', required: true },
@@ -100,6 +100,9 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' |
         { name: 'fonts', description: 'The title typeface (approved list; since specs v99 there is no accent typeface)' },
         { name: 'description', description: 'Its description (160 characters at most)' },
         { name: 'language', description: `The language of the prompt: ${LANGUAGES.join(' or ')} (default en)` },
+        { name: 'imageShows', description: 'How the image of the page shows: none, subtle (default) or through' },
+        { name: 'sky', description: 'The sky of the universe: column (default) or band' },
+        { name: 'template', description: 'true: the fields not given left as <…> to fill' },
       ],
     }],
   }));
@@ -111,7 +114,7 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' |
     const language = (a.language ?? 'en') as Language;
     if (!LANGUAGES.includes(language)) throw usageError('INVALID_INPUT', `language: ${LANGUAGES.join(' or ')}`);
     try {
-      const { prompt } = themePrompt({ field: a.field || undefined, mood: a.mood ?? '', name: a.name ?? '', universe: a.universe || undefined, universal: a.universal === 'true', description: a.description, fonts: a.fonts ? a.fonts.split(',').map((f) => f.trim()).filter(Boolean) : undefined, language });
+      const { prompt } = themePrompt({ field: a.field || undefined, mood: a.mood ?? '', name: a.name ?? '', universe: a.universe || undefined, universal: a.universal === 'true', template: a.template === 'true', imageShows: a.imageShows || undefined, sky: a.sky || undefined, description: a.description, fonts: a.fonts ? a.fonts.split(',').map((f) => f.trim()).filter(Boolean) : undefined, language });
       return { description: `A break.rocks theme "${a.name}" for ${a.universe}`, messages: [{ role: 'user' as const, content: { type: 'text' as const, text: prompt } }] };
     } catch (error) {
       const e = asCliError(error);

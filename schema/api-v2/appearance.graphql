@@ -851,8 +851,11 @@ type Theme {
 
 """
 A theme of the catalog with the rule of its ranking ("reason": OFFICIAL, COLLECTION_<field>,
-MOST_USED, NEWEST, IN_YOUR_UNIVERSES; CREATOR, the themes of a creator, since v48.2.0), its
-counts, and its screenshots in "variant".
+MOST_USED, NEWEST, IN_YOUR_UNIVERSES; CREATOR, the themes of a creator, since v48.2.0; COUNTRY, a
+theme of the country collection in the catalog of "%root", since v101.9.0, and with the order COUNTRY, since
+v101.10.0; with the order QUICK_START, since v101.13.0, LOOK, COUNTRY, OFFICIAL, COLLECTION_<field> or UNIVERSAL),
+its counts, and its
+screenshots in "variant".
 """
 type ThemeCatalogItem {
   """
@@ -888,6 +891,28 @@ type ThemeCatalogItem {
   The variant shown in the catalog (day or night).
   """
   variant: ThemeVariant!
+  """
+  Since v101.13.0 (D-314, contracts/themes.md § Customize, Every theme of the platform in quick start): the look,
+  for an item of the reason LOOK (its appearance character, its layout, its accent); null otherwise.
+  """
+  look: AppearanceLook
+  """
+  Since v101.13.0 (D-314): whether the theme has a background image (its slot page or pageHeader filled), the
+  filter "With image" or "Without image" of quick start.
+  """
+  hasImage: Boolean!
+}
+
+"""
+A group of themes of quick start (since v101.13.0, D-314; contracts/themes.md § Customize, Every theme of the
+platform in quick start), the filter group of themeCatalog with the order QUICK_START: LOOK, the 30 looks;
+COUNTRY, the country collection; OFFICIAL, Socle and the official themes; UNIVERSAL, the universal collection.
+"""
+enum ThemeCatalogGroup {
+  LOOK
+  COUNTRY
+  OFFICIAL
+  UNIVERSAL
 }
 
 """
@@ -903,6 +928,28 @@ enum ThemeCatalogOrder {
   IN_YOUR_UNIVERSES
   MOST_USED
   NEWEST
+  """
+  Since v101.10.0 (D-310, customize-universe.feature; contracts/themes.md § Customize, The countries of quick
+  start): the themes of the country collection only (reason COUNTRY), for quick start of "universe" (required,
+  GALLERY_UNIVERSE_REQUIRED otherwise): the theme of the country of the universe first (the country of a country
+  universe, else the country its universe territory lies in, else the country of the legal space of a private
+  universe, else the country of the account of the caller), then the others by name in the language of the
+  caller; query finds them by name. layoutCatalog answers no item with this order.
+  """
+  COUNTRY
+  """
+  Since v101.13.0 (D-314, customize-universe.feature; contracts/themes.md § Customize, Every theme of the platform
+  in quick start): every theme of "%root" offered by quick start of "universe" (required,
+  GALLERY_UNIVERSE_REQUIRED otherwise): the 30 looks (the field of the universe first) and the theme of the country
+  of the universe (as COUNTRY) first, then the others by collection (Socle and the official themes, the other
+  themes of the field collections, the universal collection, the country collection) then by name in the language
+  of the caller. query finds a theme by its keywords (its name, for a theme of the country collection the name of
+  each country universe of its country; its collection; "with image" or "without image"; the ambiance color
+  nearest to its primary; the appearance character of its title typeface; its field), in the language of the
+  caller or in English, regardless of case and accents. The filters: collection (a field: its field collection,
+  its looks first), group, withImage. layoutCatalog answers no item with this order.
+  """
+  QUICK_START
 }
 
 """
@@ -1399,12 +1446,41 @@ input UniverseAppearanceInput {
   watermark: WatermarkSettingInput
   clear: [UniverseIdentityPart!]
   layout: String
+  """
+  Since v101.13.0 (D-314, customize-universe.feature; contracts/themes.md § Customize, Every theme of the platform
+  in quick start; it replaces countryTheme of v101.10.0, D-310, which no client sent): start from a theme of
+  "%root" that quick start offers, Socle, an official theme, a theme of a field collection, of the universal
+  collection or of the country collection (APPEARANCE_THEME_REF_INVALID otherwise). The appearance takes its whole
+  document at that moment (its palette, its four theme surfaces, its title typeface, its image slots); imageId,
+  focalPoint, ground, imageShows, accent and character are then ignored; logo, clear, layout and sky apply as
+  before. Applied, it is published as the next version of the theme "appearance" of the universe, a copy that a
+  later version of that theme does not change, its block "appearance" naming it in "look". Null: the appearance
+  is built from the steps.
+  """
+  themeRef: ThemeRefInput
+  """
+  Since v101.13.0 (D-315, customize-universe.feature, sky-column.feature; contracts/themes.md § Customize): the
+  sky of the universe, COLUMN (the sky column, the default) or BAND (the sky band); carried in the block
+  "appearance" of the document as "sky" ("column", "band"), so that a proposal, a trial and a draft preview
+  apply it too; null: the sky of the universe theme unchanged (COLUMN when it carries none).
+  """
+  sky: UniverseSky
+}
+
+"""
+The sky of a universe (since v101.13.0, D-315; contracts/layouts.md § The sky column, The sky band): COLUMN, the
+sky column on a window of at least 1,024 pixels, the default; BAND, the sky band, the head of every universe page
+drawn as on a tablet at every width from 600 pixels.
+"""
+enum UniverseSky {
+  COLUMN
+  BAND
 }
 
 """
 How the image of an appearance shows (since v99.1.0, D-293; contracts/themes.md § How the image of an appearance
-shows): NONE, the slot page empty; SUBTLE, the subtle background (the slot page behind the page on a tablet and a
-desktop, the default; the page over it at the page opacity of the reader, 64 % by default, since v100.0.0, D-299); THROUGH, the slot page behind the page at every breakpoint, the blocks at the block
+shows): NONE, the slot page empty; SUBTLE, the subtle background (the slot page behind the page at every breakpoint since v102.0.0, D-324, on a tablet and a
+desktop only before; the default; the page over it at the page opacity of the reader, 64 % by default, since v100.0.0, D-299); THROUGH, the slot page behind the page at every breakpoint, the blocks at the block
 opacity, every text and control of a block or of a post on the readability mask.
 """
 enum ImageShows {
@@ -1666,6 +1742,10 @@ type UniverseAppearanceHistoryEntry {
   NONE with ground false.
   """
   imageShows: ImageShows!
+  """
+  Since v101.13.0 (D-315): its sky; COLUMN for an appearance applied before v101.13.0.
+  """
+  sky: UniverseSky!
   """
   False when its theme or its image was removed by the moderation (APPEARANCE_NOT_RESTORABLE).
   """

@@ -8,7 +8,10 @@
 // border ignored, never refused); typography.accent ignored; the image slots page and pageHeader only; the
 // readability mask computed (images read as black and white offline). The contrast is raised by the platform,
 // not refused: each color it would raise is a warning with the color it would keep (an error with --strict).
-// The report is JSON for hooks.
+// Since specs v122.1.0 (the backend's validateTheme as served): the block appearance is read as the platform keeps
+// it (dropped without an accent; imageShows read from "ground" when absent; the sky column or band, D-315; the
+// subtle background at every breakpoint since v102.0.0, D-324), pageImageOnPhone accepted, an unknown key at the top
+// of the document ignored (left out at publication) rather than refused. The report is JSON for hooks.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { AA_LARGE, AA_TEXT, PALETTE_KEYS, dimOf, raiseFamilies, raisePalette, type Correction, type Family, type Palette, type Resolved, type Variant } from './contrast.js';
@@ -26,6 +29,10 @@ export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const WORDMARK_MAX_BYTES = 1024 * 1024;
 export const WORDMARK_MAX_RATIO = 6;
 export const BANNER_MIN = { width: 1500, height: 500 };
+/** The widths of the WebP variants the media pipeline serves of an image (the largest first). */
+export const MEDIA_WIDTHS = [2160, 1080, 480, 160] as const;
+/** Under this, the image of the page is upscaled behind a desktop page (the largest variant served, 4:3). */
+export const PAGE_MIN = { width: 2160, height: 1620 };
 export const FIELDS = ['CULTURE', 'ENTERTAINMENT', 'EVERYDAY_LIFE', 'GAMES', 'PLACES', 'POLITICS', 'SCIENCE', 'SPORT', 'TECH', 'WORK'] as const;
 /** How the image of the slot page shows (the block appearance, contracts/themes.md § Since v99.0.0): subtle without it. */
 export const IMAGE_SHOWS = ['none', 'subtle', 'through'] as const;
@@ -44,6 +51,47 @@ export type Problem = { code: string; severity: Severity; path: string; message:
 /** An image named by a document; [read]: in a slot the platform reads (page, pageHeader; format 1: background, banner; the wordmark and the pattern), false in a slot ignored since v99.0.0. */
 export type ImageRef = { place: string; variant?: 'day' | 'night'; ref: string; read: boolean };
 export type ImageReport = ImageRef & { file?: string; type?: string; width?: number; height?: number; bytes?: number };
+/** The skies of a universe (since specs v101.13.0, D-315) and the layouts and characters of the block appearance. */
+export const SKIES = ['column', 'band'] as const;
+export const APPEARANCE_LAYOUTS = ['feed-first', 'village-square', 'hud'] as const;
+export const APPEARANCE_CHARACTERS = ['PLACE', 'AGORA', 'TERMINAL', 'STAGE', 'GALLERY'] as const;
+/**
+ * The block appearance as the platform keeps it (backend appearanceBlockOf, contracts/themes.md § Customize): [kept]
+ * false when it drops the whole block (not an object, or no accent #RRGGBB); [imageShows] as read (a valid value, else
+ * "ground": true reads subtle, anything else none); [sky] column when absent.
+ */
+export type AppearanceReport = { kept: boolean; imageShows: ImageShows; sky: (typeof SKIES)[number]; layout?: string; character: string };
+
+type Tell = (code: string, path: string, message: string) => void;
+/** Reads the block appearance of a theme of the format 2 as the platform keeps it, telling what it drops or reads otherwise. */
+export function readAppearance(value: unknown, { error, warn }: { error: Tell; warn: Tell }): AppearanceReport {
+  const dropped: AppearanceReport = { kept: false, imageShows: 'subtle', sky: 'column', character: 'PLACE' };
+  if (!isObject(value)) { warn('THEME_APPEARANCE_IGNORED', 'appearance', 'The block appearance is an object: the platform leaves it out (the image of the page shows subtle)'); return dropped; }
+  if (typeof value.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value.accent)) {
+    warn('THEME_APPEARANCE_IGNORED', 'appearance.accent', 'Without "accent" (#RRGGBB) the platform leaves the whole block appearance out: its imageShows and its sky are lost (the image of the page shows subtle, the sky is the column)');
+    return dropped;
+  }
+  let imageShows: ImageShows;
+  if ((IMAGE_SHOWS as readonly unknown[]).includes(value.imageShows)) imageShows = value.imageShows as ImageShows;
+  else {
+    imageShows = value.ground === true ? 'subtle' : 'none';
+    warn('THEME_IMAGE_SHOWS_READ', 'appearance.imageShows', `${value.imageShows === undefined ? 'No imageShows' : `"${String(value.imageShows)}" is not ${IMAGE_SHOWS.join(', ')}`}: the platform reads ${imageShows}${imageShows === 'none' ? ' (the image of the page is not shown)' : ''} from "ground"; write "imageShows"`);
+  }
+  let sky: AppearanceReport['sky'] = 'column';
+  if (value.sky !== undefined && value.sky !== null) {
+    if ((SKIES as readonly unknown[]).includes(value.sky)) sky = value.sky as AppearanceReport['sky'];
+    else warn('THEME_KEY_IGNORED', 'appearance.sky', `The sky is ${SKIES.join(' or ')}: "${String(value.sky)}" is left out (column)`);
+  }
+  if (value.layout != null && !(APPEARANCE_LAYOUTS as readonly unknown[]).includes(value.layout)) warn('THEME_KEY_IGNORED', 'appearance.layout', `The layout is ${APPEARANCE_LAYOUTS.join(', ')}: "${String(value.layout)}" is left out`);
+  const character = (APPEARANCE_CHARACTERS as readonly unknown[]).includes(value.character) ? String(value.character) : 'PLACE';
+  if (value.character != null && character !== value.character) warn('THEME_KEY_IGNORED', 'appearance.character', `The appearance character is ${APPEARANCE_CHARACTERS.join(', ')}: read PLACE`);
+  if (typeof value.image === 'string' && value.image) {
+    if (/^[A-Za-z][A-Za-z0-9+.-]*:|[/\\\s]/.test(value.image)) error('THEME_EXTERNAL_RESOURCE', 'appearance.image', 'appearance.image is an upload id of the platform, never a URL nor a path');
+    else if (isFileReference(value.image)) warn('THEME_KEY_IGNORED', 'appearance.image', 'appearance.image is the upload id Customize kept, never sent as a file: write null (the images are the image slots)');
+  }
+  return { kept: true, imageShows, sky, ...(typeof value.layout === 'string' && (APPEARANCE_LAYOUTS as readonly string[]).includes(value.layout) ? { layout: value.layout } : {}), character };
+}
+
 /** The readability mask as the platform would compute it per display mode (scrims.mask), with how the image shows. */
 export type MaskReport = { imageShows: ImageShows; night: number; dim: number; day: number; offline: true };
 export type CheckReport = {
@@ -57,6 +105,8 @@ export type CheckReport = {
   /** What the platform ignores (design-lib/lib/theme readTheme), as paths. */
   ignored: string[];
   mask?: MaskReport;
+  /** The block appearance as the platform keeps it (format 2), when the document gives one. */
+  appearance?: AppearanceReport;
 };
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -145,13 +195,14 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   let families: CheckReport['families'];
   let readFrom: CheckReport['readFrom'];
   let mask: MaskReport | undefined;
+  let appearance: AppearanceReport | undefined;
   const report = (format: string, doc?: Record<string, unknown>, images: ImageReport[] = [], unused: string[] = []): CheckReport => {
     const finalProblems = strict ? problems.map((p) => ({ ...p, severity: 'error' as const })) : problems;
     const errors = finalProblems.filter((p) => p.severity === 'error').length;
     return {
       ok: errors === 0, file, format, ...(typeof doc?.name === 'string' ? { name: doc.name } : {}), ...(typeof doc?.universe === 'string' ? { universe: doc.universe } : {}),
       errors, warnings: finalProblems.length - errors, problems: finalProblems, images, unusedFiles: unused, strict, raised, ignored,
-      ...(families ? { families, readFrom } : {}), ...(mask ? { mask } : {}),
+      ...(families ? { families, readFrom } : {}), ...(mask ? { mask } : {}), ...(appearance ? { appearance } : {}),
     };
   };
 
@@ -180,21 +231,27 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
     const surfaces = valueAt(structural, `variants.${variant}.surfaces`);
     if (isObject(surfaces)) for (const [key, colors] of Object.entries(surfaces)) if (isObject(colors) && 'opacity' in colors) { warn('THEME_KEY_IGNORED', `variants.${variant}.surfaces.${key}.opacity`, 'A theme sets no opacity since specs v96.0.0: ignored'); delete colors.opacity; }
   }
-  let imageShows: ImageShows = 'subtle';
   if (structural.appearance !== undefined) {
-    const appearance = structural.appearance;
+    const given = structural.appearance;
     delete structural.appearance;
-    if (!isObject(appearance)) error('THEME_FORMAT_INVALID', 'appearance', 'The block appearance is an object');
-    else if (appearance.imageShows !== undefined) {
-      if ((IMAGE_SHOWS as readonly unknown[]).includes(appearance.imageShows)) imageShows = appearance.imageShows as ImageShows;
-      else error('THEME_FORMAT_INVALID', 'appearance.imageShows', `How the image of the page shows: ${IMAGE_SHOWS.join(', ')}`);
-    } else if (appearance.ground === false) imageShows = 'none';
+    if (doc.format === FORMAT_2) appearance = readAppearance(given, { error, warn });
+    else warn('THEME_KEY_IGNORED', 'appearance', 'The block appearance is read in a theme of the format 2 only: ignored');
+  }
+  const imageShows: ImageShows = appearance?.kept ? appearance.imageShows : 'subtle';
+  // pageImageOnPhone (since specs v87.4.0): true or false, format 2; false leaves the image of the page out on a phone.
+  if (structural.pageImageOnPhone !== undefined) {
+    const value = structural.pageImageOnPhone;
+    delete structural.pageImageOnPhone;
+    if (doc.format !== FORMAT_2) warn('THEME_KEY_IGNORED', 'pageImageOnPhone', 'pageImageOnPhone is read in a theme of the format 2 only: ignored');
+    else if (value !== null && typeof value !== 'boolean') error('THEME_FORMAT_INVALID', 'pageImageOnPhone', 'pageImageOnPhone is true or false');
   }
 
   // 3. The structure: the JSON Schema of the design system, its problems with the codes of the publication.
   const checked = validateJsonSchema(THEME_SCHEMA, structural);
   const MESSAGES: Record<string, string> = { THEME_SURFACE_UNKNOWN: 'is not a theme surface (page, sky, block, control)', THEME_IMAGE_SLOT_UNKNOWN: 'is not an image slot (page, pageHeader)', THEME_BODY_TYPEFACE: 'No typeface for the body text: it stays the readable typeface of Socle' };
   for (const p of checked.problems) {
+    // A key the platform does not know at the top of the document is not refused: it is left out at publication.
+    if (p.keyword === 'additionalProperties' && p.path && !p.path.includes('.')) { warn('THEME_KEY_IGNORED', p.path, `"${p.path}" is not a key of a theme: the platform leaves it out at publication`); continue; }
     const code = codeOf(p.path, p.keyword, valueAt(structural, p.path));
     const key = p.path.split('.').pop();
     error(code, p.path || '$', code === 'THEME_EXTERNAL_RESOURCE' ? 'An image is a file name (to send) or an upload id of the platform, never a URL nor a path' : code in MESSAGES ? (code === 'THEME_BODY_TYPEFACE' ? MESSAGES[code] : `"${key}" ${MESSAGES[code]}`) : `${p.path || 'the document'} ${p.message}`);
@@ -228,7 +285,9 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
   else if (!approvedTypeface(title)) error('THEME_TYPEFACE_NOT_APPROVED', 'typography.title', `"${String(title)}" is not an approved typeface (breakrocks theme typefaces)`);
   if (Array.isArray(doc.gradient) && palettes.night && palettes.day) {
     const colors = new Set(Object.values(palettes).flatMap((p) => Object.values(p!)));
-    if (doc.gradient.some((c) => typeof c !== 'string' || !colors.has(c.toUpperCase()))) error('THEME_GRADIENT_INVALID', 'gradient', 'The accent gradient has 2 or 3 colors of the palette');
+    // A theme with a block appearance kept (built by Customize) has the gradient the platform derived: any #RRGGBB.
+    const known = (c: unknown) => typeof c === 'string' && (appearance?.kept ? /^#[0-9a-fA-F]{6}$/.test(c) : colors.has(c.toUpperCase()));
+    if (!doc.gradient.every(known)) error('THEME_GRADIENT_INVALID', 'gradient', 'The accent gradient has 2 or 3 colors of the palette');
   }
 
   // 6. The images: references, files; the slots ignored since v99.0.0 are told (and left out by theme publish).
@@ -260,6 +319,9 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
     }
     const expected = SLOT_SIZES[ref.place === 'background' ? 'page' : ref.place];
     if (!isBanner && expected && ratio && Math.abs(ratio - expected.ratio) / expected.ratio > 0.1) warn('IMAGE_RATIO_UNUSUAL', path, `${info.width} × ${info.height}: this slot expects ${expected.label}`);
+    if (!isBanner && (ref.place === 'page' || ref.place === 'background') && (info.width < PAGE_MIN.width || info.height < PAGE_MIN.height)) {
+      warn('IMAGE_SMALL', path, `${info.width} × ${info.height}: the image of the page is shown behind a desktop page and served up to ${PAGE_MIN.width} pixels wide (variants ${MEDIA_WIDTHS.join(', ')}); give at least ${PAGE_MIN.width} × ${PAGE_MIN.height}`);
+    }
   }
   const unused = given.filter((f) => !used.has(f));
   for (const f of unused) warn('IMAGE_FILE_UNUSED', f, 'No reference of the theme read by the platform names this file');

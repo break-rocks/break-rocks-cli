@@ -2,7 +2,7 @@
 // the video of a post, a reply or a quote, declared with requestMediaUpload and checked before anything is sent; a
 // delegated agent always declares one; its line under the video when read; the video quota of a delegated agent,
 // never paid with x402. Against a scripted API (no network).
-import { writeFileSync } from 'node:fs';
+import { truncateSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -12,6 +12,7 @@ import { complete } from '../src/completion/engine.js';
 import { completionModel } from '../src/completion/model.js';
 import { createServer } from '../src/mcp/server.js';
 import { checkLicense, licenseLine, licenseOf } from '../src/media.js';
+import { MAX_LONG_VIDEO_BYTES } from '../src/commands/publish.js';
 import { saveSession } from '../src/session.js';
 import { harness, last } from './helpers.js';
 
@@ -49,6 +50,24 @@ function scripted(answers: Record<string, Answer>, as: 'human' | 'agent' = 'agen
 }
 const upload = { id: 'up-1', url: 'https://s3.test/bucket', fields: {} };
 const uploads = (calls: Call[]) => calls.filter((c) => c.field === 'requestMediaUpload').map((c) => c.variables.i as Record<string, unknown>);
+
+describe('the size of a long video', () => {
+  it('is 5 GB at most, as the platform: a larger one is refused before anything is sent (VIDEO_SIZE_INVALID)', async () => {
+    expect(MAX_LONG_VIDEO_BYTES).toBe(5 * 1024 ** 3);
+    const { h, calls, code } = scripted({ requestMediaUpload: upload, createPost: { id: 'p1' } }, 'human');
+    // A sparse file of 5 GB and 1 byte (no 5 GB written on the disk), its first bytes those of an MP4.
+    const big = join(h.dir, 'big.mp4');
+    writeFileSync(big, Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6F, 0x6D, 0, 0, 0, 0]));
+    truncateSync(big, MAX_LONG_VIDEO_BYTES + 1);
+    const r = await code('post', 'The whole match', '--in', '%paris', '--long-video', 'big.mp4', '--license', 'OWN_WORK_ALL_RIGHTS');
+    expect(r).toMatchObject({ exit: 2, code: 'VIDEO_SIZE_INVALID' });
+    expect(r.error?.message).toBe('big.mp4: at most 5 GB');
+    expect(calls).toEqual([]);
+    truncateSync(big, MAX_LONG_VIDEO_BYTES);
+    expect(await h.run('post', 'The whole match', '--in', '%paris', '--long-video', 'big.mp4', '--license', 'OWN_WORK_ALL_RIGHTS', '--dry-run', '--json')).toBe(0);
+    expect(calls).toEqual([]);
+  });
+});
 
 describe('the media license of a video', () => {
   it('a human declares one, or none; CC BY with its attribution; CC0 may carry one', async () => {

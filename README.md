@@ -727,6 +727,53 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
 | `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
 
+### Themes in the format of specs v122 (0.20.0, specs v122.1.0)
+
+`specs/common` pinned on **v122.1.0** and `schema/api-v2` regenerated (15 SDL files: 217 queries, 347 mutations). The theme
+tools follow the format the platform accepts today (the backend's `validateTheme`, `contracts/themes.md` § Since v99.0.0,
+§ Customize; the archive of the import of the apps):
+
+- **`theme check`**: the block `appearance` is read as the platform keeps it: without `accent` (`#RRGGBB`) the whole block
+  is left out (`THEME_APPEARANCE_IGNORED`, the image then shows `subtle`); `imageShows` `none`, `subtle` or `through`, else
+  read from `ground` (`THEME_IMAGE_SHOWS_READ`: `none` unless `ground: true`); `sky` `column` or `band` (D-315), `layout`
+  and `character` told when the platform drops them; `appearance.image` never a URL. `pageImageOnPhone` (true or false) is
+  accepted; a key unknown at the top of the document is told `THEME_KEY_IGNORED` (left out at publication), no longer
+  refused; with a block appearance kept, the gradient may hold any `#RRGGBB` (derived by Customize). Sora, Fraunces and
+  Figtree (the typefaces of the appearance characters) are approved. An image of the page under 2,160 × 1,620 is told
+  (`IMAGE_SMALL`: the media pipeline serves WebP variants of 2160, 1080, 480 and 160 pixels). The report carries
+  `appearance` (`kept`, `imageShows`, `sky`, `layout`, `character`). A `.zip` in place of the JSON is checked as the import
+  of the apps reads it.
+- **The archive of a theme** (`src/theme/bundle.ts`, as the web app's `themeBundle.ts`): a ZIP of at most 50 MB (200 MB
+  inflated), entries stored or deflated, no ZIP64, no encryption, no nested archive; the theme document is `theme.json` in
+  any folder, else the only JSON file (`IMPORT_NO_JSON`, `IMPORT_SEVERAL_JSON`); each image matched by its name whatever its
+  folder (case aside), else by the same name with another extension; the files the systems add left out.
+- **`theme pack`** runs `theme check` first and refuses a theme the platform would refuse (`THEME_CHECK_FAILED`, unless
+  `--allow-invalid`); the answer carries `check`. **`theme unpack`** tells the theme document (`document`).
+- **`theme publish`** takes the archive too (`theme publish stade-nuit.zip --in %paris`) and removes `screenshots` as it
+  removes `scrims` and `textScrims` (a document exported elsewhere); `appearance` and `pageImageOnPhone` are sent as they are.
+- **`themes list`**: `--order QUICK_START` (every theme of `%root` that quick start offers for `--universe`) and `COUNTRY`,
+  `--group LOOK|COUNTRY|OFFICIAL|UNIVERSAL`, `--with-image`, `--without-image`; the text tells the reason, the look and
+  whether the theme has a background image. **`themes show`** answers in text: the theme, how its image shows and its sky,
+  each image slot with its day and night URLs and their widths, the screenshots, what was corrected at publication.
+- **`theme prompt`** (and the MCP prompt `theme-prompt`) writes that format, in English and French: the block
+  `appearance` (`accent` the night primary, `imageShows`, `sky`), `pageImageOnPhone`, and the list of the 4 images (each
+  slot and variant, its size, what it shows, what lies over it: the page at the reader's page opacity, the readability mask,
+  the veil of `sky` over `pageHeader`; the text backdrops withdrawn); `--image-shows none|subtle|through` and
+  `--sky column|band` fill the block. An example: [docs/theme-prompt-example.fr.md](docs/theme-prompt-example.fr.md).
+- **`map routes`** reads `mapRouteMarkers` (`mapRoutes` is deprecated since D-374).
+- **Long videos**: 5 GB at most, as the platform (`VIDEO_SIZE_INVALID` before anything is sent; 20 GB before).
+
+Checked on dev on 2026-11-15 with the apps' e2e human account (password read from Secrets Manager, never displayed): a
+theme written by hand in the format of the prompt with 4 WebP gradients (2,400 × 1,800 and 2,400 × 800), `theme check`
+(0 error, 0 warning; `through`, sky band), `theme pack`, `theme check` of the archive, `theme publish` of the archive in
+`%test-village-games` (`cli-test-pelouse` v1, 4 images sent, left in place), `themes show` (the 4 images served with the
+widths 160, 480, 1080 and 2160; the appearance kept), the 4 images and their variants answered 200 `image/webp` by the
+media CDN, `theme shots` (the 12 screenshots served, the last one within seconds).
+
+Not covered yet: the 28 operations added to the contract since v101.8.0 but `mapRouteMarkers` (`eventCatalog`,
+`cameraFilters`, `placeCard`, the place feats and experiences, `setUniverseEventInterest`, `setPageEditor`,
+`setUniverseDiscussionWriters`…) have no command; `doctor` names them.
+
 ### Media licenses and the videos of delegated agents (0.19.0, specs v101.8.0)
 
 D-309 (`media/media-licenses.feature`, `accounts/delegated-agents.feature` "Since v101.8.0"; `specs/common` pinned on
@@ -1187,8 +1234,8 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 
 ### The API contract
 
-`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (14
-SDL files, one per domain, with their `"""…"""` descriptions; specs v101.8.0, `schema/api-v2/VERSION`), the
+`schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
+SDL files, one per domain, with their `"""…"""` descriptions; specs v122.1.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
@@ -1554,7 +1601,8 @@ SEA binaries.
 - `src/srp.ts` is a copy of the back office CLI's (no shared package): a fix goes
   into both.
 - Every operation of API v2 that is not deprecated has a command since 0.18.0, but the 17 listed in § The operations of
-  before specs v83.1.0 (D-92: the CLI covers API v2 in full).
+  before specs v83.1.0 (D-92: the CLI covers API v2 in full) and the 28 added between specs v101.8.0 and v122.1.0
+  (§ Themes in the format of specs v122).
 - The submodule `specs/common` is a private repository of a public one: `npm run update:schema` needs read
   access to it (building and testing do not). A public read-only repository generated from the specifications
   (`contracts/api-v2`, `ui-actions.yaml`), as `design-lib` is for the design system (D-307), would remove it.
