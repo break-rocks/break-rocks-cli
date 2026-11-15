@@ -761,6 +761,14 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   `requestMediaUpload` as before. `--dry-run` tells `upload: multipart|single`.
 - **`universes show`** tells the long videos mode (`hasLongVideos`: offered from the first public long video).
 
+### Author of the placed posts (0.24.0, specs v124.0.0)
+
+`specs/common` pinned on **v124.0.0** and `schema/api-v2` regenerated (15 SDL files: 220 queries, 353 mutations). The
+contract adds `MapPost.authorId` (D-365): `map posts` prints it (`by <author id>`), so that an app, or a script, leaves out the
+posts of the hidden accounts. The new read `universeEventPostalAddress(eventId)` (D-364), the gathering fields
+`PlaceContent.featInstance` and `featTitle` (D-369) and the other changes of v124.0.0 (reversible removals, back-office
+writes) have no command in this CLI.
+
 ### The presence choice made everywhere, read (0.23.0, specs v123.1.0)
 
 `specs/common` pinned on **v123.1.0** and `schema/api-v2` regenerated (15 SDL files: 219 queries, 353 mutations). The
@@ -1299,7 +1307,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v123.1.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v124.0.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
