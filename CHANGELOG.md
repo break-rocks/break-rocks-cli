@@ -5,6 +5,10 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-15
+
+Online help by domains and a command tree (D-390); proxy support.
+
 ### Changed
 
 - Online help and command organization (D-390). `breakrocks help` shows 12 domains in about 25 lines (Account, Agents,

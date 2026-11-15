@@ -858,6 +858,11 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `batch` | Run the actions of a JSON lines file | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
 
+### Help by domains, command tree and proxy (0.25.0)
+
+The help shows 12 domains (D-390, above); 85 groups became 40, every former name kept as a hidden alias until 0.27.0
+(the moves: CHANGELOG 0.25.0). Every request can go through a proxy, with a corporate CA bundle: § Proxy.
+
 ### Long videos completed, appearance of a look (0.22.0, specs v123.0.0)
 
 `specs/common` pinned on **v123.0.0** and `schema/api-v2` regenerated (15 SDL files: 219 queries, 353 mutations). The
