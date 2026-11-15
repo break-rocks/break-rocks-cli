@@ -1452,8 +1452,9 @@ input UniverseAppearanceInput {
   "%root" that quick start offers, Socle, an official theme, a theme of a field collection, of the universal
   collection or of the country collection (APPEARANCE_THEME_REF_INVALID otherwise). The appearance takes its whole
   document at that moment (its palette, its four theme surfaces, its title typeface, its image slots); imageId,
-  focalPoint, ground, imageShows, accent and character are then ignored; logo, clear, layout and sky apply as
-  before. Applied, it is published as the next version of the theme "appearance" of the universe, a copy that a
+  focalPoint, ground, accent and character are then ignored; logo, clear, layout and sky apply as before; since
+  v122.4.0, imageShows applies too when given (how the images of the theme show, without leaving the theme), the
+  value of the theme when it is left out. Applied, it is published as the next version of the theme "appearance" of the universe, a copy that a
   later version of that theme does not change, its block "appearance" naming it in "look". Null: the appearance
   is built from the steps.
   """

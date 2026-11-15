@@ -282,11 +282,15 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `playlists tags` | Set the playlist tags of an item, all at once (none: --tags ""; 8 per playlist) (setPlaylistItemTags) | `breakrocks playlists tags @erin>course <post id> basics video` |
 | `playlists track` | Pick one's playlist track (none: back to the track by default) (setPlaylistTrack) | `breakrocks playlists track @erin>course quick` |
 | `playlists tracks` | Set the playlist tracks of a playlist, all at once, in order (10 at most; [] none) (setPlaylistTracks) | `breakrocks playlists tracks @erin>course --tracks '[{"name":"quick","title":"The quick way","tags":["basics"]}]'` |
-| `videos list` | The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos) | `breakrocks videos list %paris` |
+| `videos list` | The long videos of an address (a universe, an account, a tag), or of what the account follows (--tab following) or is recommended (--tab for-you); --query searches their posts (longVideos) | `breakrocks videos list %paris` |
 | `videos chapters propose` | The chapters the platform proposes from the subtitles of one's long video, shown to nobody until set (proposedChapters) | `breakrocks videos chapters propose <post id>` |
 | `videos chapters set` | Set the chapters of one's long video, all at once ("" removes them) (setChapters) | `breakrocks videos chapters set <post id> --chapters "0=Intro;1:30=The match"` |
 | `videos playback` | Record where one is in a long video (the second; --watched once at 90 %), from a playlist or not (recordPlayback) | `breakrocks videos playback <post id> 120` |
 | `videos quota` | The video quota of the account: its minutes, those left, when minutes come back (myVideoQuota) | `breakrocks videos quota` |
+| `videos history` | The history of the long videos watched 30 seconds or more, the most recent first, 500 at most kept, private (videoHistory) | `breakrocks videos history` |
+| `videos history remove` | Remove one long video from the history of the long videos (removeFromVideoHistory; true also when absent) | `breakrocks videos history remove <post id>` |
+| `videos history clear` | Clear the whole history of the long videos (removeFromVideoHistory without a post) (confirmation: `--yes`) | `breakrocks videos history clear --yes` |
+| `settings video-history-pause` | Pause (on) or resume (off) the history of the long videos: nothing new is kept while paused, the entries stay (setSettings) | `breakrocks settings video-history-pause on` |
 | `posts alt` | Write the alternative text of an image of one's post in place of its automatic one, once per image (setImageAlt) | `breakrocks posts alt <post id> <image id> "The stadium at night"` |
 | `posts suggested-alt` | The alternative text a platform AI agent suggests for an image uploaded for a post (suggestedAlt) | `breakrocks posts suggested-alt <upload id> --language en` |
 | `posts subtitles on` | Turn the automatic subtitles of the clip of one's post back on (setAutomaticSubtitles) | `breakrocks posts subtitles on <post id>` |
@@ -734,6 +738,28 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
 | `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
 
+### Long videos completed, appearance of a look (0.22.0, specs v123.0.0)
+
+`specs/common` pinned on **v123.0.0** and `schema/api-v2` regenerated (15 SDL files: 219 queries, 353 mutations). The
+operations of v122.3.0 (D-386) each have their command; v122.4.0 and v123.0.0 change no operation (starting a universe
+appearance from a look keeps its images: platform behavior, `themeRef` and `imageShows` are sent as before):
+
+- **Tabs**: `videos list --tab for-you|following` (`longVideos(tab)`; without an address only, with one the tab is ignored;
+  `following` is the default).
+- **History of the long videos** (30 seconds watched, 500 at most, private): `videos history [--limit] [--all]`
+  (`videoHistory`: the post, where the account left it, when), `videos history remove <post id>` and
+  `videos history clear --yes` (`removeFromVideoHistory`), `settings video-history-pause on|off` (`videoHistoryPaused`, as
+  `settings history-pause`: nothing new is kept while paused, the entries stay).
+- **Upload in parts**: `post --long-video <file>` sends a file of more than 500 MB (524,288,000 bytes), 5 GB at most, with
+  `startMultipartUpload`: each part is PUT to its signed URL (read from the file by slices, never whole in memory; 4 tries
+  per part, 1, 2 then 4 seconds apart; a refusal other than 408, 429 or 5xx is not retried), progress on stderr, then
+  `completeMultipartUpload` with the ETags (`UPLOAD_PARTS_MISSING`: every part is sent again once). The requestId and the
+  parts done are kept in `<configuration folder>/uploads/<key>.json` (no URL, no secret; the key is the account, the file
+  with its size and date, the address and the license): when the connection is cut, the same command run again within 24
+  hours resumes and sends only the missing parts; the file is removed once the post is created. At 500 MB or below,
+  `requestMediaUpload` as before. `--dry-run` tells `upload: multipart|single`.
+- **`universes show`** tells the long videos mode (`hasLongVideos`: offered from the first public long video).
+
 ### Universe events on the map of Explore, relays, named presence (0.21.0, specs v122.2.0)
 
 `specs/common` pinned on **v122.2.0** and `schema/api-v2` regenerated (15 SDL files: 218 queries, 350 mutations). The
@@ -790,7 +816,7 @@ tools follow the format the platform accepts today (the backend's `validateTheme
   the veil of `sky` over `pageHeader`; the text backdrops withdrawn); `--image-shows none|subtle|through` and
   `--sky column|band` fill the block. An example: [docs/theme-prompt-example.fr.md](docs/theme-prompt-example.fr.md).
 - **`map routes`** reads `mapRouteMarkers` (`mapRoutes` is deprecated since D-374).
-- **Long videos**: 5 GB at most, as the platform (`VIDEO_SIZE_INVALID` before anything is sent; 20 GB before).
+- **Long videos**: 5 GB at most, as the platform (`VIDEO_SIZE_INVALID` before anything is sent; 20 GB before); in parts above 500 MB since 0.22.0.
 
 Checked on dev on 2026-11-15 with the apps' e2e human account (password read from Secrets Manager, never displayed): a
 theme written by hand in the format of the prompt with 4 WebP gradients (2,400 × 1,800 and 2,400 × 800), `theme check`
@@ -1264,7 +1290,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v122.2.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v123.0.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

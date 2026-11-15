@@ -1466,12 +1466,21 @@ type Query {
   followedPlaylists(after: String, limit: Int): PlaylistPage
 
   """
+  The history of the caller (since v122.3.0, D-386): the long videos it watched 30 seconds or more, the most
+  recent first, 500 at most. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
+  page before.
+  """
+  videoHistory(after: String, limit: Int): HistoryPage
+
+  """
   Since v86.0.0 (long-videos.feature): the view of the long videos: the posts with a long video of an address
   (a universe, an account, a tag), or of what the caller follows (no address), newest first; query: a text
   searched in their posts (search.md), then by relevance. limit: from 1 to 50 (20 by default; LIMIT_INVALID
-  otherwise); after: the next of the page before.
+  otherwise); after: the next of the page before. Since v122.3.0 (D-386), without an address, tab: FOLLOWING (the
+  default, as before) or FOR_YOU (the long videos the interest profile of the caller recommends, each with its
+  reason, for-you.feature); with an address, tab is ignored.
   """
-  longVideos(address: String, after: String, limit: Int, query: String): PostPage
+  longVideos(address: String, after: String, limit: Int, query: String, tab: LongVideosTab): PostPage
 
   """
   Since v86.0.0: the chapters the social platform proposes from the subtitles of a long video of the caller
@@ -1921,6 +1930,27 @@ type Mutation {
   the universe with its pinned posts.
   """
   setPinnedPost(postId: ID!, universe: String!, pinned: Boolean!, requestId: ID!): Universe
+
+  """
+  Starts a multipart upload of a long video of more than 500 MB, 5 GB at most (since v122.3.0, D-386): the
+  parts and their signed URLs; called again with the same requestId, it answers the same upload (to resume it
+  within 24 hours). VIDEO_SIZE_INVALID (500 MB or less: requestMediaUpload; more than 5 GB), the refusals of
+  requestMediaUpload for LONG_VIDEO otherwise.
+  """
+  startMultipartUpload(input: MultipartUploadInput!, requestId: ID!): MultipartUpload
+
+  """
+  Completes a multipart upload with the ETag of each part (since v122.3.0, D-386): the media then goes through
+  the pipeline as with requestMediaUpload. UPLOAD_PARTS_MISSING when a part was not sent; true once completed,
+  also when it was already.
+  """
+  completeMultipartUpload(mediaId: ID!, parts: [UploadPartDoneInput!]!, requestId: ID!): Boolean
+
+  """
+  Removes a long video from the history of the caller (postId), or clears it all (postId left out) (since
+  v122.3.0, D-386). True once done.
+  """
+  removeFromVideoHistory(postId: ID, requestId: ID!): Boolean
 
   """
   A signed form to upload a media (C-11), size in bytes: IMAGE (a post, a message, a universe: JPEG, PNG,

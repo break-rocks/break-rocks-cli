@@ -186,6 +186,7 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
       `layout: ${u.layoutRef?.name ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
       `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,
       `proposals waiting for support: ${u.proposalsWaitingSupport ?? '-'}`,
+      `long videos mode: ${u.hasLongVideos === undefined ? '-' : u.hasLongVideos ? 'offered (hasLongVideos)' : 'not yet (no public long video)'}`,
       `pages: ${((u.pages ?? []) as { name: string; hidden?: boolean }[]).map((p) => `${p.name}${p.hidden ? ' (hidden)' : ''}`).join(', ') || '-'}`,
       `governance: ${JSON.stringify(r.governance)}`].join('\n');
   },

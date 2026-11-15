@@ -12,6 +12,7 @@ import type { Context } from '../context.js';
 import { uuidv7 } from '../ids.js';
 import { usageError } from '../errors.js';
 import { MAX_ATTRIBUTION, MAX_POST_IMAGES, MEDIA_LICENSES, checkImage, checkLicense, checkText, checkVideo, plainRefusal, uploadImage, uploadVideo, whileProcessing, type CheckedImage, type CheckedVideo, type LicenseChoice, type MediaTarget } from '../media.js';
+import { MULTIPART_MIN_BYTES, uploadLongVideo } from '../multipart.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
@@ -139,7 +140,7 @@ const composeOutput = outputSchema('Post', 1);
 export const MAX_LONG_VIDEO_BYTES = 5 * 1024 * 1024 * 1024;
 export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string }, unknown> = {
   name: 'post', summary: 'Publish a post: text, images (4), a clip or a long video (--license: its media license), a link, in an address (createPost)',
-  description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --long-video: a horizontal video of 4 hours and 5 GB at most (VIDEO_SIZE_INVALID beyond, before anything is sent), counted in the video quota (videos quota; VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED), never with a clip or images. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
+  description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --long-video: a horizontal video of 4 hours and 5 GB at most (VIDEO_SIZE_INVALID beyond, before anything is sent), sent in one request up to 500 MB, in parts above (startMultipartUpload: each part sent again alone when it fails, the upload resumed by running the same command again within 24 hours, its state kept in the configuration folder, uploads/), counted in the video quota (videos quota; VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED), never with a clip or images. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
   examples: ['breakrocks post "Match tonight #football" --in %test-village-sport', 'breakrocks post "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'breakrocks post "The whole match" --in %paris --long-video match.mp4', 'breakrocks post "Harbour" --in %paris --video harbour.mp4 --license CC_BY --attribution "Jane Doe, archive.org/details/harbour-1952"', 'echo "Hello" | breakrocks post - --in %paris', 'breakrocks post --file post.md --in %paris --dry-run'],
   input: object({ ...composeProps, ...licenseProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours and 5 GB at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
   output: composeOutput, args: { positionals: ['text'] },
@@ -149,11 +150,14 @@ export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPol
     // A post whose only media is a long video needs no text.
     const p = await plan(ctx, input).catch((e: unknown) => { if (long && (e as { code?: string }).code === 'POST_EMPTY') return emptyPlan(ctx, input); throw e; });
     const license = withLicense(ctx, p, input, !!long);
-    if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement, ...(long ? { longVideo: { file: long.name, type: long.type, bytes: long.bytes } } : {}) });
+    if (input.dryRun) return dryRunOf(p, { operation: 'createPost', universe: input.in ?? null, replyPolicy: input.replyPolicy ?? null, announcement: !!input.announcement, ...(long ? { longVideo: { file: long.name, type: long.type, bytes: long.bytes, upload: long.bytes > MULTIPART_MIN_BYTES ? 'multipart' : 'single' } } : {}) });
     const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? null });
-    const longVideo = long ? await uploadVideo(ctx, long, { destination: 'POST', address: input.in ?? null }, 'LONG_VIDEO', license) : null;
+    const longUpload = long ? await uploadLongVideo(ctx, long, { destination: 'POST', address: input.in ?? null }, license) : undefined;
+    const longVideo = longUpload?.id ?? null;
     const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, longVideo, sources: p.sources ?? null };
-    return plainly(() => whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p)));
+    const created = await plainly(() => whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p)));
+    longUpload?.forget();
+    return created;
   },
   quiet: (r) => (r as { id?: string }).id,
 };

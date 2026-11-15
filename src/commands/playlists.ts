@@ -171,10 +171,13 @@ export const playlistsTracks = apiCommand({
 
 type PostLine = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string; universe?: string; longVideo?: { license?: string | null; attribution?: string | null } | null };
 export const videosList = apiCommand({
-  name: 'videos list', summary: 'The long videos of an address (a universe, an account, a tag), or of what the account follows; --query searches their posts (longVideos)', kind: 'query', op: 'longVideos', positionals: ['address'], select: `{ items ${selection('Post', 1)} next }`,
+  name: 'videos list', summary: 'The long videos of an address (a universe, an account, a tag), or of what the account follows (--tab following) or is recommended (--tab for-you); --query searches their posts (longVideos)', kind: 'query', op: 'longVideos', positionals: ['address'], select: `{ items ${selection('Post', 1)} next }`, hide: ['tab'],
+  description: '--tab for-you: the long videos the interest profile recommends, each with its reason; --tab following (the default): those of the accounts and universes followed, the newest first. Without an address only: with one, the tab is ignored.',
+  extra: { tab: { type: 'string', enum: ['for-you', 'following'], description: 'for-you: recommended by the interest profile; following: what the account follows (default); without an address' } },
+  prepare: (i) => { const { tab, ...rest } = i; return tab === undefined ? rest : { ...rest, tab: tab === 'for-you' ? 'FOR_YOU' : 'FOLLOWING' }; },
   descriptions: { address: 'The address (%universe, @handle, #tag); none: what the account follows', query: 'A text searched in their posts' },
   text: pageText((p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.handle ? `@${p.author.handle}` : '-'}  ${p.universe ?? ''}  ${(p.text ?? '').replace(/\s+/g, ' ').slice(0, 60)}${licenseLine(p.longVideo) ? `  [${licenseLine(p.longVideo)}]` : ''}`),
-  examples: ['breakrocks videos list %paris', 'breakrocks videos list --query "final" --json'],
+  examples: ['breakrocks videos list %paris', 'breakrocks videos list --tab for-you', 'breakrocks videos list --query "final" --json'],
 });
 const chapterLine = (c: { startSeconds: number; title: string }) => `${Math.floor(c.startSeconds / 60)}:${String(c.startSeconds % 60).padStart(2, '0')}  ${c.title}`;
 export const videosChaptersPropose = apiCommand({

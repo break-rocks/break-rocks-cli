@@ -5,6 +5,27 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-15
+
+Specs v123.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 219 queries, 353 mutations).
+The operations of v122.3.0 (D-386) have their commands; v122.4.0 and v123.0.0 change no operation.
+
+### Added
+
+- `videos list --tab for-you|following` (`longVideos(tab)`).
+- `videos history [--limit] [--all]` (`videoHistory`), `videos history remove <post id>` and `videos history clear --yes`
+  (`removeFromVideoHistory`), `settings video-history-pause on|off` (`videoHistoryPaused`).
+- `post --long-video`: above 500 MB (up to 5 GB) the video goes by `startMultipartUpload`: parts read by slices and sent with a
+  PUT, 4 tries per part, progress, then `completeMultipartUpload` with the ETags; the requestId and the parts done are kept in
+  `uploads/` of the configuration folder so that the same command run again within 24 hours resumes the upload. At 500 MB or
+  below, `requestMediaUpload` as before. `--dry-run` tells `upload: multipart|single`.
+- `universes show` tells the long videos mode (`hasLongVideos`).
+
+### Changed
+
+- `messaging settings set` leaves out `videoHistoryPaused`, and `settings history-pause` the settings it does not change
+  (`camera`, `autoplay`, `map`, `privateAnalysisConsent`).
+
 ## [0.21.0] - 2026-11-15
 
 Specs v122.2.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 218 queries, 350 mutations).
