@@ -1269,6 +1269,16 @@ facts, event state, participation modes, event cover and event interest count.
 """
 type UniverseEvent {
   """
+  Through which relay it is read (since v122.2.0, D-385): read by universeEvents of a universe that relays it,
+  the relay of that universe; null when it is read in its own universe or elsewhere.
+  """
+  relay: EventRelay
+  """
+  The public universes that relay it now (since v122.2.0, D-385), without "%", the oldest relay first; a relay
+  hidden (the access of the event is not "public") or waiting for its supports is not listed.
+  """
+  relayedIn: [String!]!
+  """
   Its number of attendees.
   """
   attendeeCount: Int!
@@ -2950,4 +2960,78 @@ enum ExploreMapChoice {
   BY_TYPE
   KEPT
   SHOWN
+}
+
+"""
+The relay of a universe event of a public universe in another public universe (since v122.2.0, D-383, D-385):
+made at once by the leadership of the universe that relays it, or proposed by one of its residents who can vote
+and made at the support of 5 of its residents who can vote within 7 days.
+"""
+type EventRelay {
+  """
+  Whether the caller supports it while it is PROPOSED.
+  """
+  mySupport: Boolean!
+  """
+  The end of the proposal (7 days after it), while it is PROPOSED; null once ACTIVE.
+  """
+  expiresAt: AWSDateTime
+  """
+  The universe event relayed.
+  """
+  event: UniverseEvent!
+  """
+  Its id.
+  """
+  id: ID!
+  """
+  When it was made ACTIVE; null while PROPOSED.
+  """
+  madeAt: AWSDateTime
+  """
+  The resident who proposed it; null when the leadership relayed it at once.
+  """
+  proposedBy: AccountRef
+  """
+  ACTIVE, the universe event is relayed; PROPOSED, the proposal waits for its supports.
+  """
+  status: EventRelayStatus!
+  """
+  The supports it has, while it is PROPOSED.
+  """
+  supports: Int!
+  """
+  The supports it needs (5).
+  """
+  supportsNeeded: Int!
+  """
+  The universe that relays it, without "%".
+  """
+  universe: String!
+  """
+  Whether it is shown: false while the access of the universe event is not "public".
+  """
+  visible: Boolean!
+}
+
+"""
+The status of a relay of a universe event (since v122.2.0, D-385).
+"""
+enum EventRelayStatus {
+  ACTIVE
+  PROPOSED
+}
+
+"""
+A page of relays of universe events (since v122.2.0, D-385).
+"""
+type EventRelayPage {
+  """
+  The relays of the page.
+  """
+  items: [EventRelay!]!
+  """
+  The cursor of the next page; null after the last.
+  """
+  next: String
 }
