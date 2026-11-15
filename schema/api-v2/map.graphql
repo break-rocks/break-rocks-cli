@@ -975,6 +975,12 @@ type MapPost {
   """
   author: AccountRef!
   """
+  Since D-365 (decided on 2026-11-15; contracts/map.md § "Since D-365"): the id of its author, answered by every read
+  of the placed posts (mapPosts, mapGathering, placeCard), so that a signed-in app leaves out on the device the placed
+  posts of an account of hiddenAccounts (D-360), as it does for the files of the map highlights.
+  """
+  authorId: ID!
+  """
   Since D-368 (gathering-sheet.feature): for the post of a published experience feat, the id of its place feat
   (placeFeat(id), startPlaceFeatRun: its feat card and "Do it too"); null for another post.
   """
@@ -1268,6 +1274,17 @@ type PlaceContent {
   (publishedCount) and its photo (photoUrl), as mapPlaceFeats answers it; null otherwise.
   """
   place: MapPlaceFeats
+  """
+  Since D-369 (mapGathering, gathering-sheet.feature, decided on 2026-11-15): for a published experience feat (kind
+  FEATS, post set, MapPost.placeFeatId set), its experience instance, as the feat gallery answers it
+  (PublishedFeat.instance); null otherwise.
+  """
+  featInstance: ExperienceInstance
+  """
+  Since D-369 (mapGathering): for a published experience feat, the title of its place feat (PlaceFeat.title), in the
+  language of the caller, else in its first language; null otherwise.
+  """
+  featTitle: String
 }
 
 """

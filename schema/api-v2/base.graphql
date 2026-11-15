@@ -1095,6 +1095,17 @@ type Query {
   placeCard(placeId: String!): PlaceCard
 
   """
+  Since D-364 (map-markers.feature, decided on 2026-11-15): the postal address of a universe event with a point, as
+  one line ("Route de Sèvres à Neuilly, 75016 Paris"), read when the universe event is shared and only then, from its
+  point (UniverseEvent.point) by the same places service as the postal address of a place (PlaceCard.address), in
+  France and Monaco; never kept by the social platform. Null for a universe event with a zone (UniverseEvent.zone),
+  without a point, whose point has no postal address or is not covered, and for a universe event the caller may not
+  read: the share then holds the link of its address and its title. Read by a visitor not signed in too, for a
+  universe event of a public universe.
+  """
+  universeEventPostalAddress(eventId: ID!): String
+
+  """
   Since D-366 and D-368 (gathering-sheet.feature; contracts/map.md § The gathering sheet): what a touched map marker
   gathers, read once when its gathering sheet opens, never to draw the map (no read per move of the map). mapCells:
   the H3 cells that cover the map marker, of one resolution (0 to 15), 1 to 7 (INVALID_REQUEST otherwise): for a pin

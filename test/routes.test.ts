@@ -67,13 +67,13 @@ describe('routes', () => {
 
 describe('the layers of the map of an area', () => {
   it('reads the routes, the placed channels, the placed posts and the recent places of map cells of resolution 6', async () => {
-    const { h, calls } = scripted({ mapRouteMarkers: [{ id: 'r1', name: 'Canal loop', mode: 'FOOT', metres: 4200, start: { lat: 48.87, lon: 2.36 }, end: null, tags: ['canal'] }], mapChannels: [{ address: '%paris&canal', presentCount: 4, place: { name: 'Canal' }, lastMessage: { text: 'On my way' } }], mapPosts: [{ postId: 'p1', universe: '%paris', createdAt: '2026-11-08T10:00:00.000Z', place: { name: 'Canal', mapCell: '88x' } }], mapRecentPlaces: [{ mapCell: '881fb4677ffffff', pointOfInterest: false, lastPostAt: '2026-11-08T10:00:00.000Z' }] });
+    const { h, calls } = scripted({ mapRouteMarkers: [{ id: 'r1', name: 'Canal loop', mode: 'FOOT', metres: 4200, start: { lat: 48.87, lon: 2.36 }, end: null, tags: ['canal'] }], mapChannels: [{ address: '%paris&canal', presentCount: 4, place: { name: 'Canal' }, lastMessage: { text: 'On my way' } }], mapPosts: [{ postId: 'p1', authorId: 'a1', universe: '%paris', createdAt: '2026-11-08T10:00:00.000Z', place: { name: 'Canal', mapCell: '88x' } }], mapRecentPlaces: [{ mapCell: '881fb4677ffffff', pointOfInterest: false, lastPostAt: '2026-11-08T10:00:00.000Z' }] });
     const cells = '861fb4677ffffff';
     for (const layer of ['routes', 'channels', 'posts', 'places']) expect(await h.run('map', layer, '--cells', cells, '--universe', '%paris'), layer).toBe(0);
     expect(calls.map((c) => c.field)).toEqual(['mapRouteMarkers', 'mapChannels', 'mapPosts', 'mapRecentPlaces']);
     for (const c of calls) expect(c.variables).toEqual({ parentMapCells: [cells], universe: '%paris' });
     expect(calls[2].query).not.toContain('videosOnly');
-    expect(h.lines.slice(-3)).toEqual(['%paris&canal  Canal  present 4  "On my way"', 'p1  2026-11-08T10:00:00.000Z  %paris  Canal', '2026-11-08T10:00:00.000Z  881fb4677ffffff']);
+    expect(h.lines.slice(-3)).toEqual(['%paris&canal  Canal  present 4  "On my way"', 'p1  2026-11-08T10:00:00.000Z  %paris  Canal  by a1', '2026-11-08T10:00:00.000Z  881fb4677ffffff']);
     expect(await h.run('map', 'posts', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'INVALID_INPUT' } });
   });

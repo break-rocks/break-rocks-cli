@@ -5,6 +5,15 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-15
+
+Specs v124.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 220 queries, 353 mutations).
+The new read `universeEventPostalAddress` (D-364) and `PlaceContent.featInstance` / `featTitle` (D-369) have no command here.
+
+### Changed
+
+- `map posts` prints the id of the author of each placed post (`MapPost.authorId`, D-365).
+
 ## [0.23.0] - 2026-11-15
 
 Specs v123.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 219 queries, 353 mutations).

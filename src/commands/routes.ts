@@ -143,11 +143,11 @@ export const mapChannels = apiCommand({
   text: listText((c: Channel) => `${c.address}  ${c.place?.name ?? ''}  present ${c.presentCount ?? 0}${c.lastMessage?.text ? `  "${c.lastMessage.text.replace(/\s+/g, ' ').slice(0, 40)}"` : ''}`),
   examples: ['breakrocks map channels --cells 861fb4677ffffff --universe %paris'],
 });
-type MapPost = { postId: string; universe?: string; createdAt?: string; place?: { name?: string | null; mapCell?: string | null } | null };
+type MapPost = { postId: string; authorId?: string; universe?: string; createdAt?: string; place?: { name?: string | null; mapCell?: string | null } | null };
 export const mapPosts = apiCommand({
   name: 'map posts', summary: 'The placed posts of an area of the map the account may read, the most recent first, 200 at most (mapPosts)', description: 'The layer "Videos" (videosOnly) is deferred by the platform.',
   kind: 'query', op: 'mapPosts', rename: cells, hide: ['videosOnly'], descriptions: { ...universeFilter, cells: cellsProperty.description! },
-  text: listText((p: MapPost) => `${p.postId}  ${p.createdAt ?? ''}  ${p.universe ?? ''}  ${p.place?.name ?? p.place?.mapCell ?? ''}`),
+  text: listText((p: MapPost) => `${p.postId}  ${p.createdAt ?? ''}  ${p.universe ?? ''}  ${p.place?.name ?? p.place?.mapCell ?? ''}  by ${p.authorId ?? '-'}`),
   examples: ['breakrocks map posts --cells 861fb4677ffffff', 'breakrocks map posts --cells 861fb4677ffffff,861fb4667ffffff --universe %paris --json'],
 });
 type RecentPlace = { mapCell: string; pointOfInterest?: boolean; point?: { lat: number; lon: number } | null; lastPostAt?: string };
