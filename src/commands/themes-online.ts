@@ -16,6 +16,7 @@ import { bool, int, list, object, openObject, str } from '../schema.js';
 import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
 import { checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, withoutIgnoredImages, type ImageRef } from '../theme/check.js';
+import { isZipName, openArchive } from '../theme/bundle.js';
 import { isSystemFile, writeZip } from '../theme/zip.js';
 import { WIDGET_REGISTRY, checkLayout, kindOfLayout } from '../theme/design.js';
 
@@ -26,19 +27,27 @@ type Ref = { universe: string; name: string };
 const ref = (value: string, what = 'theme') => refOf(value, what) as Ref;
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-export const themesList: Command<{ field?: string; creator?: string; order?: string; universe?: string; query?: string; variant?: string; use?: string; after?: string }, unknown> = {
-  name: 'themes list', summary: 'The theme catalog: by field, creator, order, universe, text (themeCatalog)',
-  examples: ['breakrocks themes list --field SPORT', 'breakrocks themes list --creator @gabriel --order NEWEST --json'],
+type CatalogItem = { theme: { universe: string; name: string; version: number }; reason?: string; universeCount: number; accountCount: number; hasImage?: boolean | null; look?: { name?: string } | null };
+export const themesList: Command<{ field?: string; creator?: string; order?: string; universe?: string; query?: string; variant?: string; use?: string; group?: string; withImage?: boolean; withoutImage?: boolean; after?: string }, unknown> = {
+  name: 'themes list', summary: 'The theme catalog: by field, creator, order, universe, text; quick start and the country collection (themeCatalog)',
+  description: 'Since specs v101.13.0 (D-314): --order QUICK_START lists every theme of %root that quick start offers for --universe (the 30 looks and the theme of its country first), filtered by --group LOOK|COUNTRY|OFFICIAL|UNIVERSAL, --field, --with-image or --without-image; --order COUNTRY the country collection only (v101.10.0). Each item tells its reason (LOOK, COUNTRY, OFFICIAL, COLLECTION_<field>, UNIVERSAL, MOST_USED…) and whether the theme has a background image.',
+  examples: ['breakrocks themes list --field SPORT', 'breakrocks themes list --creator @gabriel --order NEWEST --json', 'breakrocks themes list --order QUICK_START --universe %paris --group COUNTRY', 'breakrocks themes list --order QUICK_START --universe %paris --with-image --query stade'],
   input: object({
     field: str('A field: its collection first', { enum: ['CULTURE', 'ENTERTAINMENT', 'EVERYDAY_LIFE', 'GAMES', 'PLACES', 'POLITICS', 'SCIENCE', 'SPORT', 'TECH', 'WORK'] }),
-    creator: str('The themes published by an account (@handle or id)'), order: str('The order', { enum: ['MOST_USED', 'NEWEST', 'IN_YOUR_UNIVERSES'] }),
-    universe: str('The themes of a universe'), query: str('A text in their names and descriptions'), variant: str('NIGHT or DAY', { enum: ['NIGHT', 'DAY'] }),
-    use: str('PERSONAL or UNIVERSE', { enum: ['PERSONAL', 'UNIVERSE'] }), after: str('The cursor of the next page'),
+    creator: str('The themes published by an account (@handle or id)'), order: str('The order (QUICK_START and COUNTRY need --universe)', { enum: ['MOST_USED', 'NEWEST', 'IN_YOUR_UNIVERSES', 'COUNTRY', 'QUICK_START'] }),
+    universe: str('The themes of a universe; with QUICK_START or COUNTRY, the universe customized'), query: str('A text in their names and descriptions (QUICK_START: any keyword, a country, a color, "with image")'), variant: str('NIGHT or DAY', { enum: ['NIGHT', 'DAY'] }),
+    use: str('PERSONAL or UNIVERSE', { enum: ['PERSONAL', 'UNIVERSE'] }),
+    group: str('With QUICK_START: one group of quick start', { enum: ['LOOK', 'COUNTRY', 'OFFICIAL', 'UNIVERSAL'] }),
+    withImage: bool('With QUICK_START: the themes with a background image only'), withoutImage: bool('With QUICK_START: the themes without a background image only'),
+    after: str('The cursor of the next page'),
   }),
   output: outputSchema('ThemeCatalogPage', 2),
-  run: async (ctx, i) => (await api<{ themeCatalog: unknown }>(ctx, `query($c: UniverseField, $cr: ID, $o: ThemeCatalogOrder, $u: String, $q: String, $v: ThemeVariant, $use: ThemeUse, $after: String) { themeCatalog(collection: $c, creator: $cr, order: $o, universe: $u, query: $q, variant: $v, use: $use, after: $after) ${selection('ThemeCatalogPage', 2)} }`,
-    { c: i.field ?? null, cr: i.creator ? await accountIdOf(ctx, i.creator) : null, o: i.order ?? null, u: i.universe ?? null, q: i.query ?? null, v: i.variant ?? null, use: i.use ?? null, after: i.after ?? null })).themeCatalog,
-  text: (r) => ((r as { items: { theme: { universe: string; name: string; version: number }; universeCount: number; accountCount: number }[] }).items.map((x) => `${x.theme.universe}/${x.theme.name} v${x.theme.version}  ${x.universeCount} universes, ${x.accountCount} accounts`).join('\n') || '(none)'),
+  run: async (ctx, i) => {
+    if (i.withImage && i.withoutImage) throw usageError('INVALID_INPUT', '--with-image or --without-image, not both');
+    return (await api<{ themeCatalog: unknown }>(ctx, `query($c: UniverseField, $cr: ID, $o: ThemeCatalogOrder, $u: String, $q: String, $v: ThemeVariant, $use: ThemeUse, $g: ThemeCatalogGroup, $wi: Boolean, $after: String) { themeCatalog(collection: $c, creator: $cr, order: $o, universe: $u, query: $q, variant: $v, use: $use, group: $g, withImage: $wi, after: $after) ${selection('ThemeCatalogPage', 2)} }`,
+      { c: i.field ?? null, cr: i.creator ? await accountIdOf(ctx, i.creator) : null, o: i.order ?? null, u: i.universe ?? null, q: i.query ?? null, v: i.variant ?? null, use: i.use ?? null, g: i.group ?? null, wi: i.withImage ? true : i.withoutImage ? false : null, after: i.after ?? null })).themeCatalog;
+  },
+  text: (r) => ((r as { items: CatalogItem[] }).items.map((x) => `${x.theme.universe}/${x.theme.name} v${x.theme.version}  ${x.reason ?? ''}${x.look?.name ? ` (look ${x.look.name})` : ''}  ${x.hasImage ? 'with image' : 'without image'}  ${x.universeCount} universes, ${x.accountCount} accounts`).join('\n') || '(none)'),
 };
 
 async function themeOf(ctx: Context, value: string, appliedIn?: string) {
@@ -53,7 +62,32 @@ export const themesShow: Command<{ theme: string; appliedIn?: string }, unknown>
   input: object({ theme: str('The theme: %universe/name', { pattern: REF }), appliedIn: str('The universe it is applied in (a non-member reads it there)') }, ['theme']),
   output: outputSchema('Theme', 1), args: { positionals: ['theme'] },
   run: (ctx, { theme, appliedIn }) => themeOf(ctx, theme, appliedIn),
+  text: (r) => themeText(r as ThemeServed),
 };
+
+type ServedImage = { url?: string | null; urlNight?: string | null; widths?: number[]; widthsNight?: number[]; removed?: boolean | null } | null;
+type ThemeServed = {
+  universe?: string | null; name: string; version?: number; description?: string | null; collection?: string | null; official?: boolean; format?: string; contrastLevel?: string;
+  creator?: { handle?: string } | null; typography?: { title?: string | null } | null; corrected?: string[]; universeCount?: number; accountCount?: number; document?: unknown;
+  imageSlots?: Record<string, ServedImage>; screenshots?: string[]; screenshotsDay?: string[]; pageScreenshots?: Record<string, { url?: string | null; urlNight?: string | null } | null> | null;
+};
+/** The page of a theme in text: what it is, its image slots served (their widths), its screenshots, how its image shows. */
+export function themeText(t: ThemeServed): string {
+  let doc: Record<string, unknown> = {};
+  try { doc = (typeof t.document === 'string' ? JSON.parse(t.document) : t.document ?? {}) as Record<string, unknown>; } catch { /* kept empty */ }
+  const appearance = isObject(doc.appearance) ? doc.appearance : undefined;
+  const slots = Object.entries(t.imageSlots ?? {}).filter(([k, v]) => v && (k === 'page' || k === 'pageHeader' || v.url || v.urlNight));
+  const shots = Object.entries(t.pageScreenshots ?? {}).filter(([, v]) => v);
+  return [
+    `${t.universe ?? ''}/${t.name} v${t.version ?? '?'}${t.official ? ' (official)' : ''}${t.collection ? `  ${t.collection}` : ''}${t.creator?.handle ? `  by @${t.creator.handle}` : ''}`,
+    ...(t.description ? [`  ${t.description}`] : []),
+    `  typeface ${t.typography?.title ?? '?'}  contrast ${t.contrastLevel ?? '?'}  ${t.universeCount ?? 0} universes, ${t.accountCount ?? 0} accounts`,
+    `  image of the page shows ${appearance && typeof appearance.imageShows === 'string' ? appearance.imageShows : 'subtle'}${appearance?.sky ? `, sky ${String(appearance.sky)}` : ''}`,
+    ...slots.map(([k, v]) => `  slot ${k}: ${v!.removed ? 'removed by the platform team' : `${v!.url ? `day ${v!.url} (${(v!.widths ?? []).join(', ') || 'no width yet'})` : 'no day image'}${v!.urlNight ? `, night ${v!.urlNight} (${(v!.widthsNight ?? []).join(', ') || 'no width yet'})` : ''}`}`),
+    `  screenshots: ${t.screenshots?.length ?? 0} night, ${t.screenshotsDay?.length ?? 0} day; page of a universe: ${shots.length ? shots.map(([bp]) => bp).join(', ') : 'none yet'} (theme shots downloads them)`,
+    ...((t.corrected ?? []).length ? [`  corrected at publication: ${t.corrected!.join(', ')}`] : []),
+  ].join('\n');
+}
 
 /** [doc] with each reference of [values] (a place and a variant: "page.day", "wordmark") replaced. */
 export function replaceRefs(doc: Record<string, unknown>, values: Map<string, string>): Record<string, unknown> {
@@ -94,59 +128,23 @@ export function correctedValues(theme: unknown): Corrected[] {
 }
 
 export const themePublish: Command<{ file: string; images?: string[]; in: string; version?: boolean; dryRun?: boolean }, PublishResult> = {
-  name: 'theme publish', summary: 'Publish a theme and its images in a universe, in one gesture (as the studio imports)',
-  description: 'theme check first, on the model of specs v99 (the four families page, sky, block and control; an error refuses; the colors the platform raises and the keys it ignores are told); "scrims" and "textScrims" (computed by the platform, in a document exported elsewhere) are removed, told; the images of the slots the platform ignores since v99 (timeColumn, channelHeader, cardTexture, texture) are left out, told; the other keys ignored (radii, borders, opacities) are sent as they are. Each image the JSON names by a file is found among those given or beside the JSON (a file missing refuses, named), sent with requestMediaUpload and replaced by its upload id; then publishTheme, which makes the next version of a theme of the same name (--version, kept for the scripts, changes nothing). The answer tells each color and each surface opacity the platform corrected, with the value kept ("corrected"). The screenshots are generated by the platform.',
-  examples: ['breakrocks theme publish theme.json --in %test-village-sport', 'breakrocks theme publish theme.json images/ --in %paris --version', 'breakrocks theme publish theme.json --in %paris --dry-run'],
-  input: object({ file: str('The theme document (JSON)'), images: list('Its image files, or folders of images'), in: str('The universe to publish it in (%name)'), version: bool('A new version of the theme of this name (kept for the scripts: publishTheme makes it anyway)'), dryRun: bool('Check and tell what would be sent') }, ['file', 'in']),
+  name: 'theme publish', summary: 'Publish a theme and its images (or its ZIP archive) in a universe, in one gesture (as the import of the apps)',
+  description: 'A .zip in place of the JSON: the archive of a theme as the import of the apps reads it (theme pack, theme export --zip: theme.json, else its only JSON, and its images by their names). theme check first, on the model of specs v122 (the block appearance kept as the platform keeps it, pageImageOnPhone, the four families page, sky, block and control; an error refuses; the colors the platform raises and the keys it ignores are told); "scrims", "textScrims" and "screenshots" (computed by the platform, in a document exported elsewhere) are removed, told; the images of the slots the platform ignores since v99 (timeColumn, channelHeader, cardTexture, texture) are left out, told; the other keys ignored (radii, borders, opacities) are sent as they are. Each image the JSON names by a file is found among those given or beside the JSON (a file missing refuses, named), sent with requestMediaUpload and replaced by its upload id; then publishTheme, which makes the next version of a theme of the same name (--version, kept for the scripts, changes nothing). The answer tells each color and each surface opacity the platform corrected, with the value kept ("corrected"). The screenshots are generated by the platform.',
+  examples: ['breakrocks theme publish theme.json --in %test-village-sport', 'breakrocks theme publish theme.json images/ --in %paris --version', 'breakrocks theme publish theme.json --in %paris --dry-run', 'breakrocks theme publish stade-nuit.zip --in %paris'],
+  input: object({ file: str('The theme document (JSON), or its archive (.zip)'), images: list('Its image files, or folders of images'), in: str('The universe to publish it in (%name)'), version: bool('A new version of the theme of this name (kept for the scripts: publishTheme makes it anyway)'), dryRun: bool('Check and tell what would be sent') }, ['file', 'in']),
   output: openObject({
     theme: outputSchema('Theme', 1), uploads: list('The images sent', openObject({ ref: str('The reference'), file: str('The file'), id: str('The upload id') })), warnings: int('Warnings of theme check'),
     corrected: list('What the platform corrected, with the value kept', openObject({ path: str('night.text, night.surfaces.control.text…'), value: { description: 'The color (#RRGGBB) kept' } })),
-    removed: list('The keys removed before sending: computed by the platform (scrims, textScrims), image slots ignored since v99'),
+    removed: list('The keys removed before sending: computed by the platform (scrims, textScrims, screenshots), image slots ignored since v99'),
   }),
   args: { positionals: ['file', 'images'] },
-  run: async (ctx, { file, images, in: universe, version, dryRun }) => {
-    const path = resolve(ctx.io.cwd, file);
-    if (!existsSync(path)) throw usageError('FILE_NOT_FOUND', `No file ${file}`);
-    let text = readFileSync(path, 'utf8');
-    const given = (images ?? []).flatMap((p) => { const f = resolve(ctx.io.cwd, p); return statSync(f).isDirectory() ? readdirSync(f).filter((n) => !isSystemFile(n)).map((n) => join(f, n)) : [f]; });
-    // The scrims and the text scrims are computed by the platform (THEME_SCRIMS_COMPUTED): removed, told.
-    const removed: string[] = [];
-    try {
-      const parsed = JSON.parse(text) as unknown;
-      if (isObject(parsed)) {
-        for (const key of ['scrims', 'textScrims']) if (key in parsed) { delete parsed[key]; removed.push(key); }
-        if (removed.length) { text = JSON.stringify(parsed); ctx.notice(`Removed ${removed.join(' and ')}: computed by the platform at publication`); }
-      }
-    } catch { /* theme check tells it */ }
-    const report = checkTheme(path, text, given);
-    const missing = report.problems.filter((p) => p.code === 'IMAGE_FILE_MISSING');
-    if (missing.length) throw cliRefusal('IMAGE_FILE_MISSING', missing.map((m) => m.message).join('; '), { missing: missing.map((m) => m.path) });
-    if (!report.ok) throw cliRefusal('THEME_CHECK_FAILED', `${report.errors} error(s): ${report.problems.filter((p) => p.severity === 'error').map((p) => `${p.code} ${p.path}`).join(', ')}`, { report });
-    const stripped = withoutIgnoredImages(JSON.parse(text) as Record<string, unknown>);
-    const doc = stripped.doc;
-    if (stripped.removed.length) { removed.push(...stripped.removed); ctx.notice(`Removed ${stripped.removed.join(', ')}: image slots the platform ignores since specs v99.0.0`); }
-    const files = given.length ? given : imagesBeside(path);
-    const toSend = imageRefs(doc).filter((r) => isFileReference(r.ref)).map((r) => {
-      const found = fileFor(r.ref, files)!;
-      return { r, file: found, image: checkImage(ctx, found, undefined, r.place === 'wordmark' ? 1024 * 1024 : 5 * 1024 * 1024, r.place === 'wordmark' ? ['image/png', 'image/webp'] : ['image/jpeg', 'image/png', 'image/webp']) };
-    });
-    if (dryRun) return { dryRun: true, theme: { universe, name: doc.name, operation: 'publishTheme', ...(version ? { version: 'next' } : {}) }, uploads: toSend.map((s) => ({ ref: s.r.ref, file: s.file, id: '(not sent)' })), warnings: report.warnings, removed };
-    const ids = new Map<string, string>();
-    const uploads: PublishResult['uploads'] = [];
-    const byFile = new Map<string, string>();
-    for (const s of toSend) {
-      const id = byFile.get(s.file) ?? await uploadImage(ctx, s.image, { destination: 'THEME' });
-      byFile.set(s.file, id);
-      ids.set(s.r.variant ? `${s.r.place}.${s.r.variant}` : s.r.place, id);
-      uploads.push({ ref: s.r.ref, file: basename(s.file), id });
-    }
-    const { universe: _u, ...rest } = replaceRefs(doc, ids);
-    void _u;
-    const themeText = JSON.stringify(rest);
-    // One requestId for every try while the images are processed: the platform publishes once.
-    const requestId = uuidv7(ctx.now());
-    const theme = await whileProcessing(ctx, async () => (await api<{ publishTheme: unknown }>(ctx, `mutation($u: String!, $t: AWSJSON!, $r: ID!) { publishTheme(universe: $u, document: $t, requestId: $r) ${THEME} }`, { u: universe, t: themeText, r: requestId })).publishTheme, { stepMs: 3000, maxMs: 120_000 });
-    return { theme, uploads, warnings: report.warnings, corrected: correctedValues(theme), removed };
+  run: async (ctx, input) => {
+    const path = resolve(ctx.io.cwd, input.file);
+    if (!existsSync(path)) throw usageError('FILE_NOT_FOUND', `No file ${input.file}`);
+    if (!isZipName(path)) return publishThemeFile(ctx, path, input);
+    // The archive of a theme (theme pack, theme export --zip, an export of the apps): its document and its images.
+    const archive = openArchive(path);
+    try { return await publishThemeFile(ctx, archive.document, { ...input, images: [...archive.images, ...(input.images ?? [])] }); } finally { archive.close(); }
   },
   text: (r) => {
     const t = r.theme as { universe?: string; name?: string; version?: number; operation?: string };
@@ -156,10 +154,55 @@ export const themePublish: Command<{ file: string; images?: string[]; in: string
       ...r.uploads.map((u) => `  image   ${u.ref} → ${u.id}`),
       ...(r.corrected ?? []).map((c) => `  corrected ${c.path}: ${String(c.value)}`),
       ...(r.removed?.length ? [`  removed ${r.removed.join(', ')} (computed or ignored by the platform)`] : []),
+      '  the screenshots are rendered within seconds: theme shots, themes show',
     ].join('\n');
   },
   quiet: (r) => (r.theme as { name?: string }).name,
 };
+
+async function publishThemeFile(ctx: Context, path: string, { images, in: universe, version, dryRun }: { images?: string[]; in: string; version?: boolean; dryRun?: boolean }): Promise<PublishResult> {
+  let text = readFileSync(path, 'utf8');
+  const given = (images ?? []).flatMap((p) => { const f = resolve(ctx.io.cwd, p); return statSync(f).isDirectory() ? readdirSync(f).filter((n) => !isSystemFile(n)).map((n) => join(f, n)) : [f]; });
+  // The scrims, the text scrims and the screenshots are the platform's (THEME_SCRIMS_COMPUTED,
+  // THEME_SCREENSHOTS_GENERATED), in a document exported elsewhere: removed, told.
+  const removed: string[] = [];
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (isObject(parsed)) {
+      for (const key of ['scrims', 'textScrims', 'screenshots']) if (key in parsed) { delete parsed[key]; removed.push(key); }
+      if (removed.length) { text = JSON.stringify(parsed); ctx.notice(`Removed ${removed.join(', ')}: computed by the platform at publication`); }
+    }
+  } catch { /* theme check tells it */ }
+  const report = checkTheme(path, text, given);
+  const missing = report.problems.filter((p) => p.code === 'IMAGE_FILE_MISSING');
+  if (missing.length) throw cliRefusal('IMAGE_FILE_MISSING', missing.map((m) => m.message).join('; '), { missing: missing.map((m) => m.path) });
+  if (!report.ok) throw cliRefusal('THEME_CHECK_FAILED', `${report.errors} error(s): ${report.problems.filter((p) => p.severity === 'error').map((p) => `${p.code} ${p.path}`).join(', ')}`, { report });
+  const stripped = withoutIgnoredImages(JSON.parse(text) as Record<string, unknown>);
+  const doc = stripped.doc;
+  if (stripped.removed.length) { removed.push(...stripped.removed); ctx.notice(`Removed ${stripped.removed.join(', ')}: image slots the platform ignores since specs v99.0.0`); }
+  const files = given.length ? given : imagesBeside(path);
+  const toSend = imageRefs(doc).filter((r) => isFileReference(r.ref)).map((r) => {
+    const found = fileFor(r.ref, files)!;
+    return { r, file: found, image: checkImage(ctx, found, undefined, r.place === 'wordmark' ? 1024 * 1024 : 5 * 1024 * 1024, r.place === 'wordmark' ? ['image/png', 'image/webp'] : ['image/jpeg', 'image/png', 'image/webp']) };
+  });
+  if (dryRun) return { dryRun: true, theme: { universe, name: doc.name, operation: 'publishTheme', ...(version ? { version: 'next' } : {}) }, uploads: toSend.map((s) => ({ ref: s.r.ref, file: s.file, id: '(not sent)' })), warnings: report.warnings, removed };
+  const ids = new Map<string, string>();
+  const uploads: PublishResult['uploads'] = [];
+  const byFile = new Map<string, string>();
+  for (const s of toSend) {
+    const id = byFile.get(s.file) ?? await uploadImage(ctx, s.image, { destination: 'THEME' });
+    byFile.set(s.file, id);
+    ids.set(s.r.variant ? `${s.r.place}.${s.r.variant}` : s.r.place, id);
+    uploads.push({ ref: s.r.ref, file: basename(s.file), id });
+  }
+  const { universe: _u, ...rest } = replaceRefs(doc, ids);
+  void _u;
+  const themeText = JSON.stringify(rest);
+  // One requestId for every try while the images are processed: the platform publishes once.
+  const requestId = uuidv7(ctx.now());
+  const theme = await whileProcessing(ctx, async () => (await api<{ publishTheme: unknown }>(ctx, `mutation($u: String!, $t: AWSJSON!, $r: ID!) { publishTheme(universe: $u, document: $t, requestId: $r) ${THEME} }`, { u: universe, t: themeText, r: requestId })).publishTheme, { stepMs: 3000, maxMs: 120_000 });
+  return { theme, uploads, warnings: report.warnings, corrected: correctedValues(theme), removed };
+}
 
 const PROFILE_FIELDS = ['description', 'image', 'theme', 'universeStrip', 'firstFocus', 'layoutRef', 'switcherLayouts', 'readerRetouches', 'clear'];
 const profileOnly = (kept: string) => PROFILE_FIELDS.filter((f) => f !== kept).map((f) => `input.${f}`);

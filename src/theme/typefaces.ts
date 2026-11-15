@@ -28,7 +28,13 @@ export const APPROVED_TYPEFACES: readonly Typeface[] = [
   t('Rozha One', 'SERIF', ['Devanagari', 'Latin']), t('Mukta', 'SANS', ['Devanagari', 'Latin']), t('Galada', 'SCRIPT', ['Bengali', 'Latin']), t('Hind Siliguri', 'SANS', ['Bengali', 'Latin']),
   t('Kanit', 'SANS', ['Thai', 'Latin', 'Vietnamese']), t('Mitr', 'SANS', ['Thai', 'Latin', 'Vietnamese']), t('ZCOOL KuaiLe', 'DISPLAY', ['Han (Simplified)', 'Latin']),
   t('Zen Maru Gothic', 'SANS', ['Japanese', 'Latin', 'Cyrillic', 'Greek']), t('Black Han Sans', 'DISPLAY', ['Hangul', 'Latin']), t('Do Hyeon', 'SANS', ['Hangul', 'Latin']),
+  // The typefaces of the appearance characters (since specs v87.4.0, D-267): Place (Sora), Agora (Fraunces), Gallery (Figtree).
+  t('Sora', 'SANS', L), t('Fraunces', 'SERIF', ['Latin', 'Vietnamese']), t('Figtree', 'SANS', L),
 ];
+
+/** The appearance character of a title typeface (backend characterOfTypeface): PLACE for a typeface that has none. */
+export const CHARACTER_TYPEFACES: Readonly<Record<string, string>> = { PLACE: 'Sora', AGORA: 'Fraunces', TERMINAL: 'JetBrains Mono', STAGE: 'Bebas Neue', GALLERY: 'Figtree' };
+export const characterOfTypeface = (title: string | undefined) => Object.entries(CHARACTER_TYPEFACES).find(([, f]) => f.toLowerCase() === (title ?? '').trim().toLowerCase())?.[0] ?? 'PLACE';
 
 const byName = new Map(APPROVED_TYPEFACES.map((f) => [f.name.toLowerCase(), f]));
 /** The approved typeface named [name] (case and outer spaces not counted). */

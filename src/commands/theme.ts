@@ -6,9 +6,10 @@ import { cliRefusal, usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
-import { FIELDS, checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, type CheckReport } from '../theme/check.js';
+import { FIELDS, IMAGE_SHOWS, SKIES, checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, type CheckReport } from '../theme/check.js';
 import { LANGUAGES, themePrompt, type PromptResult } from '../theme/prompt.js';
 import { APPROVED_TYPEFACES } from '../theme/typefaces.js';
+import { documentOf, isZipName, openArchive } from '../theme/bundle.js';
 import { isSystemFile, readZip, writeZip, zipEntryBytes } from '../theme/zip.js';
 
 const at = (cwd: string, path: string) => resolve(cwd, path);
@@ -26,10 +27,10 @@ function imageFiles(cwd: string, paths: readonly string[] = []): string[] {
   });
 }
 
-export const themePromptCommand: Command<{ field?: string; mood?: string; name?: string; universe?: string; description?: string; fonts?: string[]; language?: 'en' | 'fr'; universal?: boolean; template?: boolean }, PromptResult> = {
-  name: 'theme prompt', summary: 'Write the prompt that asks an AI for a theme (theme.json and its images), on the model of specs v99',
-  description: 'The theme prompt of the platform filled: the field, the mood, the name, the universe, the approved typefaces, the four families of theme surfaces (page, sky, block, control: background, text, secondaryText), the contrast AA, one title typeface, the image slots page and pageHeader (4 images), how the image of the page shows (none, subtle, through: chosen in the appearance of the universe) and the readability mask the platform computes; no radius, no border, no opacity, no accent typeface. --universal: the prompt of a universal theme (no field, the palette and the typeface of Socle, its own rules; the universe %root by default). --template: the fields to fill left as <…>. Give it to an AI that writes text and images; then theme check and theme publish.',
-  examples: ['breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football', 'breakrocks theme prompt --field culture --mood "a museum with white walls" --name musee-blanc --universe %paris --fonts "Playfair Display" --language fr', 'breakrocks theme prompt --universal --mood "an open sky above a low horizon" --name universel-ciel --language fr', 'breakrocks theme prompt --template --language fr'],
+export const themePromptCommand: Command<{ field?: string; mood?: string; name?: string; universe?: string; description?: string; fonts?: string[]; language?: 'en' | 'fr'; universal?: boolean; template?: boolean; imageShows?: string; sky?: string }, PromptResult> = {
+  name: 'theme prompt', summary: 'Write the prompt that asks an AI for a theme (theme.json and the list of its images), in the format the platform accepts today (specs v122)',
+  description: 'The theme prompt of the platform filled: the field, the mood, the name, the universe, the approved typefaces, the four families of theme surfaces (page, sky, block, control: background, text, secondaryText), the contrast AA, one title typeface, the image slots page and pageHeader with their day and night variants (4 images: the size of each, what it shows, what lies over it), the block appearance (its accent, how the image of the page shows: none, subtle or through, the sky column or band), pageImageOnPhone, the scrims and the readability mask the platform computes; no radius, no border, no opacity, no accent typeface, no text backdrop. --universal: the prompt of a universal theme (no field, the palette and the typeface of Socle, its own rules; the universe %root by default). --template: the fields to fill left as <…>. Give it to an AI that writes text and images; then theme check, theme pack and theme publish.',
+  examples: ['breakrocks theme prompt --field sport --mood "stadium at night under the floodlights" --name stade-nuit --universe %football', 'breakrocks theme prompt --field culture --mood "a museum with white walls" --name musee-blanc --universe %paris --fonts "Playfair Display" --language fr', 'breakrocks theme prompt --field games --mood "neon arcade" --name arcade --universe %gaming --image-shows through --sky band', 'breakrocks theme prompt --universal --mood "an open sky above a low horizon" --name universel-ciel --language fr', 'breakrocks theme prompt --template --language fr'],
   input: object({
     field: str(`The field: ${FIELDS.join(', ')} (or its word: sport, politique…); none with --universal`),
     mood: str('The mood, in a few words (with --universal: the scene and the identity)', { minLength: 1, maxLength: 500 }),
@@ -40,18 +41,20 @@ export const themePromptCommand: Command<{ field?: string; mood?: string; name?:
     language: str('The language of the prompt', { enum: LANGUAGES, default: 'en' }),
     universal: bool('The prompt of a universal theme: no field, the palette and the typeface of Socle'),
     template: bool('Leave the fields not given as <…> to fill (field, mood, name, universe, description, typeface)'),
+    imageShows: str('How the image of the page shows (appearance.imageShows)', { enum: IMAGE_SHOWS, default: 'subtle' }),
+    sky: str('The sky of the universe (appearance.sky): the sky column or the sky band', { enum: SKIES, default: 'column' }),
   }),
-  output: openObject({ prompt: str('The prompt'), language: str('Its language'), field: str('The field (null with --universal or a template)'), name: str('The theme name'), universe: str('The universe'), fonts: list('The typeface asked'), universal: bool('A universal theme'), template: bool('Fields left to fill') }),
+  output: openObject({ prompt: str('The prompt'), language: str('Its language'), field: str('The field (null with --universal or a template)'), name: str('The theme name'), universe: str('The universe'), fonts: list('The typeface asked'), universal: bool('A universal theme'), template: bool('Fields left to fill'), imageShows: str('How the image of the page shows'), sky: str('The sky') }),
   offline: true,
   run: (_ctx, input) => themePrompt(input),
   text: (r) => r.prompt,
 };
 
 export const themeCheck: Command<{ file: string; images?: string[]; strict?: boolean }, CheckReport> = {
-  name: 'theme check', summary: 'Check a theme and its images as the platform does at publication (offline; the model of specs v99)',
-  description: 'The structure by the JSON Schema of the design system (design-lib/schemas/theme-v2.schema.json) and the theme read as the apps draw it by its shared library (design-lib/lib/theme): format 2 (or 1), size (64 KB), name, the four families of theme surfaces page, sky, block and control (a former theme surface is read into its family and told deprecated, THEME_SURFACE_DEPRECATED; any other key THEME_SURFACE_UNKNOWN), the palettes, the title typeface (approved list; typography.accent ignored), gradient, the image slots page and pageHeader (timeColumn, channelHeader, cardTexture ignored), at most 8 images of at most 5 MB, the banner expected 3:1 and at least 1500 × 500 (a warning), the wordmark PNG/WebP at most 1 MB and 6:1. Never refused, ignored and told (THEME_KEY_IGNORED): the radii (surfaceRadius, shape), the border of a theme surface, the opacities and the text backdrop. "scrims" (the readability mask among them), "textScrims" and "screenshots" are refused (computed by the platform). The contrast AA (4.5:1 text, 3:1 large text and controls) in the night, dim and day modes, each color the platform would raise told with the color it would keep; the readability mask over the image of the page (appearance.imageShows none, subtle or through; subtle without it) computed as the platform does, the image read as black and white offline. Without image files, the images beside the JSON. Exit 1 when it finds an error (warnings too with --strict): usable as a hook.',
-  examples: ['breakrocks theme check theme.json', 'breakrocks theme check theme.json images/ --json', 'breakrocks theme check theme.json page-day.jpg page-night.jpg --strict'],
-  input: object({ file: str('The theme document (JSON)'), images: list('Its image files, or folders of images'), strict: bool('Count the warnings (contrast raised, unusual sizes, keys ignored) as errors') }, ['file']),
+  name: 'theme check', summary: 'Check a theme and its images (or its ZIP archive) as the platform does at publication (offline; specs v122)',
+  description: 'The structure by the JSON Schema of the design system (design-lib/schemas/theme-v2.schema.json) and the theme read as the apps draw it by its shared library (design-lib/lib/theme): format 2 (or 1), size (64 KB), name, the four families of theme surfaces page, sky, block and control (a former theme surface is read into its family and told deprecated, THEME_SURFACE_DEPRECATED; any other key THEME_SURFACE_UNKNOWN), the palettes, the title typeface (approved list; typography.accent ignored), gradient, the image slots page and pageHeader (timeColumn, channelHeader, cardTexture ignored), at most 8 images of at most 5 MB, the banner expected 3:1 and at least 1500 × 500 (a warning), the wordmark PNG/WebP at most 1 MB and 6:1. Never refused, ignored and told (THEME_KEY_IGNORED): the radii (surfaceRadius, shape), the border of a theme surface, the opacities and the text backdrop. "scrims" (the readability mask among them), "textScrims" and "screenshots" are refused (computed by the platform). The contrast AA (4.5:1 text, 3:1 large text and controls) in the night, dim and day modes, each color the platform would raise told with the color it would keep; the readability mask over the image of the page (appearance.imageShows none, subtle or through; subtle without it) computed as the platform does, the image read as black and white offline. The block appearance read as the platform keeps it: without "accent" (#RRGGBB) the whole block is left out (THEME_APPEARANCE_IGNORED); imageShows none, subtle or through, else read from "ground" (THEME_IMAGE_SHOWS_READ); sky column or band; pageImageOnPhone true or false; a key unknown at the top of the document is left out at publication (THEME_KEY_IGNORED), not refused. An image of the page under 2160 × 1620 is told (IMAGE_SMALL). Without image files, the images beside the JSON. A .zip in place of the JSON: the archive of a theme as the import of the apps reads it (theme.json, else its only JSON; its images by their names). Exit 1 when it finds an error (warnings too with --strict): usable as a hook.',
+  examples: ['breakrocks theme check theme.json', 'breakrocks theme check theme.json images/ --json', 'breakrocks theme check theme.json page-day.jpg page-night.jpg --strict', 'breakrocks theme check stade-nuit.zip'],
+  input: object({ file: str('The theme document (JSON), or its archive (.zip)'), images: list('Its image files, or folders of images'), strict: bool('Count the warnings (contrast raised, unusual sizes, keys ignored) as errors') }, ['file']),
   output: openObject({
     ok: bool('No error'), file: str('The document'), format: str('Its format'), errors: int('Errors'), warnings: int('Warnings'),
     problems: list('Each problem', openObject({ code: str('Its code (a platform code, or the CLI\'s)'), severity: str('error or warning', { enum: ['error', 'warning'] }), path: str('Where, in the document'), message: str('What'), suggested: str('The color the platform would keep') })),
@@ -61,11 +64,19 @@ export const themeCheck: Command<{ file: string; images?: string[]; strict?: boo
     families: openObject({}, 'The four families (page, sky, block, control) per variant, with the colors kept'), readFrom: openObject({}, 'The key each family was read from, per variant'),
     ignored: list('What the platform ignores, as paths'),
     mask: openObject({ imageShows: str('none, subtle or through'), night: { type: 'number' }, dim: { type: 'number' }, day: { type: 'number' } }, 'The readability mask (scrims.mask) as the platform would compute it, the image read as black and white'),
+    appearance: openObject({ kept: bool('False when the platform leaves the block out (no accent)'), imageShows: str('none, subtle or through, as read'), sky: str('column or band'), layout: str('feed-first, village-square or hud'), character: str('The appearance character') }, 'The block appearance as the platform keeps it'),
   }),
   args: { positionals: ['file', 'images'] }, offline: true,
   run: (ctx, { file, images, strict }) => {
     const path = at(ctx.io.cwd, file);
-    return checkTheme(path, readText(path), imageFiles(ctx.io.cwd, images), !!strict);
+    if (!isZipName(path)) return checkTheme(path, readText(path), imageFiles(ctx.io.cwd, images), !!strict);
+    // The archive of a theme, as the import of the apps reads it: its theme document and its images.
+    if (!existsSync(path)) throw usageError('FILE_NOT_FOUND', `No file ${file}`, { path: file });
+    const archive = openArchive(path);
+    try {
+      const report = checkTheme(archive.document, readText(archive.document), [...archive.images, ...imageFiles(ctx.io.cwd, images)], !!strict);
+      return { ...report, file: path, images: report.images.map((i) => (i.file ? { ...i, file: basename(i.file) } : i)), unusedFiles: report.unusedFiles.map((f) => basename(f)) };
+    } finally { archive.close(); }
   },
   exitCode: (r) => (r.ok ? 0 : 1),
   text: (r) => [
@@ -73,36 +84,40 @@ export const themeCheck: Command<{ file: string; images?: string[]; strict?: boo
     ...r.problems.map((p) => `  ${p.severity === 'error' ? 'error  ' : 'warning'} ${p.code}  ${p.path}: ${p.message}`),
     ...r.images.filter((i) => i.file).map((i) => `  image   ${i.place}${i.variant ? `.${i.variant}` : ''}: ${basename(i.file!)} ${i.type ?? '?'} ${i.width ?? '?'}×${i.height ?? '?'} ${i.bytes} bytes`),
     ...(r.families ? (['night', 'day'] as const).map((v) => `  ${v.padEnd(7)} ${(['page', 'sky', 'block', 'control'] as const).map((f) => `${f} ${r.families![v][f].background}/${r.families![v][f].text}`).join(', ')}`) : []),
+    ...(r.appearance ? [`  appearance ${r.appearance.kept ? `imageShows ${r.appearance.imageShows}, sky ${r.appearance.sky}${r.appearance.layout ? `, layout ${r.appearance.layout}` : ''}` : 'left out by the platform'}`] : []),
     ...(r.mask ? [`  mask    ${r.mask.imageShows}: night ${r.mask.night}, dim ${r.mask.dim}, day ${r.mask.day} (the image read as black and white)`] : []),
   ].join('\n'),
 };
 
-type PackResult = { out: string; bytes: number; entries: { path: string; bytes: number }[]; missing: string[] };
+type PackResult = { out: string; bytes: number; entries: { path: string; bytes: number }[]; missing: string[]; check: { ok: boolean; errors: number; warnings: number } };
 
-export const themePack: Command<{ file: string; images?: string[]; out?: string; force?: boolean; allowMissing?: boolean }, PackResult> = {
-  name: 'theme pack', summary: 'Pack a theme and its images in a ZIP for the import of the studio',
-  description: 'The archive holds theme.json and each image the JSON names (its file found among those given, else beside the JSON), named as referenced, so that the studio matches them (Appearance › Import). A reference without its file refuses the archive, unless --allow-missing.',
+export const themePack: Command<{ file: string; images?: string[]; out?: string; force?: boolean; allowMissing?: boolean; allowInvalid?: boolean }, PackResult> = {
+  name: 'theme pack', summary: 'Pack a theme and its images in a ZIP: the archive the import of the apps and theme publish read',
+  description: 'theme check first: a theme the platform would refuse is not packed (THEME_CHECK_FAILED), unless --allow-invalid. The archive holds theme.json (the document as it is, byte for byte, deflated) and each image the JSON names (its file found among those given, else beside the JSON), stored under the name the JSON gives it, so that the import matches them; at most 50 MB (ZIP_TOO_LARGE). A reference without its file refuses the archive, unless --allow-missing. theme publish <archive>.zip and theme check <archive>.zip read it.',
   examples: ['breakrocks theme pack theme.json --out stade-nuit.zip', 'breakrocks theme pack theme.json images/ --out stade-nuit.zip --force'],
   input: object({
     file: str('The theme document (JSON)'), images: list('Its image files, or folders of images'), out: str('The archive to write (default: <name>.zip)'),
-    force: bool('Replace the archive if it exists'), allowMissing: bool('Pack even when an image named by the JSON has no file'),
+    force: bool('Replace the archive if it exists'), allowMissing: bool('Pack even when an image named by the JSON has no file'), allowInvalid: bool('Pack even when theme check finds an error'),
   }, ['file']),
-  output: openObject({ out: str('The archive'), bytes: int('Its size'), entries: list('Its files', openObject({ path: str('Name'), bytes: int('Size') })), missing: list('References without a file') }),
+  output: openObject({ out: str('The archive'), bytes: int('Its size'), entries: list('Its files', openObject({ path: str('Name'), bytes: int('Size') })), missing: list('References without a file'), check: openObject({ ok: bool('No error'), errors: int('Errors'), warnings: int('Warnings') }, 'The result of theme check') }),
   args: { positionals: ['file', 'images'] }, offline: true,
-  run: (ctx, { file, images, out, force, allowMissing }) => {
+  run: (ctx, { file, images, out, force, allowMissing, allowInvalid }) => {
     const path = at(ctx.io.cwd, file);
     const text = readText(path);
     let doc: Record<string, unknown>;
     try { doc = JSON.parse(text); } catch { throw usageError('THEME_FORMAT_INVALID', `${file} is not JSON`); }
     const given = imageFiles(ctx.io.cwd, images);
     const files = given.length ? given : imagesBeside(path);
+    const report = checkTheme(path, text, given);
+    const refused = report.problems.filter((p) => p.severity === 'error' && p.code !== 'IMAGE_FILE_MISSING');
+    if (refused.length && !allowInvalid) throw cliRefusal('THEME_CHECK_FAILED', `${refused.length} error(s): ${refused.map((p) => `${p.code} ${p.path}`).join(', ')} (theme check; --allow-invalid to pack it anyway)`, { problems: refused });
     const entries: { path: string; bytes: Uint8Array; deflate?: boolean }[] = [{ path: 'theme.json', bytes: new TextEncoder().encode(text), deflate: true }];
     const missing: string[] = [];
     for (const ref of imageRefs(doc).filter((r) => isFileReference(r.ref))) {
       const found = fileFor(ref.ref, files);
       if (!found) { missing.push(ref.ref); continue; }
       const name = basename(found);
-      if (!entries.some((e) => e.path === name)) entries.push({ path: name, bytes: new Uint8Array(readFileSync(found)) });
+      if (!entries.some((e) => e.path.toLowerCase() === name.toLowerCase())) entries.push({ path: name, bytes: new Uint8Array(readFileSync(found)) });
     }
     if (missing.length && !allowMissing) throw cliRefusal('IMAGE_FILE_MISSING', `No file for ${missing.join(', ')}: give them, or --allow-missing`, { missing });
     const target = at(ctx.io.cwd, out ?? `${typeof doc.name === 'string' && doc.name ? doc.name : basename(file).replace(/\.json$/i, '')}.zip`);
@@ -110,9 +125,9 @@ export const themePack: Command<{ file: string; images?: string[]; out?: string;
     const zip = writeZip(entries);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, zip);
-    return { out: target, bytes: zip.length, entries: entries.map((e) => ({ path: e.path, bytes: e.bytes.length })), missing };
+    return { out: target, bytes: zip.length, entries: entries.map((e) => ({ path: e.path, bytes: e.bytes.length })), missing, check: { ok: report.ok, errors: report.errors, warnings: report.warnings } };
   },
-  text: (r) => [`${r.out} (${r.bytes} bytes)`, ...r.entries.map((e) => `  ${e.path}  ${e.bytes} bytes`), ...(r.missing.length ? [`missing: ${r.missing.join(', ')}`] : [])].join('\n'),
+  text: (r) => [`${r.out} (${r.bytes} bytes; theme check: ${r.check.errors} error(s), ${r.check.warnings} warning(s))`, ...r.entries.map((e) => `  ${e.path}  ${e.bytes} bytes`), ...(r.missing.length ? [`missing: ${r.missing.join(', ')}`] : [])].join('\n'),
   quiet: (r) => r.out,
 };
 
@@ -123,13 +138,13 @@ export function safeEntryPath(path: string): string[] {
   return parts;
 }
 
-type UnpackResult = { out: string; entries: { path: string; bytes: number }[] };
+type UnpackResult = { out: string; entries: { path: string; bytes: number }[]; document?: string };
 
 export const themeUnpack: Command<{ archive: string; out?: string; force?: boolean }, UnpackResult> = {
-  name: 'theme unpack', summary: 'Unpack the ZIP of a theme (an export of the studio, or theme pack)',
+  name: 'theme unpack', summary: 'Unpack the ZIP of a theme (theme export --zip, an export of the apps, or theme pack)',
   examples: ['breakrocks theme unpack stade-nuit.zip --out stade-nuit/'],
   input: object({ archive: str('The archive (.zip)'), out: str('The folder to write in (default: the name of the archive)'), force: bool('Replace files that exist') }, ['archive']),
-  output: openObject({ out: str('The folder'), entries: list('The files written', openObject({ path: str('Path'), bytes: int('Size') })) }),
+  output: openObject({ out: str('The folder'), entries: list('The files written', openObject({ path: str('Path'), bytes: int('Size') })), document: str('The theme document, as the import of the apps chooses it (theme.json, else the only JSON)') }),
   args: { positionals: ['archive'] }, offline: true,
   run: (ctx, { archive, out, force }) => {
     const path = at(ctx.io.cwd, archive);
@@ -146,9 +161,11 @@ export const themeUnpack: Command<{ archive: string; out?: string; force?: boole
       writeFileSync(target, data);
       written.push({ path: target, bytes: data.length });
     }
-    return { out: folder, entries: written };
+    let document: string | undefined;
+    try { document = plan.find((p) => p.entry.path === documentOf(entries.map((e) => e.path)))?.target; } catch { /* no theme document: told by its absence */ }
+    return { out: folder, entries: written, ...(document ? { document } : {}) };
   },
-  text: (r) => [r.out, ...r.entries.map((e) => `  ${e.path}  ${e.bytes} bytes`)].join('\n'),
+  text: (r) => [r.out, ...r.entries.map((e) => `  ${e.path}  ${e.bytes} bytes`), ...(r.document ? [`theme document: ${r.document}`] : ['no theme document (theme.json)'])].join('\n'),
   quiet: (r) => r.out,
 };
 

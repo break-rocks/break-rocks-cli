@@ -99,7 +99,7 @@ describe('theme check (the model of specs v99, design-lib/lib/theme)', () => {
     doc.gradient = ['#123456', '#654321'];
     doc.imageSlots.page = { day: 'https://example.com/a.jpg' };
     doc.imageSlots.sidebar = null;
-    doc.extra = 1;
+    doc.pageImageOnPhone = 'yes';
     const { h, file } = folder(doc);
     expect(await h.run('theme', 'check', file, '--json')).toBe(1);
     const r = last<Report>(h);
@@ -137,17 +137,48 @@ describe('theme check (the model of specs v99, design-lib/lib/theme)', () => {
     expect(contrast.every((p) => p.severity === 'warning' && /^#[0-9A-F]{6}$/.test(p.suggested!))).toBe(true);
     expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
   });
-  it('reads how the image of the page shows from the block appearance; none: no mask', async () => {
+  it('reads how the image of the page shows from the block appearance as the platform keeps it; none: no mask', async () => {
     const doc = theme() as Record<string, any>;
-    doc.appearance = { imageShows: 'through' };
+    doc.appearance = { accent: '#E5484D', imageShows: 'through', sky: 'band' };
     const { h, file } = folder(doc);
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
     expect(last<Report>(h).mask).toMatchObject({ imageShows: 'through' });
-    writeFileSync(file, JSON.stringify({ ...doc, appearance: { imageShows: 'none' } }));
+    expect(last<Report & { appearance: unknown }>(h).appearance).toMatchObject({ kept: true, imageShows: 'through', sky: 'band' });
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { accent: '#E5484D', imageShows: 'none' } }));
     expect(await h.run('theme', 'check', file, '--json')).toBe(0);
     expect(last<Report>(h).mask).toBeUndefined();
-    writeFileSync(file, JSON.stringify({ ...doc, appearance: { imageShows: 'half' } }));
+    // An unknown imageShows (or none at all) is read from "ground": none unless ground is true; told, never refused.
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { accent: '#E5484D', imageShows: 'half' } }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(codes(last<Report>(h))).toContain('THEME_IMAGE_SHOWS_READ');
+    expect(last<Report>(h).mask).toBeUndefined();
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { accent: '#E5484D', ground: true, sky: 'side' } }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(last<Report>(h).mask).toMatchObject({ imageShows: 'subtle' });
+    expect(last<Report>(h).problems.filter((p) => p.code === 'THEME_KEY_IGNORED').map((p) => p.path)).toContain('appearance.sky');
+    // Without an accent the platform leaves the whole block out: subtle, the sky column.
+    writeFileSync(file, JSON.stringify({ ...doc, appearance: { imageShows: 'through', sky: 'band' } }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(codes(last<Report>(h))).toContain('THEME_APPEARANCE_IGNORED');
+    expect(last<Report>(h).mask).toMatchObject({ imageShows: 'subtle' });
+    // A gradient derived by Customize (any #RRGGBB) is accepted with a block appearance kept.
+    writeFileSync(file, JSON.stringify({ ...doc, gradient: ['#E5484D', '#B04DE5'] }));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+  });
+  it('accepts pageImageOnPhone and leaves an unknown key out, as the platform does at publication', async () => {
+    const doc = { ...theme(), pageImageOnPhone: false, notes: 'kept by an editor' };
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(last<Report>(h).problems.map((p) => [p.code, p.path])).toEqual([['THEME_KEY_IGNORED', 'notes']]);
+    writeFileSync(file, JSON.stringify({ ...doc, pageImageOnPhone: 'no' }));
     expect(await h.run('theme', 'check', file, '--json')).toBe(1);
+    expect(codes(last<Report>(h))).toContain('THEME_FORMAT_INVALID');
+  });
+  it('warns of an image of the page smaller than the largest width served', async () => {
+    const { h, dir, file } = folder();
+    writeFileSync(join(dir, 'page-day.jpg'), jpeg(1200, 900));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(last<Report>(h).problems.filter((p) => p.code === 'IMAGE_SMALL').map((p) => p.path)).toEqual(['imageSlots.page.day']);
   });
   it('reads the given image files and folders, and tells those that no reference names', async () => {
     const { h, dir, file } = folder();
@@ -198,6 +229,17 @@ describe('theme pack and unpack', () => {
     expect(new TextDecoder().decode(zipEntryBytes(zip, entries[0]))).toBe('{"a":1}'.repeat(100));
     const broken = zip.slice(); broken[40] ^= 0xFF;
     expect(() => zipEntryBytes(broken, entries[0])).toThrow(/damaged/);
+  });
+  it('refuses to pack a theme the platform would refuse, unless --allow-invalid; tells the theme document when unpacking', async () => {
+    const doc = theme() as Record<string, any>;
+    doc.typography.title = 'Comic Sans';
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'pack', file, '--out', join(h.dir, 'bad.zip'), '--json')).toBe(1);
+    expect(last<{ error: { code: string } }>(h).error.code).toBe('THEME_CHECK_FAILED');
+    expect(await h.run('theme', 'pack', file, '--out', join(h.dir, 'bad.zip'), '--allow-invalid', '--json')).toBe(0);
+    expect(last<{ check: { ok: boolean } }>(h).check.ok).toBe(false);
+    expect(await h.run('theme', 'unpack', join(h.dir, 'bad.zip'), '--out', join(h.dir, 'bad'), '--json')).toBe(0);
+    expect(last<{ document: string }>(h).document).toBe(join(h.dir, 'bad', 'theme.json'));
   });
   it('refuses an archive that writes outside its folder', async () => {
     const h = harness();
@@ -268,6 +310,23 @@ describe('theme prompt', () => {
     const h = harness();
     writeFileSync(join(h.dir, 'p.json'), JSON.stringify(filled));
     expect(await h.run('theme', 'check', join(h.dir, 'p.json'), '--json')).toBe(0);
+  });
+  it('writes the format the platform accepts today: the block appearance, pageImageOnPhone, the 4 images with their variants, sizes and what lies over them', async () => {
+    for (const language of ['en', 'fr'] as const) {
+      const r = themePrompt({ field: 'sport', mood: 'stadium', name: 'stade', universe: '%football', fonts: ['Sora'], imageShows: 'through', sky: 'band', language });
+      expect(r).toMatchObject({ imageShows: 'through', sky: 'band', fonts: ['Sora'] });
+      const json = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
+      expect(json.appearance).toEqual({ accent: '#…', imageShows: 'through', sky: 'band' });
+      expect(json.pageImageOnPhone).toBe(true);
+      for (const file of ['page-night.jpg', 'page-day.jpg', 'page-header-night.jpg', 'page-header-day.jpg']) expect(r.prompt).toContain(`\`${file}\``);
+      for (const text of ['scrims.mask', 'scrims.pageHeader', '2160, 1080, 480, 160', 'textBackdrop', 'PLACE']) expect(r.prompt).toContain(text);
+    }
+    expect(() => themePrompt({ field: 'sport', mood: 'x', name: 'abc', universe: '%x', imageShows: 'half' })).toThrow(/none, subtle, through/);
+    expect(() => themePrompt({ field: 'sport', mood: 'x', name: 'abc', universe: '%x', sky: 'side' })).toThrow(/column or band/);
+    expect(() => themePrompt({ mood: 'x', name: 'abc', universal: true, imageShows: 'through' })).toThrow(/never through/);
+    const h = harness();
+    expect(await h.run('theme', 'prompt', '--field', 'sport', '--mood', 'x', '--name', 'abc', '--universe', '%x', '--image-shows', 'none', '--sky', 'band', '--json')).toBe(0);
+    expect(last<{ imageShows: string; sky: string }>(h)).toMatchObject({ imageShows: 'none', sky: 'band' });
   });
   it('writes the prompt of a universal theme: no field, the palette and the typeface of Socle, %root', async () => {
     const r = themePrompt({ mood: 'an open sky', name: 'universel-ciel', universal: true, language: 'fr' });
