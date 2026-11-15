@@ -31,7 +31,7 @@ function view(ctx: Context, name: string, profile: Profile): ProfileView {
 
 export const profileAdd: Command<{ name: string; env?: string; cell?: string; use?: boolean }, ProfileView> = {
   name: 'profile add', summary: 'Add a profile: an environment, for one account',
-  examples: ['breakrocks profile add atlas-dev --env dev --use', 'breakrocks profile add scribe --env staging --cell us'],
+  examples: ['breakrocks config add atlas-dev --env dev --use', 'breakrocks config add scribe --env staging --cell us'],
   input: object({ name: str('The name of the profile', { pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' }), env: envSchema, cell: str('The home cell, when known (eu, us)', { pattern: '^[a-z]{2}$' }), use: bool('Make it the current profile') }, ['name']),
   output: profileOutput, args: { positionals: ['name'] }, offline: true,
   run: (ctx, { name, env, cell, use }) => {
@@ -46,7 +46,7 @@ export const profileAdd: Command<{ name: string; env?: string; cell?: string; us
 };
 
 export const profileUse: Command<{ name: string }, ProfileView> = {
-  name: 'profile use', summary: 'Make a profile the current one', examples: ['breakrocks profile use atlas-dev'],
+  name: 'profile use', summary: 'Make a profile the current one', examples: ['breakrocks config use atlas-dev'],
   description: 'Not an MCP tool: the MCP server acts with the profile it started with and opens no session for another account.',
   input: object({ name: str('The profile') }, ['name']), output: profileOutput, args: { positionals: ['name'] }, offline: true, mcp: false,
   run: (ctx, { name }) => {
@@ -59,14 +59,14 @@ export const profileUse: Command<{ name: string }, ProfileView> = {
 };
 
 export const profileList: Command<Record<string, never>, ProfileView[]> = {
-  name: 'profile list', summary: 'List the profiles', examples: ['breakrocks profile list', 'breakrocks profile list --json --fields name,env,kind'],
+  name: 'profile list', summary: 'List the profiles', examples: ['breakrocks config list', 'breakrocks config list --json --fields name,env,kind'],
   input: object({}), output: { type: 'array', items: profileOutput }, offline: true,
   run: (ctx) => Object.entries(ctx.store.read().profiles).map(([name, p]) => view(ctx, name, p)),
-  text: (rows) => (rows.length ? rows.map((r) => `${r.current ? '*' : ' '} ${r.name}  ${r.env}${r.kind ? `  ${r.kind} ${r.agentId ?? r.operatorId ?? r.accountId ?? ''}` : ''}`).join('\n') : 'No profile yet: breakrocks profile add <name> --env dev'),
+  text: (rows) => (rows.length ? rows.map((r) => `${r.current ? '*' : ' '} ${r.name}  ${r.env}${r.kind ? `  ${r.kind} ${r.agentId ?? r.operatorId ?? r.accountId ?? ''}` : ''}`).join('\n') : 'No profile yet: breakrocks config add <name> --env dev'),
 };
 
 export const profileShow: Command<{ name?: string }, ProfileView> = {
-  name: 'profile show', summary: 'Show a profile (the one in use by default)', examples: ['breakrocks profile show', 'breakrocks profile show atlas-dev --json'],
+  name: 'profile show', summary: 'Show a profile (the one in use by default)', examples: ['breakrocks config show', 'breakrocks config show atlas-dev --json'],
   input: object({ name: str('The profile') }), output: profileOutput, args: { positionals: ['name'] }, offline: true,
   run: (ctx, { name }) => {
     const wanted = name ?? ctx.profileName;
@@ -80,7 +80,7 @@ export const profileShow: Command<{ name?: string }, ProfileView> = {
 export const profileRemove: Command<{ name: string }, { removed: string; keysKept: string[] }> = {
   name: 'profile remove', summary: 'Remove a profile and its session (its key files are kept)',
   description: 'The account itself stays on the platform: deleting it is operator delete. The key files stay in the configuration folder, so that the account can still be signed in.',
-  examples: ['breakrocks profile remove old-dev --yes'],
+  examples: ['breakrocks config remove old-dev --yes'],
   input: object({ name: str('The profile') }, ['name']),
   output: openObject({ removed: str('The profile removed'), keysKept: list('Its key files, kept') }), args: { positionals: ['name'] }, offline: true, interactive: true,
   run: async (ctx, { name }) => {

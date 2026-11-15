@@ -156,7 +156,7 @@ Règles du JSON :
 - **Dégradé** : 2 ou 3 couleurs **prises dans la palette**.
 - **Images** : les emplacements `page` et `pageHeader` seulement, chacun `{ "day": …, "night": … }` ; au plus
   **8** références en tout (variantes nuit, `wordmark` et `pattern` compris) ; sans variante nuit, l'image
-  du jour sert la nuit. Référence les fichiers par leur **nom** : `breakrocks theme publish` les envoie et les
+  du jour sert la nuit. Référence les fichiers par leur **nom** : `breakrocks look themes publish` les envoie et les
   remplace par leurs identifiants d'envoi.
 - **`pageImageOnPhone`** : `true` (l'image de la page aussi sur téléphone) ou `false` (pas sur téléphone).
 - **`appearance`** : `accent` **obligatoire**, le `primary` de la palette de nuit (sans lui la plateforme
@@ -201,7 +201,7 @@ nuit et en nuit atténuée) : sombre, contrastes doux, quelques points lumineux 
 3. Trois lignes qui expliquent les choix (palette, police, scènes).
 4. Le tableau des contrastes calculés (paire, ratio).
 
-Ensuite : `breakrocks theme check theme.json` montre les couleurs que la plateforme relèverait et le
-masque de lisibilité qu'elle calculerait ; `breakrocks theme pack theme.json` écrit l'archive que l'import des
-apps lit ; `breakrocks theme publish theme.json --in <univers>` (ou l'archive) le publie.
+Ensuite : `breakrocks look themes check theme.json` montre les couleurs que la plateforme relèverait et le
+masque de lisibilité qu'elle calculerait ; `breakrocks look themes pack theme.json` écrit l'archive que l'import des
+apps lit ; `breakrocks look themes publish theme.json --in <univers>` (ou l'archive) le publie.
 

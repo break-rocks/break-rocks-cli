@@ -207,5 +207,5 @@ export const messagesUnvote = apiCommand({
 });
 export const channelsLevels = apiCommand({
   name: 'channels levels', summary: 'The levels where a channel proposal may open a channel in a public universe of the first level: the universe and its public sub-universes (channelProposalLevels)', kind: 'query', op: 'channelProposalLevels', positionals: ['universe'],
-  descriptions: { universe: 'The universe of the first level (%paris)' }, text: (r) => (Array.isArray(r) && r.length ? r.join('\n') : '(none)'), examples: ['breakrocks channels levels %paris'],
+  descriptions: { universe: 'The universe of the first level (%paris)' }, text: (r) => (Array.isArray(r) && r.length ? r.join('\n') : '(none)'), examples: ['breakrocks discussions channels levels %paris'],
 });

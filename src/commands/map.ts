@@ -41,7 +41,7 @@ async function audienceOf(ctx: Context, i: Record<string, unknown>): Promise<Rec
 }
 export const presenceShow = apiCommand({
   name: 'presence show', summary: 'The map presence of the account: its audience, its precision, until when, the ghost mode (myMapPresence)', kind: 'query', op: 'myMapPresence', text: presenceText,
-  examples: ['breakrocks presence show', 'breakrocks presence show --json'],
+  examples: ['breakrocks map presence', 'breakrocks map presence --json'],
 });
 export const presenceStart = apiCommand({
   name: 'presence start', summary: 'Start (or replace) one\'s map presence for a duration, with an audience and a point (startMapPresence; a human only)',
@@ -49,16 +49,16 @@ export const presenceStart = apiCommand({
   kind: 'mutation', op: 'startMapPresence', flatten: ['audience'], hide: [...audienceHide, 'point'], extra: { ...pointProp, ...audienceExtra }, require: ['point'], dry: true,
   descriptions: { duration: 'How long: ONE_HOUR, EIGHT_HOURS, ONE_DAY or SEVEN_DAYS', precision: 'The precision by default: EXACT, NEIGHBOURHOOD or CITY' },
   prepare: async (i, ctx) => withPoint(await audienceOf(ctx, i)), text: presenceText,
-  examples: ['breakrocks presence start --point 48.8566,2.3522 --duration ONE_HOUR --connections --precision NEIGHBOURHOOD', 'breakrocks presence start --point 48.8566,2.3522 --duration EIGHT_HOURS --viewers @alice=EXACT --universes %paris'],
+  examples: ['breakrocks map presence start --point 48.8566,2.3522 --duration ONE_HOUR --connections --precision NEIGHBOURHOOD', 'breakrocks map presence start --point 48.8566,2.3522 --duration EIGHT_HOURS --viewers @alice=EXACT --universes %paris'],
 });
 export const presenceUpdate = apiCommand({
   name: 'presence update', summary: 'Move one\'s map presence to a point, every 5 minutes at most (updateMapPresence; MAP_PRESENCE_TOO_SOON)', kind: 'mutation', op: 'updateMapPresence', hide: ['point'], extra: pointProp, require: ['point'],
-  prepare: withPoint, text: presenceText, examples: ['breakrocks presence update --point 48.8570,2.3530'],
+  prepare: withPoint, text: presenceText, examples: ['breakrocks map presence update --point 48.8570,2.3530'],
 });
 export const presenceAudience = apiCommand({
   name: 'presence audience', summary: 'Change the audience of one\'s map presence, 30 times in 24 hours at most (setMapPresenceAudience)', kind: 'mutation', op: 'setMapPresenceAudience', flatten: ['audience'], hide: audienceHide, extra: audienceExtra, dry: true,
   descriptions: { precision: 'The precision by default: EXACT, NEIGHBOURHOOD or CITY' }, prepare: (i, ctx) => audienceOf(ctx, i), text: presenceText,
-  examples: ['breakrocks presence audience --connections --precision CITY'],
+  examples: ['breakrocks map presence audience --connections --precision CITY'],
 });
 const ghost = (on: boolean) => apiCommand({
   name: `presence ghost ${on ? 'on' : 'off'}`, summary: `Turn the ghost mode ${on ? 'on: nobody sees one\'s map presence, the audience not told' : 'off'} (setGhostMode)`, kind: 'mutation', op: 'setGhostMode', fixed: { ghost: on }, text: presenceText,
@@ -67,7 +67,7 @@ const ghost = (on: boolean) => apiCommand({
 export const presenceGhostOn = ghost(true);
 export const presenceGhostOff = ghost(false);
 export const presenceStop = apiCommand({
-  name: 'presence stop', summary: 'Stop one\'s map presence; nothing is kept (stopMapPresence)', kind: 'mutation', op: 'stopMapPresence', text: (r) => (r ? 'stopped' : 'there was none'), examples: ['breakrocks presence stop'],
+  name: 'presence stop', summary: 'Stop one\'s map presence; nothing is kept (stopMapPresence)', kind: 'mutation', op: 'stopMapPresence', text: (r) => (r ? 'stopped' : 'there was none'), examples: ['breakrocks map presence stop'],
 });
 type MapPresence = { account?: { handle?: string } | null; accountId: string; precision?: string; mapCell?: string | null; point?: { lat: number; lon: number } | null; endsAt?: string };
 export const mapPresences = apiCommand({
@@ -91,11 +91,11 @@ const oneConversation = (i: Record<string, unknown>) => {
   return i;
 };
 export const liveShareList = apiCommand({
-  name: 'live-share list', summary: 'The live shares of the account in progress (myLiveShares)', kind: 'query', op: 'myLiveShares', text: listText(shareLine), examples: ['breakrocks live-share list'],
+  name: 'live-share list', summary: 'The live shares of the account in progress (myLiveShares)', kind: 'query', op: 'myLiveShares', text: listText(shareLine), examples: ['breakrocks map live-share list'],
 });
 export const liveShareIn = apiCommand({
   name: 'live-share in', summary: 'The live shares in progress in a conversation (--with) or a group chat (--group) one takes part in (liveShares)', kind: 'query', op: 'liveShares', ...conversation, prepare: oneConversation,
-  text: listText(shareLine), examples: ['breakrocks live-share in --with @alice', 'breakrocks live-share in --group <group id> --json'],
+  text: listText(shareLine), examples: ['breakrocks map live-share in --with @alice', 'breakrocks map live-share in --group <group id> --json'],
 });
 export const liveShareStart = apiCommand({
   name: 'live-share start', summary: 'Start a live share of one\'s position in a conversation or a group chat: 15 to 1,440 minutes, until an event or a meet-up (setLiveShare; a human only)',
@@ -103,18 +103,18 @@ export const liveShareStart = apiCommand({
   kind: 'mutation', op: 'setLiveShare', fixed: { sharing: true }, ...conversation, hide: ['discussion.channel', 'shareId'], dry: true,
   descriptions: { ...discussionTarget.descriptions, minutes: 'How long, 15 to 1,440 minutes', untilEventId: 'Until the end of an event one attends (within 24 hours)', untilMeetUpId: 'Until 15 minutes after a meet-up' },
   prepare: oneConversation, text: (r) => (r ? shareLine(r as LiveShare) : '(none)'),
-  examples: ['breakrocks live-share start --with @alice --minutes 60', 'breakrocks live-share start --group <group id> --until-meet-up-id <meet-up id>'],
+  examples: ['breakrocks map live-share start --with @alice --minutes 60', 'breakrocks map live-share start --group <group id> --until-meet-up-id <meet-up id>'],
 });
 export const liveShareStop = apiCommand({
   name: 'live-share stop', summary: 'Stop a live share of one\'s own (setLiveShare)', kind: 'mutation', op: 'setLiveShare', fixed: { sharing: false }, flatten: [], hide: ['discussion', 'minutes', 'untilEventId', 'untilMeetUpId'], positionals: ['shareId'],
-  descriptions: { shareId: 'The live share (live-share list)' }, text: (r) => (r ? shareLine(r as LiveShare) : 'stopped'), examples: ['breakrocks live-share stop <share id>'],
+  descriptions: { shareId: 'The live share (live-share list)' }, text: (r) => (r ? shareLine(r as LiveShare) : 'stopped'), examples: ['breakrocks map live-share stop <share id>'],
 });
 type LivePosition = { shareId: string; accountId: string; at: string; point: { lat: number; lon: number }; mapCell?: string | null; secondsToMeetUp?: number | null; secondsToMeetingPoint?: number | null };
 export const liveSharePositions = apiCommand({
   name: 'live-share positions', summary: 'The last position of each live share asked (20 at most) one may see; a minor sharer at the center of its map cell (livePositions)', kind: 'query', op: 'livePositions', positionals: ['shareIds'],
   descriptions: { shareIds: 'The live shares (20 at most)' },
   text: listText((p: LivePosition) => `${p.shareId}  ${p.at}  ${p.point.lat},${p.point.lon}${p.mapCell ? `  (a minor: the center of the map cell ${p.mapCell})` : ''}${p.secondsToMeetUp != null ? `  ${Math.round(p.secondsToMeetUp / 60)} min to the meet-up` : ''}`),
-  examples: ['breakrocks live-share positions <share id> <share id>'],
+  examples: ['breakrocks map live-share positions <share id> <share id>'],
 });
 export const liveShareSend = apiCommand({
   name: 'live-share send', summary: 'Send the last 1 to 3 positions of one\'s live share, at the time of sending (sendLivePositions; every 15 seconds at most: false beyond)', kind: 'mutation', op: 'sendLivePositions', positionals: ['shareId'], hide: ['points'],
@@ -127,7 +127,7 @@ export const liveShareSend = apiCommand({
     if (!points.length || points.length > 3) throw usageError('INVALID_INPUT', '--positions: 1 to 3 positions');
     return { ...rest, points };
   },
-  text: (r) => (r === true ? 'sent' : 'dropped (every 15 seconds at most)'), examples: ['breakrocks live-share send <share id> --positions 48.8566,2.3522'],
+  text: (r) => (r === true ? 'sent' : 'dropped (every 15 seconds at most)'), examples: ['breakrocks map live-share send <share id> --positions 48.8566,2.3522'],
 });
 
 // ---- Locatable residents ----
@@ -135,24 +135,24 @@ export const liveShareSend = apiCommand({
 type Locatable = { universe: string; activity: string; mapCell: string; endsAt: string; account?: { handle?: string } | null; accountId?: string };
 const locatableLine = (l: Locatable) => `${l.universe}  ${l.account?.handle ? `@${l.account.handle}  ` : ''}${l.activity}  ${l.mapCell}  until ${l.endsAt}`;
 export const locatableShow = apiCommand({
-  name: 'locatable show', summary: 'Where the account is locatable now: its universes, activities and map cells (myLocatable)', kind: 'query', op: 'myLocatable', text: listText(locatableLine), examples: ['breakrocks locatable show'],
+  name: 'locatable show', summary: 'Where the account is locatable now: its universes, activities and map cells (myLocatable)', kind: 'query', op: 'myLocatable', text: listText(locatableLine), examples: ['breakrocks map locatable'],
 });
 export const locatableResidents = apiCommand({
   name: 'locatable residents', summary: 'The locatable residents of a universe in an area of the map, to its residents (locatableResidents)', kind: 'query', op: 'locatableResidents', positionals: ['universe'], rename: cells, descriptions: cellsDesc,
-  text: listText(locatableLine), examples: ['breakrocks locatable residents %paris --cells 861fb4677ffffff'],
+  text: listText(locatableLine), examples: ['breakrocks map locatable residents %paris --cells 861fb4677ffffff'],
 });
 export const locatableOn = apiCommand({
   name: 'locatable on', summary: 'Make oneself locatable in a public universe for an activity, 15 to 480 minutes, at a point turned into a map cell at once (setLocatable)', kind: 'mutation', op: 'setLocatable', fixed: { locatable: true }, positionals: ['universe'],
   hide: ['point'], extra: pointProp, require: ['point', 'activity', 'minutes'], dry: true, descriptions: { activity: 'The activity (ACTIVITY_TOO_LONG)', minutes: 'How long, 15 to 480 minutes' },
-  prepare: withPoint, text: (r) => (r ? locatableLine(r as Locatable) : '(none)'), examples: ['breakrocks locatable on %paris-velo --activity "Ride to Vincennes" --point 48.8566,2.3522 --minutes 120'],
+  prepare: withPoint, text: (r) => (r ? locatableLine(r as Locatable) : '(none)'), examples: ['breakrocks map locatable on %paris-velo --activity "Ride to Vincennes" --point 48.8566,2.3522 --minutes 120'],
 });
 export const locatableOff = apiCommand({
   name: 'locatable off', summary: 'Stop being locatable in a universe (setLocatable)', kind: 'mutation', op: 'setLocatable', fixed: { locatable: false }, positionals: ['universe'], hide: ['point', 'activity', 'minutes'],
-  text: (r) => (r ? locatableLine(r as Locatable) : 'stopped'), examples: ['breakrocks locatable off %paris-velo'],
+  text: (r) => (r ? locatableLine(r as Locatable) : 'stopped'), examples: ['breakrocks map locatable off %paris-velo'],
 });
 export const locatableMove = apiCommand({
   name: 'locatable move', summary: 'Move one\'s map cell as a locatable resident, once every 15 minutes at most (updateLocatableCell)', kind: 'mutation', op: 'updateLocatableCell', positionals: ['universe'], hide: ['point'], extra: pointProp, require: ['point'],
-  prepare: withPoint, text: (r) => (r ? locatableLine(r as Locatable) : '(none)'), examples: ['breakrocks locatable move %paris-velo --point 48.8400,2.4200'],
+  prepare: withPoint, text: (r) => (r ? locatableLine(r as Locatable) : '(none)'), examples: ['breakrocks map locatable move %paris-velo --point 48.8400,2.4200'],
 });
 
 // ---- Meet-ups ----
@@ -162,18 +162,18 @@ const meetUpText = (r: unknown) => { const m = r as MeetUp | null; return m ? `$
 const meetUpBase = { ...discussionTarget, positionals: ['messageId'], descriptions: { ...discussionTarget.descriptions, messageId: 'The message of the meet-up' } };
 export const meetupsAnswer = apiCommand({
   name: 'meetups answer', summary: 'Answer a meet-up of a discussion, ACCEPTED or DECLINED, until its time; again to change the answer (answerMeetUp)', kind: 'mutation', op: 'answerMeetUp', ...meetUpBase, positionals: ['messageId', 'answer'], dry: true,
-  prepare: oneDiscussion, text: meetUpText, examples: ['breakrocks meetups answer <message id> ACCEPTED --group <group id>'],
+  prepare: oneDiscussion, text: meetUpText, examples: ['breakrocks messages meetups answer <message id> ACCEPTED --group <group id>'],
 });
 export const meetupsChange = apiCommand({
   name: 'meetups change', summary: 'Change a meet-up: its whole place, time and title, by its author or a group chat admin (changeMeetUp; a change of the day clears the answers)', kind: 'mutation', op: 'changeMeetUp', ...meetUpBase,
   flatten: ['discussion', 'meetUp'], hide: ['meetUp.place'], extra: { ...pointProp, placeName: str('The name of the place') }, require: ['point', 'placeName'], dry: true,
   descriptions: { ...meetUpBase.descriptions, at: 'When (ISO 8601)', title: 'Its title' },
   prepare: (i) => { oneDiscussion(i); const { point, placeName, ...rest } = i; return { ...rest, 'meetUp.place': { name: placeName, point: pointOf(String(point), '--point') } }; },
-  text: meetUpText, examples: ['breakrocks meetups change <message id> --group <group id> --at 2026-11-12T18:00:00Z --point 48.8530,2.3499 --place-name "Notre-Dame" --title "Apéro"'],
+  text: meetUpText, examples: ['breakrocks messages meetups change <message id> --group <group id> --at 2026-11-12T18:00:00Z --point 48.8530,2.3499 --place-name "Notre-Dame" --title "Apéro"'],
 });
 export const meetupsCancel = apiCommand({
   name: 'meetups cancel', summary: 'Cancel a meet-up until its time, by its author or a group chat admin: it stays as a message, cancelled (cancelMeetUp)', kind: 'mutation', op: 'cancelMeetUp', ...meetUpBase,
-  prepare: oneDiscussion, confirm: (i) => `Cancel the meet-up ${String(i.messageId)}?`, text: meetUpText, examples: ['breakrocks meetups cancel <message id> --group <group id> --yes'],
+  prepare: oneDiscussion, confirm: (i) => `Cancel the meet-up ${String(i.messageId)}?`, text: meetUpText, examples: ['breakrocks messages meetups cancel <message id> --group <group id> --yes'],
 });
 
 // ---- Nearby ----
@@ -182,14 +182,14 @@ type NearbyRequest = { id: string; status: string; from?: { handle?: string } | 
 const nearbyLine = (n: NearbyRequest) => `${n.id}  ${n.status}  from ${n.from?.handle ? `@${n.from.handle}` : n.fromLabel ?? '?'} to ${n.to?.handle ? `@${n.to.handle}` : '?'}  until ${n.expiresAt ?? '-'}`;
 export const nearbyToken = apiCommand({
   name: 'nearby token', summary: 'The nearby token of the account to advertise (BLE), valid until its expiry (createNearbyToken)', kind: 'mutation', op: 'createNearbyToken',
-  text: (r) => { const t = r as { token?: string; expiresAt?: string } | null; return t ? `${t.token}  until ${t.expiresAt}` : '(none)'; }, quiet: (r) => (r as { token?: string } | null)?.token, examples: ['breakrocks nearby token'],
+  text: (r) => { const t = r as { token?: string; expiresAt?: string } | null; return t ? `${t.token}  until ${t.expiresAt}` : '(none)'; }, quiet: (r) => (r as { token?: string } | null)?.token, examples: ['breakrocks map nearby token'],
 });
 export const nearbyRequest = apiCommand({
   name: 'nearby request', summary: 'Ask to connect with the account of a nearby token seen around (requestNearbyConnection; 10 in any 10 minutes)', kind: 'mutation', op: 'requestNearbyConnection', positionals: ['token'],
-  descriptions: { token: 'The nearby token seen' }, text: (r) => (r ? nearbyLine(r as NearbyRequest) : '(none)'), examples: ['breakrocks nearby request <token>'],
+  descriptions: { token: 'The nearby token seen' }, text: (r) => (r ? nearbyLine(r as NearbyRequest) : '(none)'), examples: ['breakrocks map nearby request <token>'],
 });
 export const nearbyRequests = apiCommand({
-  name: 'nearby requests', summary: 'The requests to connect through Nearby, sent and received (nearbyRequests)', kind: 'query', op: 'nearbyRequests', text: listText(nearbyLine), examples: ['breakrocks nearby requests'],
+  name: 'nearby requests', summary: 'The requests to connect through Nearby, sent and received (nearbyRequests)', kind: 'query', op: 'nearbyRequests', text: listText(nearbyLine), examples: ['breakrocks map nearby requests'],
 });
 const answerNearby = (accept: boolean) => apiCommand({
   name: `nearby ${accept ? 'accept' : 'decline'}`, summary: `${accept ? 'Accept' : 'Decline'} a request to connect through Nearby${accept ? ': the two accounts are connected' : ''} (answerNearbyConnection)`, kind: 'mutation', op: 'answerNearbyConnection', fixed: { accept }, positionals: ['nearbyRequestId'],
@@ -198,13 +198,13 @@ const answerNearby = (accept: boolean) => apiCommand({
 export const nearbyAccept = answerNearby(true);
 export const nearbyDecline = answerNearby(false);
 export const nearbyLeave = apiCommand({
-  name: 'nearby leave', summary: 'Stop Nearby: one\'s nearby token no longer works and one\'s requests waiting end (leaveNearby)', kind: 'mutation', op: 'leaveNearby', text: doneText, examples: ['breakrocks nearby leave'],
+  name: 'nearby leave', summary: 'Stop Nearby: one\'s nearby token no longer works and one\'s requests waiting end (leaveNearby)', kind: 'mutation', op: 'leaveNearby', text: doneText, examples: ['breakrocks map nearby leave'],
 });
 export const nearbySightings = apiCommand({
   name: 'nearby sightings', summary: 'Send the nearby tokens seen around with their closeness; the persons close by come back (recordNearbySightings)', kind: 'mutation', op: 'recordNearbySightings',
   descriptions: { sightings: 'The tokens seen: [{ "token", "closeness" }] (JSON)' },
   text: listText((p: { label?: string; account?: { handle?: string } | null; closeness?: string; connected?: boolean }) => `${p.account?.handle ? `@${p.account.handle}` : '?'}  ${p.label ?? ''}  ${p.closeness ?? ''}${p.connected ? '  connected' : ''}`),
-  examples: ['breakrocks nearby sightings --sightings \'[{"token":"<token>","closeness":"NEAR"}]\''],
+  examples: ['breakrocks map nearby sightings --sightings \'[{"token":"<token>","closeness":"NEAR"}]\''],
 });
 
 // ---- The place of a post ----

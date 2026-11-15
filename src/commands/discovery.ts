@@ -30,5 +30,5 @@ export const resolve = apiCommand({
   descriptions: { address: 'The address (@erin>journey?t=90, %paris*event!id=…, @alice*route!id=…)' },
   select: `{ address url parameters ${selection('AddressParameter', 1)} playlist { id name } universeEvent { id title } mapRoute { id name } }`,
   text: (r) => { const x = r as Resolved | null; return x ? [`${x.address}  ${x.url}`, ...(x.parameters ?? []).map((p) => `${p.key}=${p.value}`), ...(x.playlist ? [`playlist ${x.playlist.id}  ${x.playlist.name ?? ''}`] : []), ...(x.universeEvent ? [`event ${x.universeEvent.id}  ${x.universeEvent.title ?? ''}`] : []), ...(x.mapRoute ? [`route ${x.mapRoute.id}  ${x.mapRoute.name ?? ''}`] : [])].join('\n') : '(none)'; },
-  examples: ['breakrocks resolve "@erin>journey?t=90"', 'breakrocks resolve "%paris*event!id=<event id>" --json'],
+  examples: ['breakrocks explore resolve "@erin>journey?t=90"', 'breakrocks explore resolve "%paris*event!id=<event id>" --json'],
 });

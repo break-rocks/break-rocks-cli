@@ -148,7 +148,7 @@ export async function ensureSession(ctx: Context, options: { renew?: boolean; fr
   if (!credentials && !(usable && left > 0 && !force)) {
     throw networkError('SIGN_IN_REQUIRED', profile.kind
       ? `The session of the profile "${ctx.profileName}" ended and its key is not here: sign in again`
-      : `The profile "${ctx.profileName}" has no account: breakrocks login, breakrocks operator register, or breakrocks agent login`, { profile: ctx.profileName });
+      : `The profile "${ctx.profileName}" has no account: breakrocks login, breakrocks operator register, or breakrocks agents login`, { profile: ctx.profileName });
   }
   const at = await endpoints(ctx, { ...profile, operatorId: profile.operatorId ?? credentials?.operatorId });
   if (usable && ((!force && left > RENEW_BEFORE_MS) || !credentials)) return { session: usable, at };

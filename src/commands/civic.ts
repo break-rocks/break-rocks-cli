@@ -164,15 +164,15 @@ type Sanction = { id: string; kind?: string; universe?: string; createdAt?: stri
 const sanctionLine = (s: Sanction) => `${s.id}  ${s.universe ?? ''}  ${s.kind ?? ''}  ${s.createdAt ?? ''}${s.endsAt ? ` → ${s.endsAt}` : ''}${s.appeal ? `  appeal ${s.appeal.status ?? ''}` : s.appealableUntil ? `  appealable until ${s.appealableUntil}` : ''}`;
 const sanctionText = (r: unknown) => (r ? sanctionLine(r as Sanction) : '(none)');
 const onSanction = { positionals: ['sanctionId'], rename: { sanctionId: 'id' }, descriptions: { id: 'The sanction' } };
-export const sanctionsList = apiCommand({ name: 'sanctions list', summary: 'The sanctions of the account in universes, the newest first (mySanctions)', kind: 'query', op: 'mySanctions', text: pageText(sanctionLine), examples: ['breakrocks sanctions list'] });
+export const sanctionsList = apiCommand({ name: 'sanctions list', summary: 'The sanctions of the account in universes, the newest first (mySanctions)', kind: 'query', op: 'mySanctions', text: pageText(sanctionLine), examples: ['breakrocks me sanctions'] });
 export const sanctionsAppeal = apiCommand({
   name: 'sanctions appeal', summary: 'Appeal a sanction before its date, to a jury of residents (appealSanction; --publish-name: your name published with it)', kind: 'mutation', op: 'appealSanction', ...onSanction,
   descriptions: { id: 'The sanction', publishName: 'Your name published with the appeal' }, confirm: (i) => `Appeal the sanction ${String(i.id)}?`, text: sanctionText,
-  examples: ['breakrocks sanctions appeal <id> --no-publish-name --yes'],
+  examples: ['breakrocks me sanctions appeal <id> --no-publish-name --yes'],
 });
 export const sanctionsPublishName = apiCommand({
   name: 'sanctions publish-name', summary: 'Whether your name is published with your appeal, until the decision (setAppealPublishName)', kind: 'mutation', op: 'setAppealPublishName', positionals: ['sanctionId', 'publishName'], rename: { sanctionId: 'id' },
-  descriptions: { id: 'The sanction', publishName: 'on or off' }, text: sanctionText, examples: ['breakrocks sanctions publish-name <id> off'],
+  descriptions: { id: 'The sanction', publishName: 'on or off' }, text: sanctionText, examples: ['breakrocks me sanctions publish-name <id> off'],
 });
 type Duty = { sanctionId?: string; universe?: string; kind?: string; status?: string; answerBy?: string | null; myVote?: unknown; reviewStatus?: string | null };
 const dutyText = (r: unknown) => { const d = r as Duty | null; return d ? `${d.sanctionId}  ${d.universe ?? ''}  ${d.kind ?? ''}  ${d.status ?? ''}${d.answerBy ? `  answer by ${d.answerBy}` : ''}${d.reviewStatus ? `  reviews ${d.reviewStatus}` : ''}` : '(none)'; };

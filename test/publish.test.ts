@@ -356,12 +356,12 @@ describe('messages', () => {
 });
 
 describe('the help', () => {
-  it('keeps moderation and governance out of the basic help', async () => {
+  it('shows the domains, then the commands of a domain', async () => {
     const h = harness();
     await h.run('help');
     expect(h.lines[0]).not.toContain('moderation ban');
-    expect(h.lines[0]).toContain('breakrocks help moderation');
-    await h.run('help', 'moderation');
+    expect(h.lines[0]).toContain('Governance  governance, proposals, jury, moderation');
+    await h.run('help', 'governance');
     expect(h.lines[1]).toContain('moderation ban');
   });
 });

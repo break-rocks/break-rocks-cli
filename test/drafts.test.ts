@@ -70,6 +70,6 @@ describe('alternative texts and subtitles', () => {
   });
   it('is an MCP tool each', () => {
     const names = tools().map((t) => t.name);
-    for (const n of ['drafts_list', 'drafts_save', 'drafts_schedule', 'drafts_publish', 'drafts_delete', 'reposts_request', 'reposts_accept', 'posts_alt', 'posts_subtitles_correct']) expect(names).toContain(`breakrocks_${n}`);
+    for (const n of ['drafts_list', 'drafts_save', 'drafts_schedule', 'drafts_publish', 'drafts_delete', 'posts_repost_request', 'posts_repost_requests_accept', 'posts_alt', 'posts_subtitles_correct']) expect(names).toContain(`breakrocks_${n}`);
   });
 });

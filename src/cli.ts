@@ -6,9 +6,10 @@ import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
 import { CliError, EXIT, asCliError, usageError } from './errors.js';
-import { commandHelp } from './help.js';
+import { commandHelp, groupHelp, isGroup, movedHelp } from './help.js';
+import { unknownCommand } from './commands/core.js';
 import { terminal, type Output } from './output.js';
-import { execute, findCommand, groups, type AnyCommand } from './registry.js';
+import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type AnyCommand } from './registry.js';
 import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
@@ -142,19 +143,23 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const { flags, tokens } = parseGlobals(argv);
     json = flags.json;
     const words: string[] = [];
-    for (const t of tokens) { if (t.startsWith('-') || words.length === 4) break; words.push(t); }
+    for (const t of tokens) { if (t.startsWith('-') || words.length === MAX_WORDS) break; words.push(t); }
     const found = findCommand(words);
     if (!found) {
       const ctx = new Context(io, flags);
+      const helpCommand = findCommand(['help'])!.command;
       if (flags.version && !words.length) return writeAnswer(ctx, findCommand(['version'])!.command, { version: VERSION });
-      if (!words.length || (words.length === 1 && groups().includes(words[0]))) {
-        const help = findCommand(['help'])!.command;
-        return writeAnswer(ctx, help, await execute(ctx, help, words.length ? { command: words } : {}));
-      }
-      throw usageError('UNKNOWN_COMMAND', `Unknown command "${words.join(' ') || tokens[0]}". breakrocks help lists the commands.`, { command: words.join(' ') || tokens[0] });
+      if (!words.length) return writeAnswer(ctx, helpCommand, await execute(ctx, helpCommand, {}));
+      // A group or a subgroup alone: its help ("breakrocks universes private").
+      const path = words.join(' ');
+      if (isGroup(path)) return writeAnswer(ctx, helpCommand, { text: groupHelp(path), commands: commandsUnder(path).map(({ name, summary }) => ({ name, summary })) });
+      const moved = movedHelp(path);
+      if (moved) return writeAnswer(ctx, helpCommand, { text: moved, commands: [] });
+      throw unknownCommand(words);
     }
-    const { command } = found;
-    const rest = takeAgentFlag(command, flags, tokens.slice(command.name.split(' ').length));
+    const { command, alias } = found;
+    if (alias) io.out.error(deprecationNotice(alias, command));
+    const rest = takeAgentFlag(command, flags, tokens.slice((alias ?? command.name).split(' ').length));
     const ctx = new Context(io, flags);
     if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(command), commands: [{ name: command.name, summary: command.summary }] });
     const input = parseCommandLine(command.input, command.args ?? {}, rest);

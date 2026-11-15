@@ -25,7 +25,7 @@ export const search = apiCommand({
       ...(s.posts ?? []).map(postLine), ...(s.postsStatus && s.postsStatus !== 'OK' ? [`posts: ${s.postsStatus}`] : []), ...(s.next ? [`next: ${s.next}`] : []),
     ].join('\n') || '(nothing found)';
   },
-  examples: ['breakrocks search "velo paris"', 'breakrocks search "#football %paris" --order DATE --json'],
+  examples: ['breakrocks explore search "velo paris"', 'breakrocks explore search "#football %paris" --order DATE --json'],
 });
 
 /** A clip of a feed: its post with its author, its recommendation, its stage. */
@@ -35,15 +35,15 @@ const clipLine = (c: ClipItem) => `${c.post ? postLine(c.post) : '-'}  ${c.stage
 export const clipsFeed = apiCommand({
   name: 'clips feed', summary: 'The clip feed that never ends: of an address, or of the follows (clipFeedSequence)', kind: 'query', op: 'clipFeedSequence', positionals: ['address'],
   descriptions: { address: 'The address (%universe, #tag, @handle; none: the follows)', language: 'The language of the app (BCP 47)' }, select: `{ items ${CLIP_ITEM} next endCardBefore }`, text: pageText(clipLine),
-  examples: ['breakrocks clips feed', 'breakrocks clips feed %paris --json'],
+  examples: ['breakrocks posts clips', 'breakrocks posts clips %paris --json'],
 });
 export const clipsPlatform = apiCommand({
   name: 'clips platform', summary: 'The platform clips: every vertical and square clip of the public universes ranked by its quality, the reader\'s languages first (platformClips)', kind: 'query', op: 'platformClips',
-  descriptions: { language: 'The language of the app (BCP 47)' }, select: `{ items ${CLIP_ITEM} next }`, text: pageText(clipLine), examples: ['breakrocks clips platform --language fr'],
+  descriptions: { language: 'The language of the app (BCP 47)' }, select: `{ items ${CLIP_ITEM} next }`, text: pageText(clipLine), examples: ['breakrocks posts clips platform --language fr'],
 });
 export const clipsPopular = apiCommand({
   name: 'clips popular', summary: 'The popular clips of the last 7 days in the reader\'s languages (popularClips)', kind: 'query', op: 'popularClips', descriptions: { language: 'The language of the app (BCP 47)' },
-  text: pageText(postLine), examples: ['breakrocks clips popular --language fr'],
+  text: pageText(postLine), examples: ['breakrocks posts clips popular --language fr'],
 });
 
 // ---- The interest profile ----

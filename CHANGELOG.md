@@ -5,6 +5,83 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+### Changed
+
+- Online help and command organization (D-390). `breakrocks help` shows 12 domains in about 25 lines (Account, Agents,
+  Universes, Content, Talk, Map, Events, Governance, Look, Explore, Money, Tools), each with its groups, instead of the
+  full list of the 588 commands (550 lines and more). `breakrocks help <domain>` lists the commands of a domain, `breakrocks help <group>`
+  (or `breakrocks <group>`) those of a group or a subgroup with the subgroups folded, `breakrocks help options` the
+  global options, `breakrocks help --all` every command.
+- The list descriptions are one line of 60 characters at most, with no API operation name, limit or legal reference;
+  the help of a command keeps them: its details, and a line `API: <operation>` (instead of "The query X of the API.").
+- 85 groups become 40. The CLI profiles are `config` (`config add|use|list|show|remove`), apart from the account
+  profile (`me profile set`). The completion scripts, `breakrocks schema` (its `formerNames`), the MCP tools
+  (`breakrocks_<path>`) and the README tables (one per domain) follow the new tree, kept in `src/tree.ts`.
+- Every move (former name → new path):
+  - `profile add` → `config add`, `profile use` → `config use`, `profile list` → `config list`, `profile show` → `config show`, `profile remove` → `config remove`;
+  - `agent login` → `agents login`, `agent attest` → `agents attest`;
+  - `session` → `me session`;
+  - `capabilities` → `me capabilities`;
+  - `feed` → `posts feed`;
+  - `render` → `posts render`;
+  - `export` → `posts export`;
+  - `reposts request` → `posts repost-request`, `reposts requests` → `posts repost-requests`, `reposts accept` → `posts repost-requests accept`, `reposts decline` → `posts repost-requests decline`;
+  - `settings video-history-pause` → `videos history pause`, `settings presence` → `discussions presence-choice set`, `settings presence show` → `discussions presence-choice`, `settings history-pause` → `universes history pause`;
+  - `post` → `posts create`;
+  - `reply` → `posts reply`;
+  - `quote` → `posts quote`;
+  - `repost` → `posts repost`;
+  - `like` → `posts like`;
+  - `unlike` → `posts unlike`;
+  - `dislike` → `posts dislike`;
+  - `undislike` → `posts undislike`;
+  - `not-interested` → `posts not-interested`;
+  - `follow` → `accounts follow`;
+  - `unfollow` → `accounts unfollow`;
+  - `block` → `accounts block`;
+  - `unblock` → `accounts unblock`;
+  - `mute` → `accounts mute`;
+  - `unmute` → `accounts unmute`;
+  - `report` → `moderation report`;
+  - `universes ask-to-join` → `universes private ask-to-join`, `universes create-private` → `universes private create`, `universes invite` → `universes private invite`, `universes conditions show` → `universes private conditions`, `universes conditions set` → `universes private conditions set`, `universes conditions accept` → `universes private conditions accept`, `universes join-requests` → `universes private join-requests`, `universes join-requests accept` → `universes private join-requests accept`, `universes join-requests decline` → `universes private join-requests decline`, `universes join-requests accept-all` → `universes private join-requests accept-all`, `universes join-requests decline-all` → `universes private join-requests decline-all`, `universes invitations` → `universes private invitations`, `universes invitations accept` → `universes private invitations accept`, `universes invitations decline` → `universes private invitations decline`, `universes admins add` → `universes private admins add`, `universes admins remove` → `universes private admins remove`, `universes transfer accept` → `universes private transfer accept`, `universes transfer decline` → `universes private transfer decline`, `universes delete` → `universes private delete`, `universes delete-cancel` → `universes private delete-cancel`, `universes domains` → `universes private domains`, `universes domains check` → `universes private domains check`, `universes team-tier` → `universes private team-tier`, `universes declare` → `universes private declare`, `universes expose` → `universes private expose`, `universes hide` → `universes private hide`, `universes reactivate` → `universes private reactivate`, `universes reputation` → `universes private reputation`, `universes reputation set` → `universes private reputation set`, `universes tiers offer` → `universes private tiers offer`, `universes tiers change` → `universes private tiers change`, `universes tiers withdraw` → `universes private tiers withdraw`, `universes tiers subscribe` → `universes private tiers subscribe`, `universes tiers renewal on` → `universes private tiers renewal on`, `universes tiers renewal off` → `universes private tiers renewal off`, `universes page get` → `universes pages get`, `universes page publish` → `universes pages publish`, `universes page check` → `universes pages check`, `universes page hide` → `universes pages hide`, `universes page show` → `universes pages unhide`, `universes page move` → `universes pages move`, `universes page delete` → `universes pages delete`, `universes page report` → `universes pages report`, `universes appearance-history` → `look appearance history`, `universes appearance-restore` → `look appearance restore`, `universes visit` → `universes history visit`;
+  - `resolve` → `explore resolve`;
+  - `search` → `explore search`;
+  - `clips feed` → `posts clips`, `clips platform` → `posts clips platform`, `clips popular` → `posts clips popular`;
+  - `places search` → `map places search`;
+  - `presence show` → `map presence`, `presence start` → `map presence start`, `presence update` → `map presence update`, `presence audience` → `map presence audience`, `presence ghost on` → `map presence ghost on`, `presence ghost off` → `map presence ghost off`, `presence stop` → `map presence stop`;
+  - `live-share list` → `map live-share list`, `live-share in` → `map live-share in`, `live-share start` → `map live-share start`, `live-share stop` → `map live-share stop`, `live-share positions` → `map live-share positions`, `live-share send` → `map live-share send`;
+  - `locatable show` → `map locatable`, `locatable residents` → `map locatable residents`, `locatable on` → `map locatable on`, `locatable off` → `map locatable off`, `locatable move` → `map locatable move`;
+  - `meetups answer` → `messages meetups answer`, `meetups change` → `messages meetups change`, `meetups cancel` → `messages meetups cancel`;
+  - `nearby token` → `map nearby token`, `nearby request` → `map nearby request`, `nearby requests` → `map nearby requests`, `nearby accept` → `map nearby accept`, `nearby decline` → `map nearby decline`, `nearby leave` → `map nearby leave`, `nearby sightings` → `map nearby sightings`;
+  - `time-column` → `universes time-column`;
+  - `live` → `universes live`;
+  - `notifications` → `me notifications`;
+  - `debates list` → `discussions debates list`, `debates show` → `discussions debates show`, `debates open` → `discussions debates open`, `debates propose` → `discussions debates propose`, `debates support` → `discussions debates support`, `debates close` → `discussions debates close`;
+  - `sanctions list` → `me sanctions`, `sanctions appeal` → `me sanctions appeal`, `sanctions publish-name` → `me sanctions publish-name`;
+  - `channels list` → `discussions channels`, `channels create` → `discussions channels create`, `channels join` → `discussions channels join`, `channels leave` → `discussions channels leave`, `channels send` → `discussions send`, `channels read` → `discussions read`, `channels levels` → `discussions channels levels`;
+  - `inbox` → `messages inbox`;
+  - `dm` → `messages direct send`, `dm read` → `messages direct read`, `dm delete` → `messages direct delete`, `dm ephemeral` → `messages direct ephemeral`, `dm delete-conversation` → `messages direct delete-conversation`;
+  - `groups create` → `messages groups create`, `groups list` → `messages groups`, `groups show` → `messages groups show`, `groups send` → `messages groups send`, `groups read` → `messages groups read`, `groups invite` → `messages groups invite`, `groups leave` → `messages groups leave`, `groups members` → `messages groups members`, `groups admins` → `messages groups admins`, `groups admin-add` → `messages groups admin-add`, `groups admin-remove` → `messages groups admin-remove`, `groups ephemeral` → `messages groups ephemeral`, `groups invitations` → `messages groups invitations`, `groups accept` → `messages groups accept`, `groups decline` → `messages groups decline`, `groups edit` → `messages groups edit`, `groups remove` → `messages groups remove`, `groups meeting-point` → `messages groups meeting-point`, `groups step-down` → `messages groups step-down`, `groups mute` → `messages groups mute`, `groups unmute` → `messages groups unmute`;
+  - `messaging settings show` → `messages settings`, `messaging settings set` → `messages settings set`;
+  - `themes list` → `look themes list`, `themes show` → `look themes show`, `themes gallery` → `look themes gallery`;
+  - `appearance looks` → `look appearance looks`, `appearance palette` → `look appearance palette`, `appearance build` → `look appearance build`, `appearance apply` → `look appearance apply`;
+  - `theme prompt` → `look themes prompt`, `theme check` → `look themes check`, `theme pack` → `look themes pack`, `theme unpack` → `look themes unpack`, `theme typefaces` → `look themes typefaces`, `theme publish` → `look themes publish`, `theme apply` → `look themes apply`, `theme personal set` → `look personal set`, `theme personal clear` → `look personal clear`, `theme personal saved` → `look personal saved`, `theme export` → `look themes export`, `theme shots` → `look themes shots`, `theme delete` → `look themes delete`;
+  - `layouts list` → `look layouts list`, `layouts show` → `look layouts show`, `layouts check` → `look layouts check`, `layouts publish` → `look layouts publish`, `layouts publish-version` → `look layouts publish-version`, `layouts apply` → `look layouts apply`, `layouts copy` → `look layouts copy`, `layouts delete` → `look layouts delete`;
+  - `studio drafts` → `look studio drafts`, `studio show` → `look studio show`, `studio save` → `look studio save`, `studio delete` → `look studio delete`, `studio use` → `look studio use`, `studio make-theme` → `look studio make-theme`, `studio try` → `look studio try`, `studio end-try` → `look studio end-try`, `studio preview` → `look studio preview`, `studio end-preview` → `look studio end-preview`, `studio make-layout` → `look studio make-layout`, `studio make-page` → `look studio make-page`.
+
+### Added
+
+- `breakrocks help <word>` searches the names and the descriptions of the commands; an unknown command suggests the
+  closest commands ("did you mean …?", `suggestions` in the JSON refusal).
+- Command names of up to 5 words (`universes private tiers renewal on`).
+
+### Deprecated
+
+- The former names of the moved commands stay as hidden aliases until 0.27.0 (two minor versions): the command line
+  writes one line on stderr naming the new path (stdout stays clean, `--json` included), `batch` accepts them (a line
+  on stderr too), and the MCP server accepts the former tool names (`breakrocks_dm`, `breakrocks_profile_list`…)
+  while it lists the new ones only. `breakrocks <former group>` (`breakrocks theme`) shows where its commands went.
+
 ## [0.24.0] - 2026-11-15
 
 Specs v124.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 220 queries, 353 mutations).

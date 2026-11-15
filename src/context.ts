@@ -77,7 +77,7 @@ export class Context {
     if (!saved) return { env: wanted ?? 'prod' };
     if (wanted && wanted !== saved.env) {
       if (saved.kind) {
-        throw usageError('ENV_MISMATCH', `The profile "${this.profileName}" holds an account of ${saved.env}: use another profile for ${wanted} (breakrocks profile add <name> --env ${wanted})`, { profile: this.profileName, env: saved.env });
+        throw usageError('ENV_MISMATCH', `The profile "${this.profileName}" holds an account of ${saved.env}: use another profile for ${wanted} (breakrocks config add <name> --env ${wanted})`, { profile: this.profileName, env: saved.env });
       }
       return { ...saved, env: wanted };
     }

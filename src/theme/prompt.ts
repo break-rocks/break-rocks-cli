@@ -70,7 +70,7 @@ export function themePrompt(input: PromptInput): PromptResult {
   if ((input.fonts ?? []).length > 1) throw usageError('INVALID_INPUT', 'One typeface: the title typeface (since specs v99.0.0 the accent typeface is merged with it)');
   let fonts = (input.fonts ?? []).map((f) => {
     const face = approvedTypeface(f);
-    if (!face) throw usageError('THEME_TYPEFACE_NOT_APPROVED', `"${f}" is not an approved typeface (breakrocks theme typefaces)`, { typeface: f });
+    if (!face) throw usageError('THEME_TYPEFACE_NOT_APPROVED', `"${f}" is not an approved typeface (breakrocks look themes typefaces)`, { typeface: f });
     return face.name;
   });
   if (universal) {
@@ -223,7 +223,7 @@ Règles du JSON :
 - **Dégradé** : 2 ou 3 couleurs **prises dans la palette**.
 - **Images** : les emplacements \`page\` et \`pageHeader\` seulement, chacun \`{ "day": …, "night": … }\` ; au plus
   **8** références en tout (variantes nuit, \`wordmark\` et \`pattern\` compris) ; sans variante nuit, l'image
-  du jour sert la nuit. Référence les fichiers par leur **nom** : \`breakrocks theme publish\` les envoie et les
+  du jour sert la nuit. Référence les fichiers par leur **nom** : \`breakrocks look themes publish\` les envoie et les
   remplace par leurs identifiants d'envoi.
 - **\`pageImageOnPhone\`** : \`true\` (l'image de la page aussi sur téléphone) ou \`false\` (pas sur téléphone).
 - **\`appearance\`** : \`accent\` **obligatoire**, le \`primary\` de la palette de nuit (sans lui la plateforme
@@ -268,9 +268,9 @@ nuit et en nuit atténuée) : sombre, contrastes doux, quelques points lumineux 
 3. Trois lignes qui expliquent les choix (palette, police, scènes).
 4. Le tableau des contrastes calculés (paire, ratio).
 
-Ensuite : \`breakrocks theme check theme.json\` montre les couleurs que la plateforme relèverait et le
-masque de lisibilité qu'elle calculerait ; \`breakrocks theme pack theme.json\` écrit l'archive que l'import des
-apps lit ; \`breakrocks theme publish theme.json --in <univers>\` (ou l'archive) le publie.
+Ensuite : \`breakrocks look themes check theme.json\` montre les couleurs que la plateforme relèverait et le
+masque de lisibilité qu'elle calculerait ; \`breakrocks look themes pack theme.json\` écrit l'archive que l'import des
+apps lit ; \`breakrocks look themes publish theme.json --in <univers>\` (ou l'archive) le publie.
 `;
 }
 
@@ -371,7 +371,7 @@ Rules of the JSON:
 - **Gradient**: 2 or 3 colors **taken from the palette**.
 - **Images**: the slots \`page\` and \`pageHeader\` only, each \`{ "day": …, "night": … }\`; at most **8** references
   in all (night variants, \`wordmark\` and \`pattern\` counted); without a night variant, the day image serves
-  by night. Reference the files by their **name**: \`breakrocks theme publish\` sends them and replaces them
+  by night. Reference the files by their **name**: \`breakrocks look themes publish\` sends them and replaces them
   with their upload ids.
 - **\`pageImageOnPhone\`**: \`true\` (the image of the page on phones too) or \`false\` (not on phones).
 - **\`appearance\`**: \`accent\` **required**, the \`primary\` of the night palette (without it the platform
@@ -416,8 +416,8 @@ blown highlights. Both variants show the same scene.
 3. Three lines that explain the choices (palette, typeface, scenes).
 4. The table of the contrasts computed (pair, ratio).
 
-Then: \`breakrocks theme check theme.json\` shows the colors the platform would raise and the readability
-mask it would compute; \`breakrocks theme pack theme.json\` writes the archive the import of the apps reads;
-\`breakrocks theme publish theme.json --in <universe>\` (or the archive) publishes it.
+Then: \`breakrocks look themes check theme.json\` shows the colors the platform would raise and the readability
+mask it would compute; \`breakrocks look themes pack theme.json\` writes the archive the import of the apps reads;
+\`breakrocks look themes publish theme.json --in <universe>\` (or the archive) publishes it.
 `;
 }

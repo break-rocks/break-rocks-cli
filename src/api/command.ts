@@ -192,8 +192,8 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
   const input: ObjectSchema = { type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false };
   const depth = def.depth ?? 2;
   return {
-    name: def.name, summary: def.summary, examples: def.examples,
-    description: [def.description, `The ${op.kind} ${op.name} of the API.`].filter(Boolean).join(' '),
+    name: def.name, summary: def.summary, examples: def.examples, api: op.name,
+    ...(def.description ? { description: def.description } : {}),
     input, output: def.map ? { description: `The answer of ${op.name}, as the command gives it` } : outputSchema(op.type, depth),
     args: { positionals: (def.positionals ?? []).map((p) => def.rename?.[p] ?? p.split('.').pop()!) }, ...(def.confirm ? { interactive: true } : {}), ...(def.mcp === false ? { mcp: false as const } : {}),
     run: async (ctx, raw) => {

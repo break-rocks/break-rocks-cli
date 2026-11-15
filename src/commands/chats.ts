@@ -23,7 +23,7 @@ export const connectionsMine = apiCommand({
 export const dmDeleteConversation = apiCommand({
   name: 'dm delete-conversation', summary: 'Delete a conversation for yourself: its messages are no longer shown to you (deleteConversation)', kind: 'mutation', op: 'deleteConversation', positionals: ['accountId'], rename: { accountId: 'with' },
   descriptions: { with: 'The other account of the conversation: @handle or its id' }, confirm: (i) => `Delete the conversation with ${String(i.with)}?`, text: doneText,
-  examples: ['breakrocks dm delete-conversation @alice --yes'],
+  examples: ['breakrocks messages direct delete-conversation @alice --yes'],
 });
 
 // ---- Group chats ----
@@ -37,12 +37,12 @@ const groupText = (r: unknown) => {
 export const groupsEdit = apiCommand({
   name: 'groups edit', summary: 'Change a group chat: its name, its description, announcements only, whether members may invite (changeGroupChat; its admins)',
   description: 'Only what is given changes; --description "" removes it.', kind: 'mutation', op: 'changeGroupChat', positionals: ['groupChatId'], hide: ['expected'], dry: true, ...group,
-  text: groupText, examples: ['breakrocks groups edit <group id> --name "Club ride" --members-can-invite', 'breakrocks groups edit <group id> --announcement --description "Ride news"'],
+  text: groupText, examples: ['breakrocks messages groups edit <group id> --name "Club ride" --members-can-invite', 'breakrocks messages groups edit <group id> --announcement --description "Ride news"'],
 });
 export const groupsRemove = apiCommand({
   name: 'groups remove', summary: 'Remove a member from a group chat (removeGroupChatMember; its admins)', kind: 'mutation', op: 'removeGroupChatMember', positionals: ['groupChatId', 'accountId'],
   ...group, rename: { groupChatId: 'id', accountId: 'account' }, confirm: (i) => `Remove ${String(i.account)} from the group chat ${String(i.id)}?`, text: groupText,
-  examples: ['breakrocks groups remove <group id> @bob --yes'],
+  examples: ['breakrocks messages groups remove <group id> @bob --yes'],
 });
 export const groupsMeetingPoint = apiCommand({
   name: 'groups meeting-point', summary: 'Set the meeting point of a group chat: a name and a point (--clear: remove it) (setMeetingPoint)', kind: 'mutation', op: 'setMeetingPoint', positionals: ['groupChatId'], hide: ['place'], ...group,
@@ -53,11 +53,11 @@ export const groupsMeetingPoint = apiCommand({
     if (name === undefined || point === undefined) throw usageError('INVALID_INPUT', '--name and --point <lat>,<lon> (or --clear)');
     return { ...rest, place: { name, point: pointOf(String(point), '--point') } };
   },
-  text: groupText, examples: ['breakrocks groups meeting-point <group id> --name "Bastille" --point 48.8532,2.3691', 'breakrocks groups meeting-point <group id> --clear'],
+  text: groupText, examples: ['breakrocks messages groups meeting-point <group id> --name "Bastille" --point 48.8532,2.3691', 'breakrocks messages groups meeting-point <group id> --clear'],
 });
 export const groupsStepDown = apiCommand({
   name: 'groups step-down', summary: 'Stop being an admin of a group chat (stepDownAsGroupChatAdmin)', kind: 'mutation', op: 'stepDownAsGroupChatAdmin', positionals: ['groupChatId'], ...group,
-  confirm: (i) => `Stop being an admin of the group chat ${String(i.id)}?`, text: groupText, examples: ['breakrocks groups step-down <group id> --yes'],
+  confirm: (i) => `Stop being an admin of the group chat ${String(i.id)}?`, text: groupText, examples: ['breakrocks messages groups step-down <group id> --yes'],
 });
 const groupMute = (muted: boolean) => apiCommand({
   name: `groups ${muted ? 'mute' : 'unmute'}`, summary: muted ? 'Mute a group chat for yourself (setGroupChatMuted; --mentions: still notified when mentioned)' : 'Unmute a group chat (setGroupChatMuted)',

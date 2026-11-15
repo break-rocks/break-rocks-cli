@@ -30,7 +30,7 @@ export const appearanceLooks = apiCommand({
   name: 'appearance looks', summary: 'The looks of quick start: the themes of the field collections, 3 by field, each with its character, its layout and its accent (appearanceLooks)', kind: 'query', op: 'appearanceLooks',
   descriptions: { collection: 'One field (UniverseField); none: the 10 fields' },
   text: listText((l: { name: string; collection: string; character: string; layout: string; accent: string; theme: { universe: string; name: string } }) => `${l.theme.universe}/${l.theme.name}  ${l.name}  ${l.collection}  ${l.character}  ${l.layout}  ${l.accent}`),
-  examples: ['breakrocks appearance looks', 'breakrocks appearance looks --collection SPORT --json'],
+  examples: ['breakrocks look appearance looks', 'breakrocks look appearance looks --collection SPORT --json'],
 });
 export const appearancePalette = apiCommand({
   name: 'appearance palette', summary: 'The candidate colors of an image (5 at most) and the one proposed as the accent: an image file sent first, or an upload id (imagePalette)', kind: 'query', op: 'imagePalette', positionals: ['media'], hide: ['mediaId'], select: PALETTE,
@@ -40,7 +40,7 @@ export const appearancePalette = apiCommand({
     if ((image === undefined) === (media === undefined)) throw usageError('INVALID_INPUT', 'An upload id or --image <file>, one of them');
     return { ...rest, mediaId: image ? (await themeImage(ctx, String(image))).id : media };
   },
-  text: paletteText, examples: ['breakrocks appearance palette --image sky.jpg', 'breakrocks appearance palette <upload id> --json'],
+  text: paletteText, examples: ['breakrocks look appearance palette --image sky.jpg', 'breakrocks look appearance palette <upload id> --json'],
 });
 
 const gestures = {
@@ -69,7 +69,7 @@ export const appearanceBuild = apiCommand({
   kind: 'query', op: 'buildUniverseAppearance', positionals: ['universe'], hide: [...gestureHide, 'input.logo', 'input.clear'], extra: { image: str(gestures.image), focal: str(gestures.focal) }, descriptions: gestures,
   prepare: gesturesOf,
   text: (r) => { const b = r as { imageShows?: string; nameSide?: string; contrast?: Contrast; document?: string } | null; return b ? [`image shows: ${b.imageShows ?? '-'}`, `name side: ${b.nameSide ?? '-'}`, `contrast: ${JSON.stringify(b.contrast ?? {})}`, `document: ${typeof b.document === 'string' ? `${b.document.length} characters (--json)` : '-'}`].join('\n') : '(none)'; },
-  examples: ['breakrocks appearance build %paris --image sky.jpg --image-shows THROUGH --character AGORA', 'breakrocks appearance build %paris --image-id <upload id> --accent "#11707A" --json'],
+  examples: ['breakrocks look appearance build %paris --image sky.jpg --image-shows THROUGH --character AGORA', 'breakrocks look appearance build %paris --image-id <upload id> --accent "#11707A" --json'],
 });
 export const appearanceApply = apiCommand({
   name: 'appearance apply', summary: 'Apply an appearance to a universe at once, or propose it (--propose, or a resident who can vote: a proposal APPEARANCE) (applyUniverseAppearance)',
@@ -78,7 +78,7 @@ export const appearanceApply = apiCommand({
   descriptions: { ...gestures, propose: 'File a proposal APPEARANCE instead of applying at once (a public universe)', title: 'The title of the proposal', text: 'The reason of the proposal' },
   prepare: gesturesOf, select: `{ theme { universe name version } proposal { id status } contrast ${selection('AppearanceContrastReport', 2)} }`,
   text: (r) => { const x = r as { theme?: { universe: string; name: string; version?: number } | null; proposal?: { id?: string; status?: string } | null } | null; return !x ? '(none)' : x.proposal ? `proposal ${x.proposal.id ?? '?'} filed (${x.proposal.status ?? '-'})` : x.theme ? `${x.theme.universe}/${x.theme.name} v${x.theme.version ?? '?'} applied` : '(none)'; },
-  examples: ['breakrocks appearance apply %team. --image sky.jpg --accent "#5A2E5E" --character GALLERY', 'breakrocks appearance apply %paris --image-id <upload id> --propose --title "A new sky"'],
+  examples: ['breakrocks look appearance apply %team. --image sky.jpg --accent "#5A2E5E" --character GALLERY', 'breakrocks look appearance apply %paris --image-id <upload id> --propose --title "A new sky"'],
 });
 
 // ---- Tags of a universe ----

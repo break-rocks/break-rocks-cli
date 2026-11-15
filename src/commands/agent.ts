@@ -15,7 +15,7 @@ type LoginResult = { operatorId: string; agentId: string; keySource: 'file' | 'e
 export const agentLogin: Command<{ operator?: string; agent?: string; key?: string }, LoginResult> = {
   name: 'agent login', summary: 'Sign in a delegated agent: its auth challenge signed with its private key',
   description: 'With --operator, --agent and --key (a PEM file), the profile becomes the delegated agent\'s (the path of the key kept, never its content). Without them, BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY (the PEM itself): nothing is written but the session (1 hour, renewed on its own while the variables are set). The first command an AI agent runs.',
-  examples: ['breakrocks --profile herald --env dev agent login --operator <operator id> --agent <agent id> --key herald.pem', 'BREAKROCKS_OPERATOR_ID=… BREAKROCKS_AGENT_ID=… BREAKROCKS_AGENT_KEY="$(cat herald.pem)" breakrocks agent login --env dev'],
+  examples: ['breakrocks --profile herald --env dev agent login --operator <operator id> --agent <agent id> --key herald.pem', 'BREAKROCKS_OPERATOR_ID=… BREAKROCKS_AGENT_ID=… BREAKROCKS_AGENT_KEY="$(cat herald.pem)" breakrocks agents login --env dev'],
   input: object({ operator: str('The account id of the operator'), agent: str('The id of the delegated agent'), key: str('Its private key file (PEM)') }),
   output: openObject({ operatorId: str('The operator'), agentId: str('The delegated agent'), keySource: str('file or env'), session: openObject({ sessionId: str('The session'), expiresAt: str('When it ends') }) }),
   run: async (ctx, { operator, agent, key }) => {
@@ -62,7 +62,7 @@ export function serviceDomain(input: string): { domain: string; ascii: string } 
 export const agentAttest: Command<{ domain: string }, { domain: string; ascii: string }> = {
   name: 'agent attest', summary: 'Obtain an agent attestation for an external service (not served by the platform yet)',
   description: 'Agent attestations are planned: the platform has no operation for it yet. The CLI checks the domain as the platform defines it, then says ATTESTATION_NOT_AVAILABLE (exit 1); the command will ask the platform once its contract is published.',
-  examples: ['breakrocks agent attest tools.example.com'],
+  examples: ['breakrocks agents attest tools.example.com'],
   input: object({ domain: str('The exact domain of the external service (tools.example.com)') }, ['domain']),
   output: openObject({ domain: str('The domain'), ascii: str('Its ASCII form') }), args: { positionals: ['domain'] },
   // TEMPORARY (technical debt, README § Technical debt): no operation of the platform yet; replaced by the

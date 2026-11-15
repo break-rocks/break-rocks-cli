@@ -132,7 +132,7 @@ async function inUniverse(ctx: Context, universe: string): Promise<Capabilities[
 export const capabilities: Command<{ universe?: string }, Capabilities> = {
   name: 'capabilities', summary: 'What the profile may do now: its restrictions, its limits left, the state of its operator',
   description: 'For an AI agent before it tries. A delegated agent reads its own restrictions (me.delegatedAgent: null for none, an empty list for none allowed); where the API does not serve them, they are said unknown, and a refusal tells them (DELEGATED_AGENT_NOT_ALLOWED, DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED).',
-  examples: ['breakrocks capabilities --json', 'breakrocks capabilities --universe %test-village-sport --json'],
+  examples: ['breakrocks me capabilities --json', 'breakrocks me capabilities --universe %test-village-sport --json'],
   input: object({ universe: str('Also what the API tells in this universe: the role, the residence, the reason a join is refused') }),
   output: openObject({
     actor: str('human, operator or delegated-agent'), profile: str('The profile'), env: str('Environment'), account: meSchema,

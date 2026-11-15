@@ -79,11 +79,11 @@ export const repostsRequest = apiCommand({
   kind: 'mutation', op: 'requestRepost', positionals: ['postId'], rename: { targetUniverse: 'to' }, dry: true,
   descriptions: { postId: 'The post of the private universe', to: 'The universe it would be reposted into (a posting address)', text: 'A text of one\'s own: a quote' },
   text: (r) => (r ? repostRequestLine(r as RepostRequest) : '(none)'),
-  examples: ['breakrocks reposts request <post id> --to %paris', 'breakrocks reposts request <post id> --to %paris --text "Worth reading"'],
+  examples: ['breakrocks posts repost-request <post id> --to %paris', 'breakrocks posts repost-request <post id> --to %paris --text "Worth reading"'],
 });
 export const repostsRequests = apiCommand({
   name: 'reposts requests', summary: 'The requests to repost a post of a private universe into a universe, waiting for its moderation (repostRequests)', kind: 'query', op: 'repostRequests', positionals: ['universe'],
-  text: pageText(repostRequestLine), examples: ['breakrocks reposts requests %paris', 'breakrocks reposts requests %paris --all --json'],
+  text: pageText(repostRequestLine), examples: ['breakrocks posts repost-requests %paris', 'breakrocks posts repost-requests %paris --all --json'],
 });
 const answerRepost = (accept: boolean) => apiCommand({
   name: `reposts ${accept ? 'accept' : 'decline'}`, summary: `${accept ? 'Accept' : 'Decline'} a request to repost a post of a private universe into a universe one moderates (answerRepostRequest)${accept ? ': the post is reposted' : ''}`,

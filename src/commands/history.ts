@@ -34,7 +34,7 @@ export const universesVisit = apiCommand({
   description: 'The only command that records a visit; nothing else does it by itself. The platform records it once per account and universe within 10 minutes, and not at all while the history is paused: the answer is true when recorded, false when deduplicated or paused.',
   kind: 'mutation', op: 'recordUniverseVisit', positionals: ['universe'], dry: true, descriptions: { universe: 'The universe visited (%name, %name/sub)' },
   text: (r) => (r === true ? 'recorded' : r === false ? 'not recorded (already recorded in the last 10 minutes, or the history is paused)' : String(r)),
-  examples: ['breakrocks universes visit %paris', 'breakrocks universes visit %paris --dry-run'],
+  examples: ['breakrocks universes history visit %paris', 'breakrocks universes history visit %paris --dry-run'],
 });
 
 const OTHER_SETTINGS = ['notifications', 'translation', 'recommendations', 'nearbyLabel', 'subtitles', 'tips', 'universeFrame', 'commandLanguage', 'clear', 'messaging', 'privateAnalysisConsent', 'camera', 'autoplay', 'map'].map((f) => `input.${f}`);
@@ -45,7 +45,7 @@ export const settingsHistoryPause = apiCommand({
   prepare: (i) => { const { state, ...rest } = i; return { ...rest, 'input.universeHistoryPaused': state === 'on' }; },
   select: '{ universeHistoryPaused }',
   text: (r) => `visit history ${(r as { universeHistoryPaused?: boolean } | null)?.universeHistoryPaused ? 'paused' : 'recording'}`,
-  examples: ['breakrocks settings history-pause on', 'breakrocks settings history-pause off'],
+  examples: ['breakrocks universes history pause on', 'breakrocks universes history pause off'],
 });
 
 // ---- The history of the long videos (specs v122.3.0, D-386, long-videos.feature) ----
@@ -84,5 +84,5 @@ export const settingsVideoHistoryPause = apiCommand({
   prepare: (i) => { const { state, ...rest } = i; return { ...rest, 'input.videoHistoryPaused': state === 'on' }; },
   select: '{ videoHistoryPaused }',
   text: (r) => `long videos history ${(r as { videoHistoryPaused?: boolean } | null)?.videoHistoryPaused ? 'paused' : 'recording'}`,
-  examples: ['breakrocks settings video-history-pause on', 'breakrocks settings video-history-pause off'],
+  examples: ['breakrocks videos history pause on', 'breakrocks videos history pause off'],
 });

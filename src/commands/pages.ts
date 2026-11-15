@@ -84,7 +84,7 @@ export const universePages: Command<{ universe: string }, PagesAnswer> = {
 export const pageGet: Command<{ universe: string; name: string; document?: boolean }, Page> = {
   name: 'universes page get', summary: 'A page of a universe; --document its document as served (pageOfUniverse)',
   description: 'The document of a custom page is its three canvases, derived ones included, and its blocks with their served fields; publish a change from it (its version is the one a new publication starts from). PAGE_NOT_FOUND when there is no such page.',
-  examples: ['breakrocks universes page get %paris market', 'breakrocks universes page get %paris market --document --json > market.json'],
+  examples: ['breakrocks universes pages get %paris market', 'breakrocks universes pages get %paris market --document --json > market.json'],
   input: object({ universe: str(u.universe), name: str(u.name), document: bool('With its document') }, ['universe', 'name']),
   output: outputSchema('PageOfUniverse', 0), args: { positionals: ['universe', 'name'] },
   run: async (ctx, { universe, name, document }) => {
@@ -103,7 +103,7 @@ const fileProps = { universe: str(u.universe), file: str(`The page: a JSON file,
 export const pagePublish: Command<FileInput, Page> = {
   name: 'universes page publish', summary: 'Publish a custom page from a JSON file: a new page, or the next version of one (publishUniversePage)',
   description: 'The leadership (the owner and the admins of a private universe). The same name as written makes the next version (from the version the file holds: PAGE_VERSION_CONFLICT when it is no longer the last); the limits come from the back office (PAGES_LIMIT, CANVAS_ITEMS_LIMIT with errorInfo.limit). Check first with universes page check.',
-  examples: ['breakrocks universes page publish %paris --file market.json', 'breakrocks universes page publish %paris --file pages.json --name market'],
+  examples: ['breakrocks universes pages publish %paris --file market.json', 'breakrocks universes pages publish %paris --file pages.json --name market'],
   input: object(fileProps, ['universe', 'file']), output: outputSchema('PageOfUniverse', 0), args: { positionals: ['universe'] },
   run: async (ctx, i) => {
     const page = pageOfDocument(readJsonFile(ctx, i.file), i.name);
@@ -118,7 +118,7 @@ type Check = { ok: boolean; refusals: { code: string; path?: string | null; widg
 export const pageCheck: Command<FileInput, Check> = {
   name: 'universes page check', summary: 'Check a custom page against the registry of a universe, without publishing it (checkLayout)',
   description: `Sent as { format: "${PAGES_FORMAT}", pages: [page] } to checkLayout (online: the shared library of the design is not shipped in the CLI); each refusal with its code, path, widget and limit; exit 1 when there is one.`,
-  examples: ['breakrocks universes page check %paris --file market.json'],
+  examples: ['breakrocks universes pages check %paris --file market.json'],
   input: object(fileProps, ['universe', 'file']),
   output: openObject({ ok: { type: 'boolean', description: 'No refusal' }, refusals: list('The refusals', outputSchema('LayoutRefusal', 0)), document: { description: 'The document as the platform reads it (derived canvases)' } }),
   args: { positionals: ['universe'] },
@@ -141,11 +141,11 @@ export const pageHide = hidden('hide');
 export const pageShow = hidden('show');
 export const pageMove = apiCommand({
   name: 'universes page move', summary: 'Move a custom page in the main menu (before another, or last; moveUniversePage)', kind: 'mutation', op: 'moveUniversePage', positionals: ['universe', 'name'],
-  descriptions: { ...u, before: 'The page to put it before (absent: last)' }, select: PAGE, text: (r) => (r as Page[]).map(pageText).join('\n'), examples: ['breakrocks universes page move %paris market --before quiz'],
+  descriptions: { ...u, before: 'The page to put it before (absent: last)' }, select: PAGE, text: (r) => (r as Page[]).map(pageText).join('\n'), examples: ['breakrocks universes pages move %paris market --before quiz'],
 });
 export const pageDelete = apiCommand({
   name: 'universes page delete', summary: 'Delete a custom page, its versions and its free blocks (deleteUniversePage)', kind: 'mutation', op: 'deleteUniversePage', positionals: ['universe', 'name'],
-  descriptions: u, confirm: (i) => `Delete the page ${i.name} of ${i.universe}, its versions and the images of its blocks?`, examples: ['breakrocks universes page delete %paris market --yes'],
+  descriptions: u, confirm: (i) => `Delete the page ${i.name} of ${i.universe}, its versions and the images of its blocks?`, examples: ['breakrocks universes pages delete %paris market --yes'],
 });
 const TARGET_FIELDS = ['agentText', 'proposalId', 'postId', 'imageId', 'messageId', 'discussion', 'universe', 'name', 'themePart', 'block', 'accountId', 'word', 'itemId', 'playlistId', 'routeId'];
 export const pageReport = apiCommand({
@@ -153,7 +153,7 @@ export const pageReport = apiCommand({
   fixed: { 'target.kind': 'UNIVERSE_PAGE' }, hide: [...TARGET_FIELDS.filter((f) => !['universe', 'name', 'block'].includes(f)).map((f) => `target.${f}`), 'mask'], rename: { 'target.name': 'page' }, require: ['universe', 'page'],
   description: 'In a public universe OFF_TOPIC, SPAM_OR_FLOOD and CHARTER_ARTICLE go to its moderation, ILLEGAL and PLATFORM_RULES to the platform team; in a private universe ILLEGAL and PLATFORM_RULES only. A base page is not reported (REPORT_TARGET_INVALID).',
   descriptions: { universe: u.universe, page: 'The name of the page', block: 'The id of a free block of the page (absent: the page)' }, depth: 1,
-  examples: ['breakrocks universes page report %paris market --block b2 --reason PLATFORM_RULES'],
+  examples: ['breakrocks universes pages report %paris market --block b2 --reason PLATFORM_RULES'],
   prepare: (i) => { if (i.reason === 'ILLEGAL' && !i.goodFaith) throw usageError('REPORT_GOOD_FAITH_REQUIRED', 'ILLEGAL: --good-faith is required (you declare in good faith that the content is illegal)'); return i; },
 });
 pageReport.input.properties.reason = { type: 'string', enum: ['OFF_TOPIC', 'SPAM_OR_FLOOD', 'CHARTER_ARTICLE', 'ILLEGAL', 'PLATFORM_RULES'], description: 'The reason (ReportReason)' };
@@ -183,7 +183,7 @@ export const pagesExport: Command<{ universe: string; out?: string; force?: bool
 type Draft = { id: string; kind: string; universe?: string | null; savedAt: string };
 export const pagesImport: Command<{ universe: string; file: string }, Draft[]> = {
   name: 'universes pages import', summary: `Import a document ${PAGES_FORMAT}: one studio draft per page (importUniversePages)`,
-  description: 'Nothing is published: each draft is checked like a studio draft, then published by breakrocks studio make-page <draft id> (STUDIO_DRAFTS_LIMIT: 50 drafts per account).',
+  description: 'Nothing is published: each draft is checked like a studio draft, then published by breakrocks look studio make-page <draft id> (STUDIO_DRAFTS_LIMIT: 50 drafts per account).',
   examples: ['breakrocks universes pages import %paris --file paris-pages.json'],
   input: object({ universe: str(u.universe), file: str(`The document ${PAGES_FORMAT} (a JSON file)`) }, ['universe', 'file']),
   output: list('The drafts made', outputSchema('StudioDraft', 0)), args: { positionals: ['universe'] },
@@ -193,11 +193,11 @@ export const pagesImport: Command<{ universe: string; file: string }, Draft[]> =
       return (await api<{ importUniversePages: Draft[] }>(ctx, 'mutation($u: String!, $f: AWSJSON!, $r: ID!) { importUniversePages(universe: $u, file: $f, requestId: $r) { id kind universe savedAt } }', { u: universe, f: JSON.stringify(doc), r: uuidv7(ctx.now()) })).importUniversePages;
     } catch (error) { throw explainPageRefusal(error); }
   },
-  text: (r) => (r.length ? [...r.map((d) => `${d.id}  ${d.kind} ${d.universe ?? ''}  ${d.savedAt}`), '', 'Publish one: breakrocks studio make-page <draft id>'].join('\n') : '(no draft)'),
+  text: (r) => (r.length ? [...r.map((d) => `${d.id}  ${d.kind} ${d.universe ?? ''}  ${d.savedAt}`), '', 'Publish one: breakrocks look studio make-page <draft id>'].join('\n') : '(no draft)'),
 };
 
 export const studioMakePage = apiCommand({
   name: 'studio make-page', summary: 'Publish a page draft as the custom page of its universe (useStudioDraft)', kind: 'mutation', op: 'useStudioDraft', positionals: ['draftId'],
-  descriptions: { draftId: 'The id of the draft (of kind PAGE)' }, select: `{ page ${PAGE} }`, map: (d) => (d as { page?: unknown } | null)?.page ?? null, examples: ['breakrocks studio make-page <draft id>'],
+  descriptions: { draftId: 'The id of the draft (of kind PAGE)' }, select: `{ page ${PAGE} }`, map: (d) => (d as { page?: unknown } | null)?.page ?? null, examples: ['breakrocks look studio make-page <draft id>'],
 });
 
