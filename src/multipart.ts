@@ -82,7 +82,11 @@ export async function uploadMultipart(ctx: Context, video: CheckedVideo, target:
   for (let round = 1; ; round++) {
     save();
     let started: Started;
-    try { started = (await api<{ startMultipartUpload: Started }>(ctx, START, { i: input, r: state.requestId })).startMultipartUpload; } catch (error) { throw plainRefusal(error); }
+    try { started = (await api<{ startMultipartUpload: Started }>(ctx, START, { i: input, r: state.requestId })).startMultipartUpload; } catch (error) {
+      // Refused by the platform before any part was sent: nothing to resume.
+      if (error instanceof CliError && error.source === 'platform' && !Object.keys(state.parts).length) forget();
+      throw plainRefusal(error);
+    }
     state.mediaId = started.mediaId; state.expiresAt = started.expiresAt;
     save();
     const total = started.parts.length;

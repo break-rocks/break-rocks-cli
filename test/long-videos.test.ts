@@ -270,6 +270,16 @@ describe('the multipart upload of a long video', () => {
   });
 });
 
+describe('a multipart upload the platform refuses to start', () => {
+  it('leaves no state file behind (NOT_IMPLEMENTED, VIDEO_SIZE_INVALID…)', async () => {
+    const { h, ctx } = scripted({ startMultipartUpload: () => { throw new Error('VIDEO_SIZE_INVALID'); } });
+    video(h.dir, 1000);
+    const v = checkVideo(ctx, 'match.mp4');
+    await expect(uploadMultipart(ctx, v, { destination: 'POST' })).rejects.toMatchObject({ code: 'VIDEO_SIZE_INVALID' });
+    expect(existsSync(stateFileOf(ctx, v, { destination: 'POST' }))).toBe(false);
+  });
+});
+
 describe('post --long-video', () => {
   /** A sparse video of [size] bytes (no content written but the MP4 header). */
   const sparse = (dir: string, size: number) => { const file = join(dir, 'big.mp4'); writeFileSync(file, MP4_HEAD); truncateSync(file, size); return file; };
