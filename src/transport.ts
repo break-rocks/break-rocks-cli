@@ -7,6 +7,7 @@ import { CliError, EXIT, networkError, platformRefusal } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
 import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
 import { VERSION } from './version.js';
+import { redactText } from './network.js';
 
 export const MAX_RETRY_SECONDS = 60;
 
@@ -16,7 +17,8 @@ async function send(ctx: Context, url: string, init: RequestInit): Promise<Respo
   try {
     return await ctx.io.fetch(url, init);
   } catch (error) {
-    throw networkError('NETWORK_ERROR', `No answer from ${new URL(url).host}: ${(error as Error).message}`, { host: new URL(url).host });
+    const cause = (error as Error & { cause?: Error }).cause?.message;
+    throw networkError('NETWORK_ERROR', redactText(`No answer from ${new URL(url).host}: ${(error as Error).message}${cause ? ` (${cause})` : ''}`), { host: new URL(url).host });
   }
 }
 

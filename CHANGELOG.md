@@ -74,6 +74,28 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 - `breakrocks help <word>` searches the names and the descriptions of the commands; an unknown command suggests the
   closest commands ("did you mean …?", `suggestions` in the JSON refusal).
 - Command names of up to 5 words (`universes private tiers renewal on`).
+- Proxy support (README § Proxy). Every request (the API, the sign-in and Cognito, the uploads, x402 and the wallet
+  RPC, the update check, the real-time WebSocket, the MCP server) goes through one dispatcher of undici made global for
+  Node's `fetch`. The proxy comes from the global option `--proxy <url>`, else the CLI profile
+  (`breakrocks config set proxy <url>`, `config unset proxy`), else `https_proxy` / `HTTPS_PROXY` and `http_proxy` /
+  `HTTP_PROXY`; `NO_PROXY` / `no_proxy` (or `config set no-proxy`) lists the hosts reached directly. http and https
+  proxies with credentials in the URL; socks5 through undici's experimental `Socks5ProxyAgent`; SOCKS4 not supported.
+- A corporate CA bundle: `--ca-file <file>` or `breakrocks config set ca-file <file>`, added to the authorities of
+  Node (`NODE_EXTRA_CA_CERTS` still works alone).
+- `breakrocks config set` / `config unset` (proxy, no-proxy, ca-file of a CLI profile); `config show` gives the
+  settings in effect (`network`).
+- `doctor` checks `proxy`: the proxy in use (redacted), its source, `NO_PROXY`, the CA bundle; its `api` check says it
+  went through the proxy, and points at the proxy when it fails.
+
+### Security
+
+- Proxy credentials are never printed: `config show`, `doctor`, errors (text and `--json`) and MCP refusals show
+  `http://***:***@host:port/`. In a profile, `config.json` keeps the proxy URL without its credentials; the full URL is
+  in `proxies/<profile>.url`, for the user alone (0600 on POSIX), removed with the profile.
+
+### Dependencies
+
+- `undici` 7.30.2 (2026-11-05), asked by the user for the proxy: loaded only when a proxy or a CA bundle is set.
 
 ### Deprecated
 

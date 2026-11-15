@@ -10,7 +10,7 @@ import { login, logout } from './login.js';
 import { mcpCommand } from './mcp.js';
 import { operatorDelete, operatorKeygen, operatorLogin, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew, sessionCommand } from './operator.js';
 import { operatorPlanChange, operatorPlanOffer, operatorPlanResume, operatorPlanShow, operatorPlanStart, operatorPlanStop } from './operator-plan.js';
-import { profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
+import { configSet, configUnset, profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
 import { update } from './update.js';
 import { themeCheck, themePack, themePromptCommand, themeTypefaces, themeUnpack } from './theme.js';
 import { walletBalance, walletFaucet, walletSet, walletShow } from './wallet.js';
@@ -44,7 +44,7 @@ import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, t
 
 register(
   help, version, schema, completion, update,
-  profileAdd, profileUse, profileList, profileShow, profileRemove,
+  profileAdd, profileUse, profileList, profileShow, profileRemove, configSet, configUnset,
   login, logout,
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,

@@ -14,6 +14,8 @@ export const GLOBAL_OPTIONS: [string, string][] = [
   ['--fields <a,b.c>', 'Keep these fields of the answer (of each item of a list)'],
   ['--profile <name>', 'Use this CLI profile (else BREAKROCKS_PROFILE, else the current one)'],
   ['--env <dev|staging|prod>', 'The environment of a profile without an account (default: prod)'],
+  ['--proxy <url>', 'Send every request through this proxy (else the profile, else HTTPS_PROXY)'],
+  ['--ca-file <file>', 'Trust this CA bundle (PEM) too (else the profile)'],
   ['--yes', 'Confirm an irreversible action or a payment without asking'],
   ['--help', 'Show the help (of a command: breakrocks <command> --help)'],
   ['--version', 'Show the version of the CLI'],

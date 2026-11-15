@@ -67,6 +67,8 @@ const GLOBALS: OptionModel[] = [
   { flags: ['--fields'], kind: free, description: globalDescription('--fields') },
   { flags: ['--profile'], kind: dynamic('profile'), description: globalDescription('--profile') },
   { flags: ['--env'], kind: { type: 'enum', values: ENVIRONMENTS }, description: globalDescription('--env') },
+  { flags: ['--proxy'], kind: free, description: globalDescription('--proxy') },
+  { flags: ['--ca-file'], kind: { type: 'file' }, description: globalDescription('--ca-file') },
   { flags: ['--yes', '-y'], kind: none, description: globalDescription('--yes') },
   { flags: ['--help', '-h'], kind: none, description: globalDescription('--help') },
   { flags: ['--version'], kind: none, description: globalDescription('--version') },

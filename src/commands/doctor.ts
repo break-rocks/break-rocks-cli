@@ -12,6 +12,7 @@ import { agentFromEnv, apiToken, ensureSession, type Session } from '../session.
 import { apiRequest, graphql, request } from '../transport.js';
 import { endpoints, type Endpoints } from '../endpoints.js';
 import { VERSION } from '../version.js';
+import { describeNetwork, proxyFor, redactUrl, type NetworkSettings } from '../network.js';
 import { compareVersions, readRelease } from './update.js';
 
 export type Check = { name: string; status: 'ok' | 'warn' | 'fail' | 'skip'; detail: string; code?: string };
@@ -82,7 +83,7 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
   description: 'Each check is ok, warn, fail or skip; the exit code is 1 when one fails. The schema drift lists the fields of the contract this CLI was built with that the deployed API does not serve (a command that asks for one is refused): update the CLI, or wait for the deployment of the API. The contract check compares the contract embedded in this CLI (its specs version) with what the API serves (introspection: operations, types, fields, enum values): what the API serves and the CLI does not know means the CLI is behind (a warning, CLI_CONTRACT_BEHIND: update it). With --agent <name>, the local agent and its session.',
   examples: ['breakrocks doctor', 'breakrocks doctor --agent herald --json'],
   input: object({}),
-  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), contract: str('The version of the specifications of its contract (v101.8.0)'), unknown: openObject({ operations: list('Query.x, Mutation.y'), types: list('Types'), fields: list('Type.field'), enumValues: list('Enum.VALUE') }, 'What the API serves that the contract of this CLI does not know'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, session, api, contract, operations, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingDeprecatedFields: list('Type.field of the contract that the API lacks and the contract marks deprecated (a warning)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
+  output: openObject({ ok: { type: 'boolean', description: 'No check failed' }, version: str('This CLI'), contract: str('The version of the specifications of its contract (v101.8.0)'), unknown: openObject({ operations: list('Query.x, Mutation.y'), types: list('Types'), fields: list('Type.field'), enumValues: list('Enum.VALUE') }, 'What the API serves that the contract of this CLI does not know'), profile: str('The profile'), agent: str('The local agent'), env: str('The environment'), checks: list('The checks', openObject({ name: str('version, profile, agent, proxy, session, api, contract, operations, schema'), status: str('ok, warn, fail or skip'), detail: str('What was found'), code: str('The error code') })), missingFields: list('Type.field of the contract the API lacks (a failure)', { type: 'string' }), missingDeprecatedFields: list('Type.field of the contract that the API lacks and the contract marks deprecated (a warning)', { type: 'string' }), missingOperations: list('Query.x or Mutation.y of the contract the API does not serve yet (a warning)', { type: 'string' }) }),
   run: async (ctx) => {
     const checks: Check[] = [];
     const add = (c: Check) => { checks.push(c); return c.status !== 'fail'; };
@@ -114,6 +115,15 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
       } catch (error) { profileOk = add(failed('agent', error)); }
     } else add({ name: 'agent', status: 'skip', detail: agentFromEnv(ctx.env) ? 'the BREAKROCKS_* variables come first' : 'no local agent named (--agent <name>)' });
 
+    let network: NetworkSettings | undefined;
+    try {
+      network = ctx.network();
+      const d = describeNetwork(network);
+      const ca = d.caFile ? `; CA bundle ${d.caFile} (${d.caSource})` : '';
+      add(d.proxy || d.httpProxy ? { name: 'proxy', status: 'ok', detail: `${[d.proxy && `https through ${d.proxy}`, d.httpProxy && `http through ${d.httpProxy}`].filter(Boolean).join(', ')} (${d.proxySource})${d.noProxy ? `; directly: ${d.noProxy}` : ''}${ca}` }
+        : { name: 'proxy', status: d.caFile ? 'ok' : 'skip', detail: `no proxy (--proxy, config set proxy, HTTPS_PROXY)${ca}` });
+    } catch (error) { add(failed('proxy', error)); }
+
     let session: Session | undefined, at: Endpoints | undefined;
     if (profileOk) {
       try {
@@ -122,11 +132,18 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
       } catch (error) { add(failed('session', error)); }
     } else add({ name: 'session', status: 'skip', detail: 'no account to sign in' });
 
+    let via = '';
     try {
       at ??= await endpoints(ctx, ctx.profile());
+      const proxy = network && proxyFor(network, at.api);
+      via = proxy ? ` through the proxy ${redactUrl(proxy)}` : '';
       const res = await apiRequest(ctx, at.api, { method: 'POST', headers: { 'content-type': 'application/json', ...(session ? { authorization: apiToken(session) } : {}) }, body: JSON.stringify({ query: '{ __typename }' }) });
-      add(res.status < 500 ? { name: 'api', status: 'ok', detail: `${new URL(at.api).host} answers (${res.status})` } : { name: 'api', status: 'fail', code: 'SERVER_ERROR', detail: `${new URL(at.api).host} answered ${res.status}` });
-    } catch (error) { add(failed('api', error)); }
+      add(res.status < 500 ? { name: 'api', status: 'ok', detail: `${new URL(at.api).host} answers (${res.status})${via}` } : { name: 'api', status: 'fail', code: 'SERVER_ERROR', detail: `${new URL(at.api).host} answered ${res.status}${via}` });
+    } catch (error) {
+      const c = failed('api', error);
+      const proxy = network?.httpsProxy ?? network?.httpProxy;
+      add(proxy ? { ...c, detail: `${c.detail}${via || ` (proxy ${redactUrl(proxy)})`}: check the proxy (breakrocks config show)` } : c);
+    }
 
     if (session && at) {
       try {

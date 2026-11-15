@@ -37,6 +37,12 @@ export type Profile = {
   wallet?: { source: 'file' | 'env'; file?: string; address: string; maxUsdPerDay: number; extraUsage?: boolean };
   /** A local agent (--agent, BREAKROCKS_AGENT): its name; never saved in config.json. */
   localAgent?: string;
+  /** The proxy of the profile (config set proxy), without its credentials: those are in proxies/<profile>.url (0600). */
+  proxy?: string;
+  /** The hosts reached without the proxy (config set no-proxy; else NO_PROXY). */
+  noProxy?: string;
+  /** A CA bundle (PEM) added to the authorities of Node (config set ca-file). */
+  caFile?: string;
 };
 
 export type ConfigFile = { version: 1; current?: string; profiles: Record<string, Profile> };
@@ -132,6 +138,7 @@ export class ConfigStore {
     if (config.current === name) delete config.current;
     this.write(config);
     rmSync(this.sessionFile(name), { force: true });
+    rmSync(join(this.dir, 'proxies', `${name}.url`), { force: true });
     rmSync(this.cacheFile(`published-${name}.json`), { force: true });
   }
   setCurrent(name: string): void { const config = this.read(); config.current = name; this.write(config); }

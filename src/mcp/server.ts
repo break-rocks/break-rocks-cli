@@ -12,6 +12,7 @@ import { asCliError, usageError } from '../errors.js';
 import { commands, execute, findCommand, toolInputSchema, type AnyCommand } from '../registry.js';
 import { LANGUAGES, themePrompt, type Language } from '../theme/prompt.js';
 import { VERSION } from '../version.js';
+import { redactText } from '../network.js';
 
 export const RESOURCES = [
   { uri: 'breakrocks://whoami', name: 'whoami', title: 'The account signed in', description: 'The answer of breakrocks whoami --json', command: 'whoami' },
@@ -47,7 +48,8 @@ export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'e
 }
 
 function failure(error: unknown) {
-  const refusal = asCliError(error).toJSON();
+  const json = asCliError(error).toJSON();
+  const refusal = { error: { ...json.error, message: redactText(json.error.message) } };
   return { content: [{ type: 'text' as const, text: JSON.stringify(refusal, null, 2) }], structuredContent: refusal, isError: true };
 }
 

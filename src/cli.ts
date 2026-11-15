@@ -13,6 +13,7 @@ import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type
 import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
+import { applyNetwork, redactText } from './network.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
 export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tokens: string[] } {
@@ -36,6 +37,8 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--version': if (tokens.some((x) => !x.startsWith('-'))) tokens.push(t); else flags.version = true; break;
       case '--fields': flags.fields = value().split(',').map((f) => f.trim()).filter(Boolean); break;
       case '--profile': flags.profile = value(); break;
+      case '--proxy': flags.proxy = value(); break;
+      case '--ca-file': flags.caFile = value(); break;
       // --agent before the command is the global one (its value is not the command); after it,
       // takeAgentFlag decides (a command may have an option "agent" of its own).
       case '--agent': if (tokens.some((x) => !x.startsWith('-'))) { tokens.push(t); if (inline === undefined && argv[i + 1] !== undefined) tokens.push(argv[++i]); } else flags.agent = value(); break;
@@ -111,6 +114,7 @@ export function defaultIo(out: Output = terminal): Io {
     secret: askSecret,
     now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     readStdin: async () => { const chunks: Buffer[] = []; for await (const c of process.stdin) chunks.push(c as Buffer); return Buffer.concat(chunks).toString('utf8'); },
+    configureNetwork: applyNetwork,
   };
 }
 
@@ -130,8 +134,10 @@ export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown):
 
 /** Writes a refusal: JSON on stdout with --json (scripts read one stream), else a line on stderr. */
 export function writeError(out: Output, json: boolean, error: CliError): number {
-  if (json) out.json(error.toJSON());
-  else out.error(`Error ${error.code}: ${error.message}`);
+  // A proxy URL, its credentials, never written (README § Proxy).
+  const message = redactText(error.message);
+  if (json) out.json({ error: { ...error.toJSON().error, message } });
+  else out.error(`Error ${error.code}: ${message}`);
   return error.exit;
 }
 
@@ -163,6 +169,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const ctx = new Context(io, flags);
     if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(command), commands: [{ name: command.name, summary: command.summary }] });
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
+    if (!command.offline) await io.configureNetwork?.(ctx.network());
     const result = await execute(ctx, command, input);
     const exit = writeAnswer(ctx, command, result);
     if (exit === EXIT.OK) rememberUse(ctx, command, input, result);

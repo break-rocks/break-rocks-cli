@@ -161,7 +161,7 @@ Usage: breakrocks <command> [options]
   breakrocks help --all        Every command
   breakrocks <command> --help  The help of a command
 
-Options: --json --quiet --fields --profile --env --yes --help --version (breakrocks help options)
+Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --help --version (breakrocks help options)
 Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.
 ```
 
@@ -851,6 +851,8 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `config list` | List the CLI profiles (offline) | `breakrocks config list` |
 | `config show` | Show a CLI profile (offline) | `breakrocks config show` |
 | `config remove` | Remove a CLI profile and its session (confirmation: `--yes`) (offline) | `breakrocks config remove old-dev --yes` |
+| `config set` | Set a network setting of a CLI profile (offline) | `breakrocks config set proxy http://proxy.corp.example:3128` |
+| `config unset` | Remove a network setting of a CLI profile (offline) | `breakrocks config unset proxy` |
 | `usage` | Usage and the limits left | `breakrocks usage` |
 | `doctor` | Check what keeps the CLI from working | `breakrocks doctor` |
 | `batch` | Run the actions of a JSON lines file | `breakrocks batch --file actions.jsonl` |
@@ -1615,6 +1617,42 @@ closed with the others, `signOutEverywhere`).
 43 characters, otherwise `CLI_CHALLENGE_INVALID`), 10 per sliding hour (`TOO_MANY_REQUESTS`); the
 `label` ("<browser> on <system>", 64 characters at most) names the device among the sessions.
 
+## Proxy
+
+Every request of the CLI can go through a proxy: the API, the sign-in (Cognito, the directory, the cell map), the
+media uploads, x402 and the wallet RPC (viem), the update check (npm, GitHub releases), the real-time WebSocket, and
+the outgoing calls of the MCP server. One dispatcher of [undici](https://github.com/nodejs/undici) (`ProxyAgent`,
+loaded only when a proxy or a CA bundle is set) becomes the global dispatcher of Node's `fetch`.
+
+**Where the proxy comes from**, the first found:
+
+1. the global option `--proxy <url>` (`breakrocks --proxy http://proxy.corp.example:3128 doctor`);
+2. the CLI profile: `breakrocks config set proxy <url>` (`config unset proxy` removes it; `--name <profile>` for
+   another profile than the one in use);
+3. the environment: `https_proxy` / `HTTPS_PROXY` for https, `http_proxy` / `HTTP_PROXY` for http (the lowercase form
+   first, as curl).
+
+`NO_PROXY` (or `no_proxy`; or `breakrocks config set no-proxy <hosts>`, which comes first) lists the hosts reached
+directly, as curl reads it: `localhost,127.0.0.1,.corp.example,10.0.0.5:8080`, a leading dot for a domain and its
+subdomains, a port to limit an entry, `*` for every host.
+
+**Proxies**: `http://` and `https://` (the CONNECT method; undici tunnels http requests too), with credentials in the
+URL (`http://user:password@proxy:3128`, percent-encoded). `socks5://` works too, through undici's `Socks5ProxyAgent`
+(no other dependency), which undici still marks experimental (Node prints an `ExperimentalWarning` on stderr); SOCKS4
+is not supported.
+
+**Credentials are never printed**: `config show`, `doctor`, the errors (text and `--json`) and the MCP refusals show
+`http://***:***@proxy:3128/`. In a profile, `config.json` keeps the URL without its credentials; the full URL is in
+`proxies/<profile>.url` of the configuration folder, for the user alone (0600 on POSIX).
+
+**A corporate CA bundle** (a PEM file): `--ca-file <file>`, or `breakrocks config set ca-file <file>` in the profile
+(the option first). It is added to the authorities of Node, for the targets and an https proxy. `NODE_EXTRA_CA_CERTS`
+still works on its own, without this option.
+
+**`doctor`** shows the proxy in use (redacted), where it comes from, `NO_PROXY` and the CA bundle (check `proxy`), and
+its check `api` reaches the API through it ("… answers (200) through the proxy http://***:***@proxy:3128/"); a failure
+there points at the proxy. `breakrocks config show --json` gives the same settings (`network`).
+
 ## Completion
 
 `breakrocks completion <bash|zsh|fish|pwsh>` writes to standard output the shell's completion script,
@@ -1769,8 +1807,9 @@ clone builds and tests on its own.
 
 Decided (at least 7 days old, `npm install --before=<today − 7 days>`):
 `@x402/core` and `@x402/evm` 2.28.0 (2026-09-29), `viem` 2.57.7 (2026-10-14),
-`@modelcontextprotocol/sdk` 1.32.1 (2026-10-05), and what they require. Loaded on demand: the
-offline commands load none of them.
+`@modelcontextprotocol/sdk` 1.32.1 (2026-10-05), and what they require; `undici` 7.30.2 (2026-11-05, no dependency;
+asked by the user for the proxy, 0.25.0: the major of the undici bundled with Node 24). Loaded on demand: the offline
+commands load none of them, and undici only when a proxy or a CA bundle is set.
 
 Development dependencies added: `graphql` 16.14.2 (2026-06-09), to read the contract
 (`npm run gen:schema`) and validate the documents in the tests; `esbuild` 0.28.2 (2026-08-08) and `postject` 1.0.0-alpha.6 (2023-05-19), for the
