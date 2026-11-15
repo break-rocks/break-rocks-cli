@@ -5,6 +5,45 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-15
+
+Specs v122.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 217 queries, 347 mutations).
+The theme tools follow the format the platform accepts today.
+
+### Added
+
+- `theme check` and `theme publish` take the ZIP archive of a theme as the import of the apps reads it (`theme.json`, else
+  its only JSON; its images by their names; `IMPORT_NO_JSON`, `IMPORT_SEVERAL_JSON`).
+- `theme check`: the block appearance as the platform keeps it (`appearance` in the report; `THEME_APPEARANCE_IGNORED`
+  without an accent, `THEME_IMAGE_SHOWS_READ` when `imageShows` is missing or unknown; the sky `column` or `band`), and
+  `IMAGE_SMALL` for an image of the page under 2,160 × 1,620.
+- `theme prompt --image-shows none|subtle|through --sky column|band`; the prompt (and the MCP prompt `theme-prompt`, which
+  takes `imageShows`, `sky` and `template`) writes the block `appearance`, `pageImageOnPhone` and the list of the 4 images
+  (slot, variant, size, content, what lies over them, the scrims and the readability mask). An example in
+  `docs/theme-prompt-example.fr.md`.
+- `themes list --order QUICK_START|COUNTRY --group LOOK|COUNTRY|OFFICIAL|UNIVERSAL --with-image --without-image`; its text
+  tells the reason and the background image. `themes show` answers in text (image slots, widths, screenshots, corrections).
+- The approved typefaces Sora, Fraunces and Figtree.
+
+### Changed
+
+- `theme check` accepts `pageImageOnPhone` and tells a key unknown at the top of the document (`THEME_KEY_IGNORED`)
+  instead of refusing it; a block appearance kept allows a gradient of any `#RRGGBB`; an `imageShows` the platform does not
+  know is no longer refused (read from `ground`, as the platform).
+- `theme pack` runs `theme check` first (`THEME_CHECK_FAILED`, `--allow-invalid`) and tells its result; `theme unpack`
+  tells the theme document.
+- `theme publish` removes `screenshots` too.
+- `map routes` reads `mapRouteMarkers` (`mapRoutes` deprecated, D-374): the markers of the routes, no line.
+
+### Fixed
+
+- A long video is 5 GB at most, as the platform (`VIDEO_SIZE_INVALID` before anything is sent; 20 GB before), and a video
+  larger than a Node buffer is checked (its type read from its first bytes only).
+
+### Not offered yet
+
+- The 28 operations added to the contract since v101.8.0 but `mapRouteMarkers`.
+
 ## [0.19.1] - 2026-11-09
 
 Specs v101.20.0 (`specs/common` pinned on that tag; D-323, `contracts/app-versions.md` § The client headers).
