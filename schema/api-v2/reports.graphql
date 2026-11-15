@@ -143,6 +143,11 @@ type ReportedContent {
   When it was last reported.
   """
   lastReportAt: AWSDateTime!
+  """
+  Since v101.12.0 (D-296, moderation/reports.feature): the details of the reports since the last decision that carry
+  some, the most recent first, never who wrote them; an empty list when the caller is the author of the content.
+  """
+  details: [String!]!
 }
 
 """
@@ -222,18 +227,26 @@ UNDECLARED_COMMERCIAL (undeclared commercial content: a playlist or any of its i
 REPORT_REASON_NOT_ALLOWED. Since v87.6.0 (D-269): COUNTERFEIT_DOCUMENT also for a POST that is a post or a quote
 carrying a post document (the document reported with its post), to the platform team. A client shows an unknown reason as a generic sentence.
 Since v92.0.0 (D-284): SHOWS_ME, "I am in this image" or "I am in this video": a mask request to the author (with report(mask)), sent to the moderation only with another report.
+Since v101.11.0 (D-313, moderation/reports.feature), for the target ACCOUNT only, always to the platform team:
+IMPERSONATION (impersonation of a person or an organization), HARASSMENT (harassment or stalking), SPAM_OR_SCAM (a spam
+or scam account), UNDER_MINIMUM_AGE (an account of a person under the minimum age); PLATFORM_RULES also admitted for
+ACCOUNT. Any other reason for ACCOUNT, or one of these four for another target: REPORT_REASON_NOT_ALLOWED.
 """
 enum ReportReason {
   CHARTER_ARTICLE
   COUNTERFEIT_DOCUMENT
+  HARASSMENT
   ILLEGAL
+  IMPERSONATION
   MISLEADING
   MISLEADING_LINK
   OFF_TOPIC
   PLATFORM_RULES
   SHOWS_ME
   SPAM_OR_FLOOD
+  SPAM_OR_SCAM
   UNDECLARED_COMMERCIAL
+  UNDER_MINIMUM_AGE
   WRONG_NAME
 }
 
@@ -253,9 +266,11 @@ type ReportReasonCount {
 
 """
 RECEIVED: acknowledged, waiting for a decision; CONTENT_REMOVED: removed (by moderation or its author);
-NO_ACTION: reviewed and kept.
+NO_ACTION: reviewed and kept. Since v101.11.0 (D-313): ACTION_TAKEN, a report of an ACCOUNT on which the platform team
+took a platform measure (never which one); a client shows an unknown status as RECEIVED.
 """
 enum ReportStatus {
+  ACTION_TAKEN
   CONTENT_REMOVED
   NO_ACTION
   RECEIVED
@@ -263,9 +278,11 @@ enum ReportStatus {
 
 """
 What a report is about (contracts/reports.md). Since v87.5.0 (D-268): PLAYLIST, a playlist; PLAYLIST_ITEM, an item of
-a playlist. Since v92.1.0: ROUTE, a public or unlisted route (routeId).
+a playlist. Since v92.1.0: ROUTE, a public or unlisted route (routeId). Since v101.11.0 (D-313): ACCOUNT, an account
+(accountId), to the platform team.
 """
 enum ReportTarget {
+  ACCOUNT
   CHANNEL_MESSAGE
   DIRECT_MESSAGE
   GROUP_CHAT
@@ -292,6 +309,11 @@ enum ReportTarget {
 What is reported, as an argument (report, dismissReports): its kind and the fields of that kind; a field
 of that kind missing, or a field of another kind given: INVALID_REQUEST.
 - POST: postId (a post or a reply). ROUTE (since v92.1.0): routeId.
+- Since v101.11.0 (D-313, moderation/reports.feature): ACCOUNT: accountId (the account reported, to the platform team:
+  IMPERSONATION, HARASSMENT, SPAM_OR_SCAM, UNDER_MINIMUM_AGE or PLATFORM_RULES; goodFaith true required,
+  REPORT_GOOD_FAITH_REQUIRED; the caller itself, the system account or a platform AI agent: REPORT_TARGET_INVALID; one report per reporter
+  and account, whatever the reason: reporting again returns the first report; an unknown or deleted account:
+  ACCOUNT_NOT_FOUND).
 - DIRECT_MESSAGE: discussion { accountId } and messageId. GROUP_MESSAGE: discussion { groupChatId } and
   messageId.
 CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { groupChatId }.
@@ -436,7 +458,15 @@ type PlatformMeasure {
   """
   The article of the platform rules applied.
   """
-  article: Int!
+  article: Int! @deprecated(reason: "Use ruleNumber (since v103.0.0, D-327): the number of a platform rule is a label such as 6.2; 0 when it is not an integer.")
+  """
+  Since v103.0.0 (D-327): the number of the platform rule applied, a label such as "6.2".
+  """
+  ruleNumber: String!
+  """
+  Since v103.0.0 (D-327): the title of the platform rule applied, in the language of the reader.
+  """
+  ruleTitle: String!
   """
   Whether the decision was taken by automated means.
   """

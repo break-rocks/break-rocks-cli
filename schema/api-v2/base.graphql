@@ -12,7 +12,7 @@ schema {
 
 """
 What can be read. Every root field is a line of the operation table of the backend, counted by the usage
-step. Grouped by domain: accounts, posts, messages, universes, governance, reports, appearance, map,
+step. Grouped by domain: accounts, posts, messages, universes, governance, reports, appearance, map, experiences,
 explore, notifications, payments.
 """
 type Query {
@@ -43,6 +43,14 @@ type Query {
   cell of the caller.
   """
   connectionStates(accountIds: [ID!]!): [ConnectionState!]
+
+  """
+  Since v106.0.0 (D-347, map-highlights.feature): the ids of the accounts whose content the caller does not see
+  because one blocked the other, either way, without saying which way, 10,000 at most, the most recent blocks first.
+  Read at sign-in and after a block or an unblock, kept on the device; the apps remove with it, on the device, what
+  the public files of the map highlights hold of these accounts. Served by the cell of the caller (P-16).
+  """
+  hiddenAccounts: [ID!]
 
   """
   The link to a part of a data copy READY, after a recent sign-in. Errors: DATA_REQUEST_NOT_FOUND
@@ -414,6 +422,15 @@ type Query {
   universeDiscussionWritingBans(id: ID!): [ChannelWritingBan!]
 
   """
+  The present residents of a universe discussion the caller may see by name, by its id (since v122.0.0, D-384):
+  those who chose EVERYONE (the default of a member of the leadership and of a moderator), and the accounts
+  connected with the caller that did not choose HIDDEN; the members of the leadership first, then the
+  moderators, then the connected accounts, then the others, at most 12. Read when the about panel opens, never
+  pushed. Empty for a caller who is not signed in.
+  """
+  universeDiscussionPresent(id: ID!): [PresentAccount!]
+
+  """
   The active members of a universe discussion, by its id, for "/who" (since v81.1.0, D-223, D-224): the accounts
   that wrote in it in the last 24 hours, the most recent writer first, at most 50.
   """
@@ -485,9 +502,24 @@ type Query {
   The routes that cross the map cells of resolution 6 of the area shown (4 at most) (since v101.0.0, D-300,
   routes.feature): the public routes of the accounts and the universe routes of the public universes, or, with
   universe, the universe routes of that universe only; never an unlisted nor a private route; their encodedLine
-  without the parts their privacy zones hide. 100 at most.
+  without the parts their privacy zones hide. 100 at most. Since D-374, the map reads mapRouteMarkers in its place, and
+  the line of one route with mapRoute(id) when the reader touches its route start marker or its route end marker; kept,
+  unchanged, while a client reads it.
   """
-  mapRoutes(parentMapCells: [String!]!, universe: String): [MapRoute!]
+  mapRoutes(parentMapCells: [String!]!, universe: String): [MapRoute!] @deprecated(reason: "Since D-374: mapRouteMarkers, then mapRoute(id) on a touch.")
+
+  """
+  The routes that cross the map cells of resolution 6 of the area shown (4 at most), in a light form, without their
+  line (since D-374, routes.feature): the same routes as mapRoutes (the public routes of the accounts and the
+  universe routes of the public universes, or, with universe, the universe routes of that universe only; never an
+  unlisted nor a private route), each with its identifier, its name, its mode, its length (of the whole route, since
+  D-375), its start point, its end point (null for a loop) and, since D-375, its free tags, which the map filter
+  counts; these two points being, for a route whose start or end a privacy zone of its author hides, the points where
+  its line leaves and enters that privacy zone, except for its author, who receives its start and its end (since
+  D-375). The line of one route is read with
+  mapRoute(id) when the reader touches one of its markers. 100 at most.
+  """
+  mapRouteMarkers(parentMapCells: [String!]!, universe: String): [MapRouteMarker!]
 
   """
   The registry of experience kinds (since v101.0.0, D-301, experience-kinds.feature): "event" 0 and "route" 0.
@@ -600,9 +632,19 @@ type Query {
 
   """
   The universe events of a universe between from and to: by default the last 7 days and the next 90. A bounded
-  list: 20 upcoming events at most, and those of the period.
+  list: 20 upcoming events at most, and those of the period. Since v117.0.0 (D-376, event-types.feature): with
+  families (the keys of event families), only the universe events of those event families, never one of the event type
+  "other" ("other" is no event family: INVALID_REQUEST); without it, or empty, all of them.
   """
-  universeEvents(from: AWSDateTime, to: AWSDateTime, universe: String!): [UniverseEvent!]
+  universeEvents(from: AWSDateTime, to: AWSDateTime, universe: String!, families: [String!]): [UniverseEvent!]
+
+  """
+  Since v117.0.0 (D-376, event-types.feature): the event catalog, its names in language (a language of the apps, as a
+  BCP 47 tag; INVALID_REQUEST otherwise). A bounded list: 12 event families today, set by the platform team. Since
+  v118.0.0 (D-377), public: a visitor not signed in reads it too. The event type "other" belongs to no event family
+  and is not among them.
+  """
+  eventCatalog(language: String!): EventCatalog
 
   """
   The invitations to private universes received by the caller, the most recent first. limit: from 1 to 50 (20
@@ -942,9 +984,11 @@ type Query {
   """
   The theme catalog: the themes a universe or the caller can use, by collection (a field), creator, use
   (personal or universe theme) and variant, in the order asked, those matching query. limit: from 1 to 100 (50
-  by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  by default; LIMIT_INVALID otherwise); after: the next of the page before. Since v101.13.0 (D-314), with the order
+  QUICK_START only: group (ThemeCatalogGroup) and withImage (true: the themes with a background image, false:
+  without; null: both), the filters of quick start; ignored with another order.
   """
-  themeCatalog(after: String, limit: Int, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant, highContrast: Boolean): ThemeCatalogPage
+  themeCatalog(after: String, limit: Int, collection: UniverseField, creator: ID, order: ThemeCatalogOrder, query: String, universe: String, use: ThemeUse, variant: ThemeVariant, highContrast: Boolean, group: ThemeCatalogGroup, withImage: Boolean): ThemeCatalogPage
 
   """
   The themes the caller starred (starTheme, since v81.11.0, D-244), the most recent first, 50 at most; reason
@@ -1017,6 +1061,46 @@ type Query {
   placed videos only); a placed video of a private universe only in that universe, for its members.
   """
   mapPosts(parentMapCells: [String!]!, universe: String, videosOnly: Boolean): [MapPost!]
+  """
+  Since D-355 (item 3), D-356, D-358 and D-360 (map-highlights.feature): the nearest activity of an area with nothing to draw,
+  from its center, among the map kinds chosen (kinds; PEOPLE is never an activity, and PEOPLE alone answers null), on the
+  map of Explore (universe null) or on the map of the public universe given in universe (its universe of the first
+  level, as its files: what that map shows; UNIVERSES ignored there): the nearest placed post, placed video, place with a place feat
+  (FEATS while the place feats are served), universe event, public universe (measured to the nearest point of its universe
+  territory; a public universe without one is never answered) or route (measured to its start), the same for every reader
+  but never of an account blocked either way, never a content of a private universe. Null when nothing is
+  within 500 kilometres, with PEOPLE alone, or on the map of a private universe. INVALID_REQUEST for a center off the world.
+  """
+  nearestActivity(center: PointInput!, kinds: [MapKind!]!, universe: String): NearestActivity
+
+  """
+  Since D-358 (item 2), D-360 and D-361 (map-markers.feature): the place card of a place without a place feat, by the id of
+  its point of interest (PostPlace.placeId, PlaceMatch.id): its name, its point and its 20 contents in all, the universe
+  events to come at the place first (the soonest first; one over never among them), then the placed posts and the placed
+  videos in the order of the map highlights (a placed post, then a placed video, each by its rank); a placed video of a
+  private universe for the members of that universe only; never a content of an account blocked either way. Null for a
+  place the map does not know (the link of a place opens the map of Explore). Since D-362, its postal address
+  (PlaceCard.address), read from the cartography at the time of the read, never kept. Since D-362, it answers for any
+  place the map knows, with or without a place feat: the share of a place with a place feat (D-352) reads its postal
+  address here too, by the placeId of the point of interest of its place feat.
+  """
+  placeCard(placeId: String!): PlaceCard
+
+  """
+  Since D-366 and D-368 (gathering-sheet.feature; contracts/map.md § The gathering sheet): what a touched map marker
+  gathers, read once when its gathering sheet opens, never to draw the map (no read per move of the map). mapCells:
+  the H3 cells that cover the map marker, of one resolution (0 to 15), 1 to 7 (INVALID_REQUEST otherwise): for a pin
+  cluster of placed posts and placed videos, the cells that cover its map markers; for a density mark at the zoom 19,
+  its child cell. kinds: the map kinds chosen; POSTS, VIDEOS, FEATS and EVENTS are answered, PEOPLE, UNIVERSES and
+  ROUTES ignored (a gathering sheet shows the people the app already holds from mapPresences, and the pin cluster of
+  places that overlap the MapPlaceFeats it already holds: neither reads this). universe: the universe filter (its full
+  path), null on the map of Explore without one. Answers one MapGatheringKind per map kind asked that holds
+  something, 4 at most, in the order POSTS, VIDEOS, FEATS, EVENTS: its count and its 20 first contents; empty when
+  nothing. What the map shows, with its exclusions: a placed video of a private universe for the members of that
+  universe only, never a content of an account blocked either way, never what the map keeps out. Read by a visitor
+  not signed in too: the public contents only, as the files of the map highlights.
+  """
+  mapGathering(mapCells: [String!]!, kinds: [MapKind!]!, universe: String): [MapGatheringKind!]
 
   """
   Since v92.0.0 (D-285, placed-videos.feature): the points of view of a placed video: the placed videos the caller
@@ -1025,6 +1109,14 @@ type Query {
   POST_NOT_FOUND.
   """
   pointsOfView(postId: ID!): [PointOfView!]
+
+  """
+  Since v101.15.0 (D-285, placed-videos.feature): true when the next placed video of the caller at "place" brings the
+  warning that the place may be near a home: the caller placed 3 videos or more in the map cell of resolution 8 of
+  that place in the last 30 days, not at a point of interest; false for a point of interest (placeId). Read by the app
+  before posting; the warning never blocks the post. Nothing is kept of the place asked.
+  """
+  videoPlaceNearHome(place: PostPlaceInput!): Boolean
 
   """
   Since v92.1.0 (routes.feature): a route by its identifier, as the caller may read it (the parts within the privacy
@@ -1068,6 +1160,15 @@ type Query {
   by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
   avatarParts(layer: AvatarLayer, language: String, after: String, limit: Int): AvatarPartPage
+
+  """
+  Since v101.16.0 (D-317, camera-filters.feature): the camera filter catalog the app camera offers, the camera filters
+  approved by the platform team and not withdrawn, named in "language", for the app of "platform": with appVersion,
+  only those whose minAppVersion is at most appVersion. With universe (a posting address), also the camera looks
+  its universe theme adds (CameraFilter.universe). A bare list, at most 500 camera filters (contracts/media.md);
+  read by every caller signed in, cached by the app for 24 hours.
+  """
+  cameraFilters(appVersion: String, language: String, platform: CameraFilterPlatform!, universe: String): [CameraFilter!]
 
   """
   Since v84.0.0 (D-248): the map avatar of the caller; null without one.
@@ -1383,6 +1484,49 @@ type Query {
   Since v86.0.0: the video quota of the caller; since v101.8.0 (D-309), a delegated agent's own.
   """
   myVideoQuota: VideoQuota
+
+  """
+  Since v104.2.0 (experiences group: experience-feats.feature, contracts/experiences.md): the place feats of a point of
+  interest (its place card; read by a visitor not signed in too), the most done first, 20 at most, a withdrawn one left out. PLACE_NOT_PUBLIC (placeId names
+  no point of interest of the cartography), PLACE_FEATS_NOT_OPEN.
+  """
+  placeFeats(placeId: String!): [PlaceFeat!]
+
+  """
+  Since v104.2.0: a place feat by its identifier, a withdrawn one included (its address answers PLACE_FEAT_NOT_FOUND);
+  read by a visitor too. PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN.
+  """
+  placeFeat(id: ID!): PlaceFeat
+
+  """
+  Since v104.2.0: the feat gallery of a place feat: its published experience feats the caller may read (one of a private
+  universe for its members only; a minor's never), in "order" (NEWEST by default); accountId: those of one account
+  only (the address "%paris*arc-photo!@alice"). after: the next of the page before. limit: from 1 to 50 (20 by
+  default). Read by a visitor too. PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN.
+  """
+  featGallery(placeFeatId: ID!, order: FeatGalleryOrder, accountId: ID, after: String, limit: Int): PublishedFeatPage
+
+  """
+  Since v104.2.0: an experience instance by its identifier, as the caller may read it: its human, an invitee of its
+  experience feat, or a reader of the post of its published experience feat; EXPERIENCE_INSTANCE_NOT_FOUND for anyone
+  else, whether or not it exists.
+  """
+  experienceInstance(id: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: My feats, the experience instances of the caller: those in progress first, then the others, the most
+  recently ended first. after: the next of the page before. limit: from 1 to 50 (20 by default).
+  """
+  myFeats(after: String, limit: Int): ExperienceInstancePage
+
+  """
+  Since v104.2.0: the experiences layer over the map cells of resolution 6 of the area shown (4 at most): the points of
+  interest with a place feat, each with its pin cluster and how lively it is, the most published first, 200 at most;
+  universe, the universe filter (the place feats it hosts or adopted). Read again when the area changes, never pushed;
+  read by a visitor too.
+  LAYER_NOT_SERVED while the platform does not serve the layer (client-config experiences.placeFeats off).
+  """
+  mapPlaceFeats(parentMapCells: [String!]!, universe: String): [MapPlaceFeats!]
 }
 
 """
@@ -1509,12 +1653,15 @@ type Mutation {
   Since specs v67.0.0 (D-177 (1)): "challenge", the S256 challenge of the verifier the device keeps:
   the email carries the email code link (/auth/change-email#…), and the code is answered
   "<code>.<verifier>" by the session that asked.
+  Since specs v101.12.0 (D-296, M-04): EMAIL_BANNED, the address of an account banned from the social platform less
+  than 5 years ago (no code sent; the apps say only that the address is not accepted).
   """
   requestEmailChange(challenge: String, email: String!, locale: String, requestId: ID!): Boolean
 
   """
   A rectification request to the platform team, answered within 1 month. Errors: RECTIFICATION_TEXT_EMPTY,
-  RECTIFICATION_TEXT_TOO_LONG.
+  RECTIFICATION_TEXT_TOO_LONG; since specs v103.3.0 (D-328, the field and the value asked): RECTIFICATION_VALUE_MISSING,
+  RECTIFICATION_VALUE_INVALID (errorInfo.field).
   """
   requestRectification(input: RectificationInput!, requestId: ID!): DataRequest
 
@@ -2078,9 +2225,27 @@ type Mutation {
   askToJoinUniverse(conditionsVersion: Int, universe: String!, requestId: ID!): JoinRequest
 
   """
-  A resident attends a universe event (attending true) or no longer. Returns the event.
+  A resident attends a universe event (attending true) or no longer. Returns the event. Since v117.0.0 (D-376), the
+  action "Going": refused when its participation modes do not offer it (EVENT_ACTION_NOT_OFFERED), never for its places nor
+  for the event state FULL. Since v118.0.0 (D-377): attending true ends the event interest of the caller; the attendees
+  stay when the participation modes stop offering "Going".
   """
   attendUniverseEvent(attending: Boolean!, eventId: ID!, requestId: ID!): UniverseEvent
+
+  """
+  Since v117.0.0 (D-376, event-types.feature): a signed-in account says "Interested" in a universe event (interested
+  true), or no longer (false); since v118.0.0 (D-377), any signed-in account, a resident of its universe or not (no
+  longer RESIDENTS_ONLY), and interested true ends the attending of the caller; refused when its participation modes do
+  not offer "Interested" (EVENT_ACTION_NOT_OFFERED). Returns the event.
+  """
+  setUniverseEventInterest(interested: Boolean!, eventId: ID!, requestId: ID!): UniverseEvent
+
+  """
+  Since v117.0.0 (D-376, event-types.feature): for a universe event of a sensitive event type, the caller shows its
+  attending (shown true), or hides it again (false); hidden by default (EVENT_NOT_SENSITIVE for an event type that is
+  not sensitive); since v118.0.0 (D-377), the event interest is never shown, whatever shown. Returns the event.
+  """
+  setUniverseEventShown(shown: Boolean!, eventId: ID!, requestId: ID!): UniverseEvent
 
   """
   The owner cancels the deletion of its private universe before it is deleted for good. Returns the deletion
@@ -2115,8 +2280,9 @@ type Mutation {
   closeDebate(name: String!, universe: String!, requestId: ID!): Debate @deprecated(reason: "Use closeUniverseDiscussion (since v81.0.0).")
 
   """
-  Creates a poll in a public universe: the leadership at once, a resident at the support of 5 residents.
-  Returns the poll.
+  Creates a poll in a public universe: the leadership at once, a resident at the support of 5 residents. Since
+  v101.16.0 (D-318, governance-page.feature), in a private universe: its owner and its admins
+  (ONLY_OWNER_OR_ADMINS_OPEN_POLLS otherwise). Returns the poll.
   """
   createPoll(choices: [String!]!, question: String!, universe: String!, requestId: ID!): Poll
 
@@ -2289,7 +2455,8 @@ type Mutation {
   universe: from "village", 10 across its levels, PUBLIC_CHANNELS_LIMIT) or TEMPORARY with "subject", "hours"
   1 to 168 (24 by default; UNIVERSE_DISCUSSION_DURATION) and "messageTtlSeconds" from 3,600 to the duration
   (3,600 by default; UNIVERSE_DISCUSSION_TTL_INVALID otherwise), not closed by itself before its end; LEADERSHIP_ONLY otherwise; UNIVERSE_DISCUSSIONS_LIMIT at the cap of open temporary
-  ones; CHANNEL_NAME_TAKEN. Returns it.
+  ones; CHANNEL_NAME_TAKEN. Since v101.16.0 (D-318), the governor of a sub-universe whose governance has the power
+  CHANNELS opens a PERMANENT one in that sub-universe. Returns it.
   """
   openUniverseDiscussion(hours: Int, lifetime: UniverseDiscussionLifetime!, messageTtlSeconds: Int, name: String!, subject: String, universe: String!, requestId: ID!): UniverseDiscussion
 
@@ -2329,6 +2496,24 @@ type Mutation {
   temporary universe discussion; LEADERSHIP_ONLY. Returns it.
   """
   setUniverseDiscussionPlace(id: ID!, name: String, point: PointInput, zone: ZoneInput, requestId: ID!): UniverseDiscussion
+
+  """
+  The leadership chooses who writes in a public channel (since v101.16.0, D-318, public-channels.feature): RESIDENTS,
+  VOTERS or LEADERSHIP_AND_MODERATORS (ChannelWriters); applied to the next message. LEADERSHIP_ONLY;
+  UNIVERSE_DISCUSSION_PERMANENT_ONLY for a temporary universe discussion; CHANNEL_WRITERS_NOT_ALLOWED for a channel of
+  a private universe. A message of anyone else in it: CHANNEL_WRITERS_ONLY (sendMessage). Returns it.
+  """
+  setUniverseDiscussionWriters(id: ID!, writers: ChannelWriters!, requestId: ID!): UniverseDiscussion
+
+  """
+  The leadership turns an open temporary universe discussion of a public universe into a public channel of the same
+  name and address (since v101.16.0, D-318, public-channels.feature): it becomes PERMANENT, from the governance level
+  "village" (PUBLIC_CHANNELS_LIMIT at 10 channels across the levels); LEADERSHIP_ONLY; UNIVERSE_DISCUSSION_NOT_OPEN
+  when it is not open; UNIVERSE_DISCUSSION_TEMPORARY_ONLY for a permanent one. Its messages already
+  sent become the first messages of the channel, with their authors and their times, kept as the messages of a public
+  channel from then on. Returns it.
+  """
+  turnUniverseDiscussionIntoChannel(id: ID!, requestId: ID!): UniverseDiscussion
 
   """
   The caller removes a universe discussion from the Universes section of Messages (since v101.0.0, D-302) without
@@ -2593,6 +2778,16 @@ type Mutation {
   setUniverseProfile(universe: String!, input: UniverseProfileInput!, requestId: ID!): Universe
 
   """
+  The leadership of a universe of the first level names an editor of its pages, or withdraws one (since v101.16.0,
+  D-318, pages.feature; the owner and the admins in a private universe): a resident (a member in a private universe)
+  who then edits and publishes its custom pages as the leadership does, and whose Customize offers the line "Universe
+  pages" only; 10 at most per universe (PAGE_EDITORS_LIMIT). LEADERSHIP_ONLY; PAGE_FIRST_LEVEL_ONLY;
+  PAGE_EDITOR_NOT_RESIDENT. Returns the universe
+  (Universe.pageEditors).
+  """
+  setPageEditor(accountId: ID!, editor: Boolean!, universe: String!, requestId: ID!): Universe
+
+  """
   The universe territory of a public universe of the first level, of any field (its showcase, by its
   leadership). Returns the universe.
   """
@@ -2661,7 +2856,8 @@ type Mutation {
 
   """
   A resident asks the leadership of a public universe a question (QUESTIONS_NEED_LEADERSHIP without
-  leadership). Returns the question.
+  leadership). Since v101.16.0 (D-318, governance-page.feature), any member of a private universe asks its owner;
+  the owner answers (answerLeadershipQuestion). Returns the question.
   """
   askLeadership(text: String!, universe: String!, requestId: ID!): LeadershipQuestion
 
@@ -2698,7 +2894,7 @@ type Mutation {
 
   """
   The leadership gives a sub-universe a governance of its own: an account and its powers (announcements,
-  moderation, pinned posts). Returns the governance of the universe.
+  moderation, pinned posts; since v101.16.0, D-318, channels). Returns the governance of the universe.
   """
   giveSubUniverseGovernance(accountId: ID!, powers: [SubUniversePower!]!, universe: String!, requestId: ID!): UniverseGovernance
 
@@ -2818,11 +3014,13 @@ type Mutation {
   """
   Reports a content (C-1): a post or a reply, a message, a group chat, a theme, a layout, a locatable
   resident, the banner, the territory, a custom page or the search words of a universe, a platform search
-  word; since v87.5.0 (D-268), a playlist (PLAYLIST) or one of its items (PLAYLIST_ITEM). reason and article as the target allows (REPORT_REASON_NOT_ALLOWED, REPORT_ARTICLE_REQUIRED,
+  word; since v87.5.0 (D-268), a playlist (PLAYLIST) or one of its items (PLAYLIST_ITEM); since v101.11.0 (D-313), an
+  account (ACCOUNT, to the platform team; itself, the system account or a platform AI agent: REPORT_TARGET_INVALID). reason and article as the target allows (REPORT_REASON_NOT_ALLOWED, REPORT_ARTICLE_REQUIRED,
   REPORT_ARTICLE_INVALID, REPORT_ARTICLE_NOT_ALLOWED, REPORT_OWN_CONTENT, REPORT_TARGET_NOT_ALLOWED).
   Since v99.1.0 (M-09, DSA art. 16(2)): details, a free text of 0 to 1,000 characters (REPORT_DETAILS_TOO_LONG);
   goodFaith, the good-faith declaration of the reporter, true required with ILLEGAL (REPORT_GOOD_FAITH_REQUIRED,
-  once the minimum version of the apps sends it; contracts/reports.md). Returns the report.
+  once the minimum version of the apps sends it; contracts/reports.md); since v101.12.0 (D-296), with PLATFORM_RULES
+  too, details accepted for every reason. Returns the report.
   """
   report(target: ReportTargetInput!, reason: ReportReason!, article: Int, mask: MediaMaskInput, details: String, goodFaith: Boolean, requestId: ID!): Report
 
@@ -3130,6 +3328,13 @@ type Mutation {
   (contracts/nearby.md).
   """
   createNearbyToken(requestId: ID!): ConnectionToken
+
+  """
+  Chooses who sees the caller by name among the present residents of the universe discussions (since v122.0.0,
+  D-384): of one universe (universe), or everywhere (universe left out); returns what now holds in that
+  universe, or everywhere.
+  """
+  setPresenceVisibility(requestId: ID!, universe: String, visibility: PresenceVisibility!): PresenceVisibility
 
   """
   A resident makes itself locatable in a public universe (locatable true: for an activity and 15 to 480
@@ -3715,4 +3920,65 @@ type Mutation {
   none). CHAPTERS_INVALID, CHAPTERS_NOT_ALLOWED. Returns the long video.
   """
   setChapters(postId: ID!, chapters: [ChapterInput!]!, requestId: ID!): LongVideo
+
+  """
+  Since v104.2.0 (experiences group: experience-feats.feature, contracts/experiences.md): starts an experience instance
+  of a place feat for the caller, a human only (PLACE_FEAT_HUMANS_ONLY: a delegated agent or an agent operator, for
+  every write of the place feats), private, IN_PROGRESS, with the current version of its template. RUN_IN_PROGRESS when the caller already has one in progress for that place feat (errorInfo { instanceId });
+  PLACE_FEAT_WITHDRAWN, PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN. Returns the experience instance.
+  """
+  startPlaceFeatRun(placeFeatId: ID!, requestId: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: ends an experience instance of the caller (EndPlaceFeatRunInput): COMPLETED with its media and its
+  provenance (its experience feat accepted at once, private), or ABANDONED. PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS (another human's experience
+  instance the caller may read), EXPERIENCE_INSTANCE_NOT_FOUND, RUN_NOT_IN_PROGRESS, FEAT_MEDIA_REQUIRED (COMPLETED
+  without a media of the destination EXPERIENCE_FEAT of the caller), INVALID_REQUEST. Returns the experience instance.
+  """
+  endPlaceFeatRun(input: EndPlaceFeatRunInput!, requestId: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: sets the invitees of an experience feat of the caller, all at once (empty: none), 20 at most, each a
+  connected account of the caller (FEAT_INVITEES_INVALID, errorInfo { max } beyond 20); a PRIVATE one becomes INVITED,
+  an INVITED one without invitees PRIVATE, a PUBLISHED one stays PUBLISHED; a feat invitee is removed when the
+  connection ends (removed, or a block). PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS,
+  EXPERIENCE_INSTANCE_NOT_FOUND, FEAT_NOT_PUBLISHABLE (reason NOT_COMPLETED). Returns the experience instance.
+  """
+  setFeatInvitees(instanceId: ID!, accountIds: [ID!]!, requestId: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: publishes an experience feat of the caller to its place feat (PublishFeatInput): a post with its photo
+  or its clip, in "universe", with its feat card, placed as "placement" says (the point of interest for an adult by
+  default, its post placed in a public universe only; not on the map; the city for a minor); the form of the post follows its media as
+  for any post; the refusals of createPost for that universe and that text. Once only: FEAT_NOT_PUBLISHABLE
+  (errorInfo { reason }: NOT_COMPLETED, ALREADY_PUBLISHED, WITHDRAWN (its author removed it), REMOVED (its post removed
+  by a moderator or the platform team), MEDIA_BLOCKED, PEOPLE_SHOWN_NOT_CONFIRMED), PLACE_FEAT_HUMANS_ONLY,
+  RUN_NOT_YOURS, EXPERIENCE_INSTANCE_NOT_FOUND, INVALID_REQUEST (a placement not allowed for the caller). Returns the
+  experience instance, PUBLISHED, its postId set.
+  """
+  publishFeat(input: PublishFeatInput!, requestId: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: removes a published experience feat of the caller from its place feat: its post deleted, the
+  experience feat back to PRIVATE (INVITED with feat invitees), never published again (FEAT_NOT_PUBLISHABLE WITHDRAWN).
+  Deleting the post (deletePost) does the same. PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS,
+  EXPERIENCE_INSTANCE_NOT_FOUND. Played again, or on an experience feat not published: the same answer. Returns the
+  experience instance.
+  """
+  unpublishFeat(instanceId: ID!, requestId: ID!): ExperienceInstance
+
+  """
+  Since v104.2.0: deletes an experience instance of the caller, its experience feat and its media (its post too when
+  published); the caller is no longer counted for the place feat once none of their experience feats of it is left.
+  PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS, EXPERIENCE_INSTANCE_NOT_FOUND (also played again). True once done.
+  """
+  deleteExperienceInstance(instanceId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v104.2.0: the leadership of a public universe adopts a place feat (adopt true) or stops adopting it (false):
+  the experience feats published in that universe then carry its monogram (or no longer). LEADERSHIP_ONLY
+  (a public universe with a leadership, from the governance level "village"), PLACE_FEAT_NOT_FOUND. Returns the place
+  feat.
+  """
+  setPlaceFeatAdoption(universe: String!, placeFeatId: ID!, adopt: Boolean!, requestId: ID!): PlaceFeat
 }

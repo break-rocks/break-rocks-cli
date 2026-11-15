@@ -1,0 +1,435 @@
+# The place feats, the first slice of the experiences (since v104.2.0, decided on 2026-11-11): additions only.
+# features/experiences/experience-feats.feature; contracts/experiences.md (the template format breakrocks.experience/3,
+# the states, the counts, the map layer); contracts/urls.md § Place feats. The operations are in base.graphql (Query and
+# Mutation, group "experiences"). Words: the glossary says "experience instance" and "experience feat"; the operations
+# keep the word "run" of the experiences drafts (startPlaceFeatRun, endPlaceFeatRun), the types the glossary words.
+# Cost at rest (expand only): a place feat is one item (its template in S3 when large); an experience instance one item
+# holding its experience feat; a published experience feat one item in the gallery of its place feat (by date) plus its
+# post; the place feat counts are sharded counters per place feat (people, today) and one marker per place feat and
+# person (counted once); nothing is polled, nothing is pushed in real time in this slice.
+
+"""
+A place feat (glossary: place feat): an experience template of the template kind "place-feat", bound to one point of
+interest, done by many people the same way (contracts/experiences.md § The template).
+"""
+type PlaceFeat {
+  """
+  Its identifier (<cell>-<UUIDv7>).
+  """
+  id: ID!
+  """
+  Its address ("%paris*arc-photo"): its host universe, "*" and its name.
+  """
+  address: String!
+  """
+  Its canonical URL ("/u/paris/e/arc-photo").
+  """
+  url: AWSURL!
+  """
+  Its name, by the rules of a channel name ("arc-photo").
+  """
+  name: String!
+  """
+  Its title in the language of the caller, else in its first language ("A photo in front of the Arc de Triomphe").
+  """
+  title: String!
+  """
+  What to do, in the language of the caller, at most 500 visible characters.
+  """
+  instruction: String!
+  """
+  The version of its template ("1.0"): an experience instance keeps the version it started with.
+  """
+  templateVersion: String!
+  """
+  Its place: the point of interest it is bound to.
+  """
+  place: PlaceFeatPlace!
+  """
+  The address of its host universe ("%paris"), where the platform team seeded it.
+  """
+  hostUniverse: String!
+  """
+  The addresses of the public universes that adopted it, the 20 most recent (display only; no limit to adopting).
+  """
+  adoptedBy: [String!]!
+  """
+  The number of the public universes that adopted it.
+  """
+  adoptedByCount: Int!
+  """
+  The media kinds its one step takes: IMAGE (a photo) and VIDEO (a clip, at most 3 minutes).
+  """
+  mediaKinds: [MediaKind!]!
+  """
+  The evidence policies it accepts: SELF_REPORTED (the default) and NEAR_PLACE.
+  """
+  evidencePolicies: [FeatProvenance!]!
+  """
+  The photo rules of its place, in the language of the caller, shown before an experience instance starts; empty when
+  none.
+  """
+  photoRules: [String!]!
+  """
+  The place warnings of its place (a road, a ledge), in the language of the caller, shown before an experience instance
+  starts; empty when none.
+  """
+  placeWarnings: [String!]!
+  """
+  Its place feat count.
+  """
+  counts: PlaceFeatCounts!
+  """
+  True once the platform team withdrew it: it starts no experience instance (PLACE_FEAT_WITHDRAWN); its published
+  experience feats stay.
+  """
+  withdrawn: Boolean!
+  """
+  The experience instance of the caller in progress for this place feat; null when none.
+  """
+  myInstanceInProgress: ExperienceInstance
+}
+
+"""
+The point of interest of a place feat.
+"""
+type PlaceFeatPlace {
+  """
+  The identifier of the point of interest in the cartography (the placeId of PostPlaceInput).
+  """
+  placeId: String!
+  """
+  Its name in the language of the caller, else its local name.
+  """
+  name: String!
+  """
+  Its point (WGS 84): where every experience feat of the place feat is shown, never the position of a person.
+  """
+  point: Point!
+  """
+  Its map cell (H3, resolution 8).
+  """
+  mapCell: String!
+}
+
+"""
+The place feat count (glossary: place feat count): people counted once, whatever the visibility of their experience
+feats, never named; a count under 3 people is null (k-anonymity, as a map presence group).
+"""
+type PlaceFeatCounts {
+  """
+  The people who hold an experience feat of the place feat, whatever its visibility, minors included (the decision
+  D-332 stays open); a person whose experience feats of it are all deleted is no longer counted; null under 3.
+  """
+  people: Int
+  """
+  The people who completed an experience instance of it today (since midnight in the time zone of the place), each
+  once, only humans whose account is at least 30 days old, never a minor; refreshed every hour; null under 3.
+  """
+  today: Int
+  """
+  How lively its place is (glossary: lively place).
+  """
+  liveliness: PlaceLiveliness!
+}
+
+"""
+How lively a place is, from the distinct people who completed an experience instance of one of its place feats today
+(one marker per place, person and local day; only humans whose account is at least 30 days old, never a minor): NONE
+under 3 people, LIVELY from 3, VERY_LIVELY from 20 (settings of the platform team, experiences.md § Counts).
+"""
+enum PlaceLiveliness {
+  LIVELY
+  NONE
+  VERY_LIVELY
+}
+
+"""
+The provenance of an experience feat, which is also the evidence policy that accepted it: SELF_REPORTED (the human says
+so; always for a photo or a clip chosen among the photos of the phone), NEAR_PLACE (a capture of the app camera during
+the experience instance, the app having found the position of the device within 300 metres of the point of interest,
+on the device; the position never sent). Set once at completion, never upgraded afterwards. LANDMARK_PROPOSED comes
+later.
+"""
+enum FeatProvenance {
+  NEAR_PLACE
+  SELF_REPORTED
+}
+
+"""
+The state of an experience instance: IN_PROGRESS, COMPLETED (it holds its experience feat), ABANDONED (it holds none).
+"""
+enum ExperienceInstanceState {
+  ABANDONED
+  COMPLETED
+  IN_PROGRESS
+}
+
+"""
+An experience instance of a place feat (glossary: experience instance; "run" in the operations), read by its human; by
+a feat invitee or a reader of the post of its published experience feat, the same without the fields kept for its
+human (each description says). Whether its human is a minor is read at every reading, from their current status.
+"""
+type ExperienceInstance {
+  """
+  Its identifier (<cell>-<UUIDv7>), the id of its address ("%paris*arc-photo!id=<id>").
+  """
+  id: ID!
+  """
+  Its place feat; null for every reader but its human when its human is a minor (neither the place nor the date of a
+  minor's experience feat is ever shown to another reader).
+  """
+  placeFeat: PlaceFeat
+  """
+  The version of the template it started with.
+  """
+  templateVersion: String!
+  """
+  Its human.
+  """
+  account: AccountRef!
+  """
+  Its state.
+  """
+  state: ExperienceInstanceState!
+  """
+  When it started; null for a reader other than its human.
+  """
+  startedAt: AWSDateTime
+  """
+  When it ended; null while in progress, and for a reader other than its human.
+  """
+  endedAt: AWSDateTime
+  """
+  Its experience feat; null unless COMPLETED.
+  """
+  feat: ExperienceFeat
+}
+
+"""
+An experience feat (glossary: experience feat): the accepted result of a completed experience instance.
+"""
+type ExperienceFeat {
+  """
+  When it was accepted (the completion of its experience instance); null for a feat invitee, and for every reader but
+  its human when its human is a minor.
+  """
+  acceptedAt: AWSDateTime
+  """
+  Its provenance.
+  """
+  provenance: FeatProvenance!
+  """
+  Its media kind: IMAGE or VIDEO.
+  """
+  mediaKind: MediaKind!
+  """
+  The URL of its media on the media CDN, signed for 1 hour while it is not published; for a published one, the media
+  of its post.
+  """
+  mediaUrl: AWSURL!
+  """
+  Its visibility.
+  """
+  visibility: FeatVisibility!
+  """
+  Its feat invitees, 20 at most, each a connected account of its human (removed when the connection ends: removed, or a
+  block); empty for a reader other than its human.
+  """
+  invitees: [AccountRef!]!
+  """
+  Its post once published; null otherwise.
+  """
+  postId: ID
+  """
+  The address of the universe of its post once published; null otherwise.
+  """
+  universe: String
+  """
+  Where its post is placed: POINT_OF_INTEREST, CITY or NONE; null unless published. Read as NONE for a
+  POINT_OF_INTEREST once its human is a minor.
+  """
+  placement: FeatPlacement
+  """
+  The address of the universe whose monogram it carries: the universe of its post when it hosts or adopted the place
+  feat; null otherwise.
+  """
+  monogramUniverse: String
+  """
+  True when its human said "I am in it" when publishing.
+  """
+  inIt: Boolean!
+}
+
+"""
+The visibility of an experience feat: PRIVATE (its human only, the default), INVITED (its human and its invitees),
+PUBLISHED (the readers of its post; its invitees too).
+"""
+enum FeatVisibility {
+  INVITED
+  PRIVATE
+  PUBLISHED
+}
+
+"""
+A published experience feat in a feat gallery.
+"""
+type PublishedFeat {
+  """
+  Its experience instance (its id, its human, its place feat, its experience feat).
+  """
+  instance: ExperienceInstance!
+  """
+  Its post (the photo, or the clip), as the caller reads it.
+  """
+  post: Post!
+}
+
+"""
+A page of a feat gallery.
+"""
+type PublishedFeatPage {
+  """
+  The published experience feats of the page.
+  """
+  items: [PublishedFeat!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+}
+
+"""
+A page of the experience instances of the caller (My feats).
+"""
+type ExperienceInstancePage {
+  """
+  The experience instances of the page.
+  """
+  items: [ExperienceInstance!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+}
+
+"""
+The order of a feat gallery: NEWEST (by the date of publication, the default), MOST_REACTED (by the interest of the
+post, then the newest).
+"""
+enum FeatGalleryOrder {
+  MOST_REACTED
+  NEWEST
+}
+
+"""
+Where the post of a published experience feat is placed (experience-feats.feature): POINT_OF_INTEREST (an adult only,
+the default for an adult: the point of interest of the place feat, in the feat gallery and the pin cluster; a clip also
+a placed video there), NONE ("not on the map": not placed, neither in the feat gallery nor the pin cluster, still
+counted; the default for a minor) or CITY (a minor only: the city of the point of interest, never closer, never in the
+feat gallery nor the pin cluster). Another combination: INVALID_REQUEST.
+"""
+enum FeatPlacement {
+  CITY
+  NONE
+  POINT_OF_INTEREST
+}
+
+"""
+A place of the experiences layer: a point of interest with a place feat, its pin cluster and how lively it is.
+"""
+type MapPlaceFeats {
+  """
+  The place.
+  """
+  place: PlaceFeatPlace!
+  """
+  The identifiers of its place feats the layer shows (with a universe filter, those that universe hosts or adopted),
+  5 at most.
+  """
+  placeFeatIds: [ID!]!
+  """
+  The number of the experience feats of its place feats published in public universes at the point of interest (a
+  minor's and one "not on the map" left out): the number of its pin cluster.
+  """
+  publishedCount: Int!
+  """
+  3 authors at most of those published experience feats, chosen among all their authors (since D-352): the connected
+  accounts of the caller first, then the accounts the caller follows, then the most recent; never an account the
+  caller blocked or that blocked the caller; empty when none (and for a caller not signed in: the most recent only).
+  """
+  preview: [FeatAuthorPreview!]!
+  """
+  How lively the place is.
+  """
+  liveliness: PlaceLiveliness!
+  """
+  Since v114.3.0 (map-markers.feature, D-349; contracts/map.md § "Since v114.3.0"): the photo of the last published
+  experience feat of the place, drawn in its round with the feat flag and shown on its place card. That experience feat
+  is chosen among those publishedCount counts (published in public universes and placed at the point of interest),
+  never one it does not count; read with universe, the last published experience feat of that universe at the place,
+  as publishedCount; without universe, of the whole place. The photo is the first image of
+  its post (Post.images, the first), on the media CDN, as the URL of one variant of that image that exists
+  (<url>/<width>.webp, a width among its Image.widths): the smallest width served of at least 192 pixels (twice the 96
+  pixels of a map marker), else, for an image narrower than that, the largest width served; when that experience feat
+  is a clip, the poster of the clip. The client reads this URL as given and never builds a URL nor asks a width of its
+  own. The same image the post shows (an area hidden after posting stays hidden), under the same visibility rules as
+  the post. It follows the last published experience feat: once that one is unpublished, removed or deleted, the next
+  read answers the photo of the new last one. Null when the last published experience feat has neither an image nor a
+  poster, and for a place without a published experience feat.
+  """
+  photoUrl: AWSURL
+}
+
+"""
+An author shown on a pin cluster of the experiences layer.
+"""
+type FeatAuthorPreview {
+  """
+  The author (its profile picture, else its monogram).
+  """
+  account: AccountRef!
+  """
+  Its map avatar; null without one (the profile picture, else the monogram, is shown).
+  """
+  mapAvatar: MapAvatar
+}
+
+"""
+How an experience instance ends (endPlaceFeatRun): COMPLETED, with its media, or ABANDONED.
+"""
+enum RunOutcome {
+  ABANDONED
+  COMPLETED
+}
+
+"""
+What ends an experience instance (endPlaceFeatRun): instanceId; outcome COMPLETED or ABANDONED; for COMPLETED, mediaId
+(an IMAGE or a VIDEO uploaded with requestMediaUpload, destination EXPERIENCE_FEAT) and provenance (SELF_REPORTED, or
+NEAR_PLACE for a capture of the app camera during the experience instance found within 300 metres of the point of
+interest; a provenance not in PlaceFeat.evidencePolicies: INVALID_REQUEST); for ABANDONED, neither (INVALID_REQUEST
+otherwise).
+"""
+input EndPlaceFeatRunInput {
+  instanceId: ID!
+  outcome: RunOutcome!
+  mediaId: ID
+  provenance: FeatProvenance
+}
+
+"""
+What publishes an experience feat (publishFeat): instanceId; universe, the address of the universe of the post, within
+the rules of posting there; text, the text of the post (the rules of the text of a post), optional; inIt, "I am in it";
+peopleShownAgreed, true when its human confirms that the people shown, other than themselves, agreed to be shown
+(FEAT_NOT_PUBLISHABLE otherwise); placement (FeatPlacement; none: POINT_OF_INTEREST for an adult, NONE for a minor).
+The form of the post follows its media as for any post: a vertical or square clip is seen among the posts and the
+clips; a photo or a horizontal clip among the posts.
+"""
+input PublishFeatInput {
+  instanceId: ID!
+  universe: String!
+  text: String
+  inIt: Boolean!
+  peopleShownAgreed: Boolean!
+  placement: FeatPlacement
+}

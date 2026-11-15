@@ -156,6 +156,12 @@ type AccountOwn {
   """
   minimumAgeCheckedAt: AWSDate
   """
+  Since v101.21.0 (D-288, D-317): true while the human is a minor, under the age of majority of its country
+  (the same rule as the map presences and the camera filters: no face slimming offered to a minor); false for an
+  adult and for an agent. On the account's own view only.
+  """
+  minor: Boolean!
+  """
   The day the person who registered an agent operator confirmed being of full age; null for a human.
   """
   fullAgeConfirmedAt: AWSDate
@@ -353,7 +359,8 @@ type DataCopyPart {
 """
 A data request: "scope" for a bulk erasure only; "dueAt" requestedAt plus 1 calendar month;
 "cancellableUntil" a bulk erasure's 24 hours; "expiresAt" a data copy's 7 days once ready;
-"parts" a data copy READY only (500 at most); "kept" what a legal obligation keeps (empty: nothing).
+"parts" a data copy READY only (500 at most); "kept" what a legal obligation keeps (empty: nothing);
+"rectification" (since specs v103.4.0) what a rectification request asks, served to its account only.
 """
 type DataRequest {
   """
@@ -388,6 +395,11 @@ type DataRequest {
   The parts of a data copy ready; null otherwise.
   """
   parts: [DataCopyPart!]
+  """
+  Since specs v103.4.0: what a rectification request asks (its field, the value asked, the text, the comment); null for
+  a data copy, a bulk erasure, and a rectification request answered before v103.4.0.
+  """
+  rectification: DataRequestRectification
   """
   When it was asked.
   """
@@ -424,6 +436,32 @@ type DataRequestPage {
   The cursor of the next page (the argument after); null on the last page.
   """
   next: String
+}
+
+"""
+Since specs v103.4.0: what a rectification request asks, as its account sent it (RectificationInput), served to that
+account only (myDataRequests, requestRectification). field, the field to correct (OTHER for a request sent without one);
+value, the value asked of a named field, null for OTHER and always null for BIRTH_DATE (the date of birth is never kept, nor
+served back); text, the text of OTHER, null otherwise; comment, null without one. Kept with the request until it is
+answered: then value, text and comment are deleted (null), the field stays.
+"""
+type DataRequestRectification {
+  """
+  The comment sent with the request; null without one, and once the request is answered.
+  """
+  comment: String
+  """
+  The field the request names.
+  """
+  field: RectificationField!
+  """
+  The text of a request of another field (OTHER); null otherwise, and once the request is answered.
+  """
+  text: String
+  """
+  The value asked for a named field; null for OTHER, for BIRTH_DATE, and once the request is answered.
+  """
+  value: String
 }
 
 """
@@ -1079,11 +1117,42 @@ type PublicInvitationLink {
 }
 
 """
-A rectification request: what the caller asks to correct.
+A rectification request: what the caller asks to correct. Since specs v103.3.0 (D-328): field, the field to correct
+(absent: OTHER, as an app before v103.3.0 sends); value, the value asked, required for a field but OTHER (COUNTRY an ISO
+3166-1 alpha-2 code; BIRTH_DATE YYYY-MM-DD, a past date of at most 130 years; EMAIL an email address; DISPLAY_NAME 1 to 50
+visible characters), absent for OTHER; text, the free text of OTHER (1 to 2,000 visible characters), absent otherwise;
+comment, optional, at most 2,000 visible characters. Errors of requestRectification: RECTIFICATION_VALUE_MISSING,
+RECTIFICATION_VALUE_INVALID, RECTIFICATION_TEXT_EMPTY, RECTIFICATION_TEXT_TOO_LONG.
 """
 input RectificationInput {
   """
-  The text as written.
+  Since specs v103.3.0 (D-328): an optional comment, at most 2,000 visible characters.
   """
-  text: String!
+  comment: String
+  """
+  Since specs v103.3.0 (D-328): the field to correct; absent: OTHER.
+  """
+  field: RectificationField
+  """
+  The free text of a request of another field (OTHER), as written; absent for a named field (since specs v103.3.0; until
+  then required, the only content of the request).
+  """
+  text: String
+  """
+  Since specs v103.3.0 (D-328): the value asked for a named field; absent for OTHER.
+  """
+  value: String
+}
+
+"""
+Since specs v103.3.0 (D-328): the field a rectification request names. BIRTH_DATE (never kept: no value now), COUNTRY,
+DISPLAY_NAME and EMAIL (changed by the person themselves: the platform team answers where to change it), OTHER (described
+by a text).
+"""
+enum RectificationField {
+  BIRTH_DATE
+  COUNTRY
+  DISPLAY_NAME
+  EMAIL
+  OTHER
 }

@@ -1053,6 +1053,22 @@ type ResolvedAddress {
   """
   mapRoute: MapRoute
   """
+  Since v104.2.0 (experience-feats.feature): the place feat of a place feat address ("%paris*arc-photo"), of its
+  "!@<handle>" form and of its "!id=<id>" form; null otherwise. The address of a withdrawn or deleted place feat:
+  PLACE_FEAT_NOT_FOUND (its name stays reserved in its universe).
+  """
+  placeFeat: PlaceFeat
+  """
+  Since v104.2.0: the account of a "!@<handle>" form after a place feat address ("%paris*arc-photo!@alice"), whose
+  published experience feats are read with featGallery(accountId); null otherwise.
+  """
+  featAccount: AccountRef
+  """
+  Since v104.2.0: the experience instance of a "!id=<id>" form after a place feat address, as the caller may read it
+  (EXPERIENCE_INSTANCE_NOT_FOUND otherwise); null otherwise.
+  """
+  experienceInstance: ExperienceInstance
+  """
   The canonical URL, the parameters as its query ("/a/erin/l/journey?from=3&t=30").
   """
   url: AWSURL!

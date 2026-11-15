@@ -455,9 +455,13 @@ staying without its document card).
 Since v92.0.0 (D-284): MASK_REQUESTED, a person shown in a media of the caller asks to hide an area; SANCTION_MEDIA_MASK, a moderator masked a media of the caller (category moderation).
 Since v99.1.0: PLATFORM_APPEAL_OVERDUE (M-12, M-14), a platform appeal of the reader without a decision 14 days
 after it was filed: an out-of-court dispute settlement body can be asked (category moderation, mandatory);
-REPORT_DECIDED (M-09), the platform team decided a report of the reader (category moderation).
+REPORT_DECIDED (M-09), the platform team decided a report of the reader (category moderation); since v101.12.0 (D-296),
+only a decision of the platform team, never one of the moderators of a universe.
+Since v103.0.0 (D-327): AD_CORRECTION_REQUESTED, the platform team asked the advertiser a correction of a creative of
+its ad campaign ("subject" the campaign id, "message" the ad rule and the correction; category account, mandatory).
 """
 enum NotificationKind {
+  AD_CORRECTION_REQUESTED
   APPEAL_DECIDED
   BULK_ERASURE_DONE
   CHANNEL_MENTION
@@ -552,7 +556,15 @@ type NotificationMeasure {
   """
   The article of the platform rules cited; null when none.
   """
-  article: Int
+  article: Int @deprecated(reason: "Use ruleNumber (since v103.0.0, D-327): the number of a platform rule is a label such as 6.2; 0 when it is not an integer.")
+  """
+  Since v103.0.0 (D-327): the number of the platform rule applied, a label such as "6.2"; null when none.
+  """
+  ruleNumber: String
+  """
+  Since v103.0.0 (D-327): the title of the platform rule applied, in the language of the reader; null when none.
+  """
+  ruleTitle: String
   """
   Whether the measure was taken by automated means.
   """
@@ -606,7 +618,8 @@ type NotificationMeasure {
 
 """
 The decision of the platform team on a report of the reader (REPORT_DECIDED, since v99.1.0, M-09,
-contracts/reports.md § The decision told to the reporter): never the measure taken against the author.
+contracts/reports.md § The decision told to the reporter): never the measure taken against the author. Since v101.12.0
+(D-296): only the decisions of the platform team; a decision of the moderators of a universe sends no notification.
 """
 type NotificationReport {
   """
@@ -620,7 +633,15 @@ type NotificationReport {
   """
   The article of the platform rules applied; null without one.
   """
-  article: Int
+  article: Int @deprecated(reason: "Use ruleNumber (since v103.0.0, D-327): the number of a platform rule is a label such as 6.2; 0 when it is not an integer.")
+  """
+  Since v103.0.0 (D-327): the number of the platform rule applied, a label such as "6.2"; null without one.
+  """
+  ruleNumber: String
+  """
+  Since v103.0.0 (D-327): the title of the platform rule applied, in the language of the reader; null without one.
+  """
+  ruleTitle: String
   """
   The reason written by the member of the platform team for NO_ACTION; null otherwise.
   """
@@ -882,6 +903,10 @@ type Settings {
   """
   universeFrame: UniverseFrameSettings!
   """
+  The settings of the app camera (since v101.16.0, D-317, camera-filters.feature): the section Camera of Me.
+  """
+  camera: CameraSettings!
+  """
   The language of the slash commands (since v81.1.0, D-224), a language code; null: the language of the app.
   The apps turn a localized name into its English name before any call; the API knows the English names only.
   """
@@ -897,6 +922,12 @@ type Settings {
   from 23:00 to 06:00 local time of the device, whatever its value.
   """
   autoplay: Boolean!
+  """
+  The settings of the map of the reader (since D-350, map-markers.feature): the density mark display, the place name
+  display and the map thumbnails, the same on all the devices of the account; a person who is not signed in reads
+  the map with their default values.
+  """
+  map: MapSettings!
 }
 
 """
@@ -930,6 +961,10 @@ input SettingsInput {
   """
   universeFrame: UniverseFrameSettingsInput
   """
+  The settings of the app camera (since v101.16.0, D-317): a field not given stays.
+  """
+  camera: CameraSettingsInput
+  """
   The language of the slash commands (since v81.1.0, D-224); clear COMMAND_LANGUAGE goes back to the language
   of the app.
   """
@@ -944,6 +979,10 @@ input SettingsInput {
   The autoplay setting (since v86.0.0).
   """
   autoplay: Boolean
+  """
+  The settings of the map (since D-350): a field not given stays.
+  """
+  map: MapSettingsInput
 }
 
 """
@@ -1120,3 +1159,115 @@ input UniverseFrameSettingsInput {
   """
   pagesBar: Boolean
 }
+
+"""
+The settings of the app camera (since v101.16.0, D-317, camera-filters.feature), kept with the account: the default
+camera filter, a camera look of the camera filter catalog ("natural" by default); the default preset of the camera
+retouches (NATURAL by default); whether the app camera opens with the camera filters last used (true by default),
+which the app keeps on the device. A minor has the same defaults, never face slimming.
+"""
+type CameraSettings {
+  """
+  The id of the default camera look in the camera filter catalog; "natural" by default.
+  """
+  defaultLook: ID!
+  """
+  The default preset of the camera retouches; NATURAL by default.
+  """
+  defaultRetouchPreset: CameraRetouchPreset!
+  """
+  Whether the app camera opens with the camera filters last used on the device; true by default.
+  """
+  rememberLast: Boolean!
+}
+
+"""
+The settings of the app camera to change (setSettings camera): defaultLook, a camera look of the camera filter
+catalog (CAMERA_FILTER_UNKNOWN otherwise, or not a camera look); defaultRetouchPreset; rememberLast.
+"""
+input CameraSettingsInput {
+  defaultLook: ID
+  defaultRetouchPreset: CameraRetouchPreset
+  rememberLast: Boolean
+}
+
+"""
+The settings of the map of the reader (since D-350, map-markers.feature; Me › Privacy › the settings of the map), kept
+with the account, the same on all its devices: densityMarkDisplay, how the density marks are drawn (GLOW_AND_KINDS by
+default); placeNameDisplay, which places with a place feat show their name (BY_ZOOM by default); mapThumbnails, which
+map markers with a photo are drawn with it (WITH_PHOTO by default since D-356). A person who is not signed in reads the map with
+these defaults.
+"""
+type MapSettings {
+  """
+  How the density marks are drawn; GLOW_AND_KINDS by default.
+  """
+  densityMarkDisplay: DensityMarkDisplay!
+  """
+  Which places with a place feat show their name; BY_ZOOM by default.
+  """
+  placeNameDisplay: PlaceNameDisplay!
+  """
+  Which map markers with a photo are drawn with it; WITH_PHOTO by default since D-356 (a stored FIRST_ONES or ALL is
+  read as WITH_PHOTO).
+  """
+  mapThumbnails: MapThumbnails!
+}
+
+"""
+The settings of the map to change (setSettings map, since D-350): a field not given stays.
+"""
+input MapSettingsInput {
+  densityMarkDisplay: DensityMarkDisplay
+  placeNameDisplay: PlaceNameDisplay
+  mapThumbnails: MapThumbnails
+}
+
+"""
+The density mark display (since D-349, D-350; map-markers.feature): GLOW_AND_KINDS, the default, a density glow with
+the label of its kinds from the glow threshold, its number below it; NUMBER, the number of every density mark,
+without a density glow, whatever the glow threshold. An app that does not know a value reads GLOW_AND_KINDS.
+"""
+enum DensityMarkDisplay {
+  GLOW_AND_KINDS
+  NUMBER
+}
+
+"""
+The place name display (since D-349, D-350; map-markers.feature): BY_ZOOM, the default (under the zoom 9 the first 5
+places among the map highlights, from the zoom 9 to under 15 each map highlight with how lively it is, from the zoom
+15 every place with the stack of its authors); ALL_FROM_ZOOM_9, the name of every place drawn from the zoom 9; NONE,
+no name and no "very lively place" nor "lively place". An app that does not know a value reads BY_ZOOM.
+"""
+enum PlaceNameDisplay {
+  ALL_FROM_ZOOM_9
+  BY_ZOOM
+  NONE
+}
+
+"""
+The map thumbnails (since D-349, D-350, D-356; map-markers.feature): since D-356, two choices: WITH_PHOTO, the
+default, each map marker the marker budget draws that has a photo drawn with it; NONE, each of them as a compact map
+marker. A universe event, a public universe and a route have no photo and keep their own map marker. FIRST_ONES and
+ALL, the choices before D-356, are deprecated (AppSync serves @deprecated on fields only) and kept until no app
+writes them: the social platform stores and returns WITH_PHOTO in their place. An app that does not know a value reads
+WITH_PHOTO.
+"""
+enum MapThumbnails {
+  ALL
+  FIRST_ONES
+  NONE
+  WITH_PHOTO
+}
+
+"""
+A preset of the camera retouches (camera-filters.feature; skin smoothing, blemish removal, dark circle softening, eye
+and teeth brightening, face slimming, from 0 to 100): OFF, every slider at 0; NATURAL, the default, 35, 60, 30, 15
+and 0; GLOW, 50, 70, 40, 25 and 0 (contracts/media.md). Face slimming at most 15 for an adult, 0 for a minor.
+"""
+enum CameraRetouchPreset {
+  GLOW
+  NATURAL
+  OFF
+}
+

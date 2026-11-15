@@ -6,6 +6,13 @@ player within the post.
 """
 type Clip {
   """
+  Its camera filter mark (since v101.16.0, D-317, camera-filters.feature): the camera filters baked into it by the app
+  camera, declared with requestMediaUpload (MediaUploadInput.filters), in the order applied, "natural" included; empty
+  when taken without one. Shown as "Edited with a filter" only for a camera look other than "natural", a camera
+  retouch above the preset NATURAL or an AR effect (contracts/media.md); always kept in the evidence of a report.
+  """
+  filters: [AppliedFilter!]!
+  """
   Whether an area of it was hidden after posting (since v92.0.0, D-284, masks-after-posting.feature): shown with
   the mention "area hidden after posting"; false otherwise.
   """
@@ -101,6 +108,13 @@ blurhash draws a placeholder of the right colors while it loads. The images of p
 universes (banner, logo), link previews and avatars (G-10: was PostImage).
 """
 type Image {
+  """
+  Its camera filter mark (since v101.16.0, D-317, camera-filters.feature): the camera filters baked into it by the app
+  camera, declared with requestMediaUpload (MediaUploadInput.filters), in the order applied, "natural" included; empty
+  when taken without one. Shown as "Edited with a filter" only for a camera look other than "natural", a camera
+  retouch above the preset NATURAL or an AR effect (contracts/media.md); always kept in the evidence of a report.
+  """
+  filters: [AppliedFilter!]!
   """
   Whether an area of it was hidden after posting (since v92.0.0, D-284, masks-after-posting.feature): shown with
   the mention "area hidden after posting"; false otherwise.
@@ -216,13 +230,20 @@ uploaded and kept with the media, which is attached there only (MEDIA_DESTINATIO
 reply or a quote, with the universe where it goes: requestMediaUpload "address"), DIRECT_MESSAGE,
 GROUP_MESSAGE, CHANNEL_MESSAGE, UNIVERSE_IMAGE (the image of a universe, its logo; also the logo of a proposal),
 UNIVERSE_BANNER (its banner, day or night), THEME (an image slot of a theme). Since v87.5.0 (D-268), COURSE_DOCUMENT: an
-image of a markdown document (IMAGE only, MEDIA_DESTINATION_INVALID otherwise), shown by its URL on the media CDN. An avatar has its own upload
+image of a markdown document (IMAGE only, MEDIA_DESTINATION_INVALID otherwise), shown by its URL on the media CDN. Since v104.2.0
+(experience-feats.feature), EXPERIENCE_FEAT: the photo (IMAGE) or the clip (VIDEO) of an experience feat, private to its
+human until publishFeat attaches it to the post of the experience feat (the one exception to MEDIA_DESTINATION_MISMATCH),
+scanned as the media of a post; LONG_VIDEO and VOICE: MEDIA_DESTINATION_INVALID. Since v118.2.0 (event-types.feature, D-376),
+EVENT_COVER: the event cover photo of a universe event set by its organizer (IMAGE only, MEDIA_DESTINATION_INVALID
+otherwise; UniverseEventInput.cover, UniverseEventChangeInput.cover). An avatar has its own upload
 (requestAvatarUpload). Only an image of POST gets a suggested alternative text (suggestedAlt).
 """
 enum MediaDestination {
   CHANNEL_MESSAGE
   COURSE_DOCUMENT
   DIRECT_MESSAGE
+  EVENT_COVER
+  EXPERIENCE_FEAT
   GROUP_MESSAGE
   POST
   THEME
@@ -253,16 +274,27 @@ read with it (Clip.license, LongVideo.license), never changed afterwards; for an
 MEDIA_LICENSE_NOT_ALLOWED; required from a delegated agent (MEDIA_LICENSE_REQUIRED), optional for a human;
 attribution, the author and the source of the work, 1 to 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG; blank:
 none), required for CC_BY and CC_BY_SA (MEDIA_ATTRIBUTION_REQUIRED), optional for the other licenses, refused without
-a license (MEDIA_LICENSE_NOT_ALLOWED). Both are checked here, before the upload.
+a license (MEDIA_LICENSE_NOT_ALLOWED). Both are checked here, before the upload. Since v101.16.0 (D-317,
+camera-filters.feature): filters, the camera filters the app camera baked into an image (IMAGE) or a video (VIDEO),
+each an id of the camera filter catalog and its intensity (0 to 100, null for an AR effect), at most 10
+(CAMERA_FILTERS_TOO_MANY), kept with the media as its camera filter mark (Image.filters, Clip.filters), never changed
+afterwards; an id the catalog never held: CAMERA_FILTER_UNKNOWN (a camera filter withdrawn since stays accepted);
+another kind: CAMERA_FILTERS_NOT_ALLOWED. Since v101.16.0 (D-318, media-editing.feature): subtitles, the subtitle cues
+the author wrote in the media editor for a video (VIDEO) of POST, sent apart from the clip, never drawn into it (the
+checks of correctSubtitles: SUBTITLE_CUES_INVALID, SUBTITLE_TOO_LONG, SUBTITLES_TOO_MANY, SUBTITLES_TOO_LONG); they
+are the subtitles of the clip, each cue marked as corrected (the text of the author), and no automatic subtitles are
+written for it; another kind or media destination: SUBTITLES_NOT_ALLOWED.
 """
 input MediaUploadInput {
   address: String
   attribution: String
   contentType: String!
   destination: MediaDestination!
+  filters: [AppliedFilterInput!]
   kind: MediaKind!
   license: MediaLicense
   size: Int!
+  subtitles: [SubtitleCueInput!]
 }
 
 """
@@ -338,6 +370,11 @@ type Post {
   Its author, as shown.
   """
   author: AccountRef!
+  """
+  Since v104.2.0 (experience-feats.feature): the experience instance whose experience feat this post published (its feat
+  card); null for any other post.
+  """
+  experienceInstance: ExperienceInstance
   """
   Since v84.0.0 (D-248): its place, chosen by its author; null when not placed.
   """
@@ -1444,3 +1481,89 @@ enum MaskRequestStatus {
   DECLINED
   WAITING
 }
+
+"""
+A camera filter baked into a capture (since v101.16.0, D-317, camera-filters.feature), as its camera filter mark keeps
+it: the camera filter, its family and its intensity.
+"""
+type AppliedFilter {
+  """
+  The family of the camera filter.
+  """
+  family: CameraFilterFamily!
+  """
+  The identifier of the camera filter in the camera filter catalog.
+  """
+  id: ID!
+  """
+  Its intensity, from 0 to 100; null for an AR effect.
+  """
+  intensity: Int
+  """
+  Its name in the language of the reader, as the camera filter catalog names it (a camera filter withdrawn since
+  keeps its last name).
+  """
+  name: String!
+}
+
+"""
+A camera filter applied to a capture, declared with requestMediaUpload (MediaUploadInput.filters): id, an
+identifier of the camera filter catalog; intensity, from 0 to 100 for a camera look or a camera retouch, face
+slimming from 0 to 15 (CAMERA_FILTER_INTENSITY_INVALID otherwise), none for an AR effect.
+"""
+input AppliedFilterInput {
+  id: ID!
+  intensity: Int
+}
+
+"""
+A camera filter of the camera filter catalog (since v101.16.0, D-317, camera-filters.feature; contracts/media.md §
+Camera filters), approved by the platform team and offered by the app camera.
+"""
+type CameraFilter {
+  """
+  Its family.
+  """
+  family: CameraFilterFamily!
+  """
+  The identifier of the camera filter, stable across the versions of the apps.
+  """
+  id: ID!
+  """
+  The first version of the app of the platform asked that supports it.
+  """
+  minAppVersion: String!
+  """
+  Its name in the language asked (English when it has none in that language).
+  """
+  name: String!
+  """
+  Its preview image, on the media CDN.
+  """
+  previewUrl: String!
+  """
+  The universe whose universe theme adds it (a camera look of a universe theme), with its sign; null for a camera
+  filter of the social platform.
+  """
+  universe: String
+}
+
+"""
+The family of a camera filter (camera-filters.feature): LOOK, a camera look (a color grade); RETOUCH, a camera
+retouch of a face; AR_EFFECT, an AR effect on a face, on the background or that follows the face.
+"""
+enum CameraFilterFamily {
+  AR_EFFECT
+  LOOK
+  RETOUCH
+}
+
+"""
+The platform of the app that reads the camera filter catalog (cameraFilters).
+"""
+enum CameraFilterPlatform {
+  ANDROID
+  IOS
+  WEB
+}
+

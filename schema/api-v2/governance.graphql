@@ -964,6 +964,12 @@ type Proposal {
   """
   myBallot: String
   """
+  Since v122.0.0 (D-381): for a caller who lent their vote, whether the resident who holds it now cast a
+  ballot in this vote (CAST) or not yet (NOT_CAST), never which; null when the caller did not lend their vote,
+  when the vote is not open or is a vote on persons.
+  """
+  myHolderBallot: HolderBallot
+  """
   Why an adopted proposal could not apply (a code); null otherwise.
   """
   notApplied: String
@@ -1049,6 +1055,10 @@ The change a proposal proposes (Proposal.change, G-12): the fields of its kind s
 ProposalChangeInput).
 """
 type ProposalChange {
+  """
+  The name of the custom page a PAGE proposal publishes (since v101.16.0, D-318); null for another kind.
+  """
+  pageName: String
   """
   The moderator elected or revoked, the president recalled.
   """
@@ -1168,6 +1178,8 @@ description); tagConventions (SHOWCASE, since v101.1.0: [] clears them; TAG_CONV
 - appearance (APPEARANCE, since v87.4.0): the gestures of the appearance editor, its logo, its watermark and
 what it clears (contracts/themes.md § Customize); the theme is built at filing and published at
 adoption.
+- studioDraftId (PAGE, since v101.16.0, D-318): a studio draft of the caller holding the custom page proposed, for
+that universe (PROPOSAL_PAGE_REQUIRED without it).
 """
 input ProposalChangeInput {
   accountId: ID
@@ -1196,6 +1208,7 @@ input ProposalChangeInput {
   clear: [UniverseIdentityPart!]
   playlistAction: PlaylistActionInput
   appearance: UniverseAppearanceInput
+  studioDraftId: ID
 }
 
 """
@@ -1203,7 +1216,10 @@ The kind of a proposal: what it changes, and how it is voted on (contracts/livin
 engages the residents in something to do (the majority of the votes cast, no quorum). Since v86.0.0, PLAYLIST
 creates or changes a universe playlist (playlists.feature). Since v87.4.0, APPEARANCE sets the appearance
 built by the appearance editor (customize-universe.feature): its theme, its logo and its watermark (the majority
-of the votes cast, no quorum).
+of the votes cast, no quorum). Since v101.16.0 (D-318, universe-pages.feature), PAGE publishes a custom page in a
+public universe of the first level without leadership (PAGE_PROPOSAL_NOT_OFFERED with a leadership,
+PAGE_FIRST_LEVEL_ONLY elsewhere): the studio draft of its author (ProposalChangeInput.studioDraftId), copied when it
+is filed and published as the custom page once adopted, with the checks of publishUniversePage.
 """
 enum ProposalKind {
   ACTION
@@ -1222,6 +1238,7 @@ enum ProposalKind {
   MODERATOR_ELECTION
   MODERATOR_REVOCATION
   OTHER
+  PAGE
   PINNED_CHANNELS
   PLAYLIST
   PROPOSAL_SUMMARIES
@@ -1721,10 +1738,13 @@ type SubUniverseGovernance {
 }
 
 """
-A power given to the governance of a sub-universe.
+A power given to the governance of a sub-universe. Since v101.16.0 (D-318, public-channels.feature), CHANNELS: its
+governor opens the public channels of its sub-universe (openUniverseDiscussion, PERMANENT), within the limit of 10
+channels across the levels of the universe.
 """
 enum SubUniversePower {
   ANNOUNCEMENTS
+  CHANNELS
   MODERATION
   PINNED_POSTS
 }
@@ -1981,4 +2001,12 @@ type ProposalAppearance {
   changes in each step; null when that theme carries none.
   """
   formerAppearance: AWSJSON
+}
+
+"""
+Whether the resident who holds the vote a caller lent cast a ballot in an open vote (since v122.0.0, D-381).
+"""
+enum HolderBallot {
+  CAST
+  NOT_CAST
 }
