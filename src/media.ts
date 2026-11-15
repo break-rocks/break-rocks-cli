@@ -5,7 +5,7 @@
 // universe, a message, a theme) and the presigned POST of S3 (its fields, then the file). The platform
 // processes them afterwards: the post waits for it (IMAGE_NOT_READY, CLIP_NOT_READY: the same request sent
 // again with the same requestId).
-import { existsSync, openAsBlob, readFileSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openAsBlob, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 import type { Context } from './context.js';
 import { CliError, networkError, platformRefusal, usageError } from './errors.js';
@@ -52,14 +52,20 @@ export function videoTypeOf(head: Uint8Array, name: string): string | undefined 
   return { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm' }[extname(name).toLowerCase()];
 }
 
+/** The first [n] bytes of a file, without reading the rest (a long video is larger than a buffer of Node). */
+function headOf(path: string, n: number): Uint8Array {
+  const fd = openSync(path, 'r');
+  try { const b = new Uint8Array(n); return b.subarray(0, readSync(fd, b, 0, n, 0)); } finally { closeSync(fd); }
+}
+
 /** A video checked before it is sent. */
-export function checkVideo(ctx: Context, path: string, maxBytes = MAX_CLIP_BYTES): CheckedVideo {
+export function checkVideo(ctx: Context, path: string, maxBytes = MAX_CLIP_BYTES, tooLarge = 'CLIP_TOO_LARGE'): CheckedVideo {
   const full = fileAt(ctx, path);
-  const type = videoTypeOf(new Uint8Array(readFileSync(full).subarray(0, 64)), full);
+  const type = videoTypeOf(headOf(full, 64), full);
   if (!type || !VIDEO_TYPES.includes(type)) throw usageError('VIDEO_TYPE_NOT_SUPPORTED', `${path}: a video is an MP4, a MOV or a WebM`, { path });
   const bytes = statSync(full).size;
   if (bytes < 1) throw usageError('VIDEO_SIZE_INVALID', `${path} is empty`, { path });
-  if (bytes > maxBytes) throw usageError('CLIP_TOO_LARGE', `${path}: at most ${Math.round(maxBytes / 1048576)} MB`, { path, bytes });
+  if (bytes > maxBytes) throw usageError(tooLarge, `${path}: at most ${maxBytes >= 1024 ** 3 ? `${Math.round(maxBytes / 1024 ** 3)} GB` : `${Math.round(maxBytes / 1048576)} MB`}`, { path, bytes, maxBytes });
   return { path: full, name: basename(full), type, bytes };
 }
 
