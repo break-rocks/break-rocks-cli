@@ -280,9 +280,9 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
     error('THEME_FIELD_INVALID', 'collection', `The field is one of ${FIELDS.join(', ')}, or none`);
   }
   const title = isObject(doc.typography) ? doc.typography.title : undefined;
-  if (title == null) error('THEME_TYPEFACE_NOT_APPROVED', 'typography.title', 'The title typeface is required, from the approved list (breakrocks theme typefaces)');
+  if (title == null) error('THEME_TYPEFACE_NOT_APPROVED', 'typography.title', 'The title typeface is required, from the approved list (breakrocks look themes typefaces)');
   else if (typeof title === 'string' && /^[a-z][a-z0-9+.-]*:|\//i.test(title)) error('THEME_EXTERNAL_RESOURCE', 'typography.title', 'A typeface comes from the approved list, never from elsewhere');
-  else if (!approvedTypeface(title)) error('THEME_TYPEFACE_NOT_APPROVED', 'typography.title', `"${String(title)}" is not an approved typeface (breakrocks theme typefaces)`);
+  else if (!approvedTypeface(title)) error('THEME_TYPEFACE_NOT_APPROVED', 'typography.title', `"${String(title)}" is not an approved typeface (breakrocks look themes typefaces)`);
   if (Array.isArray(doc.gradient) && palettes.night && palettes.day) {
     const colors = new Set(Object.values(palettes).flatMap((p) => Object.values(p!)));
     // A theme with a block appearance kept (built by Customize) has the gradient the platform derived: any #RRGGBB.

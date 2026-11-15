@@ -15,7 +15,7 @@ import { ADDRESS, historyDisabled, published, recent, remember, updatePublished 
 const FILES = new Set(['file', 'archive', 'image', 'video', 'key', 'newKey', 'recoveryOut', 'images', 'out']);
 const UNIVERSES = new Set(['universe', 'universes', 'in', 'appliedIn', 'subUniverse', 'before']);
 const ACCOUNTS = new Set(['account', 'accounts', 'accountId', 'accountIds', 'with', 'creator', 'candidate']);
-const PROFILE_COMMANDS = new Set(['profile use', 'profile show', 'profile remove']);
+const PROFILE_COMMANDS = new Set(['config use', 'config show', 'config remove']);
 const none: Kind = { type: 'none' };
 const free: Kind = { type: 'free' };
 const dynamic = (source: string): Kind => ({ type: 'dynamic', source });
@@ -67,6 +67,8 @@ const GLOBALS: OptionModel[] = [
   { flags: ['--fields'], kind: free, description: globalDescription('--fields') },
   { flags: ['--profile'], kind: dynamic('profile'), description: globalDescription('--profile') },
   { flags: ['--env'], kind: { type: 'enum', values: ENVIRONMENTS }, description: globalDescription('--env') },
+  { flags: ['--proxy'], kind: free, description: globalDescription('--proxy') },
+  { flags: ['--ca-file'], kind: { type: 'file' }, description: globalDescription('--ca-file') },
   { flags: ['--yes', '-y'], kind: none, description: globalDescription('--yes') },
   { flags: ['--help', '-h'], kind: none, description: globalDescription('--help') },
   { flags: ['--version'], kind: none, description: globalDescription('--version') },
@@ -112,8 +114,8 @@ function refIn(result: unknown): string | undefined {
   }
   return undefined;
 }
-const PUBLISHING: Record<string, 'themes' | 'layouts'> = { 'theme publish': 'themes', 'theme copy': 'themes', 'layouts publish': 'layouts', 'layouts publish-version': 'layouts', 'layouts copy': 'layouts' };
-const DELETING: Record<string, ['themes' | 'layouts', string]> = { 'theme delete': ['themes', 'theme'], 'layouts delete': ['layouts', 'layout'] };
+const PUBLISHING: Record<string, 'themes' | 'layouts'> = { 'look themes publish': 'themes', 'look layouts publish': 'layouts', 'look layouts publish-version': 'layouts', 'look layouts copy': 'layouts' };
+const DELETING: Record<string, ['themes' | 'layouts', string]> = { 'look themes delete': ['themes', 'theme'], 'look layouts delete': ['layouts', 'layout'] };
 
 /**
  * What a command that succeeded leaves for the completion: the universes and accounts of its input

@@ -25,7 +25,7 @@ export const themesGallery = apiCommand({
     return { ...rest, ...(night ? { variant: 'NIGHT' } : day ? { variant: 'DAY' } : {}) };
   },
   text: catalogText,
-  examples: ['breakrocks themes gallery %paris', 'breakrocks themes gallery %paris --high-contrast --night --json'],
+  examples: ['breakrocks look themes gallery %paris', 'breakrocks look themes gallery %paris --high-contrast --night --json'],
 });
 
 type AppearanceEntry = { id: string; setAt: string; live?: boolean; trial?: boolean; first?: boolean; theme: { universe: string; name: string; version?: number }; accent?: string; accentName?: string; character?: string; restorable?: boolean };
@@ -34,7 +34,7 @@ export const universesAppearanceHistory = apiCommand({
   description: 'Read by who applies an appearance at once (the owner and the admins of a private universe, the leadership of a public universe) and by a resident who can vote of a public universe (THEME_SET_NOT_ALLOWED otherwise). Since specs v96.0.0 (D-289) it replaces the theme history and the layout history.',
   kind: 'query', op: 'universeAppearanceHistory', positionals: ['universe'], descriptions: { universe: 'The universe (%name, %name/sub)' },
   text: (r) => (Array.isArray(r) && r.length ? (r as AppearanceEntry[]).map((e) => `${e.id}  ${e.setAt}  ${ref(e.theme)}  ${e.accent ?? ''} ${e.accentName ?? ''}  ${e.character ?? ''}${e.live ? '  (live)' : ''}${e.first ? '  (creation)' : ''}${e.restorable === false ? '  (not restorable)' : ''}`).join('\n') : '(none)'),
-  examples: ['breakrocks universes appearance-history %paris', 'breakrocks universes appearance-history %paris --json'],
+  examples: ['breakrocks look appearance history %paris', 'breakrocks look appearance history %paris --json'],
 });
 export const universesAppearanceRestore = apiCommand({
   name: 'universes appearance-restore', summary: 'Restore an appearance of the history: the next version of its theme set, or a proposal APPEARANCE filed (restoreUniverseAppearance)',
@@ -42,5 +42,5 @@ export const universesAppearanceRestore = apiCommand({
   kind: 'mutation', op: 'restoreUniverseAppearance', positionals: ['universe', 'entryId'], dry: true, select: '{ theme { universe name version } proposal { id status } }',
   descriptions: { universe: 'The universe (%name, %name/sub)', entryId: 'The entry of the history (universes appearance-history)', propose: 'File a proposal APPEARANCE instead of restoring at once', text: 'The reason of the proposal' },
   text: (r) => { const x = r as { theme?: { universe: string; name: string; version?: number } | null; proposal?: { id?: string } | null } | null; return !x ? '(none)' : x.proposal ? `proposal ${x.proposal.id ?? '?'} filed` : x.theme ? `${ref(x.theme)} set` : '(none)'; },
-  examples: ['breakrocks universes appearance-restore %paris <entry id>', 'breakrocks universes appearance-restore %paris <entry id> --propose --text "The former one was clearer"'],
+  examples: ['breakrocks look appearance restore %paris <entry id>', 'breakrocks look appearance restore %paris <entry id> --propose --text "The former one was clearer"'],
 });

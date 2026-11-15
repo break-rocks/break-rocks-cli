@@ -4,12 +4,20 @@
 import type { Context } from './context.js';
 import type { ExitCode } from './errors.js';
 import { assertValid, type ArgSpec, type JsonSchema, type ObjectSchema } from './schema.js';
+import { PLACEMENTS } from './tree.js';
 
 export type Command<I = Record<string, unknown>, O = unknown> = {
-  /** Its words, the group first: "agents create", "whoami". */
+  /** Its words, the group first: "agents create", "whoami" (its path in the tree, src/tree.ts). */
   name: string;
+  /** Its line in the lists: one line, 60 characters at most, no API operation, no limit (src/tree.ts). */
   summary: string;
+  /** What it does in detail, at the top of its own help (the detailed summary of its declaration). */
+  details?: string;
   description?: string;
+  /** The operation of the API it is ("API: <operation>" in its help). */
+  api?: string;
+  /** Its former names, still accepted (hidden, deprecated): src/tree.ts. */
+  aliases?: string[];
   /** One example per line, as typed in a terminal. */
   examples: string[];
   input: ObjectSchema;
@@ -34,27 +42,67 @@ export type Command<I = Record<string, unknown>, O = unknown> = {
 export type AnyCommand = Command<any, any>;
 
 const COMMANDS: AnyCommand[] = [];
+/** Former name → the command it now is. */
+const ALIASES = new Map<string, AnyCommand>();
+/** The most words a command name has. */
+export const MAX_WORDS = 5;
 
-/** Adds commands to the registry, in the order of the help. */
+/** Former names in a text: "breakrocks <former name>" becomes "breakrocks <path>" (examples, hints). */
+const FORMER = [...PLACEMENTS].filter(([name, p]) => p.path !== name).sort(([a], [b]) => b.length - a.length);
+const FORMER_RE = new RegExp(`breakrocks (${FORMER.map(([n]) => n.replace(/[-]/g, '\\-')).join('|')})(?![\\w-])`, 'g');
+const FORMER_PATH = new Map(FORMER.map(([n, p]) => [n, p.path]));
+export const modernize = (text: string) => text.replace(FORMER_RE, (_, name: string) => `breakrocks ${FORMER_PATH.get(name)}`);
+
+/** [c] at its place in the tree: its path, its list summary, its detailed summary, its former name. */
+function placed(c: AnyCommand): AnyCommand {
+  const place = PLACEMENTS.get(c.name);
+  const examples = c.examples.map(modernize);
+  const description = c.description && modernize(c.description);
+  if (!place) return { ...c, examples, ...(description ? { description } : {}) };
+  let details = place.summary === c.summary ? undefined : c.summary;
+  if (details && c.api) details = details.replace(new RegExp(`\\s*\\(${c.api}\\)`), '').replace(`(${c.api}; `, '(').replace(`; ${c.api})`, ')');
+  return {
+    ...c, name: place.path, summary: place.summary, examples, ...(description ? { description } : {}), ...(details ? { details } : {}),
+    ...(place.path !== c.name ? { aliases: [...(c.aliases ?? []), c.name] } : {}),
+  };
+}
+
+/** Adds commands to the registry, in the order of the help, each at its place in the tree. */
 export function register(...commands: AnyCommand[]): void {
-  for (const c of commands) {
+  for (const declared of commands) {
+    const c = placed(declared);
     if (COMMANDS.some((x) => x.name === c.name)) throw new Error(`Command "${c.name}" registered twice`);
+    if (c.name.split(' ').length > MAX_WORDS) throw new Error(`Command "${c.name}": ${MAX_WORDS} words at most`);
     COMMANDS.push(c);
+    for (const alias of c.aliases ?? []) ALIASES.set(alias, c);
   }
 }
 export const commands = (): readonly AnyCommand[] => COMMANDS;
+/** Every former name and the command it now is. */
+export const aliases = (): ReadonlyMap<string, AnyCommand> => ALIASES;
 export const groupOf = (c: AnyCommand) => c.name.split(' ')[0];
 export const groups = () => [...new Set(COMMANDS.map(groupOf))];
 
-/** The command named by the first words of [words], the longest name first, with the words left. */
-export function findCommand(words: readonly string[]): { command: AnyCommand; rest: string[] } | undefined {
-  for (let n = Math.min(words.length, 4); n > 0; n--) {
+/**
+ * The command named by the first words of [words], the longest name first, with the words left; a
+ * former name too (alias: that name).
+ */
+export function findCommand(words: readonly string[]): { command: AnyCommand; rest: string[]; alias?: string } | undefined {
+  for (let n = Math.min(words.length, MAX_WORDS); n > 0; n--) {
     const name = words.slice(0, n).join(' ');
     const command = COMMANDS.find((c) => c.name === name);
     if (command) return { command, rest: words.slice(n) };
+    const moved = ALIASES.get(name);
+    if (moved) return { command: moved, rest: words.slice(n), alias: name };
   }
   return undefined;
 }
+
+/** The commands under the path [prefix] (a group or a subgroup): "universes private" → its commands. */
+export const commandsUnder = (prefix: string) => COMMANDS.filter((c) => c.name.startsWith(`${prefix} `));
+
+/** The one-line notice of a former name, on stderr. */
+export const deprecationNotice = (alias: string, command: AnyCommand) => `Warning: "breakrocks ${alias}" is deprecated, use "breakrocks ${command.name}".`;
 
 /** The input schema of a command as an MCP client sees it: its own, with "yes" when it may ask a confirmation. */
 export function toolInputSchema(c: AnyCommand): ObjectSchema {

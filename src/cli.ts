@@ -6,12 +6,14 @@ import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
 import { CliError, EXIT, asCliError, usageError } from './errors.js';
-import { commandHelp } from './help.js';
+import { commandHelp, groupHelp, isGroup, movedHelp } from './help.js';
+import { unknownCommand } from './commands/core.js';
 import { terminal, type Output } from './output.js';
-import { execute, findCommand, groups, type AnyCommand } from './registry.js';
+import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type AnyCommand } from './registry.js';
 import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
+import { applyNetwork, redactText } from './network.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
 export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tokens: string[] } {
@@ -35,6 +37,8 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--version': if (tokens.some((x) => !x.startsWith('-'))) tokens.push(t); else flags.version = true; break;
       case '--fields': flags.fields = value().split(',').map((f) => f.trim()).filter(Boolean); break;
       case '--profile': flags.profile = value(); break;
+      case '--proxy': flags.proxy = value(); break;
+      case '--ca-file': flags.caFile = value(); break;
       // --agent before the command is the global one (its value is not the command); after it,
       // takeAgentFlag decides (a command may have an option "agent" of its own).
       case '--agent': if (tokens.some((x) => !x.startsWith('-'))) { tokens.push(t); if (inline === undefined && argv[i + 1] !== undefined) tokens.push(argv[++i]); } else flags.agent = value(); break;
@@ -110,6 +114,7 @@ export function defaultIo(out: Output = terminal): Io {
     secret: askSecret,
     now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     readStdin: async () => { const chunks: Buffer[] = []; for await (const c of process.stdin) chunks.push(c as Buffer); return Buffer.concat(chunks).toString('utf8'); },
+    configureNetwork: applyNetwork,
   };
 }
 
@@ -129,8 +134,10 @@ export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown):
 
 /** Writes a refusal: JSON on stdout with --json (scripts read one stream), else a line on stderr. */
 export function writeError(out: Output, json: boolean, error: CliError): number {
-  if (json) out.json(error.toJSON());
-  else out.error(`Error ${error.code}: ${error.message}`);
+  // A proxy URL, its credentials, never written (README § Proxy).
+  const message = redactText(error.message);
+  if (json) out.json({ error: { ...error.toJSON().error, message } });
+  else out.error(`Error ${error.code}: ${message}`);
   return error.exit;
 }
 
@@ -142,22 +149,27 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const { flags, tokens } = parseGlobals(argv);
     json = flags.json;
     const words: string[] = [];
-    for (const t of tokens) { if (t.startsWith('-') || words.length === 4) break; words.push(t); }
+    for (const t of tokens) { if (t.startsWith('-') || words.length === MAX_WORDS) break; words.push(t); }
     const found = findCommand(words);
     if (!found) {
       const ctx = new Context(io, flags);
+      const helpCommand = findCommand(['help'])!.command;
       if (flags.version && !words.length) return writeAnswer(ctx, findCommand(['version'])!.command, { version: VERSION });
-      if (!words.length || (words.length === 1 && groups().includes(words[0]))) {
-        const help = findCommand(['help'])!.command;
-        return writeAnswer(ctx, help, await execute(ctx, help, words.length ? { command: words } : {}));
-      }
-      throw usageError('UNKNOWN_COMMAND', `Unknown command "${words.join(' ') || tokens[0]}". breakrocks help lists the commands.`, { command: words.join(' ') || tokens[0] });
+      if (!words.length) return writeAnswer(ctx, helpCommand, await execute(ctx, helpCommand, {}));
+      // A group or a subgroup alone: its help ("breakrocks universes private").
+      const path = words.join(' ');
+      if (isGroup(path)) return writeAnswer(ctx, helpCommand, { text: groupHelp(path), commands: commandsUnder(path).map(({ name, summary }) => ({ name, summary })) });
+      const moved = movedHelp(path);
+      if (moved) return writeAnswer(ctx, helpCommand, { text: moved, commands: [] });
+      throw unknownCommand(words);
     }
-    const { command } = found;
-    const rest = takeAgentFlag(command, flags, tokens.slice(command.name.split(' ').length));
+    const { command, alias } = found;
+    if (alias) io.out.error(deprecationNotice(alias, command));
+    const rest = takeAgentFlag(command, flags, tokens.slice((alias ?? command.name).split(' ').length));
     const ctx = new Context(io, flags);
     if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(command), commands: [{ name: command.name, summary: command.summary }] });
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
+    if (!command.offline) await io.configureNetwork?.(ctx.network());
     const result = await execute(ctx, command, input);
     const exit = writeAnswer(ctx, command, result);
     if (exit === EXIT.OK) rememberUse(ctx, command, input, result);

@@ -185,7 +185,7 @@ describe('universes pages', () => {
     expect(await h.run('universes', 'pages', 'export', '%x', '--out', 'out.json', '--json')).toBe(2);
     expect(await h.run('universes', 'pages', 'import', '%x', '--file', 'out.json')).toBe(0);
     expect(JSON.parse(calls[1].variables.f as string)).toEqual(doc);
-    expect(h.lines.join('\n')).toContain('breakrocks studio make-page');
+    expect(h.lines.join('\n')).toContain('breakrocks look studio make-page');
   });
 });
 
@@ -217,7 +217,7 @@ describe('the governance page', () => {
   });
   it('gives each command its MCP tool', () => {
     const names = tools().map((t) => t.name);
-    for (const n of ['universes_territory_get', 'universes_territory_set', 'universes_territory_remove', 'universes_territory_report', 'universes_pages', 'universes_page_get', 'universes_page_publish', 'universes_page_check', 'universes_page_hide', 'universes_page_show', 'universes_page_move', 'universes_page_delete', 'universes_pages_export', 'universes_pages_import', 'universes_page_report', 'studio_make_page', 'explore_area', 'places_search', 'map_boundary', 'governance_proposals', 'governance_record', 'governance_duties', 'governance_layout', 'governance_pinned', 'governance_pin']) expect(names).toContain(`breakrocks_${n}`);
-    expect(tools().find((t) => t.name === 'breakrocks_universes_page_delete')!.inputSchema.properties).toHaveProperty('yes');
+    for (const n of ['universes_territory_get', 'universes_territory_set', 'universes_territory_remove', 'universes_territory_report', 'universes_pages', 'universes_pages_get', 'universes_pages_publish', 'universes_pages_check', 'universes_pages_hide', 'universes_pages_unhide', 'universes_pages_move', 'universes_pages_delete', 'universes_pages_export', 'universes_pages_import', 'universes_pages_report', 'look_studio_make_page', 'explore_area', 'map_places_search', 'map_boundary', 'governance_proposals', 'governance_record', 'governance_duties', 'governance_layout', 'governance_pinned', 'governance_pin']) expect(names).toContain(`breakrocks_${n}`);
+    expect(tools().find((t) => t.name === 'breakrocks_universes_pages_delete')!.inputSchema.properties).toHaveProperty('yes');
   });
 });

@@ -111,7 +111,7 @@ describe('the client headers', () => {
     await server.connect(a);
     const client = new Client({ name: 'test', version: '1.0.0' });
     await client.connect(b);
-    await client.callTool({ name: 'breakrocks_agent_login', arguments: {} });
+    await client.callTool({ name: 'breakrocks_agents_login', arguments: {} });
     const who = await client.callTool({ name: 'breakrocks_whoami', arguments: {} });
     expect(who.isError).toBeFalsy();
     const api = seen.filter(isApi);

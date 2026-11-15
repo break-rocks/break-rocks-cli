@@ -100,7 +100,7 @@ export async function territoryChoice(ctx: Context, i: TerritoryFlags): Promise<
 }
 
 const territoryProps = {
-  boundary: str('A boundary: the id of its place (R7444, the "id" of a PlaceMatch of breakrocks places search)', { pattern: BOUNDARY_ID }),
+  boundary: str('A boundary: the id of its place (R7444, the "id" of a PlaceMatch of breakrocks map places search)', { pattern: BOUNDARY_ID }),
   circle: str('A circle: its center, <lat>,<lon> (only the center is sent, never a position of the device)'),
   radius: str('The radius of the circle: 150, 250, 500, 1000, 2500, 5000, 10000 or 25000 metres (2.5km…)'),
 };
@@ -179,7 +179,7 @@ type PlaceMatch = { id?: string | null; name: string; kind?: string | null; addr
 export const placesSearch: Command<{ query: string; bounds: string; language?: string; limit?: number }, PlaceMatch[]> = {
   name: 'places search', summary: 'Search a place in an area: its point, its kind, the universes whose territory holds it (places)',
   description: 'The places within --bounds first, then at most 2 cities, regions or countries from elsewhere; never the position of the device. The id of a boundary (R7444) is what universes territory set --boundary and proposals file --boundary take. MAP_SERVICE_STARTING: the search wakes up, try again after errorInfo.retryAfterSeconds.',
-  examples: ['breakrocks places search Paris --bounds 48.81,2.22,48.90,2.47', 'breakrocks places search "Buttes-Chaumont" --bounds 48.81,2.22,48.90,2.47 --language fr --json'],
+  examples: ['breakrocks map places search Paris --bounds 48.81,2.22,48.90,2.47', 'breakrocks map places search "Buttes-Chaumont" --bounds 48.81,2.22,48.90,2.47 --language fr --json'],
   input: object({ query: str('What to search'), bounds: str('The area shown: <south>,<west>,<north>,<east>'), language: str('The language of the names (fr, en…)', { default: 'en' }), limit: int('How many at most', { minimum: 1, maximum: 10 }) }, ['query', 'bounds']),
   output: outputSchema('[PlaceMatch!]!', 1), args: { positionals: ['query'] },
   run: async (ctx, i) => (await api<{ places: PlaceMatch[] }>(ctx, `query($q: String!, $b: BoundsInput!, $l: String!, $n: Int) { places(query: $q, bounds: $b, language: $l, limit: $n) ${selection('PlaceMatch', 1)} }`, { q: i.query, b: boundsOf(i.bounds), l: i.language ?? 'en', n: i.limit ?? null })).places,

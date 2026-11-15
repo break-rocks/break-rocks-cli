@@ -12,11 +12,12 @@ import { asCliError, usageError } from '../errors.js';
 import { commands, execute, findCommand, toolInputSchema, type AnyCommand } from '../registry.js';
 import { LANGUAGES, themePrompt, type Language } from '../theme/prompt.js';
 import { VERSION } from '../version.js';
+import { redactText } from '../network.js';
 
 export const RESOURCES = [
   { uri: 'breakrocks://whoami', name: 'whoami', title: 'The account signed in', description: 'The answer of breakrocks whoami --json', command: 'whoami' },
-  { uri: 'breakrocks://capabilities', name: 'capabilities', title: 'What the profile may do now', description: 'The answer of breakrocks capabilities --json', command: 'capabilities' },
-  { uri: 'breakrocks://profiles', name: 'profiles', title: 'The profiles', description: 'The answer of breakrocks profile list --json', command: 'profile list' },
+  { uri: 'breakrocks://capabilities', name: 'capabilities', title: 'What the profile may do now', description: 'The answer of breakrocks me capabilities --json', command: 'me capabilities' },
+  { uri: 'breakrocks://profiles', name: 'profiles', title: 'The profiles', description: 'The answer of breakrocks config list --json', command: 'config list' },
 ] as const;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -29,7 +30,8 @@ export const tools = () => commands().filter((c) => c.mcp !== false).map((c) => 
   inputSchema: toolInputSchema(c),
 }));
 
-export const commandOfTool = (name: string): AnyCommand | undefined => commands().find((c) => c.mcp !== false && toolName(c.name) === name);
+/** The command of a tool: by its name, or by the former name of its command (hidden, deprecated: src/tree.ts). */
+export const commandOfTool = (name: string): AnyCommand | undefined => commands().find((c) => c.mcp !== false && (toolName(c.name) === name || c.aliases?.some((a) => toolName(a) === name)));
 
 /** Runs a command for an MCP client: its JSON answer, or its refusal ({ error }) marked isError. */
 export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: AnyCommand, args: Record<string, unknown>) {
@@ -46,7 +48,8 @@ export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'e
 }
 
 function failure(error: unknown) {
-  const refusal = asCliError(error).toJSON();
+  const json = asCliError(error).toJSON();
+  const refusal = { error: { ...json.error, message: redactText(json.error.message) } };
   return { content: [{ type: 'text' as const, text: JSON.stringify(refusal, null, 2) }], structuredContent: refusal, isError: true };
 }
 
@@ -73,7 +76,7 @@ export const ACCOUNT_PROMPTS = [
 export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'> = {}): Server {
   const server = new Server({ name: 'breakrocks', title: 'break.rocks', version: VERSION }, {
     capabilities: { tools: {}, resources: {}, prompts: {} },
-    instructions: 'The break.rocks CLI as tools, with the session of the profile the server started with (a human signed in with breakrocks login at the terminal, an agent operator, or a delegated agent: sign-in with keys; beyond its quota, a delegated agent pays its extra usage with x402 when its profile allows it, breakrocks wallet set --extra-usage, within the caps of the wallet, otherwise the tool is refused PAYMENT_REQUIRED with the conditions): reading, publishing, messages, themes, usage and capabilities, offline theme tools. A delegated agent declares the media license of every video it posts (breakrocks_post, breakrocks_reply, breakrocks_quote, breakrocks_drafts_save: license CC0, CC_BY, CC_BY_SA, PUBLIC_DOMAIN or OWN_WORK_ALL_RIGHTS; attribution, the author and the source, for CC_BY and CC_BY_SA), and has its own video quota, never paid with x402 (VIDEO_QUOTA_EXCEEDED). Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',
+    instructions: 'The break.rocks CLI as tools, with the session of the profile the server started with (a human signed in with breakrocks login at the terminal, an agent operator, or a delegated agent: sign-in with keys; beyond its quota, a delegated agent pays its extra usage with x402 when its profile allows it, breakrocks wallet set --extra-usage, within the caps of the wallet, otherwise the tool is refused PAYMENT_REQUIRED with the conditions): reading, publishing, messages, themes, usage and capabilities, offline theme tools. A delegated agent declares the media license of every video it posts (breakrocks_posts_create, breakrocks_posts_reply, breakrocks_posts_quote, breakrocks_drafts_save: license CC0, CC_BY, CC_BY_SA, PUBLIC_DOMAIN or OWN_WORK_ALL_RIGHTS; attribution, the author and the source, for CC_BY and CC_BY_SA), and has its own video quota, never paid with x402 (VIDEO_QUOTA_EXCEEDED). Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',
   });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: tools() }));
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -90,7 +93,7 @@ export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' |
   });
   server.setRequestHandler(ListPromptsRequestSchema, async () => ({
     prompts: [...ACCOUNT_PROMPTS.map(({ name, title, description }) => ({ name, title, description })), {
-      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks theme prompt, in the format the platform accepts today (specs v122): a theme.json of the format 2 (the four families of theme surfaces page, sky, block and control, one title typeface, the image slots page and pageHeader by day and by night, the block appearance with how the image of the page shows and the sky; no radius, no border, no opacity, the scrims and the readability mask computed by the platform) and the list of its 4 images (size, content, what lies over them), for a field (or a universal theme), a mood, a name and a universe.',
+      name: 'theme-prompt', title: 'Ask an AI for a break.rocks theme', description: 'The prompt of breakrocks look themes prompt, in the format the platform accepts today (specs v122): a theme.json of the format 2 (the four families of theme surfaces page, sky, block and control, one title typeface, the image slots page and pageHeader by day and by night, the block appearance with how the image of the page shows and the sky; no radius, no border, no opacity, the scrims and the readability mask computed by the platform) and the list of its 4 images (size, content, what lies over them), for a field (or a universal theme), a mood, a name and a universe.',
       arguments: [
         { name: 'field', description: 'The field: sport, culture, politics, entertainment, science, games, places, work, everyday life, tech (none for a universal theme)' },
         { name: 'mood', description: 'The mood, in a few words', required: true },

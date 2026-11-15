@@ -125,7 +125,7 @@ type FeedInput = { new?: boolean; clips?: boolean; address?: string; since?: str
 export const feed: Command<FeedInput, unknown> = {
   name: 'feed', summary: 'The feed of the account (timeline); --clips its clips, --new what is new since --since',
   description: '--new answers newPosts (how many posts are new, by whom) since --since (default 1h), in an --address or the timeline. --watch reads the feed again and writes each new post.',
-  examples: ['breakrocks feed', 'breakrocks feed --clips --address %gaming', 'breakrocks feed --new --since 30m', 'breakrocks feed --watch --jsonl'],
+  examples: ['breakrocks posts feed', 'breakrocks posts feed --clips --address %gaming', 'breakrocks posts feed --new --since 30m', 'breakrocks posts feed --watch --jsonl'],
   input: object({
     new: bool('How many posts are new (newPosts)'), clips: bool('The clips (clipFeed)'), address: str('An address, for --clips and --new'), since: str('Since when, for --new (2h, 30m, a date)', { default: '1h' }),
     after: str('The cursor of the next page'), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), limit: int('Clips per page', { minimum: 1, maximum: 100 }),
@@ -245,7 +245,7 @@ export const explore: Command<{ trending?: boolean; forYou?: boolean; happening?
 export const timeColumn: Command<{ universe: string; day?: string }, unknown> = {
   name: 'time-column', summary: 'The time column of a universe: events, polls, debates, votes, projects',
   description: '--day keeps the events of that day (YYYY-MM-DD).',
-  examples: ['breakrocks time-column %france', 'breakrocks time-column %france --day 2026-10-23 --json'],
+  examples: ['breakrocks universes time-column %france', 'breakrocks universes time-column %france --day 2026-10-23 --json'],
   input: object({ universe: str('The universe (%name)'), day: str('Only the events of this day', { pattern: '^\\d{4}-\\d{2}-\\d{2}$' }) }, ['universe']),
   output: outputSchema('TimeColumn', 2), args: { positionals: ['universe'] },
   run: async (ctx, { universe, day }) => {
@@ -257,7 +257,7 @@ export const timeColumn: Command<{ universe: string; day?: string }, unknown> = 
 
 export const live: Command<{ universe: string } & WatchInput, unknown> = {
   name: 'live', summary: 'The live line of a universe (--watch: each change as it comes)',
-  examples: ['breakrocks live %france', 'breakrocks live %france --watch --jsonl --interval 20'],
+  examples: ['breakrocks universes live %france', 'breakrocks universes live %france --watch --jsonl --interval 20'],
   input: object({ universe: str('The universe (%name)'), ...WATCH_PROPERTIES }, ['universe']), output: outputSchema('LiveLine', 2), args: { positionals: ['universe'] },
   run: async (ctx, input) => {
     const read = async () => (await api<{ liveLine: unknown }>(ctx, `query($u: String!) { liveLine(universe: $u) ${selection('LiveLine', 2)} }`, { u: input.universe })).liveLine;
@@ -286,21 +286,21 @@ export const proposalsList = apiCommand({ name: 'proposals list', summary: 'The 
 export const debatesList = apiCommand({
   name: 'debates list', summary: 'The temporary universe discussions (debates) of a universe (universeDiscussions, lifetime TEMPORARY)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
   map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'TEMPORARY') } : l; },
-  examples: ['breakrocks debates list %france', 'breakrocks debates list %france --all-levels --json'],
+  examples: ['breakrocks discussions debates list %france', 'breakrocks discussions debates list %france --all-levels --json'],
   text: (r) => { const l = r as { items?: DiscussionView[] } | null; return l?.items?.length ? l.items.map(discussionLine).join('\n') : '(none)'; },
 });
 export const pollsList = apiCommand({ name: 'polls list', summary: 'The polls of a universe', kind: 'query', op: 'polls', positionals: ['universe'], examples: ['breakrocks polls list %france'] });
 export const channelsList = apiCommand({
   name: 'channels list', summary: 'The channels (permanent universe discussions) of a universe (universeDiscussions, lifetime PERMANENT; --all-levels: of its sub-universes too)', kind: 'query', op: 'universeDiscussions', positionals: ['universe'],
   map: (d) => { const l = d as { items?: { lifetime?: string }[] } | null; return l ? { ...l, items: (l.items ?? []).filter((x) => x.lifetime === 'PERMANENT') } : l; },
-  examples: ['breakrocks channels list %france --all-levels'],
+  examples: ['breakrocks discussions channels %france --all-levels'],
   text: (r) => { const l = r as { items?: DiscussionView[] } | null; return l?.items?.length ? l.items.map(discussionLine).join('\n') : '(none)'; },
 });
 
 type Notification = { id: string; read: boolean; updatedAt: string; [k: string]: unknown };
 export const notifications: Command<{ unread?: boolean; markRead?: boolean; after?: string; all?: boolean; max?: number } & WatchInput, unknown> = {
   name: 'notifications', summary: 'The notifications (--unread; --mark-read marks those listed as read; --watch)',
-  examples: ['breakrocks notifications --unread', 'breakrocks notifications --mark-read --json', 'breakrocks notifications --watch --jsonl'],
+  examples: ['breakrocks me notifications --unread', 'breakrocks me notifications --mark-read --json', 'breakrocks me notifications --watch --jsonl'],
   input: object({ unread: bool('Only the unread ones'), markRead: bool('Mark the ones listed as read'), after: str('The cursor of the next page'), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES }),
   output: openObject({ items: list('Notifications', outputSchema('Notification', 1)), next: { type: ['string', 'null'] }, unread: int('Unread'), marked: int('Marked as read') }),
   run: async (ctx, input) => {
@@ -321,7 +321,7 @@ export const notifications: Command<{ unread?: boolean; markRead?: boolean; afte
 };
 
 export const exportPosts: Command<{ universe: string; out: string; max?: number; force?: boolean }, { out: string; posts: number; pages: number; next: string | null }> = {
-  name: 'export', summary: 'Export the posts of a universe to a JSON lines file (when the reader may)', examples: ['breakrocks export %france --out posts.jsonl'],
+  name: 'export', summary: 'Export the posts of a universe to a JSON lines file (when the reader may)', examples: ['breakrocks posts export %france --out posts.jsonl'],
   input: object({ universe: str('The universe (%name)'), out: str('The file to write (JSON lines)'), max: int('Pages at most', { minimum: 1, maximum: 10000, default: 1000 }), force: bool('Replace the file') }, ['universe', 'out']),
   output: openObject({ out: str('The file'), posts: int('Posts written'), pages: int('Pages read'), next: { type: ['string', 'null'], description: 'The cursor where it stopped (more beyond --max)' } }),
   args: { positionals: ['universe'] },
@@ -347,7 +347,7 @@ export const exportPosts: Command<{ universe: string; out: string; max?: number;
 
 type Rendered = { id: string; author: string; universe: string; createdAt: string; text: string; images: { url: string; alt: string | null }[]; clip: string | null; license: string | null; attribution: string | null; link: string | null; url: string; replies: number; likes: number; reposts: number };
 export const render: Command<{ id: string }, Rendered> = {
-  name: 'render', summary: 'A post as plain text, its media as links (reading without HTML)', examples: ['breakrocks render 01a166cb-bfff-7237-81a6-fb564222fe97'],
+  name: 'render', summary: 'A post as plain text, its media as links (reading without HTML)', examples: ['breakrocks posts render 01a166cb-bfff-7237-81a6-fb564222fe97'],
   input: object({ id: str('The id of the post') }, ['id']),
   output: openObject({ id: str('Post'), author: str('@handle'), universe: str('Where'), createdAt: str('When'), text: str('Its text (display)'), images: list('Images', openObject({ url: str('URL'), alt: { type: ['string', 'null'] } })), clip: { type: ['string', 'null'] }, license: { type: ['string', 'null'], description: 'The media license of its video (MediaLicense), null without one' }, attribution: { type: ['string', 'null'], description: 'The attribution of the media license' }, link: { type: ['string', 'null'] }, url: str('Its web address') }),
   args: { positionals: ['id'] },

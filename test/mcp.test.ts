@@ -26,11 +26,11 @@ describe('the MCP server', () => {
     const { tools } = await client.listTools();
     // Every command but the server itself, the completion of the shells, the update of the CLI, the
     // sign-in and sign-out of a human, the change of its password, and the change of the current profile.
-    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'login', 'logout', 'mcp', 'me password', 'profile use', 'update']);
-    expect(tools.length).toBe(commands().length - 7);
+    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'config set', 'config unset', 'config use', 'login', 'logout', 'mcp', 'me password', 'update']);
+    expect(tools.length).toBe(commands().length - 9);
     const names = tools.map((t) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_theme_prompt', 'breakrocks_agent_login', 'breakrocks_profile_list']));
-    for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_profile_use', 'breakrocks_update']) expect(names).not.toContain(name);
+    expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_me_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_look_themes_prompt', 'breakrocks_agents_login', 'breakrocks_config_list']));
+    for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_config_use', 'breakrocks_update']) expect(names).not.toContain(name);
     const create = tools.find((t) => t.name === 'breakrocks_agents_create')!;
     expect(create.inputSchema).toMatchObject({ type: 'object', required: ['name'], properties: { name: { type: 'string' }, interactions: { type: 'array' } } });
     expect(tools.find((t) => t.name === 'breakrocks_agents_delete')!.inputSchema.properties).toHaveProperty('yes');
@@ -46,33 +46,33 @@ describe('the MCP server', () => {
       if (!t.description) incomplete.push(`${t.name}: no description`);
     }
     expect(incomplete).toEqual([]);
-    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['breakrocks_posts_list', 'breakrocks_post', 'breakrocks_theme_publish', 'breakrocks_batch', 'breakrocks_moderation_ban', 'breakrocks_layouts_apply']));
+    expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['breakrocks_posts_list', 'breakrocks_posts_create', 'breakrocks_look_themes_publish', 'breakrocks_batch', 'breakrocks_moderation_ban', 'breakrocks_look_layouts_apply']));
   });
   it('watches only for a bounded duration', async () => {
     const client = await connected(harness());
-    const r = await client.callTool({ name: 'breakrocks_feed', arguments: { watch: true } });
+    const r = await client.callTool({ name: 'breakrocks_posts_feed', arguments: { watch: true } });
     expect(r.isError).toBe(true);
     expect(textOf(r).error).toMatchObject({ code: 'INVALID_INPUT', message: expect.stringContaining('--duration') });
   });
   it('answers a call with the JSON of the command', async () => {
     const client = await connected(harness());
-    const r = await client.callTool({ name: 'breakrocks_theme_prompt', arguments: { field: 'sport', mood: 'stadium at night', name: 'stade-nuit', universe: '%football' } });
+    const r = await client.callTool({ name: 'breakrocks_look_themes_prompt', arguments: { field: 'sport', mood: 'stadium at night', name: 'stade-nuit', universe: '%football' } });
     expect(r.isError).toBeFalsy();
     expect(textOf(r)).toMatchObject({ field: 'SPORT', name: 'stade-nuit' });
-    const bad = await client.callTool({ name: 'breakrocks_theme_prompt', arguments: { field: 'sport' } });
+    const bad = await client.callTool({ name: 'breakrocks_look_themes_prompt', arguments: { field: 'sport' } });
     expect(bad.isError).toBe(true);
     expect(textOf(bad).error.code).toBe('INVALID_INPUT');
   });
   it('refuses a tool that asks a confirmation unless "yes": true', async () => {
     const h = harness();
     const client = await connected(h);
-    await client.callTool({ name: 'breakrocks_profile_add', arguments: { name: 'old', env: 'dev' } });
-    const refused = await client.callTool({ name: 'breakrocks_profile_remove', arguments: { name: 'old' } });
+    await client.callTool({ name: 'breakrocks_config_add', arguments: { name: 'old', env: 'dev' } });
+    const refused = await client.callTool({ name: 'breakrocks_config_remove', arguments: { name: 'old' } });
     expect(refused.isError).toBe(true);
     expect(textOf(refused).error.code).toBe('CONFIRMATION_REQUIRED');
-    const done = await client.callTool({ name: 'breakrocks_profile_remove', arguments: { name: 'old', yes: true } });
+    const done = await client.callTool({ name: 'breakrocks_config_remove', arguments: { name: 'old', yes: true } });
     expect(textOf(done)).toEqual({ removed: 'old', keysKept: [] });
-    const extra = await client.callTool({ name: 'breakrocks_profile_list', arguments: { yes: true } });
+    const extra = await client.callTool({ name: 'breakrocks_config_list', arguments: { yes: true } });
     expect(extra.isError).toBe(true);
   });
   it('signs in a delegated agent from its variables and answers whoami, as a tool and as a resource', async () => {
@@ -88,7 +88,7 @@ describe('the MCP server', () => {
     const agent = harness({ fetch: platform.fetch, env: { BREAKROCKS_OPERATOR_ID: created.operatorId, BREAKROCKS_AGENT_ID: created.agentId, BREAKROCKS_AGENT_KEY: readFileSync(out, 'utf8') } });
     agent.clock.now = h.clock.now;
     const client = await connected(agent, { env: 'dev' });
-    const login = await client.callTool({ name: 'breakrocks_agent_login', arguments: {} });
+    const login = await client.callTool({ name: 'breakrocks_agents_login', arguments: {} });
     expect(textOf(login)).toMatchObject({ agentId: created.agentId, keySource: 'env' });
     const who = await client.callTool({ name: 'breakrocks_whoami', arguments: {} });
     expect(textOf(who)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId, account: { id: created.operatorId } });

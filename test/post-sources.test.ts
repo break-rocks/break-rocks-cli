@@ -59,6 +59,6 @@ describe('post sources', () => {
   it('are MCP tools', () => {
     const all = tools();
     expect(all.map((t) => t.name)).toContain('breakrocks_universes_agent_posts');
-    for (const name of ['breakrocks_post', 'breakrocks_reply', 'breakrocks_quote', 'breakrocks_posts_edit']) expect(all.find((t) => t.name === name)!.inputSchema.properties).toHaveProperty('source');
+    for (const name of ['breakrocks_posts_create', 'breakrocks_posts_reply', 'breakrocks_posts_quote', 'breakrocks_posts_edit']) expect(all.find((t) => t.name === name)!.inputSchema.properties).toHaveProperty('source');
   });
 });

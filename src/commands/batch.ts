@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { asCliError, usageError } from '../errors.js';
-import { execute, findCommand, type Command } from '../registry.js';
+import { MAX_WORDS, deprecationNotice, execute, findCommand, type Command } from '../registry.js';
 import { bool, int, list, object, openObject, parseCommandLine, str } from '../schema.js';
 
 type Line = { command?: string; input?: Record<string, unknown>; argv?: string[]; requestId?: string };
@@ -38,12 +38,13 @@ export const batch: Command<{ file: string; continue?: boolean }, BatchResult> =
         let line: Line;
         try { line = JSON.parse(l); } catch { throw usageError('INVALID_INPUT', `line ${n}: not JSON`); }
         const words = line.argv ?? (line.command ? line.command.split(' ') : []);
-        const found = findCommand(line.argv ? line.argv.filter((w, i) => i < 4 && !w.startsWith('-')) : words);
+        const found = findCommand(line.argv ? line.argv.filter((w, i) => i < MAX_WORDS && !w.startsWith('-')) : words);
         if (!found) throw usageError('UNKNOWN_COMMAND', `line ${n}: unknown command "${words.join(' ')}"`);
-        const { command } = found;
+        const { command, alias } = found;
         name = command.name;
+        if (alias) ctx.io.out.error(`line ${n}: ${deprecationNotice(alias, command)}`);
         if (NOT_IN_BATCH.has(command.name)) throw usageError('INVALID_INPUT', `line ${n}: ${command.name} is not an action`);
-        const input = line.argv ? parseCommandLine(command.input, command.args ?? {}, line.argv.slice(command.name.split(' ').length)) : { ...(line.input ?? {}) };
+        const input = line.argv ? parseCommandLine(command.input, command.args ?? {}, line.argv.slice((alias ?? command.name).split(' ').length)) : { ...(line.input ?? {}) };
         if (input.watch) throw usageError('INVALID_INPUT', `line ${n}: --watch is not an action`);
         let requestId: string | undefined;
         if (command.input.properties.requestId) { requestId = (line.requestId ?? input.requestId ?? randomUUID()) as string; input.requestId = requestId; }

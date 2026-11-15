@@ -153,11 +153,11 @@ describe('the universe visit history', () => {
 describe('MCP', () => {
   it('exposes every new command as a tool, "yes" only on the destructive one', () => {
     const all = tools();
-    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'messages_delete', 'themes_gallery', 'universes_appearance_history', 'universes_appearance_restore', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_visit', 'settings_history_pause'].map((n) => `breakrocks_${n}`);
+    const names = ['discussions_list', 'discussions_show', 'discussions_unread', 'messages_react', 'messages_unreact', 'messages_thread', 'messages_reply_thread', 'messages_delete', 'look_themes_gallery', 'look_appearance_history', 'look_appearance_restore', 'universes_history', 'universes_history_remove', 'universes_history_clear', 'universes_history_visit', 'universes_history_pause'].map((n) => `breakrocks_${n}`);
     for (const n of names) expect(all.map((t) => t.name), n).toContain(n);
     expect(all.find((t) => t.name === 'breakrocks_universes_history_clear')!.inputSchema.properties).toHaveProperty('yes');
     expect(all.find((t) => t.name === 'breakrocks_universes_history_remove')!.inputSchema.properties).not.toHaveProperty('yes');
-    for (const n of ['messages_react', 'messages_unreact', 'messages_reply_thread', 'universes_appearance_restore', 'universes_visit', 'universes_history_clear', 'settings_history_pause']) expect(all.find((t) => t.name === `breakrocks_${n}`)!.inputSchema.properties, n).toHaveProperty('dryRun');
+    for (const n of ['messages_react', 'messages_unreact', 'messages_reply_thread', 'look_appearance_restore', 'universes_history_visit', 'universes_history_clear', 'universes_history_pause']) expect(all.find((t) => t.name === `breakrocks_${n}`)!.inputSchema.properties, n).toHaveProperty('dryRun');
   });
 });
 

@@ -21,18 +21,18 @@ const universeText = (r: unknown) => { const x = r as UniverseLine | null; retur
 type JoinRequest = { account?: Ref; createdAt?: string; expiresAt?: string; universe?: string };
 export const joinRequests = apiCommand({
   name: 'universes join-requests', summary: 'The join requests waiting in a private universe joined by request, the oldest first (joinRequests; its owner and admins)', kind: 'query', op: 'joinRequests', positionals: ['universe'], descriptions: u,
-  text: pageText((x: JoinRequest) => `${at(x.account)}  asked ${x.createdAt ?? '-'}  expires ${x.expiresAt ?? '-'}`), examples: ['breakrocks universes join-requests %club.'],
+  text: pageText((x: JoinRequest) => `${at(x.account)}  asked ${x.createdAt ?? '-'}  expires ${x.expiresAt ?? '-'}`), examples: ['breakrocks universes private join-requests %club.'],
 });
 const answersText = (r: unknown) => { const a = r as { answered?: number; waiting?: number } | null; return a ? `answered ${a.answered ?? 0}, waiting ${a.waiting ?? 0}` : '(none)'; };
 const answerOne = (accept: boolean) => apiCommand({
   name: `universes join-requests ${accept ? 'accept' : 'decline'}`, summary: `${accept ? 'Accept' : 'Decline'} the join request of an account (answerJoinRequest)`, kind: 'mutation', op: 'answerJoinRequest', fixed: { accept },
-  positionals: ['universe', 'accountId'], rename: { accountId: 'account' }, descriptions: u, text: answersText, examples: [`breakrocks universes join-requests ${accept ? 'accept' : 'decline'} %club. @alice`],
+  positionals: ['universe', 'accountId'], rename: { accountId: 'account' }, descriptions: u, text: answersText, examples: [`breakrocks universes private join-requests ${accept ? 'accept' : 'decline'} %club. @alice`],
 });
 const answerAll = (accept: boolean) => apiCommand({
   name: `universes join-requests ${accept ? 'accept-all' : 'decline-all'}`, summary: accept ? 'Accept every waiting join request, up to the member tier (answerAllJoinRequests)' : 'Decline every waiting join request (answerAllJoinRequests)',
   kind: 'mutation', op: 'answerAllJoinRequests', fixed: { accept }, positionals: ['universe'], descriptions: u, text: answersText,
   ...(accept ? {} : { confirm: (i: Record<string, unknown>) => `Decline every join request of ${String(i.universe)}?` }),
-  examples: [`breakrocks universes join-requests ${accept ? 'accept-all %club.' : 'decline-all %club. --yes'}`],
+  examples: [`breakrocks universes private join-requests ${accept ? 'accept-all %club.' : 'decline-all %club. --yes'}`],
 });
 export const joinRequestsAccept = answerOne(true);
 export const joinRequestsDecline = answerOne(false);
@@ -42,17 +42,17 @@ export const joinRequestsDeclineAll = answerAll(false);
 type Invitation = { universe?: string; inviter?: Ref; status?: string; createdAt?: string; expiresAt?: string };
 export const invitations = apiCommand({
   name: 'universes invitations', summary: 'The invitations to private universes received, the most recent first (universeInvitations)', kind: 'query', op: 'universeInvitations',
-  text: pageText((x: Invitation) => `${x.universe ?? ''}  ${x.status ?? ''}  by ${at(x.inviter)}  expires ${x.expiresAt ?? '-'}`), examples: ['breakrocks universes invitations'],
+  text: pageText((x: Invitation) => `${x.universe ?? ''}  ${x.status ?? ''}  by ${at(x.inviter)}  expires ${x.expiresAt ?? '-'}`), examples: ['breakrocks universes private invitations'],
 });
 export const invitationsAccept = apiCommand({
   name: 'universes invitations accept', summary: 'Accept an invitation to a private universe: join it, with the version of its conditions accepted (answerUniverseInvitation)',
   description: '--conditions-version: the version of the conditions of the universe accepted (universes conditions show); CONDITIONS_NOT_ACCEPTED without it when it has conditions.',
   kind: 'mutation', op: 'answerUniverseInvitation', fixed: { accept: true }, positionals: ['universe'], descriptions: { ...u, conditionsVersion: 'The version of the conditions accepted' }, depth: 1, text: universeText,
-  examples: ['breakrocks universes invitations accept %club. --conditions-version 2'],
+  examples: ['breakrocks universes private invitations accept %club. --conditions-version 2'],
 });
 export const invitationsDecline = apiCommand({
   name: 'universes invitations decline', summary: 'Decline an invitation to a private universe (answerUniverseInvitation)', kind: 'mutation', op: 'answerUniverseInvitation', fixed: { accept: false }, hide: ['conditionsVersion'],
-  positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes invitations decline %club.'],
+  positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes private invitations decline %club.'],
 });
 
 // ---- The owner and the admins ----
@@ -76,11 +76,11 @@ export const transferDecline = transfer(false);
 const deletionText = (r: unknown) => { const d = r as { universe?: string; deletedAt?: string | null; deletedForGoodAt?: string | null } | null; return d ? `${d.universe}  ${d.deletedAt ? `deleted ${d.deletedAt}, for good ${d.deletedForGoodAt ?? '-'}` : 'not deleted'}` : '(none)'; };
 export const universesDelete = apiCommand({
   name: 'universes delete', summary: 'Delete a private universe: hidden at once, deleted for good 30 days later unless cancelled (deletePrivateUniverse; its owner)', kind: 'mutation', op: 'deletePrivateUniverse', positionals: ['universe'], descriptions: u,
-  confirm: (i) => `Delete ${String(i.universe)}? Deleted for good in 30 days unless cancelled.`, text: deletionText, examples: ['breakrocks universes delete %club. --yes'],
+  confirm: (i) => `Delete ${String(i.universe)}? Deleted for good in 30 days unless cancelled.`, text: deletionText, examples: ['breakrocks universes private delete %club. --yes'],
 });
 export const universesDeleteCancel = apiCommand({
   name: 'universes delete-cancel', summary: 'Cancel the deletion of a private universe before it is deleted for good (cancelUniverseDeletion)', kind: 'mutation', op: 'cancelUniverseDeletion', positionals: ['universe'], descriptions: u,
-  text: deletionText, examples: ['breakrocks universes delete-cancel %club.'],
+  text: deletionText, examples: ['breakrocks universes private delete-cancel %club.'],
 });
 export const privateSet = apiCommand({
   name: 'universes private set', summary: 'Change the settings of a private universe: display case, join mode, automatic alternative texts and subtitles (changePrivateUniverse; its owner)',
@@ -92,39 +92,39 @@ type Creation = { status?: string; dnsProof?: { recordType?: string; recordName?
 export const domains = apiCommand({
   name: 'universes domains', summary: 'The own domains waiting for their DNS proof: the TXT record to publish (pendingDomains)', kind: 'query', op: 'pendingDomains',
   text: (r) => (Array.isArray(r) && r.length ? (r as { universe?: string; recordType?: string; recordName?: string; value?: string; expiresAt?: string }[]).map((d) => `${d.universe}  ${d.recordType} ${d.recordName} "${d.value}"  expires ${d.expiresAt}`).join('\n') : '(none)'),
-  examples: ['breakrocks universes domains'],
+  examples: ['breakrocks universes private domains'],
 });
 export const domainsCheck = apiCommand({
   name: 'universes domains check', summary: 'Look for the DNS TXT record of an own domain: found, the private universe is created (checkDnsProof)', kind: 'mutation', op: 'checkDnsProof', positionals: ['domain'], descriptions: { domain: 'The domain (example.com)' },
   text: (r) => { const c = r as Creation | null; return c ? `${c.status}${c.universe?.name ? `  ${c.universe.name}` : ''}${c.dnsProof ? `  ${c.dnsProof.recordType} ${c.dnsProof.recordName} "${c.dnsProof.value}"` : ''}` : '(none)'; },
-  examples: ['breakrocks universes domains check example.com'],
+  examples: ['breakrocks universes private domains check example.com'],
 });
 export const teamTier = apiCommand({
   name: 'universes team-tier', summary: 'After a declaration found false: choose the free member tier of a team, 10 members (chooseTeamMemberTier; its owner)', kind: 'mutation', op: 'chooseTeamMemberTier', positionals: ['universe'], descriptions: u, depth: 1,
-  confirm: (i) => `Choose the team tier for ${String(i.universe)}? Its members beyond 10 become read-only.`, text: universeText, examples: ['breakrocks universes team-tier %club. --yes'],
+  confirm: (i) => `Choose the team tier for ${String(i.universe)}? Its members beyond 10 become read-only.`, text: universeText, examples: ['breakrocks universes private team-tier %club. --yes'],
 });
 export const declare = apiCommand({
   name: 'universes declare', summary: 'Declare an association (its registration number) or an open-source project (its public repository): the member tier goes to 1,000, free (declareUniverse)',
   kind: 'mutation', op: 'declareUniverse', positionals: ['universe', 'kind', 'reference'], descriptions: { ...u, kind: 'ASSOCIATION or OPEN_SOURCE', reference: 'The registration number, or the https address of the public repository' }, depth: 1, text: universeText,
-  examples: ['breakrocks universes declare %club. OPEN_SOURCE https://github.com/example/club'],
+  examples: ['breakrocks universes private declare %club. OPEN_SOURCE https://github.com/example/club'],
 });
 export const expose = apiCommand({
   name: 'universes expose', summary: 'Expose a sub-universe of a private universe and everything below it: read, reply or participate (exposeUniverse)', kind: 'mutation', op: 'exposeUniverse', positionals: ['universe'],
-  descriptions: { universe: 'The sub-universe (%club./news)', access: 'READ (by default), REPLY or PARTICIPATE' }, depth: 1, text: universeText, examples: ['breakrocks universes expose %club./news --access REPLY'],
+  descriptions: { universe: 'The sub-universe (%club./news)', access: 'READ (by default), REPLY or PARTICIPATE' }, depth: 1, text: universeText, examples: ['breakrocks universes private expose %club./news --access REPLY'],
 });
 export const hide = apiCommand({
-  name: 'universes hide', summary: 'Hide the exposed parts of a private universe again (hideUniverse)', kind: 'mutation', op: 'hideUniverse', positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes hide %club./news'],
+  name: 'universes hide', summary: 'Hide the exposed parts of a private universe again (hideUniverse)', kind: 'mutation', op: 'hideUniverse', positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes private hide %club./news'],
 });
 export const reactivate = apiCommand({
-  name: 'universes reactivate', summary: 'Reactivate an archived universe: its 12 months start again (reactivateUniverse; its owner)', kind: 'mutation', op: 'reactivateUniverse', positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes reactivate %club.'],
+  name: 'universes reactivate', summary: 'Reactivate an archived universe: its 12 months start again (reactivateUniverse; its owner)', kind: 'mutation', op: 'reactivateUniverse', positionals: ['universe'], descriptions: u, depth: 1, text: universeText, examples: ['breakrocks universes private reactivate %club.'],
 });
 const reputationText = (r: unknown) => { const x = r as { universe?: string; turnedOn?: boolean; foldingCoefficient?: number; threshold?: number; appliesFrom?: string | null } | null; return x ? `${x.universe}  ${x.turnedOn ? 'on' : 'off'}  folding coefficient ${x.foldingCoefficient}  threshold ${x.threshold}${x.appliesFrom ? `  from ${x.appliesFrom}` : ''}` : '(none)'; };
 export const reputation = apiCommand({
-  name: 'universes reputation', summary: 'The reputation of a private universe, for its members (privateUniverseReputation)', kind: 'query', op: 'privateUniverseReputation', positionals: ['universe'], descriptions: u, text: reputationText, examples: ['breakrocks universes reputation %club.'],
+  name: 'universes reputation', summary: 'The reputation of a private universe, for its members (privateUniverseReputation)', kind: 'query', op: 'privateUniverseReputation', positionals: ['universe'], descriptions: u, text: reputationText, examples: ['breakrocks universes private reputation %club.'],
 });
 export const reputationSet = apiCommand({
   name: 'universes reputation set', summary: 'Turn the reputation of a private universe on (from the next midnight UTC) or off (at once), and set its folding coefficient (setUniverseReputation; its owner)', kind: 'mutation', op: 'setUniverseReputation', positionals: ['universe'],
-  descriptions: { ...u, turnedOn: 'On (--turned-on) or off (--no-turned-on)', foldingCoefficient: 'The coefficient of the folding threshold' }, text: reputationText, examples: ['breakrocks universes reputation set %club. --turned-on --folding-coefficient 1.5'],
+  descriptions: { ...u, turnedOn: 'On (--turned-on) or off (--no-turned-on)', foldingCoefficient: 'The coefficient of the folding threshold' }, text: reputationText, examples: ['breakrocks universes private reputation set %club. --turned-on --folding-coefficient 1.5'],
 });
 export const searchWords = apiCommand({
   name: 'universes search-words', summary: 'Set the universe search words of a universe: the whole list, 10 at most ([] or none: cleared) (setUniverseSearchWords)', kind: 'mutation', op: 'setUniverseSearchWords', positionals: ['universe', 'words'],
@@ -159,15 +159,15 @@ const tierText = (r: unknown) => { const t = r as Tier | null; return t ? `${t.i
 const tierFields = { currency: 'The currency (EUR, USD…)', monthlyAmount: 'The monthly price, in the smallest unit (cents)', yearlyAmount: 'The yearly price, in the smallest unit', name: 'The name of the tier', perks: 'The perks (TierPerk)', tierId: 'The tier (its id)' };
 export const tiersOffer = apiCommand({
   name: 'universes tiers offer', summary: 'Offer a subscription tier in a private universe joined by subscription, 3 at most (offerSubscriptionTier; its owner)', kind: 'mutation', op: 'offerSubscriptionTier', positionals: ['universe'], dry: true,
-  descriptions: { ...u, ...tierFields }, text: tierText, examples: ['breakrocks universes tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS'],
+  descriptions: { ...u, ...tierFields }, text: tierText, examples: ['breakrocks universes private tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS'],
 });
 export const tiersChange = apiCommand({
   name: 'universes tiers change', summary: 'Change a subscription tier: a rise applies 30 days later, a decrease at once (changeSubscriptionTier)', kind: 'mutation', op: 'changeSubscriptionTier', positionals: ['universe', 'tierId'], dry: true,
-  descriptions: { ...u, ...tierFields }, text: tierText, examples: ['breakrocks universes tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE'],
+  descriptions: { ...u, ...tierFields }, text: tierText, examples: ['breakrocks universes private tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE'],
 });
 export const tiersWithdraw = apiCommand({
   name: 'universes tiers withdraw', summary: 'Withdraw a subscription tier: its paying members keep it until the end of their paid period (withdrawSubscriptionTier)', kind: 'mutation', op: 'withdrawSubscriptionTier', positionals: ['universe', 'tierId'],
-  descriptions: { ...u, ...tierFields }, confirm: (i) => `Withdraw the tier ${String(i.tierId)} of ${String(i.universe)}?`, text: tierText, examples: ['breakrocks universes tiers withdraw %club. <tier id> --yes'],
+  descriptions: { ...u, ...tierFields }, confirm: (i) => `Withdraw the tier ${String(i.tierId)} of ${String(i.universe)}?`, text: tierText, examples: ['breakrocks universes private tiers withdraw %club. <tier id> --yes'],
 });
 const paymentText = (r: unknown) => { const p = r as { url?: string; expiresAt?: string; accessFrom?: string | null } | null; return p ? [`open to pay: ${p.url}`, `expires ${p.expiresAt}`, ...(p.accessFrom ? [`access from ${p.accessFrom}`] : [])].join('\n') : '(none)'; };
 export const tiersSubscribe = apiCommand({
@@ -175,7 +175,7 @@ export const tiersSubscribe = apiCommand({
   description: '--immediate-access-consent: access at once, waiving the 14 days of withdrawal; without it, the access and the first payment 14 days later. --conditions-version: the version of the conditions of the universe accepted. Never a delegated agent.',
   kind: 'mutation', op: 'startTierSubscription', positionals: ['universe', 'tierId'], dry: true,
   descriptions: { ...u, tierId: 'The tier (its id)', interval: 'MONTH or YEAR', automaticRenewal: 'Renewed on its own (--no-automatic-renewal: not)', immediateAccessConsent: 'Access at once, the 14 days of withdrawal waived', conditionsVersion: 'The version of the conditions accepted', returnPath: 'Where the payment page comes back (a path of the web app)', currency: 'The currency' },
-  text: paymentText, examples: ['breakrocks universes tiers subscribe %club. <tier id> --interval MONTH --automatic-renewal --no-immediate-access-consent --conditions-version 1'],
+  text: paymentText, examples: ['breakrocks universes private tiers subscribe %club. <tier id> --interval MONTH --automatic-renewal --no-immediate-access-consent --conditions-version 1'],
 });
 const renewal = (enabled: boolean) => apiCommand({
   name: `universes tiers renewal ${enabled ? 'on' : 'off'}`, summary: enabled ? 'Turn the renewal of a tier subscription back on (setTierSubscriptionRenewal)' : 'Turn the renewal of a tier subscription off: it ends at its paid date, without refund (setTierSubscriptionRenewal)',

@@ -307,7 +307,7 @@ type SessionResult = { profile: string; signedIn: boolean; kind?: string; accoun
 export const sessionCommand: Command<{ renew?: boolean }, SessionResult> = {
   name: 'session', summary: 'Show the session of the profile and when it ends (--renew: renew it now)',
   description: 'The token of a session lasts 1 hour; every command renews it 5 minutes before its end, with the key of an operator or an agent, with the refresh token of a human, whose session lasts 7 days from the sign-in (signInAgainBy). Never shows a token.',
-  examples: ['breakrocks session', 'breakrocks session --renew --json'],
+  examples: ['breakrocks me session', 'breakrocks me session --renew --json'],
   input: object({ renew: bool('Renew the session now') }),
   output: openObject({ profile: str('The profile'), signedIn: bool('A session is open'), kind: str('human, operator or agent'), accountId: str('The account of a human'), operatorId: str('Operator'), agentId: str('Delegated agent'), sessionId: str('The session'), expiresAt: str('When its token ends'), expiresInSeconds: int('Seconds left'), renewsAt: str('When it is renewed'), signInAgainBy: str('A human: when the session ends, 7 days after the sign-in'), canRenew: bool('The key, or the refresh token of a human, is here to renew it') }),
   run: async (ctx, { renew }) => {

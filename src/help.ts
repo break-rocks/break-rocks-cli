@@ -1,41 +1,27 @@
-// The help, derived from the registry: the overview (the groups and their commands), the help of a
-// group, the help of a command (its usage line, its options from its input schema, its examples).
-import { commands, groupOf, groups, type AnyCommand } from './registry.js';
+// The help, derived from the registry and the tree (src/tree.ts): the overview (the domains and their
+// groups), the help of a domain, of a group or a subgroup (its commands, the subgroups folded), of a
+// command (its usage line, its details, its API operation, its options, its examples), the search of
+// the commands by a word, and the commands close to a mistyped one.
+import { aliases, commands, commandsUnder, groupOf, type AnyCommand } from './registry.js';
 import { kebab, mainType, type JsonSchema } from './schema.js';
+import { ALIASES_REMOVED_IN, DOMAINS, GROUP_SUMMARIES } from './tree.js';
+
+export { GROUP_SUMMARIES };
 
 export const GLOBAL_OPTIONS: [string, string][] = [
   ['--json', 'Answer in JSON (for scripts and AI agents); a refusal is { "error": { "code", … } }'],
   ['--quiet', 'Write only the identifier created or read'],
   ['--fields <a,b.c>', 'Keep these fields of the answer (of each item of a list)'],
-  ['--profile <name>', 'Use this profile (else BREAKROCKS_PROFILE, else the current one)'],
+  ['--profile <name>', 'Use this CLI profile (else BREAKROCKS_PROFILE, else the current one)'],
   ['--env <dev|staging|prod>', 'The environment of a profile without an account (default: prod)'],
+  ['--proxy <url>', 'Send every request through this proxy (else the profile, else HTTPS_PROXY)'],
+  ['--ca-file <file>', 'Trust this CA bundle (PEM) too (else the profile)'],
   ['--yes', 'Confirm an irreversible action or a payment without asking'],
   ['--help', 'Show the help (of a command: breakrocks <command> --help)'],
   ['--version', 'Show the version of the CLI'],
 ];
 
-export const GROUP_SUMMARIES: Record<string, string> = {
-  help: 'This help', version: 'The version of the CLI', schema: 'The JSON Schemas of a command',
-  profile: 'Profiles: an environment and an account each', operator: 'Agent operators: keys, registration paid with x402, sessions, recovery',
-  agents: 'Delegated agents of the operator', agent: 'Signing in as a delegated agent, attestations',
-  wallet: 'The x402 wallet: key, balance, caps', whoami: 'The account signed in', session: 'The session of the profile',
-  usage: 'Usage and limits', me: 'The account itself: profile, handle, password, email, deletion, data requests, onboarding, invitation link, platform measures and terms', ads: 'Advertising: campaigns, budgets, suggestions, the ad repository, ad interests', capabilities: 'What the profile may do now', theme: 'Themes, offline: prompt, check, pack, unpack',
-  mcp: 'The MCP server on stdio', completion: 'The completion script of a shell: bash, zsh, fish, pwsh',
-  posts: 'Posts: list, show, edit, delete, pin, alternative texts, subtitles', drafts: 'Post drafts and scheduled posts', reposts: 'Requests to repost a post of a private universe', playlists: 'Playlists: series, account and universe playlists, courses, the form route', videos: 'Long videos: their view, chapters, playback, the video quota', feed: 'The feed of the account', render: 'A post as plain text', export: 'The export of a universe',
-  post: 'Publish a post', reply: 'Reply', quote: 'Quote', repost: 'Repost', like: 'Like', unlike: 'Unlike', dislike: 'Dislike', undislike: 'Undislike',
-  'not-interested': 'Not interested', follow: 'Follow', unfollow: 'Unfollow', block: 'Block', unblock: 'Unblock', mute: 'Mute', unmute: 'Unmute', report: 'Report',
-  universes: 'Universes: the page, Explore, residence, favorites, private universes, the universe territory, the pages', explore: 'Explore, why a post is recommended, universes muted from discovery, the universes of an area of the map', resolve: 'Resolve an address', places: 'The places search', map: 'The map: the shapes of the boundaries, the routes, placed channels and posts, recent places, map presences of an area', routes: 'Routes: saved, copied, GPX, privacy zones, the routing', presence: 'One\'s map presence: start, audience, ghost mode, stop', 'live-share': 'Live shares of one\'s position in a conversation or a group chat', locatable: 'Locatable residents of a public universe', meetups: 'Meet-ups of a discussion', nearby: 'Nearby: tokens and requests to connect', 'time-column': 'The time column', live: 'The live line',
-  accounts: 'Accounts and their links', notifications: 'Notifications', events: 'Events', proposals: 'Proposals and votes', debates: 'Debates', polls: 'Polls',
-  channels: 'Channels', discussions: 'Universe discussions: list, page, unread, pinned for oneself, the place of a channel; their moderation (archive, order, slow mode, writing bans, moderators, agents, deletion) and their limits', messages: 'Messages › Universes and mentions; reactions, threads and contribution votes of the messages of a universe discussion', settings: 'Personal settings: the universe visit history', themes: 'The theme catalog', appearance: 'The appearance editor of a universe: looks, palette, build, apply', layouts: 'Layouts', studio: 'The drafts of the studio', batch: 'Actions of a file',
-  inbox: 'The inbox', dm: 'Direct messages', groups: 'Group chats', connections: 'Connections between accounts', messaging: 'The settings of the messages',
-  moderation: 'Moderation of a universe', governance: 'Governance of a universe',
-  subscription: 'The paid tiers of the account (X2, X10): subscription, renewal, billing day, billing portal', 'gift-codes': 'Gift codes of the paid tiers: offer, bought, used, refunded',
-  search: 'Search posts, accounts, universes, pages, discussions, playlists and tags', clips: 'The clip feed, the platform clips, the popular clips', interests: 'The interest profile of the recommendations: shown, added, fields chosen, forgotten',
-  sanctions: 'The sanctions of the account in universes and their appeal', jury: 'The jury of the appeal of a sanction: the draw, the reviews, the vote',
-};
-
-/** The groups out of the basic help: breakrocks help <group>. */
-export const ADVANCED_GROUPS = ['moderation', 'governance'];
+const EXIT_CODES = 'Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.';
 
 function placeholder(name: string, schema: JsonSchema): string {
   const type = mainType(schema);
@@ -63,56 +49,168 @@ export function usageLine(c: AnyCommand): string {
   return parts.join(' ');
 }
 
+const table = (rows: [string, string][]) => {
+  const width = Math.max(0, ...rows.map(([l]) => l.length));
+  return rows.map(([l, d]) => `  ${l.padEnd(width)}  ${d}`.trimEnd());
+};
+
 /** The help of a command. */
 export function commandHelp(c: AnyCommand): string {
   const positionals = c.args?.positionals ?? [];
-  const rows = Object.entries(c.input.properties).map(([name, s]) => {
+  const rows = Object.entries(c.input.properties).map(([name, s]): [string, string] => {
     const label = positionals.includes(name) ? `<${kebab(name)}>` : mainType(s) === 'boolean' ? `--${kebab(name)}` : `--${kebab(name)} <${placeholder(name, s)}>`;
     const values = s.items?.enum;
     const extra = [(c.input.required ?? []).includes(name) ? 'required' : '', values ? `among ${values.join(', ')}` : '', s.default !== undefined ? `default ${JSON.stringify(s.default)}` : ''].filter(Boolean).join('; ');
     return [label, `${s.description ?? ''}${extra ? ` (${extra})` : ''}`];
   });
-  const width = Math.max(0, ...rows.map(([l]) => l.length));
+  const under = commandsUnder(c.name);
   return [
     `${c.summary}`,
     '',
     `Usage: ${usageLine(c)}`,
+    ...(c.details ? ['', c.details] : []),
     ...(c.description ? ['', c.description] : []),
-    ...(rows.length ? ['', 'Options:', ...rows.map(([l, d]) => `  ${l.padEnd(width)}  ${d}`)] : []),
+    ...(c.api ? ['', `API: ${c.api}`] : []),
+    ...(rows.length ? ['', 'Options:', ...table(rows)] : []),
     ...(c.interactive ? ['', 'Asks a confirmation: --yes for scripts and agents (exit 2 without it when nobody can answer).'] : []),
     ...(c.offline ? ['', 'Works offline.'] : []),
     '',
     'Examples:',
     ...c.examples.map((e) => `  ${e}`),
+    ...(under.length ? ['', 'Subcommands:', ...childRows(c.name)] : []),
+    ...(c.aliases?.length ? ['', `Former name (deprecated, removed in ${ALIASES_REMOVED_IN}): ${c.aliases.map((a) => `breakrocks ${a}`).join(', ')}`] : []),
     '',
     `JSON Schemas of its input and output: breakrocks schema ${c.name}`,
   ].join('\n');
 }
 
-/** The help of a group of commands. */
-export function groupHelp(group: string): string {
-  const list = commands().filter((c) => groupOf(c) === group);
-  const width = Math.max(...list.map((c) => c.name.length));
-  return [`${GROUP_SUMMARIES[group] ?? group}`, '', 'Commands:', ...list.map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`), '', `Help of a command: breakrocks ${group} <action> --help`].join('\n');
+/** The lines of what lies one word below [prefix]: its commands, its subgroups folded ("…"). */
+function childRows(prefix: string): string[] {
+  const depth = prefix ? prefix.split(' ').length : 0;
+  const children: string[] = [];
+  for (const c of prefix ? commandsUnder(prefix) : commands()) {
+    const child = c.name.split(' ').slice(0, depth + 1).join(' ');
+    if (!children.includes(child)) children.push(child);
+  }
+  return table(children.map((child): [string, string] => {
+    const command = commands().find((c) => c.name === child);
+    const under = commandsUnder(child).length;
+    if (!under) return [child, command!.summary];
+    return [`${child} …`, GROUP_SUMMARIES[child] ?? `${under + (command ? 1 : 0)} commands`];
+  }));
 }
 
-/** The overview: every group and its commands, the global options, the exit codes. */
+/** Whether [path] is a group or a subgroup (commands lie under it). */
+export const isGroup = (path: string) => commandsUnder(path).length > 0;
+
+/** The help of a group or a subgroup: its own command, its commands, its subgroups folded. */
+export function groupHelp(path: string): string {
+  const own = commands().find((c) => c.name === path);
+  return [
+    `${GROUP_SUMMARIES[path] ?? path}`,
+    '',
+    'Commands:',
+    ...(own ? table([[own.name, own.summary]]) : []),
+    ...childRows(path),
+    '',
+    `Help of a command: breakrocks ${path} <action> --help`,
+  ].join('\n');
+}
+
+/** The domain named [word] ("talk", "Map"), if any. */
+export const domainOf = (word: string) => DOMAINS.find((d) => d.name === word.toLowerCase());
+
+/** The help of a domain: the help of each of its groups. */
+export function domainHelp(name: string): string {
+  const domain = domainOf(name)!;
+  const sections = domain.groups.filter((g) => commands().some((c) => groupOf(c) === g)).map((g) => {
+    const own = commands().find((c) => c.name === g);
+    const rows = [...(own ? table([[own.name, own.summary]]) : []), ...childRows(g)];
+    return [`${g}: ${GROUP_SUMMARIES[g] ?? ''}`.trimEnd(), ...rows].join('\n');
+  });
+  return [`${domain.title}`, '', sections.join('\n\n'), '', 'Help of a group: breakrocks help <group>; of a command: breakrocks <command> --help'].join('\n');
+}
+
+/** The overview: the domains and their groups, then how to go further. About 30 lines. */
 export function overviewHelp(): string {
-  const all = commands().filter((c) => !ADVANCED_GROUPS.includes(groupOf(c)));
-  const width = Math.max(...all.map((c) => c.name.length));
-  const optionWidth = Math.max(...GLOBAL_OPTIONS.map(([o]) => o.length));
+  const width = Math.max(...DOMAINS.map((d) => d.title.length));
   return [
     'Usage: breakrocks <command> [options]',
     '',
-    'Commands:',
-    ...groups().filter((g) => !ADVANCED_GROUPS.includes(g)).flatMap((g) => all.filter((c) => groupOf(c) === g).map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`)),
+    ...DOMAINS.map((d) => `  ${d.title.padEnd(width)}  ${d.line}`),
     '',
-    `Moderation and governance of a universe: ${ADVANCED_GROUPS.map((g) => `breakrocks help ${g}`).join(', ')}`,
+    ...table([
+      ['breakrocks help <domain>', 'The commands of a domain (breakrocks help talk)'],
+      ['breakrocks help <word>', 'Search the commands (breakrocks help invite)'],
+      ['breakrocks help --all', 'Every command'],
+      ['breakrocks <command> --help', 'The help of a command'],
+    ]),
     '',
-    'Options:',
-    ...GLOBAL_OPTIONS.map(([o, d]) => `  ${o.padEnd(optionWidth)}  ${d}`),
-    '',
-    'Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.',
-    'Help of a command: breakrocks <command> --help',
+    `Options: ${GLOBAL_OPTIONS.map(([o]) => o.split(' ')[0]).join(' ')} (breakrocks help options)`,
+    EXIT_CODES,
   ].join('\n');
+}
+
+/** The global options and the exit codes (breakrocks help options). */
+export function optionsHelp(): string {
+  return ['Options of every command:', ...table(GLOBAL_OPTIONS), '', EXIT_CODES].join('\n');
+}
+
+/** Every command, by group (breakrocks help --all). */
+export function allHelp(): string {
+  const rows = commands().map((c): [string, string] => [c.name, c.summary]);
+  return ['Usage: breakrocks <command> [options]', '', 'Commands:', ...table(rows), '', optionsHelp(), 'Help of a command: breakrocks <command> --help'].join('\n');
+}
+
+/** The commands whose name, summary, details or former name hold every word of [words], the names first. */
+export function searchCommands(words: readonly string[]): AnyCommand[] {
+  const terms = words.map((w) => w.toLowerCase());
+  const has = (text: string | undefined) => terms.every((t) => (text ?? '').toLowerCase().includes(t));
+  const byName = commands().filter((c) => has(c.name) || c.aliases?.some(has));
+  const byText = commands().filter((c) => !byName.includes(c) && has([c.summary, c.details, c.description].join(' ')));
+  return [...byName, ...byText];
+}
+
+/** The help of a search: the commands found. */
+export function searchHelp(words: readonly string[], found: readonly AnyCommand[]): string {
+  const shown = found.slice(0, 40);
+  return [`Commands matching "${words.join(' ')}":`, ...table(shown.map((c) => [c.name, c.summary])), ...(found.length > shown.length ? [`  … ${found.length - shown.length} more: narrow the search`] : []), '', 'Help of a command: breakrocks <command> --help'].join('\n');
+}
+
+function distance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let previous = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const current = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
+      previous = current;
+    }
+  }
+  return row[b.length];
+}
+
+/** The commands (or groups) closest to the mistyped [words], 3 at most ("did you mean …?"). */
+export function suggestions(words: readonly string[]): string[] {
+  const typed = words.join(' ');
+  if (!typed) return [];
+  const scored = new Map<string, number>();
+  const limit = Math.max(2, Math.floor(typed.length / 3));
+  const consider = (head: string, shown: string) => {
+    const d = distance(typed, head);
+    if (d <= limit && (scored.get(shown) ?? Infinity) > d) scored.set(shown, d);
+  };
+  // A command or a group, by as many words as typed; a former name, whole only (shown as its new path).
+  for (const c of commands()) { const head = c.name.split(' ').slice(0, words.length).join(' '); consider(head, head); }
+  for (const [alias, c] of aliases()) if (alias.split(' ').length === words.length) consider(alias, c.name);
+  for (const c of searchCommands(words).slice(0, 3)) if (!scored.has(c.name)) scored.set(c.name, 99);
+  return [...scored].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).slice(0, 3).map(([name]) => name);
+}
+
+/** The help of a former group ("theme", "dm"): where each of its commands went. */
+export function movedHelp(prefix: string): string | undefined {
+  const moved = [...aliases()].filter(([alias]) => alias === prefix || alias.startsWith(`${prefix} `));
+  if (!moved.length) return undefined;
+  return [`"${prefix}" moved (its former names work until ${ALIASES_REMOVED_IN}):`, ...table(moved.map(([alias, c]) => [alias, `→ ${c.name}`]))].join('\n');
 }

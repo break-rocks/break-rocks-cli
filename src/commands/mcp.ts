@@ -7,10 +7,12 @@ import { object } from '../schema.js';
 
 export const mcpCommand: Command<Record<string, never>, undefined> = {
   name: 'mcp', summary: 'Start the MCP server on stdio: every command as a tool, for Claude Code, Codex, an agent',
-  description: 'Tools breakrocks_<group>_<action> (the input schemas of `breakrocks schema all`), resources breakrocks://whoami, breakrocks://capabilities and breakrocks://profiles, the prompts theme-prompt, whoami, agents and login. Uses the current profile, or --profile and --env given here; --agent <name> (or BREAKROCKS_AGENT) acts as that local agent, signed in and renewed on its own. A tool that asks a confirmation needs "yes": true. README § MCP: how to plug it in.',
+  description: 'Tools breakrocks_<group>_<action> (the input schemas of `breakrocks schema all`), resources breakrocks://whoami, breakrocks://capabilities and breakrocks://profiles, the prompts theme-prompt, whoami, agents and login. Uses the current profile, or --profile and --env given here; --proxy and --ca-file given here (or the profile, or the environment) apply to every tool; --agent <name> (or BREAKROCKS_AGENT) acts as that local agent, signed in and renewed on its own. A tool that asks a confirmation needs "yes": true. README § MCP: how to plug it in.',
   examples: ['breakrocks mcp', 'breakrocks mcp --agent herald', 'breakrocks --profile herald mcp', 'claude mcp add breakrocks -- npx -y breakrocks mcp'],
   input: object({}), output: { type: 'null', description: 'Nothing: the server speaks MCP on stdio until it is closed' }, offline: true, mcp: false,
   run: async (ctx) => {
+    // The commands it serves call the network (README § Proxy): its settings apply to the whole server.
+    await ctx.io.configureNetwork?.(ctx.network());
     const server = createServer({ ...ctx.io, out: stderrOnly, interactive: false }, { profile: ctx.flags.profile, env: ctx.flags.env, agent: ctx.agentName });
     // Until the client closes the connection, or stdin ends (the client went away).
     const closed = new Promise<void>((resolve) => {

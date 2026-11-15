@@ -204,12 +204,12 @@ describe('the tools of the MCP server', () => {
     await client.connect(b);
     expect(client.getInstructions()).toContain('declares the media license of every video');
     const { tools } = await client.listTools();
-    for (const name of ['breakrocks_post', 'breakrocks_reply', 'breakrocks_quote', 'breakrocks_drafts_save']) {
+    for (const name of ['breakrocks_posts_create', 'breakrocks_posts_reply', 'breakrocks_posts_quote', 'breakrocks_drafts_save']) {
       const props = (tools.find((t) => t.name === name)!.inputSchema.properties ?? {}) as Record<string, { enum?: string[] }>;
       expect(props.license?.enum, name).toEqual(['CC0', 'CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'OWN_WORK_ALL_RIGHTS']);
       expect(props.attribution, name).toBeDefined();
     }
-    for (const name of ['breakrocks_dm']) expect((tools.find((t) => t.name === name)?.inputSchema.properties ?? {}) as object).not.toHaveProperty('license');
+    for (const name of ['breakrocks_messages_direct_send']) expect((tools.find((t) => t.name === name)?.inputSchema.properties ?? {}) as object).not.toHaveProperty('license');
     expect(tools.find((t) => t.name === 'breakrocks_videos_quota')!.description).toContain('60,000');
     await client.close();
   });
@@ -217,6 +217,6 @@ describe('the tools of the MCP server', () => {
 
 describe('the completion', () => {
   it('offers the media licenses after --license', () => {
-    expect(complete(completionModel(), ['post', '--license', ''], () => []).values.map((v) => v.value)).toEqual(['CC0', 'CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'OWN_WORK_ALL_RIGHTS']);
+    expect(complete(completionModel(), ['posts', 'create', '--license', ''], () => []).values.map((v) => v.value)).toEqual(['CC0', 'CC_BY', 'CC_BY_SA', 'PUBLIC_DOMAIN', 'OWN_WORK_ALL_RIGHTS']);
   });
 });

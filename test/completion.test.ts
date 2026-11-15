@@ -62,7 +62,7 @@ describe('the completion scripts', () => {
     if (!available('bash', ['-c', 'true'])) return;
     const file = scriptFile('bash');
     const cases: [string[], string][] = [
-      [['po'], 'posts post polls'], [['posts', 'list', '--k'], '--kind'], [['posts', 'list', '--kind', ''], 'post clip'],
+      [['po'], 'posts polls'], [['posts', 'list', '--k'], '--kind'], [['posts', 'list', '--kind', ''], 'post clip'],
       [['universes', 'favorite', ''], 'add remove move list alerts-on alerts-off skip'], [['--json', 'completion', ''], 'bash zsh fish pwsh powershell'],
     ];
     const lines = cases.map(([words]) => `t ${words.map((w) => `'${w}'`).join(' ')}`);
@@ -75,7 +75,7 @@ describe('the completion scripts', () => {
     const inputs = ['breakrocks po', 'breakrocks posts list --k', 'breakrocks posts list --kind ', 'breakrocks universes favorite '];
     const command = `. '${file.replace(/'/g, "''")}'; foreach ($l in @(${inputs.map((i) => `'${i}'`).join(', ')})) { ((TabExpansion2 -inputScript $l -cursorColumn $l.Length).CompletionMatches | ForEach-Object { $_.CompletionText }) -join ' ' }`;
     const r = spawnSync('pwsh', ['-NoProfile', '-Command', command], { encoding: 'utf8' });
-    expect(r.stdout.trim().split(/\r?\n/)).toEqual(['posts post polls', '--kind', 'post clip', 'add remove move list alerts-on alerts-off skip']);
+    expect(r.stdout.trim().split(/\r?\n/)).toEqual(['posts polls', '--kind', 'post clip', 'add remove move list alerts-on alerts-off skip']);
   }, 60_000);
 });
 
@@ -111,14 +111,15 @@ describe('breakrocks __complete', () => {
   const run = async (h: ReturnType<typeof harness>, ...words: string[]) => { const from = h.lines.length; expect(await h.run('__complete', ...words)).toBe(0); return h.lines.slice(from); };
   it('completes the commands, the options and their values, hidden from the help', async () => {
     const h = harness();
-    expect(await run(h, 'po')).toEqual(expect.arrayContaining(['post', 'posts']));
+    expect(await run(h, 'po')).toEqual(expect.arrayContaining(['posts', 'polls']));
+    expect(await run(h, 'posts', 'cr')).toEqual(['create']);
     expect(await run(h, 'posts', 'list', '--k')).toEqual(['--kind']);
     expect(await run(h, 'posts', 'list', '--kind', '')).toEqual(['post', 'clip']);
     expect(await run(h, 'posts', 'list', '--kind=c')).toEqual(['--kind=clip']);
     expect(await run(h, '--env', '')).toEqual(['dev', 'staging', 'prod']);
-    expect(await run(h, 'theme', 'check', '')).toEqual([':files']);
-    expect(await run(h, 'theme', 'unpack', 'a.zip', '--out', '')).toEqual([':dirs']);
-    expect(await run(h, 'theme', 'prompt', '--field', 'SP')).toEqual(['SPORT']);
+    expect(await run(h, 'look', 'themes', 'check', '')).toEqual([':files']);
+    expect(await run(h, 'look', 'themes', 'unpack', 'a.zip', '--out', '')).toEqual([':dirs']);
+    expect(await run(h, 'look', 'themes', 'prompt', '--field', 'SP')).toEqual(['SPORT']);
     const options = await run(h, 'posts', 'list', '--json', '--');
     expect(options).toEqual(expect.arrayContaining(['--kind', '--watch', '--json', '--profile', '--env']));
     expect(options).not.toContain('-q');
@@ -128,24 +129,24 @@ describe('breakrocks __complete', () => {
   });
   it('completes the profiles and the universes of the history, without the network', async () => {
     const h = harness();
-    expect(await h.run('profile', 'add', 'atlas', '--env', 'dev')).toBe(0);
-    expect(await h.run('theme', 'prompt', '--field', 'sport', '--mood', 'stadium at night', '--name', 'stade-nuit', '--universe', '%test-village-sport')).toBe(0);
+    expect(await h.run('config', 'add', 'atlas', '--env', 'dev')).toBe(0);
+    expect(await h.run('look', 'themes', 'prompt', '--field', 'sport', '--mood', 'stadium at night', '--name', 'stade-nuit', '--universe', '%test-village-sport')).toBe(0);
     expect(await run(h, '--profile', '')).toEqual(['atlas']);
-    expect(await run(h, 'profile', 'use', 'a')).toEqual(['atlas']);
+    expect(await run(h, 'config', 'use', 'a')).toEqual(['atlas']);
     expect(await run(h, 'universes', 'show', '%te')).toEqual(['%test-village-sport']);
     expect(await run(h, 'posts', 'list', '%')).toEqual(['%test-village-sport']);
-    expect(await run(h, 'block', '@')).toEqual([]);
+    expect(await run(h, 'accounts', 'block', '@')).toEqual([]);
   });
   it('completes the themes and layouts the profile published, and forgets those deleted', async () => {
     const h = harness();
     const ctx = new Context(h.io, NO_FLAGS);
-    rememberUse(ctx, findCommand(['theme', 'publish'])!.command, { file: 'theme.json', in: '%paris' }, { theme: { universe: '%paris', name: 'stade-nuit' }, uploads: [], warnings: 0 });
-    rememberUse(ctx, findCommand(['layouts', 'publish'])!.command, { document: '{}', in: '%paris' }, { universe: '%paris', name: 'agora' });
-    expect(await run(h, 'themes', 'show', '')).toEqual(['%paris/stade-nuit']);
-    expect(await run(h, 'layouts', 'show', '%p')).toEqual(['%paris/agora']);
+    rememberUse(ctx, findCommand(['look', 'themes', 'publish'])!.command, { file: 'theme.json', in: '%paris' }, { theme: { universe: '%paris', name: 'stade-nuit' }, uploads: [], warnings: 0 });
+    rememberUse(ctx, findCommand(['look', 'layouts', 'publish'])!.command, { document: '{}', in: '%paris' }, { universe: '%paris', name: 'agora' });
+    expect(await run(h, 'look', 'themes', 'show', '')).toEqual(['%paris/stade-nuit']);
+    expect(await run(h, 'look', 'layouts', 'show', '%p')).toEqual(['%paris/agora']);
     expect(await run(h, 'universes', 'show', '')).toEqual(['%paris']);
-    rememberUse(ctx, findCommand(['theme', 'delete'])!.command, { theme: '%paris/stade-nuit' }, {});
-    expect(await run(h, 'themes', 'show', '')).toEqual([]);
+    rememberUse(ctx, findCommand(['look', 'themes', 'delete'])!.command, { theme: '%paris/stade-nuit' }, {});
+    expect(await run(h, 'look', 'themes', 'show', '')).toEqual([]);
   });
 });
 
@@ -165,8 +166,8 @@ describe('the history of the completion', () => {
   it('never keeps a text: only the addresses of the properties completed with them', () => {
     const h = harness();
     const ctx = new Context(h.io, NO_FLAGS);
-    rememberUse(ctx, findCommand(['post'])!.command, { text: '@secret %hidden', in: '%paris', link: '@nope' }, { id: 'p1' });
-    rememberUse(ctx, findCommand(['dm'])!.command, { account: '@gabriel', text: '@other' }, { id: 'm1' });
+    rememberUse(ctx, findCommand(['posts', 'create'])!.command, { text: '@secret %hidden', in: '%paris', link: '@nope' }, { id: 'p1' });
+    rememberUse(ctx, findCommand(['messages', 'direct', 'send'])!.command, { account: '@gabriel', text: '@other' }, { id: 'm1' });
     const saved = readFileSync(historyFile(ctx.store), 'utf8');
     expect(saved).toContain('%paris');
     expect(saved).toContain('@gabriel');
@@ -174,7 +175,7 @@ describe('the history of the completion', () => {
   });
   it('keeps nothing with BREAKROCKS_NO_HISTORY=1', async () => {
     const h = harness({ env: { BREAKROCKS_NO_HISTORY: '1' } });
-    expect(await h.run('theme', 'prompt', '--field', 'sport', '--mood', 'x', '--name', 'stade-nuit', '--universe', '%test-village-sport')).toBe(0);
+    expect(await h.run('look', 'themes', 'prompt', '--field', 'sport', '--mood', 'x', '--name', 'stade-nuit', '--universe', '%test-village-sport')).toBe(0);
     expect(complete(completionModel(), ['universes', 'show', '%'], () => []).values).toEqual([]);
     expect(await h.run('__complete', 'universes', 'show', '%')).toBe(0);
     expect(h.lines[h.lines.length - 1]).not.toBe('%test-village-sport');

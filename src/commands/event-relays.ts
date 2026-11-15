@@ -60,7 +60,7 @@ export const settingsPresence = apiCommand({
   descriptions: { in: 'Only in this universe (%name); everywhere when left out' },
   prepare: (i) => ({ ...i, visibility: String(i.visibility).toUpperCase() }),
   text: (r) => `presence visible to: ${String(r ?? '-').toLowerCase()}`,
-  examples: ['breakrocks settings presence connections', 'breakrocks settings presence hidden --in %paris'],
+  examples: ['breakrocks discussions presence-choice set connections', 'breakrocks discussions presence-choice set hidden --in %paris'],
 });
 
 export const settingsPresenceShow = apiCommand({
@@ -69,7 +69,7 @@ export const settingsPresenceShow = apiCommand({
   kind: 'query', op: 'mySettings', select: '{ presenceVisibility }',
   map: (d) => ({ presenceVisibility: (d as { presenceVisibility?: string | null } | null)?.presenceVisibility ?? null }),
   text: (r) => `presence visible to: ${String((r as { presenceVisibility?: string | null } | null)?.presenceVisibility ?? 'none').toLowerCase()}`,
-  examples: ['breakrocks settings presence show', 'breakrocks settings presence show --json'],
+  examples: ['breakrocks discussions presence-choice', 'breakrocks discussions presence-choice --json'],
 });
 
 type Present = { account?: { id?: string; handle?: string; displayName?: string }; connected?: boolean; role?: string | null };

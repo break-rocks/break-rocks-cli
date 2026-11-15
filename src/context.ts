@@ -7,6 +7,7 @@ import { CliError, EXIT, usageError } from './errors.js';
 import type { Output } from './output.js';
 import type { CodeExchange } from './browser-login.js';
 import type { Payer } from './payment-types.js';
+import { networkSettings, profileProxy, type NetworkSettings } from './network.js';
 
 export type Io = {
   out: Output;
@@ -36,12 +37,18 @@ export type Io = {
   payer?: Payer;
   /** The system keychain (tests give a fake; by default the one of the system). */
   keychain?: Keychain;
+  /** Makes the network settings those of the requests of the process (by default the global dispatcher of undici; tests leave it out). */
+  configureNetwork?: (settings: NetworkSettings) => Promise<void>;
 };
 
 export type GlobalFlags = {
   json: boolean; quiet: boolean; fields?: string[]; profile?: string; env?: Environment; yes: boolean; help: boolean; version: boolean;
   /** A local agent to act as (--agent; else BREAKROCKS_AGENT). */
   agent?: string;
+  /** The proxy of every request (--proxy), before the one of the profile and of the environment. */
+  proxy?: string;
+  /** A CA bundle added to the authorities (--ca-file), before the one of the profile. */
+  caFile?: string;
 };
 export const NO_FLAGS: GlobalFlags = { json: false, quiet: false, yes: false, help: false, version: false };
 
@@ -77,12 +84,18 @@ export class Context {
     if (!saved) return { env: wanted ?? 'prod' };
     if (wanted && wanted !== saved.env) {
       if (saved.kind) {
-        throw usageError('ENV_MISMATCH', `The profile "${this.profileName}" holds an account of ${saved.env}: use another profile for ${wanted} (breakrocks profile add <name> --env ${wanted})`, { profile: this.profileName, env: saved.env });
+        throw usageError('ENV_MISMATCH', `The profile "${this.profileName}" holds an account of ${saved.env}: use another profile for ${wanted} (breakrocks config add <name> --env ${wanted})`, { profile: this.profileName, env: saved.env });
       }
       return { ...saved, env: wanted };
     }
     return saved;
   }
+  /** The network settings of this run: --proxy and --ca-file, else the profile, else the environment (README § Proxy). */
+  network(): NetworkSettings {
+    const saved = this.agentName ? undefined : this.store.profile(this.profileName);
+    return networkSettings(this.flags, { ...saved, proxy: profileProxy(this.store, this.profileName, saved) }, this.io.env, this.io.cwd);
+  }
+
   /** Saves the profile (a local agent is kept in its agent.json, not as a profile). */
   saveProfile(profile: Profile): void { if (!this.agentName) this.store.saveProfile(this.profileName, profile); }
 

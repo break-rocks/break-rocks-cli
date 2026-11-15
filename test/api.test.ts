@@ -94,15 +94,15 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
-  'groups meeting-point': { id: 'g', clear: true }, 'governance backup-delegate': { universe: '%x', clear: true }, 'interests add': { tags: ['x'] }, 'interests forget': { all: true },
-  post: { text: 'x', in: '%x' }, dm: { account: '@x', text: 'x' }, 'groups send': { id: 'g', text: 'x' }, 'channels send': { channel: '%x&a', text: 'x' }, reply: { id: 'p', text: 'x' }, quote: { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'layouts check': { document: '{}', in: '%x', online: true },
+  'messages groups meeting-point': { id: 'g', clear: true }, 'governance backup-delegate': { universe: '%x', clear: true }, 'interests add': { tags: ['x'] }, 'interests forget': { all: true },
+  'posts create': { text: 'x', in: '%x' }, 'messages direct send': { account: '@x', text: 'x' }, 'messages groups send': { id: 'g', text: 'x' }, 'discussions send': { channel: '%x&a', text: 'x' }, 'posts reply': { id: 'p', text: 'x' }, 'posts quote': { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'look layouts check': { document: '{}', in: '%x', online: true },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
-  'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages delete': { messageId: 'm', channel: '%x&general' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x&a'] },
-  'drafts schedule': { draftId: 'd', at: '2026-11-10T08:00:00Z' }, 'videos chapters set': { postId: 'p', chapters: '0=Intro' }, 'appearance palette': { media: 'u' }, 'universes tags conventions': { universe: '%x', tags: ['x'] }, 'universes tags view': { universe: '%x#y' }, 'discussions place set': { discussion: 'd', point: '48.85,2.35', name: 'x' },
-  'presence start': { point: '48.85,2.35', duration: 'ONE_HOUR', connections: true }, 'presence update': { point: '48.85,2.35' }, 'presence audience': { connections: true },
-  'live-share in': { group: 'g' }, 'live-share start': { group: 'g', minutes: 60 }, 'live-share send': { shareId: 's', positions: '48.85,2.35' },
-  'locatable on': { universe: '%x', point: '48.85,2.35', activity: 'x', minutes: 60 }, 'locatable move': { universe: '%x', point: '48.85,2.35' },
-  'meetups answer': { messageId: 'm', answer: 'ACCEPTED', group: 'g' }, 'meetups change': { messageId: 'm', group: 'g', at: '2026-11-12T18:00:00Z', point: '48.85,2.35', placeName: 'x' }, 'meetups cancel': { messageId: 'm', group: 'g' },
+  'messages reply-thread': { messageId: 'm', text: 'x' }, 'messages react': { messageId: 'm', emoji: '👍' }, 'messages delete': { messageId: 'm', channel: '%x&general' }, 'messages unreact': { messageId: 'm', emoji: '👍' }, 'map places search': { query: 'x', bounds: '48.8,2.2,48.9,2.4' }, 'governance pin': { universe: '%x', channels: ['%x&a'] },
+  'drafts schedule': { draftId: 'd', at: '2026-11-10T08:00:00Z' }, 'videos chapters set': { postId: 'p', chapters: '0=Intro' }, 'look appearance palette': { media: 'u' }, 'universes tags conventions': { universe: '%x', tags: ['x'] }, 'universes tags view': { universe: '%x#y' }, 'discussions place set': { discussion: 'd', point: '48.85,2.35', name: 'x' },
+  'map presence start': { point: '48.85,2.35', duration: 'ONE_HOUR', connections: true }, 'map presence update': { point: '48.85,2.35' }, 'map presence audience': { connections: true },
+  'map live-share in': { group: 'g' }, 'map live-share start': { group: 'g', minutes: 60 }, 'map live-share send': { shareId: 's', positions: '48.85,2.35' },
+  'map locatable on': { universe: '%x', point: '48.85,2.35', activity: 'x', minutes: 60 }, 'map locatable move': { universe: '%x', point: '48.85,2.35' },
+  'messages meetups answer': { messageId: 'm', answer: 'ACCEPTED', group: 'g' }, 'messages meetups change': { messageId: 'm', group: 'g', at: '2026-11-12T18:00:00Z', point: '48.85,2.35', placeName: 'x' }, 'messages meetups cancel': { messageId: 'm', group: 'g' },
   'posts place': { postId: 'p', point: '48.85,2.35' }, 'routes create': { name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' }, 'routes edit': { id: 'r', name: 'x', mode: 'FOOT', points: '48.85,2.35;48.86,2.36' },
   'routes privacy-zones set': { zones: '48.85,2.35,500' }, 'routes plan': { mode: 'FOOT', points: '48.85,2.35;48.86,2.36' }, 'posts subtitles correct': { postId: 'p', file: '[{"startMs":0,"endMs":1,"text":"x"}]' },
 };
@@ -125,7 +125,7 @@ describe('every command', () => {
     });
     const ctx = new Context(h.io, { ...NO_FLAGS, yes: true, env: 'dev' });
     saveSession(ctx, { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
-    const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agent login', 'session', 'login', 'logout', 'update']);
+    const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agents login', 'me session', 'login', 'logout', 'update']);
     let ran = 0;
     const operatorOnly = (name: string) => name.startsWith('operator plan ');
     for (const c of commands()) {
@@ -149,7 +149,7 @@ describe('every command', () => {
     // A human: its own whoami, capabilities and logout --everywhere (signOutEverywhere).
     ctx.saveProfile({ env: 'dev', kind: 'human', accountId: 'eu-human' });
     saveSession(ctx, { kind: 'human', token: 't', idToken: 'i', refreshToken: 'r', pool: { userPoolId: 'eu-west-1_x', clientId: 'c', region: 'eu-west-1' }, accountId: 'eu-human', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', signInAgainBy: '2099-01-01T00:00:00.000Z' });
-    for (const [name, input] of [['whoami', {}], ['capabilities', { universe: '%paris' }], ['usage', {}], ['logout', { everywhere: true }]] as const) {
+    for (const [name, input] of [['whoami', {}], ['me capabilities', { universe: '%paris' }], ['usage', {}], ['logout', { everywhere: true }]] as const) {
       current = `${name} (human)`;
       await execute(ctx, commands().find((c) => c.name === name)!, input);
     }
@@ -162,7 +162,7 @@ describe('every command', () => {
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
     // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
-    const quiet = new Set(['agent attest', 'wallet balance', 'theme typefaces', 'theme publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password']);
+    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

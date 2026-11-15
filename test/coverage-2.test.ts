@@ -15,7 +15,7 @@ import { themePersonalSaved } from '../src/commands/themes-online.js';
 import { meCommands } from '../src/commands/me.js';
 import { privateUniverseCommands } from '../src/commands/private-universes.js';
 import { tools } from '../src/mcp/server.js';
-import type { AnyCommand } from '../src/registry.js';
+import { findCommand, type AnyCommand } from '../src/registry.js';
 import { scripted } from './scripted.js';
 
 export const ADDED: AnyCommand[] = [...meCommands, ...chatCommands, ...privateUniverseCommands, ...civicCommands, ...civicGovernanceCommands, ...discussionModerationCommands, ...billingCommands, ...favoriteCommands, themePersonalSaved, ...searchCommands, ...readingCommands];
@@ -26,7 +26,9 @@ export function words(example: string): string[] {
   for (const m of example.replace(/<[^>]+>/g, 'x').matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+)/g)) out.push(m[1] !== undefined ? m[1].replace(/\\(.)/g, '$1') : m[2] ?? m[3]);
   return out[0] === 'breakrocks' ? out.slice(1) : out;
 }
-const opOf = (c: AnyCommand) => /The (?:query|mutation) (\w+) of the API/.exec(c.description ?? '')?.[1];
+const opOf = (c: AnyCommand) => c.api;
+/** The path of a declared command in the tree. */
+const pathOf = (c: AnyCommand) => findCommand(c.name.split(' '))!.command.name;
 /** The examples that need more than the command line (a file, the standard input): tested apart. */
 const APART = new Set(['breakrocks universes identity %club. --banner-file ./banner.jpg', 'breakrocks me profile set --avatar-file ./me.png', 'breakrocks me password', 'printf "%s\\n%s\\n" "$OLD" "$NEW" | breakrocks me password --password-stdin']);
 
@@ -35,7 +37,7 @@ describe('the commands of the operations of before v83.1.0', () => {
   for (const command of ADDED) {
     it(`${command.name}: its examples send ${opOf(command)}`, async () => {
       expect(opOf(command)).toBeTruthy();
-      if (command.mcp !== false) expect(titles.has(`breakrocks ${command.name}`)).toBe(true);
+      if (command.mcp !== false) expect(titles.has(`breakrocks ${pathOf(command)}`)).toBe(true);
       for (const example of command.examples.filter((e) => !APART.has(e))) {
         for (const json of [false, true]) {
           const { h, calls } = scripted();
