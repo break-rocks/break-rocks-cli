@@ -4,7 +4,7 @@
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { connect, createServer as createTcpServer, type AddressInfo, type Server as TcpServer } from 'node:net';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import * as tls from 'node:tls';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyNetwork, createDispatcher, goesThroughProxy, networkSettings, proxyFile, redactText, redactUrl, type NetworkSettings } from '../src/network.js';
@@ -79,7 +79,7 @@ describe('the settings', () => {
     expect(networkSettings({}, {}, { HTTPS_PROXY: 'http://env-upper:1' })).toMatchObject({ httpsProxy: 'http://env-upper:1' });
     expect(networkSettings({}, {}, {})).toEqual({ noProxy: '' });
     expect(networkSettings({}, { noProxy: '.corp' }, env).noProxy).toBe('.corp');
-    expect(networkSettings({ caFile: 'ca.pem' }, { caFile: '/etc/other.pem' }, {}, '/home/u')).toMatchObject({ caFile: join('/home/u', 'ca.pem'), caSource: 'option' });
+    expect(networkSettings({ caFile: 'ca.pem' }, { caFile: '/etc/other.pem' }, {}, '/home/u')).toMatchObject({ caFile: resolve('/home/u', 'ca.pem'), caSource: 'option' });
   });
   it('refuse a proxy URL that is not one, without printing its credentials', () => {
     expect(() => networkSettings({ proxy: 'ftp://user:s3cret@proxy:21' }, {}, {})).toThrow(/PROXY|proxy/);
