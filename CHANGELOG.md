@@ -5,6 +5,15 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-15
+
+Specs v123.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 219 queries, 353 mutations).
+
+### Added
+
+- `settings presence show` (`mySettings.presenceVisibility`): the presence choice made everywhere with `settings presence`
+  without `--in`; `none` when no choice was made (`null` in `--json`).
+
 ## [0.22.0] - 2026-11-15
 
 Specs v123.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 219 queries, 353 mutations).

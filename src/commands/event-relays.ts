@@ -63,6 +63,15 @@ export const settingsPresence = apiCommand({
   examples: ['breakrocks settings presence connections', 'breakrocks settings presence hidden --in %paris'],
 });
 
+export const settingsPresenceShow = apiCommand({
+  name: 'settings presence show', summary: 'The presence choice made everywhere: who sees you by name among the present residents of the universe discussions; none when no choice was made (mySettings.presenceVisibility)',
+  description: 'The choice made with settings presence without --in. none: no choice everywhere, each universe then falls back to its own default (capabilities --universe tells the one that holds there).',
+  kind: 'query', op: 'mySettings', select: '{ presenceVisibility }',
+  map: (d) => ({ presenceVisibility: (d as { presenceVisibility?: string | null } | null)?.presenceVisibility ?? null }),
+  text: (r) => `presence visible to: ${String((r as { presenceVisibility?: string | null } | null)?.presenceVisibility ?? 'none').toLowerCase()}`,
+  examples: ['breakrocks settings presence show', 'breakrocks settings presence show --json'],
+});
+
 type Present = { account?: { id?: string; handle?: string; displayName?: string }; connected?: boolean; role?: string | null };
 export const discussionsPresent = apiCommand({
   name: 'discussions present', summary: 'The present residents of a universe discussion you may see by name: leadership, moderators, connections, then the others, 12 at most (universeDiscussionPresent)',
@@ -73,4 +82,4 @@ export const discussionsPresent = apiCommand({
   examples: ['breakrocks discussions present %paris&general'],
 });
 
-export const eventRelayCommands = [eventsRelay, eventsRelaySupport, eventsRelayRemove, eventsRelaysProposals, eventsCatalog, settingsPresence, discussionsPresent];
+export const eventRelayCommands = [eventsRelay, eventsRelaySupport, eventsRelayRemove, eventsRelaysProposals, eventsCatalog, settingsPresence, settingsPresenceShow, discussionsPresent];

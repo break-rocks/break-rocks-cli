@@ -883,6 +883,12 @@ type Settings {
   """
   nearbyLabel: String
   """
+  Who sees the caller by name among the present residents of the universe discussions everywhere (since v123.1.0,
+  D-384): its choice made with setPresenceVisibility without a universe; null: no choice everywhere (each universe
+  then falls back to its own default, UniverseStanding.presenceVisibility).
+  """
+  presenceVisibility: PresenceVisibility
+  """
   Whether the universe visit history is paused (since v83.0.0, D-247): nothing new is recorded, the entries kept
   stay; false by default.
   """
