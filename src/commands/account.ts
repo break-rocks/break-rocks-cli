@@ -122,6 +122,10 @@ async function inUniverse(ctx: Context, universe: string): Promise<Capabilities[
   try {
     out.residence = (await api<{ myStandingIn: { residence: unknown } | null }>(ctx, `query($u: String!) { myStandingIn(universe: $u) { residence ${selection('Residence', 1)} } }`, { u: universe })).myStandingIn?.residence ?? null;
   } catch (error) { out.residence = { error: error instanceof CliError ? error.code : String(error) }; }
+  // Who sees the reader by name among the present residents of the universe discussions (specs v122.0.0): null where the API does not serve it yet.
+  try {
+    out.presenceVisibility = (await api<{ myStandingIn: { presenceVisibility: string } | null }>(ctx, 'query($u: String!) { myStandingIn(universe: $u) { presenceVisibility } }', { u: universe })).myStandingIn?.presenceVisibility ?? null;
+  } catch { out.presenceVisibility = null; }
   return out;
 }
 
@@ -138,7 +142,7 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     limits: openObject({ minute: windowSchema, hour: windowSchema, quota: windowSchema, tier: { type: ['string', 'null'] } }),
     allowance: openObject({ allowance: int('Delegated agents allowed'), operated: int('Operated'), createdLast24Hours: int('Created in 24 hours') }),
     payments: openObject({ wallet: bool('A wallet is set'), address: str('Its address'), network: str('The network of the environment'), maxUsdPerDay: { type: 'number' }, spentToday: str('Signed today, USDC') }),
-    universe: openObject({ name: str('The universe'), myRole: { type: ['string', 'null'], description: 'The role of the reader (moderator, leadership…)' }, myReaderRole: { type: ['string', 'null'] }, joinRefusal: { type: ['string', 'null'], description: 'Why the reader may not join' }, residence: openObject({}, 'The residence of the reader (myStandingIn.residence): canVote, voteRequirement…') }),
+    universe: openObject({ name: str('The universe'), myRole: { type: ['string', 'null'], description: 'The role of the reader (moderator, leadership…)' }, myReaderRole: { type: ['string', 'null'] }, joinRefusal: { type: ['string', 'null'], description: 'Why the reader may not join' }, residence: openObject({}, 'The residence of the reader (myStandingIn.residence): canVote, voteRequirement…'), presenceVisibility: { type: ['string', 'null'], description: 'Who sees the reader by name among the present residents of its universe discussions: HIDDEN, CONNECTIONS or EVERYONE (myStandingIn.presenceVisibility)' } }),
     notes: list('What else to know'),
   }),
   run: async (ctx, { universe }) => {

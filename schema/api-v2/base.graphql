@@ -631,10 +631,18 @@ type Query {
   universeEventAttendees(after: String, limit: Int, eventId: ID!): AccountRefPage
 
   """
+  The proposals of relay of universe events in a public universe waiting for their supports (since v122.2.0, D-385),
+  the one that ends soonest first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of
+  the page before.
+  """
+  eventRelayProposals(after: String, limit: Int, universe: String!): EventRelayPage
+
+  """
   The universe events of a universe between from and to: by default the last 7 days and the next 90. A bounded
   list: 20 upcoming events at most, and those of the period. Since v117.0.0 (D-376, event-types.feature): with
   families (the keys of event families), only the universe events of those event families, never one of the event type
-  "other" ("other" is no event family: INVALID_REQUEST); without it, or empty, all of them.
+  "other" ("other" is no event family: INVALID_REQUEST); without it, or empty, all of them. Since v122.2.0 (D-385),
+  also the universe events the universe relays and shows, each with its relay (UniverseEvent.relay).
   """
   universeEvents(from: AWSDateTime, to: AWSDateTime, universe: String!, families: [String!]): [UniverseEvent!]
 
@@ -2735,6 +2743,28 @@ type Mutation {
   A resident supports a poll waiting for support (pollId). Returns the poll.
   """
   supportPoll(pollId: ID!, requestId: ID!): Poll
+
+  """
+  Relays a universe event of a public universe in another public universe (since v122.2.0, D-383, D-385): at once
+  for the leadership of that universe (status ACTIVE), as a proposal for one of its residents who can vote (status
+  PROPOSED, 1 open per universe and 3 in all per resident: EVENT_RELAY_PROPOSALS_LIMIT). EVENT_RELAY_NOT_ALLOWED
+  for an event not upcoming, of a private universe, with an access other than "public", in its own universe or one
+  of its sub-universes, in a private universe, or a caller without the right; EVENT_RELAY_EXISTS when it is already
+  relayed or proposed there.
+  """
+  relayUniverseEvent(eventId: ID!, requestId: ID!, universe: String!): EventRelay
+
+  """
+  Removes a relay (since v122.2.0, D-385): the leadership of the universe that relays it, or the resident who
+  proposed it while it is PROPOSED. True once removed, also when it was already.
+  """
+  removeEventRelay(relayId: ID!, requestId: ID!): Boolean
+
+  """
+  Supports a proposal of relay (since v122.2.0, D-385): a resident of the universe that would relay it, who can
+  vote; at the 5th support within 7 days it becomes ACTIVE. Supporting again changes nothing.
+  """
+  supportEventRelay(relayId: ID!, requestId: ID!): EventRelay
 
   """
   A resident who can vote supports a universe event proposed by a resident (eventId; asked for, until v101.0.0). Returns the event.
