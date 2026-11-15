@@ -585,6 +585,13 @@ The table comes from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions agents allow` | Allow the delegated agents in a permanent universe discussion (setUniverseDiscussionAgents) | `breakrocks discussions agents allow %paris&general` |
 | `discussions mute` | Mute a universe discussion for yourself (--mentions: still notified when mentioned) (setUniverseDiscussionMuted) | `breakrocks discussions mute %paris&general --mentions` |
 | `discussions unmute` | Unmute a universe discussion (setUniverseDiscussionMuted) | `breakrocks discussions unmute %paris&general` |
+| `events relay` | Relay a universe event of a public universe in another public universe: at once for its leadership, else as a proposal (relayUniverseEvent) | `breakrocks events relay <event id> --in %paris` |
+| `events relay support` | Support a proposal of relay of a universe event: a resident of the universe who can vote; at the 5th support within 7 days it is made (supportEventRelay) | `breakrocks events relay support <relay id>` |
+| `events relay remove` | Remove a relay of a universe event: the leadership of the universe that relays it, or the resident who proposed it while it is PROPOSED (removeEventRelay) (confirmation: `--yes`) | `breakrocks events relay remove <relay id> --yes` |
+| `events relays proposals` | The proposals of relay of universe events waiting for their supports in a public universe, the one that ends soonest first (eventRelayProposals) | `breakrocks events relays proposals %paris` |
+| `events catalog` | The event catalog: its event families and event types, and which event types are on the map of Explore (eventCatalog) | `breakrocks events catalog` |
+| `settings presence` | Choose who sees you by name among the present residents of the universe discussions: hidden, connections or everyone (setPresenceVisibility) | `breakrocks settings presence connections` |
+| `discussions present` | The present residents of a universe discussion you may see by name: leadership, moderators, connections, then the others, 12 at most (universeDiscussionPresent) | `breakrocks discussions present %paris&general` |
 | `messages universes` | The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages) | `breakrocks messages universes` |
 | `messages mentions` | The Mentions row of Messages: the universe discussions where a message mentions you while you neither joined nor wrote there (myDiscussionMentions) | `breakrocks messages mentions` |
 | `messages ignore-mention` | Ignore a universe discussion of the Mentions row, until a later message mentions you there (ignoreDiscussionMention) | `breakrocks messages ignore-mention %paris&general` |
@@ -726,6 +733,28 @@ Moderation and governance (outside the base help, `breakrocks help moderation`, 
 | `governance like-question` | Like a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance like-question <id>` |
 | `governance unlike-question` | Take back the like of a question to the leadership (setLeadershipQuestionLike) | `breakrocks governance unlike-question <id>` |
 | `moderation remove-agent-text` | Remove a text of a platform AI agent off-charter, citing the article: the summary or the minutes of a proposal, the automatic alternative text of an image (removePlatformAgentText) (confirmation: `--yes`) | `breakrocks moderation remove-agent-text PROPOSAL_SUMMARY --proposal-id <id> --article 4 --yes` |
+
+### Universe events on the map of Explore, relays, named presence (0.21.0, specs v122.2.0)
+
+`specs/common` pinned on **v122.2.0** and `schema/api-v2` regenerated (15 SDL files: 218 queries, 350 mutations). The
+operations of v122.0.0 to v122.2.0 each have their command; the refusals are the platform's (`contracts/errors.md`):
+
+- **The map of Explore** (D-382, D-383): `events create` and `events change` take `--explore-map shown|kept|by-type`
+  (`exploreMapChoice`: `shown` beyond its universe, `kept` in its universe only, `by-type` as its event type says, the
+  default); `EVENT_EXPLORE_MAP_NOT_ALLOWED` (no place, zone nor route, format "online", an access other than "public"),
+  `EVENT_EXPLORE_MAP_LIMIT` (3 upcoming universe events shown beyond their universe at once). `events list` tells
+  `onExploreMap`, `exploreMapChoice`, `relayedIn` and `relay` of each event; the new `events catalog [--language fr]` lists
+  the event families and event types and which event types are on the map of Explore (`EventType.onExploreMap`).
+- **Relays** (D-385): `events relay <event id> --in %universe` (at once for the leadership of that universe, else a
+  proposal), `events relay support <relay id>` (5 supports within 7 days), `events relay remove <relay id> --yes`,
+  `events relays proposals %universe [--all]` (the proposals waiting for their supports, the one that ends soonest first).
+  `EVENT_RELAY_NOT_ALLOWED`, `EVENT_RELAY_EXISTS`, `EVENT_RELAY_PROPOSALS_LIMIT`.
+- **Named presence** (D-384): `settings presence hidden|connections|everyone [--in %universe]` (everywhere without
+  `--in`; `setPresenceVisibility`), `discussions present <address or id>` (`universeDiscussionPresent`: the present
+  residents the account may see by name, 12 at most, never pushed), and `capabilities --universe %u` tells the
+  `presenceVisibility` of the account in that universe (`null` where the API does not serve it yet).
+- **A vote lent** (D-381): `proposals show` carries `myHolderBallot` (`CAST` or `NOT_CAST`, `null` when the account did not
+  lend its vote, or the vote is not open).
 
 ### Themes in the format of specs v122 (0.20.0, specs v122.1.0)
 
@@ -1235,7 +1264,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v122.1.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v122.2.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

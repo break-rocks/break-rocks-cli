@@ -39,6 +39,7 @@ import { readingCommands, searchCommands } from './search.js';
 import { privateUniverseCommands } from './private-universes.js';
 import { civicCommands, civicGovernanceCommands } from './civic.js';
 import { discussionModerationCommands } from './discussions-moderation.js';
+import { eventRelayCommands } from './event-relays.js';
 import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSaved, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
@@ -83,7 +84,7 @@ register(
   msg.groupsCreate, msg.groupsList, msg.groupsShow, msg.groupsSend, msg.groupsRead, msg.groupsInvite, msg.groupsLeave, msg.groupsMembers, msg.groupsAdmins, msg.groupsAdminAdd, msg.groupsAdminRemove, msg.groupsEphemeral, msg.groupsInvitations, msg.groupsAccept, msg.groupsDecline,
   msg.connectionsRequest, msg.connectionsAccept, msg.connectionsDecline, msg.connectionsRemove, msg.connectionsList, msg.connectionsRequests, msg.connectionsState,
   msg.messagingShow, msg.messagingSet, ...chatCommands,
-  disc.discussionsList, disc.discussionsShow, disc.discussionsUnread, disc.discussionsPin, disc.discussionsUnpin, disc.discussionsPlaceSet, disc.discussionsPlaceRemove, ...discussionModerationCommands,
+  disc.discussionsList, disc.discussionsShow, disc.discussionsUnread, disc.discussionsPin, disc.discussionsUnpin, disc.discussionsPlaceSet, disc.discussionsPlaceRemove, ...discussionModerationCommands, ...eventRelayCommands,
   disc.messagesUniverses, disc.messagesMentions, disc.messagesIgnoreMention, disc.messagesRemoveDiscussion, disc.messagesBlockUniverse, disc.messagesUnblockUniverse, disc.messagesVote, disc.messagesUnvote,
   disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
   themesList, themesShow,

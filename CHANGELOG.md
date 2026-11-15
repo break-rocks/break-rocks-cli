@@ -5,6 +5,23 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-15
+
+Specs v122.2.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 218 queries, 350 mutations).
+The operations of v122.0.0 to v122.2.0 have their commands.
+
+### Added
+
+- `events create` and `events change`: `--explore-map shown|kept|by-type` (`exploreMapChoice`; `EVENT_EXPLORE_MAP_NOT_ALLOWED`,
+  `EVENT_EXPLORE_MAP_LIMIT`). `events list` shows `onExploreMap`, `exploreMapChoice`, `relayedIn` and `relay`.
+- `events catalog [--language]` (`eventCatalog`): the event families and event types, with `onExploreMap`.
+- `events relay <event id> --in %universe` (`relayUniverseEvent`), `events relay support <relay id>` (`supportEventRelay`),
+  `events relay remove <relay id> --yes` (`removeEventRelay`), `events relays proposals %universe [--all]`
+  (`eventRelayProposals`); `EVENT_RELAY_NOT_ALLOWED`, `EVENT_RELAY_EXISTS`, `EVENT_RELAY_PROPOSALS_LIMIT`.
+- `settings presence hidden|connections|everyone [--in %universe]` (`setPresenceVisibility`), `discussions present <address
+  or id>` (`universeDiscussionPresent`); `capabilities --universe` tells the `presenceVisibility` of the account.
+- `proposals show` carries `myHolderBallot` (`CAST`, `NOT_CAST`).
+
 ## [0.20.0] - 2026-11-15
 
 Specs v122.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 217 queries, 347 mutations).
