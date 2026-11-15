@@ -60,7 +60,7 @@ register(
   playlists.playlistsHub, playlists.playlistsFollowed, playlists.playlistsShow, playlists.playlistsCreate, playlists.playlistsEdit, playlists.playlistsDelete, playlists.playlistsAdd, playlists.playlistsRemove, playlists.playlistsMove,
   playlists.playlistsFollow, playlists.playlistsUnfollow, playlists.playlistsPin, playlists.playlistsUnpin, playlists.playlistsAddLink, playlists.playlistsAddDoc, playlists.playlistsItemEdit, playlists.playlistsItemRemove,
   playlists.playlistsCheck, playlists.playlistsCheckItem, playlists.playlistsResetProgress, playlists.playlistsCheckmarks, playlists.playlistsTags, playlists.playlistsTrack, playlists.playlistsTracks,
-  playlists.videosList, playlists.videosChaptersPropose, playlists.videosChaptersSet, playlists.videosPlayback, playlists.videosQuota,
+  playlists.videosList, playlists.videosChaptersPropose, playlists.videosChaptersSet, playlists.videosPlayback, playlists.videosQuota, history.videosHistory, history.videosHistoryRemove, history.videosHistoryClear, history.settingsVideoHistoryPause,
   drafts.postsAlt, drafts.postsSuggestedAlt, drafts.postsSubtitlesOn, drafts.postsSubtitlesOff, drafts.postsSubtitlesCorrect,
   publish.post, publish.reply, publish.quote, publish.repost, publish.like, publish.unlike, publish.dislike, publish.undislike, publish.notInterested,
   publish.follow, publish.unfollow, publish.block, publish.unblock, publish.mute, publish.unmute, publish.report,
