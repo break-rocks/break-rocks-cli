@@ -1091,3 +1091,105 @@ type VideoQuota {
   """
   nextReturnAt: AWSDateTime
 }
+
+"""
+The tab of the view of the long videos (since v122.3.0, D-386): FOLLOWING, the long videos of the accounts and
+universes the caller follows, the newest first; FOR_YOU, those its interest profile recommends.
+"""
+enum LongVideosTab {
+  FOLLOWING
+  FOR_YOU
+}
+
+"""
+A long video of the history of the caller (since v122.3.0, D-386).
+"""
+type HistoryEntry {
+  """
+  The post of the long video.
+  """
+  post: Post!
+  """
+  Where the caller left it, in seconds.
+  """
+  positionSeconds: Int!
+  """
+  When the caller last watched it.
+  """
+  watchedAt: AWSDateTime!
+}
+
+"""
+A page of the history (since v122.3.0, D-386).
+"""
+type HistoryPage {
+  """
+  The entries of the page, the most recent first.
+  """
+  items: [HistoryEntry!]!
+  """
+  The cursor of the next page; null after the last.
+  """
+  next: String
+  """
+  Whether the history is paused.
+  """
+  paused: Boolean!
+}
+
+"""
+A part of a multipart upload (since v122.3.0, D-386).
+"""
+type UploadPart {
+  """
+  Its number, from 1.
+  """
+  number: Int!
+  """
+  The signed URL to PUT it to, valid 24 hours.
+  """
+  url: String!
+}
+
+"""
+A multipart upload of a long video (since v122.3.0, D-386).
+"""
+type MultipartUpload {
+  """
+  The media, as with requestMediaUpload, attached once the upload is completed.
+  """
+  mediaId: ID!
+  """
+  The parts to send, all of them: the caller sends again only those not yet acknowledged.
+  """
+  parts: [UploadPart!]!
+  """
+  The size of each part in bytes, the last one smaller.
+  """
+  partSize: Float!
+  """
+  When the upload stops being resumable (24 hours).
+  """
+  expiresAt: AWSDateTime!
+}
+
+"""
+A part sent, with the ETag its PUT answered (since v122.3.0, D-386).
+"""
+input UploadPartDoneInput {
+  etag: String!
+  number: Int!
+}
+
+"""
+What a multipart upload of a long video declares (since v122.3.0, D-386): its media destination POST and its
+universe, its content type (MP4, QuickTime or WebM), its size in bytes (more than 500 MB, at most 5 GB), its media
+license and attribution as for requestMediaUpload.
+"""
+input MultipartUploadInput {
+  address: String
+  attribution: String
+  contentType: String!
+  license: MediaLicense
+  size: Float!
+}

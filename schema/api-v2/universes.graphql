@@ -753,6 +753,10 @@ private universe of the first level.
 """
 type Universe {
   """
+  Whether it has a public long video (since v122.3.0, D-386): its long videos mode is offered from then.
+  """
+  hasLongVideos: Boolean!
+  """
   Since v85.5.0 (contracts/advertising.md): whether ads are shown in this public universe (on by default once
   its territory is open; turned off or on by a proposal ADVERTISING); false for a private universe, a universe
   declared as an association or an open-source project, and an adult-only universe.
