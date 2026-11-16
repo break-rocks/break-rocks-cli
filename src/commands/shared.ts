@@ -2,6 +2,7 @@
 // item), points and lists of points given as "lat,lon", the map cells of an area, and the discussion
 // (a channel, a group chat or a conversation) a message belongs to.
 import { readFileSync } from 'node:fs';
+import { paint } from '../colour.js';
 import { resolve } from 'node:path';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
@@ -20,7 +21,7 @@ export const pageText = <T>(line: (item: T) => string) => (r: unknown) => {
 /** One line per item of a list; "(none)" when empty. */
 export const listText = <T>(line: (item: T) => string) => (r: unknown) => (Array.isArray(r) && r.length ? (r as T[]).map(line).join('\n') : '(none)');
 /** "done" for an answer true, "nothing changed" for false. */
-export const doneText = (r: unknown) => (r === true ? 'done' : r === false ? 'nothing changed' : r == null ? '(none)' : JSON.stringify(r));
+export const doneText = (r: unknown) => (r === true ? paint.ok('done') : r === false ? 'nothing changed' : r == null ? '(none)' : JSON.stringify(r));
 
 /** "48.85,2.35;48.86,2.36" (or the JSON of [{ lat, lon }]) → the points. */
 export function pointsOf(value: string, flag: string): { lat: number; lon: number }[] {

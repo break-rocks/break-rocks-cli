@@ -39,6 +39,8 @@ export type Io = {
   keychain?: Keychain;
   /** Makes the network settings those of the requests of the process (by default the global dispatcher of undici; tests leave it out). */
   configureNetwork?: (settings: NetworkSettings) => Promise<void>;
+  /** Whether stdout and stderr are terminals (the colours, README § Colour); absent: neither (tests, the MCP server). */
+  tty?: { out: boolean; err: boolean };
 };
 
 export type GlobalFlags = {
@@ -49,6 +51,8 @@ export type GlobalFlags = {
   proxy?: string;
   /** A CA bundle added to the authorities (--ca-file), before the one of the profile. */
   caFile?: string;
+  /** No colour (--no-color). */
+  noColor?: boolean;
 };
 export const NO_FLAGS: GlobalFlags = { json: false, quiet: false, yes: false, help: false, version: false };
 

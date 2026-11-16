@@ -2,6 +2,11 @@
 // nested ones with dots), the items of a list separated by a blank line; and --fields, which keeps
 // the fields named (dotted paths) of an object, or of each item of a list.
 
+import { paint } from './colour.js';
+
+// An identifier (id, accountId, sessionId): secondary data, dim in a terminal.
+const ID_KEY = /^id$|Id$/;
+
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 function scalar(value: unknown): string {
@@ -18,7 +23,7 @@ function lines(value: Record<string, unknown>, prefix = ''): string[] {
     const name = prefix ? `${prefix}.${key}` : key;
     if (isObject(v) && Object.keys(v).length) out.push(...lines(v, name));
     else if (Array.isArray(v) && v.some(isObject)) v.forEach((item, i) => out.push(...(isObject(item) ? lines(item, `${name}[${i}]`) : [`${name}[${i}]: ${scalar(item)}`])));
-    else out.push(`${name}: ${scalar(v)}`);
+    else out.push(`${name}: ${ID_KEY.test(key) && typeof v === 'string' ? paint.dim(v) : scalar(v)}`);
   }
   return out;
 }

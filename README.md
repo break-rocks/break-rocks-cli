@@ -85,8 +85,8 @@ of a plan).
 
 - Readable text by default; `--json` gives the answer (the API's fields and names);
   `--quiet` writes only the id created or read; `--fields a,b.c` keeps those fields (of each
-  item of a list). Never colour or animation: the output is the same in a
-  terminal, a pipe or an agent. Progress and questions go to stderr.
+  item of a list). Colour only in a terminal (§ Colour below), never an animation: the text is the same
+  in a terminal, a pipe or an agent. Progress and questions go to stderr.
 - Codes: **0** done; **1** refusal, by the platform (the contract's code, `errors.md` or
   `agent-sign-in.md`, `source: "platform"`) or by a CLI guard (payment ceiling, an agent that
   wants to manage agents; `source: "cli"`); **2** usage (command, option or value outside the schema,
@@ -96,6 +96,16 @@ of a plan).
 - Confirmations: irreversible actions and payments ask for a confirmation when a
   person can answer; otherwise (script, agent, MCP) they require `--yes`, failing which
   `CONFIRMATION_REQUIRED` (exit 2).
+
+### Colour
+
+The readable text is coloured when its stream (stdout, stderr) is a terminal (0.28.0): never with `--json`, in a pipe
+or in the MCP server, never with `--no-color`, `NO_COLOR` (not empty, even with `FORCE_COLOR`) or `TERM=dumb`; `FORCE_COLOR`
+(not `0`) forces it outside a terminal. One palette: command names and the command of a usage line bold, the domains of
+the top-level help magenta, addresses (`%paris`, `@R2D2`) cyan, ids, timestamps and the profile line of `whoami` dim,
+`Error CODE:` red with the code bold, warnings yellow, confirmations (`done`, `Signed in`) green. A colour only wraps
+the text, which stays the same; an id or a link is at most dim. Written by hand (`src/colour.ts`, a few ANSI
+sequences) rather than with a package: no runtime dependency outside D-91.
 
 ## Profiles and environments
 
@@ -162,7 +172,7 @@ Domains (breakrocks <domain>, or breakrocks help <domain>):
   breakrocks help --all        Every command
   breakrocks <command> --help  The help of a command
 
-Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --help --version (breakrocks help options)
+Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --no-color --help --version (breakrocks help options)
 Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.
 ```
 

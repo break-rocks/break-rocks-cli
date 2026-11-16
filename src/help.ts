@@ -4,6 +4,7 @@
 // the commands by a word, and the commands close to a mistyped one.
 import { aliases, commands, commandsUnder, groupOf, type AnyCommand } from './registry.js';
 import { kebab, mainType, type JsonSchema } from './schema.js';
+import { paint } from './colour.js';
 import { ALIASES_REMOVED_IN, DOMAINS, GROUP_SUMMARIES } from './tree.js';
 
 export { GROUP_SUMMARIES };
@@ -17,6 +18,7 @@ export const GLOBAL_OPTIONS: [string, string][] = [
   ['--proxy <url>', 'Send every request through this proxy (else the profile, else HTTPS_PROXY)'],
   ['--ca-file <file>', 'Trust this CA bundle (PEM) too (else the profile)'],
   ['--yes', 'Confirm an irreversible action or a payment without asking'],
+  ['--no-color', 'No colour (else NO_COLOR, TERM=dumb; FORCE_COLOR forces it); never in a pipe nor with --json'],
   ['--help', 'Show the help (of a command: breakrocks <command> --help)'],
   ['--version', 'Show the version of the CLI'],
 ];
@@ -49,9 +51,10 @@ export function usageLine(c: AnyCommand): string {
   return parts.join(' ');
 }
 
-const table = (rows: [string, string][]) => {
+/** Two columns, the left one (a command, an option) bold, or styled by [left]. */
+const table = (rows: [string, string][], left: (text: string) => string = paint.command) => {
   const width = Math.max(0, ...rows.map(([l]) => l.length));
-  return rows.map(([l, d]) => `  ${l.padEnd(width)}  ${d}`.trimEnd());
+  return rows.map(([l, d]) => `  ${left(l)}${' '.repeat(width - l.length)}  ${d}`.trimEnd());
 };
 
 /** The help of a command. */
@@ -67,7 +70,7 @@ export function commandHelp(c: AnyCommand): string {
   return [
     `${c.summary}`,
     '',
-    `Usage: ${usageLine(c)}`,
+    `Usage: ${paint.command(`breakrocks ${c.name}`)}${usageLine(c).slice(`breakrocks ${c.name}`.length)}`,
     ...(c.details ? ['', c.details] : []),
     ...(c.description ? ['', c.description] : []),
     ...(c.api ? ['', `API: ${c.api}`] : []),
@@ -132,19 +135,18 @@ export function domainHelp(name: string): string {
   const sections = domain.groups.filter((g) => commands().some((c) => groupOf(c) === g)).map((g) => {
     const own = commands().find((c) => c.name === g);
     const rows = [...(own ? table([[own.name, own.summary]]) : []), ...childRows(g)];
-    return [`${g}: ${GROUP_SUMMARIES[g] ?? ''}`.trimEnd(), ...rows].join('\n');
+    return [`${paint.bold(g)}: ${GROUP_SUMMARIES[g] ?? ''}`.trimEnd(), ...rows].join('\n');
   });
-  return [`Domain ${domain.name}: ${domain.line}`, '', sections.join('\n\n'), '', 'Help of a group: breakrocks help <group>; of a command: breakrocks <command> --help'].join('\n');
+  return [`Domain ${paint.domain(domain.name)}: ${domain.line}`, '', sections.join('\n\n'), '', 'Help of a group: breakrocks help <group>; of a command: breakrocks <command> --help'].join('\n');
 }
 
 /** The overview: the domains and their groups, then how to go further. About 30 lines. */
 export function overviewHelp(): string {
-  const width = Math.max(...DOMAINS.map((d) => d.name.length));
   return [
     'Usage: breakrocks <command> [options]',
     '',
     'Domains (breakrocks <domain>, or breakrocks help <domain>):',
-    ...DOMAINS.map((d) => `  ${d.name.padEnd(width)}  ${d.line}`),
+    ...table(DOMAINS.map((d) => [d.name, d.line]), paint.domain),
     '',
     ...table([
       ['breakrocks help <domain>', 'The commands of a domain (breakrocks help talk, breakrocks talk)'],

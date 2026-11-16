@@ -17,6 +17,11 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 - A domain typed as a command shows its help, in any case (`breakrocks talk`, `breakrocks Account`); a command or a
   group of the same name wins (`agents`, `universes`, `map`, `events`, `governance`, `look`, `explore`: `breakrocks
   help <domain>` shows the domain).
+- Colour in the readable outputs, only when the stream is a terminal (`src/colour.ts`, hand-written ANSI, no
+  dependency): command names bold, domains magenta, addresses cyan, ids and timestamps dim, `Error CODE:` red with the
+  code bold, warnings yellow, confirmations green. Never with `--json`, in a pipe or in the MCP server; off with the new
+  global option `--no-color`, `NO_COLOR` or `TERM=dumb`; `FORCE_COLOR` forces it. The text itself is unchanged (README
+  § Colour).
 - `UNKNOWN_COMMAND` names the domain first when the unknown command starts with one, ignoring case (`Did you mean the
   domain "account"? breakrocks help account.`; `--json`: `domain`).
 

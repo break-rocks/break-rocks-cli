@@ -1,7 +1,7 @@
 /**
  * Everything the CLI writes to the terminal goes through here: plain text by default, JSON with
- * --json. Never colors nor animations: the output reads the same in a terminal, a pipe or an
- * AI agent. Progress and questions go to stderr, so that stdout carries the answer only.
+ * --json. Colours only in a terminal, never in JSON, a pipe or an AI agent (src/colour.ts), and
+ * never an animation: the text reads the same everywhere. Progress and questions go to stderr, so that stdout carries the answer only.
  */
 export type Output = { line: (text: string) => void; error: (text: string) => void; json: (value: unknown) => void };
 

@@ -3,6 +3,7 @@
 // again once, after the seconds it gives (Retry-After, at most 60); a GraphQL RATE_LIMITED whose
 // retryAt is within 60 seconds likewise. A refusal is a CliError with the code of the contract.
 import type { Context } from './context.js';
+import { paintErr } from './colour.js';
 import { CliError, EXIT, networkError, platformRefusal, refusalSentence } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
 import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
@@ -148,5 +149,5 @@ function warnUnserved(ctx: Context, degraded: Degraded): void {
   const fields = [...new Set(degraded.removed.map((r) => `${r.type}.${r.field}`))].filter((f) => !warned.has(f));
   if (!fields.length) return;
   for (const f of fields) warned.add(f);
-  ctx.notice(`The backend is behind this CLI (contract of specs ${CONTRACT.version ?? '?'}), likely by one minor version: the field${fields.length > 1 ? 's' : ''} ${fields.join(', ')} ${fields.length > 1 ? 'are' : 'is'} not served; null in the answer (breakrocks doctor tells more)`);
+  ctx.notice(paintErr.warn(`The backend is behind this CLI (contract of specs ${CONTRACT.version ?? '?'}), likely by one minor version: the field${fields.length > 1 ? 's' : ''} ${fields.join(', ')} ${fields.length > 1 ? 'are' : 'is'} not served; null in the answer (breakrocks doctor tells more)`));
 }

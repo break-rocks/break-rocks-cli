@@ -2,6 +2,7 @@
 // Schema of its input (options and positionals) and of its output, and its run. The help, --json,
 // `breakrocks schema <command>` and the MCP server (one tool per command) derive from it.
 import type { Context } from './context.js';
+import { paintErr } from './colour.js';
 import type { ExitCode } from './errors.js';
 import { assertValid, type ArgSpec, type JsonSchema, type ObjectSchema } from './schema.js';
 import { PLACEMENTS } from './tree.js';
@@ -102,7 +103,7 @@ export function findCommand(words: readonly string[]): { command: AnyCommand; re
 export const commandsUnder = (prefix: string) => COMMANDS.filter((c) => c.name.startsWith(`${prefix} `));
 
 /** The one-line notice of a former name, on stderr. */
-export const deprecationNotice = (alias: string, command: AnyCommand) => `Warning: "breakrocks ${alias}" is deprecated, use "breakrocks ${command.name}".`;
+export const deprecationNotice = (alias: string, command: AnyCommand) => paintErr.warn(`Warning: "breakrocks ${alias}" is deprecated, use "breakrocks ${command.name}".`);
 
 /** The input schema of a command as an MCP client sees it: its own, with "yes" when it may ask a confirmation. */
 export function toolInputSchema(c: AnyCommand): ObjectSchema {
