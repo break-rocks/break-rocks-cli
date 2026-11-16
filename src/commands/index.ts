@@ -68,7 +68,7 @@ register(
   publish.favoriteAdd, publish.favoriteRemove, publish.favoriteMove, ...favoriteCommands, publish.universesCreatePrivate, publish.universesInvite, publish.conditionsShow, publish.conditionsSet, publish.conditionsAccept, ...privateUniverseCommands,
   geo.territoryGet, geo.territorySet, geo.territoryRemove, geo.territoryReport,
   pages.universePages, pages.pageGet, pages.pagePublish, pages.pageCheck, pages.pageHide, pages.pageShow, pages.pageMove, pages.pageDelete, pages.pagesExport, pages.pagesImport, pages.pageReport,
-  read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, ...searchCommands, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, map.mapPresences, map.mapGroups,
+  read.explore, discovery.exploreWhy, discovery.exploreMuted, discovery.exploreMute, discovery.exploreUnmute, discovery.exploreReset, discovery.resolve, ...searchCommands, geo.exploreArea, geo.placesSearch, geo.mapBoundary, routes.mapRoutes, routes.mapChannels, routes.mapPosts, routes.mapPlaces, routes.mapPlaceFeats, routes.mapPlaceCard, map.mapPresences, map.mapGroups,
   map.presenceShow, map.presenceStart, map.presenceUpdate, map.presenceAudience, map.presenceGhostOn, map.presenceGhostOff, map.presenceStop,
   map.liveShareList, map.liveShareIn, map.liveShareStart, map.liveShareStop, map.liveSharePositions, map.liveShareSend,
   map.locatableShow, map.locatableResidents, map.locatableOn, map.locatableOff, map.locatableMove,

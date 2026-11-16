@@ -5,6 +5,23 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-16
+
+Specs v125.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 220 queries, 354 mutations).
+
+### Added
+
+- `map place-feats --cells …` (`mapPlaceFeats`): the places with a place feat of an area, with `foldedCount`, `foldedVideoCount` and
+  `foldedClipCount` (the "+N" of their round, D-393).
+- `map place-card <place id>` (`placeCard`): the card of a place, with its section "Also here" (`alsoHere`, D-395).
+- `me data confirm <data request id>` (`confirmDataRequest`, D-394): confirm a data copy or a bulk erasure recorded from a contact message;
+  a recent sign-in is required (`RECENT_SIGN_IN_REQUIRED`), as for the other writes of My data.
+
+### Changed
+
+- `map posts` prints `foldedPlaceId` (D-393) on a place-folded post.
+- `me data requests` prints `confirm by` (`DataRequest.confirmBy`) for a request `AWAITING_CONFIRMATION`, and `NOT_CONFIRMED` in the history (D-394).
+
 ## [0.25.0] - 2026-11-15
 
 Online help by domains and a command tree (D-390); proxy support.

@@ -143,11 +143,12 @@ export const mapChannels = apiCommand({
   text: listText((c: Channel) => `${c.address}  ${c.place?.name ?? ''}  present ${c.presentCount ?? 0}${c.lastMessage?.text ? `  "${c.lastMessage.text.replace(/\s+/g, ' ').slice(0, 40)}"` : ''}`),
   examples: ['breakrocks map channels --cells 861fb4677ffffff --universe %paris'],
 });
-type MapPost = { postId: string; authorId?: string; universe?: string; createdAt?: string; place?: { name?: string | null; mapCell?: string | null } | null };
+type MapPost = { postId: string; authorId?: string; universe?: string; createdAt?: string; foldedPlaceId?: string | null; place?: { name?: string | null; mapCell?: string | null } | null };
+const mapPostLine = (p: MapPost) => `${p.postId}  ${p.createdAt ?? ''}  ${p.universe ?? ''}  ${p.place?.name ?? p.place?.mapCell ?? ''}  by ${p.authorId ?? '-'}${p.foldedPlaceId ? `  folded in ${p.foldedPlaceId}` : ''}`;
 export const mapPosts = apiCommand({
   name: 'map posts', summary: 'The placed posts of an area of the map the account may read, the most recent first, 200 at most (mapPosts)', description: 'The layer "Videos" (videosOnly) is deferred by the platform.',
   kind: 'query', op: 'mapPosts', rename: cells, hide: ['videosOnly'], descriptions: { ...universeFilter, cells: cellsProperty.description! },
-  text: listText((p: MapPost) => `${p.postId}  ${p.createdAt ?? ''}  ${p.universe ?? ''}  ${p.place?.name ?? p.place?.mapCell ?? ''}  by ${p.authorId ?? '-'}`),
+  text: listText(mapPostLine),
   examples: ['breakrocks map posts --cells 861fb4677ffffff', 'breakrocks map posts --cells 861fb4677ffffff,861fb4667ffffff --universe %paris --json'],
 });
 type RecentPlace = { mapCell: string; pointOfInterest?: boolean; point?: { lat: number; lon: number } | null; lastPostAt?: string };
@@ -155,4 +156,28 @@ export const mapPlaces = apiCommand({
   name: 'map places', summary: 'The places of an area of the map with a placed post of less than 1 hour, the most recent first (mapRecentPlaces: the pulse ring)', kind: 'query', op: 'mapRecentPlaces', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
   text: listText((p: RecentPlace) => `${p.lastPostAt ?? ''}  ${p.mapCell}${p.pointOfInterest && p.point ? `  point of interest ${p.point.lat},${p.point.lon}` : ''}`),
   examples: ['breakrocks map places --cells 861fb4677ffffff'],
+});
+// One map marker per place (D-393, D-395, specs v125.0.0): a place with a place feat draws its place-folded posts in its round ("+N").
+type PlaceFeats = { place?: { placeId?: string; name?: string } | null; publishedCount?: number; foldedCount?: number; foldedVideoCount?: number; foldedClipCount?: number; liveliness?: string | null };
+const placeFeatsLine = (p: PlaceFeats) => `${p.place?.placeId ?? '-'}  ${p.place?.name ?? ''}  ${p.publishedCount ?? 0} feat(s)${p.liveliness ? `  ${p.liveliness}` : ''}  folded ${p.foldedCount ?? 0}  videos ${p.foldedVideoCount ?? 0}  clips ${p.foldedClipCount ?? 0}`;
+export const mapPlaceFeats = apiCommand({
+  name: 'map place-feats', summary: 'The places with a place feat of an area of the map, with their place-folded posts (mapPlaceFeats: the experiences layer, "+N")', kind: 'query', op: 'mapPlaceFeats', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
+  description: 'folded is the "+N" of the round of a place: its placed posts and placed videos of public universes, among them the videos, among them the vertical clips (foldedCount, foldedVideoCount, foldedClipCount).',
+  text: listText(placeFeatsLine),
+  examples: ['breakrocks map place-feats --cells 861fb4677ffffff', 'breakrocks map place-feats --cells 861fb4677ffffff --universe %paris --json'],
+});
+type PlaceContent = { kind: string; event?: { id?: string; title?: string | null } | null; post?: MapPost | null };
+type PlaceCard = { placeId: string; name: string; point?: { lat: number; lon: number } | null; address?: string | null; contents?: PlaceContent[]; alsoHere?: PlaceContent[] };
+const placeContentLine = (c: PlaceContent) => `  ${c.kind}  ${c.post ? mapPostLine(c.post) : `${c.event?.id ?? '-'}${c.event?.title ? `  ${c.event.title}` : ''}`}`;
+const placeCardText = (r: unknown) => {
+  const c = r as PlaceCard | null;
+  if (!c) return '(none)';
+  const section = (title: string, items: PlaceContent[] | undefined) => [`${title} (${items?.length ?? 0})`, ...(items ?? []).map(placeContentLine)];
+  return [`${c.placeId}  ${c.name}${c.point ? `  ${c.point.lat},${c.point.lon}` : ''}${c.address ? `  ${c.address}` : ''}`, ...section('contents', c.contents), ...section('also here', c.alsoHere)].join('\n');
+};
+export const mapPlaceCard = apiCommand({
+  name: 'map place-card', summary: 'The card of a place: its address, its contents and, for a place with a place feat, "Also here" (placeCard)', kind: 'query', op: 'placeCard', positionals: ['placeId'], depth: 3,
+  description: '"also here" is the section of the place-folded posts of a place with a place feat (D-395): its placed posts and placed videos, 20 at most, in the order of the map highlights, never a content of an account blocked either way. A post of the account\'s hidden accounts may still be listed: its author is printed.',
+  descriptions: { placeId: 'The place (the placeId of a point of interest)' }, text: placeCardText,
+  examples: ['breakrocks map place-card <place id>', 'breakrocks map place-card <place id> --json'],
 });

@@ -982,9 +982,25 @@ type MapPost {
   authorId: ID!
   """
   Since D-368 (gathering-sheet.feature): for the post of a published experience feat, the id of its place feat
-  (placeFeat(id), startPlaceFeatRun: its feat card and "Do it too"); null for another post.
+  (placeFeat(id), startPlaceFeatRun: its feat card and "Do it too"); null for another post. Since D-393 (decided on
+  2026-11-16; contracts/map.md § One map marker per place): such a post, placed at the point of interest of its place
+  feat, is answered by mapGathering under FEATS only, never by mapPosts nor in the posts or videos entries of the files
+  of the map highlights; since D-395, the post of a minor's published experience feat placed at the city keeps the rule
+  of a minor and is answered by mapPosts, at the city, as before.
   """
   placeFeatId: ID
+  """
+  Since D-393 (decided on 2026-11-16; map-markers.feature, contracts/map.md § One map marker per place): the placeId of
+  the place with a place feat in whose round this placed post or placed video is drawn, a place-folded post: its point
+  of interest (PostPlace.placeId) carries a place feat shown on the map read (with universe, a place feat that universe
+  hosts or adopted); computed by the server. Null for a post at a point of interest without a place feat, for a post
+  rounded to its map cell (pointOfInterest false), for the post of a published experience feat (placeFeatId) and, since
+  D-395, for a post of a private universe (never a place-folded post). With FEATS among the map kinds chosen, the apps
+  never draw a post with foldedPlaceId set on its own: the round of its place counts it (MapPlaceFeats.foldedCount);
+  since D-395, whenever FEATS is not among the map kinds chosen, they draw it on its own, as any placed post or placed
+  video.
+  """
+  foldedPlaceId: String
 }
 
 """
@@ -1247,13 +1263,23 @@ type PlaceCard {
   Its contents, 20 at most: the universe events to come first, then the placed posts and placed videos.
   """
   contents: [PlaceContent!]!
+  """
+  Since D-395 (decided on 2026-11-16; map-markers.feature, contracts/map.md § One map marker per place): for a place with a
+  place feat, the section "Also here" of its place card: its place-folded posts (MapPost.foldedPlaceId, the placeId of
+  this place), the placed posts (kind POSTS) and the placed videos (kind VIDEOS), 20 at most, in the order of the map
+  highlights, with the exclusions of the map (never a content of an account blocked either way, applied by the read for
+  the caller; the app also leaves out the accounts of hiddenAccounts by MapPost.authorId); never a universe event. Empty
+  for a place without a place feat and for a place without a place-folded post.
+  """
+  alsoHere: [PlaceContent!]!
 }
 
 """
 Since D-358: a content of a place card: a universe event (kind EVENTS, event set) or a placed post (kind POSTS, post set) or a
 placed video, a vertical clip or a long video (kind VIDEOS, post set). Since D-368, a content of a gathering sheet too
 (mapGathering, MapGatheringKind.contents), with the kind FEATS: a place with a place feat (place set) or a published
-experience feat (post set, its post, MapPost.placeFeatId set); placeCard never answers FEATS.
+experience feat (post set, its post, MapPost.placeFeatId set); placeCard never answers FEATS. Since D-393 (contracts/map.md
+§ One map marker per place), the post of a published experience feat is never answered with the kind POSTS nor VIDEOS.
 """
 type PlaceContent {
   """

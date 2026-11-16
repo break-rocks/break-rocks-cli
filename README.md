@@ -212,6 +212,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me data download` | Download a part of a data copy | `breakrocks me data download <data request id> 1` |
 | `me data erase` | Ask for the bulk erasure of a scope (confirmation: `--yes`) | `breakrocks me data erase LIKES_AND_REPOSTS --yes` |
 | `me data erase-cancel` | Cancel a bulk erasure | `breakrocks me data erase-cancel <data request id>` |
+| `me data confirm` | Confirm a data request waiting for you (confirmation: `--yes`) | `breakrocks me data confirm <data request id> --yes` |
 | `me data rectify` | Ask for the rectification of data | `breakrocks me data rectify "My birth year is 1990, not 1909"` |
 | `me onboarding` | The onboarding and its steps | `breakrocks me onboarding` |
 | `me onboarding start` | Start the onboarding | `breakrocks me onboarding start` |
@@ -568,6 +569,8 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `map channels` | The placed channels of an area | `breakrocks map channels --cells 861fb4677ffffff --universe %paris` |
 | `map posts` | The placed posts of an area | `breakrocks map posts --cells 861fb4677ffffff` |
 | `map places` | The places with a recent placed post | `breakrocks map places --cells 861fb4677ffffff` |
+| `map place-feats` | The places with a place feat of an area | `breakrocks map place-feats --cells 861fb4677ffffff` |
+| `map place-card` | The card of a place and what is also there | `breakrocks map place-card <place id>` |
 | `map presences` | The map presences of an area | `breakrocks map presences --cells 861fb4677ffffff` |
 | `map groups` | The groups of map presence of an area | `breakrocks map groups --cells 861fb4677ffffff --universe %paris` |
 | `map presence` | Your map presence | `breakrocks map presence` |
@@ -884,6 +887,19 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   hours resumes and sends only the missing parts; the file is removed once the post is created. At 500 MB or below,
   `requestMediaUpload` as before. `--dry-run` tells `upload: multipart|single`.
 - **`universes show`** tells the long videos mode (`hasLongVideos`: offered from the first public long video).
+
+### One map marker per place and data requests to confirm (0.26.0, specs v125.0.0)
+
+`specs/common` pinned on **v125.0.0** and `schema/api-v2` regenerated (15 SDL files: 220 queries, 354 mutations).
+- **Map** (D-393, D-395): `map posts` prints `MapPost.foldedPlaceId` (`folded in <place id>`) on a place-folded post, the one drawn in the
+  round of its place with "+N". The new `map place-feats --cells …` (`mapPlaceFeats`) prints, for each place with a place feat, `MapPlaceFeats.foldedCount`,
+  `foldedVideoCount` and `foldedClipCount`; the new `map place-card <place id>` (`placeCard`) prints the card of a place with its contents and
+  its section "Also here" (`PlaceCard.alsoHere`: 20 at most, never a content of an account blocked either way). The post of a published experience
+  feat is no longer answered as a placed post or a placed video: the platform leaves it out.
+- **My data** (D-394): `me data requests` prints a data request `AWAITING_CONFIRMATION` (a data copy or a bulk erasure the platform team recorded
+  from a contact message) with its `confirm by` (`DataRequest.confirmBy`), and `NOT_CONFIRMED` (closed without running, kept in the register).
+  `me data confirm <data request id>` (`confirmDataRequest`, confirmation: `--yes`) confirms it; like the other writes of My data it needs a
+  recent sign-in (`RECENT_SIGN_IN_REQUIRED`: sign in again, then retry).
 
 ### Author of the placed posts (0.24.0, specs v124.0.0)
 
@@ -1431,7 +1447,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v124.0.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v125.0.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
