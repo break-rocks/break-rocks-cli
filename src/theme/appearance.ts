@@ -1,7 +1,7 @@
 // The effective appearance of a universe (look appearance show), resolved as the apps draw it, each value with its
 // origin: "set" (chosen by the universe in Customize), "theme" (the universe theme applied, its own or of a universe
 // above), "trial" (a universe theme trial of 24 hours), "country" (the country theme of a country universe, D-158),
-// "default" (what the platform gives when nothing is set: Socle, a universal or field theme chosen by the platform,
+// "default" (what the platform gives when nothing is set: Socle, a universal or field theme given by default,
 // the default layout, the sky column, the subtle background), "unknown" (neither the API nor the contract says).
 // Sources: contracts/themes.md (§ Customize, § The universal collection, § The country collection, § Universe theme
 // trials, § Default colors of a universe, § Client rules), contracts/layouts.md (§ Which layout applies) and the web
@@ -20,10 +20,13 @@ export type ServedTheme = {
 export type ServedUniverse = {
   name: string; exists?: boolean; private?: boolean; field?: string | null;
   themeRef?: Ref | null; themeOf?: string | null; themeHeldVersion?: number | null;
-  themeTrial?: { draftId: string; document?: unknown; version?: number; startedAt?: string; endsAt?: string; startedBy?: { handle?: string } | null; layout?: string | null } | null;
+  /** Who applied its universe theme and when (v126.1.0): null without a universe theme of its own; undefined when not served (inferred). */
+  appearanceApplied?: AppliedAppearance | null;
+  themeTrial?: { draftId: string; document?: unknown; version?: number; startedAt?: string; endsAt?: string; startedBy?: { handle?: string } | null; layout?: string | null; imageSlots?: { page?: Slot; pageHeader?: Slot } | null } | null;
   myDraftPreview?: { draftId: string; version?: number; endsAt?: string; layout?: string | null } | null;
   layoutRef?: Ref | null; layoutOf?: string | null; image?: { url?: string | null } | null; imageOf?: string | null;
 };
+export type AppliedAppearance = { appliedAt: string; appliedBy?: { handle?: string; deleted?: boolean } | null; proposalId?: string | null };
 export type AppliedLayout = { source?: string; of?: string | null; ref?: Ref | null } | null;
 export type HistoryEntry = { id: string; setAt: string; live?: boolean; trial?: boolean; theme?: Ref | null; accentName?: string | null };
 export type Proposal = { id: string; title?: string; status: string; kind?: string; author?: { handle?: string } | null; endsAt?: string | null; createdAt?: string };
@@ -50,7 +53,8 @@ export type ResolvedAppearance = {
   source: {
     kind: 'built' | 'started-from-theme' | 'theme' | 'trial' | 'country' | 'universal' | 'field' | 'socle';
     origin: Origin; theme: Ref | null; inheritedFrom: string | null; look: Ref | null; frozenAt: number | null;
-    appliedAt: string | null; appliedBy: string | null; proposal: { id: string; title?: string; author?: string; endsAt?: string | null } | null;
+    /** "api": read from Universe.appearanceApplied (null: no universe theme of its own); "inferred": from the history and the proposals (a backend before v126.1.0). */
+    appliedAt: string | null; appliedBy: string | null; appliedFrom: 'api' | 'inferred'; proposal: { id: string; title?: string; author?: string; endsAt?: string | null } | null;
   };
   trial: { draftId: string; version?: number; startedAt?: string; endsAt?: string; startedBy?: string; layout?: string | null; base: Ref | null } | null;
   myDraftPreview: { draftId: string; version?: number; endsAt?: string } | null;
@@ -165,18 +169,30 @@ function classify(u: ServedUniverse, ref: Ref | null, theme: ServedTheme | null,
   if (APPEARANCE_THEME.test(ref.name) && (ref.universe ?? '').toLowerCase() === owner) {
     return { kind: lookOf(blockOf(doc)) ? 'started-from-theme' : 'built', origin: 'set' };
   }
+  const atRoot = (ref.universe ?? '%root') === '%root';
+  // Served (v126.1.0): appearanceApplied tells a universe theme of its own (chosen, or a country theme set by the platform) from a default one.
+  if (u.appearanceApplied !== undefined) {
+    const applied = u.appearanceApplied;
+    if (applied) return system && !atRoot && !applied.appliedBy && !applied.proposalId ? { kind: 'country', origin: 'country' } : { kind: 'theme', origin: 'theme' };
+    if (u.themeOf) return { kind: 'theme', origin: 'theme' };
+    if (atRoot && UNIVERSAL_THEMES.includes(ref.name.toLowerCase())) return { kind: 'universal', origin: 'default' };
+    if (atRoot) return { kind: 'field', origin: 'default' };
+    return { kind: 'theme', origin: 'theme' };
+  }
   // The universe chose it (an appearance history entry in use names it): its own choice, whatever the theme.
   if (live && sameRef(live.theme, ref)) return { kind: 'theme', origin: 'theme' };
   if (system && (ref.universe ?? '%root') !== '%root') return { kind: 'country', origin: 'country' };
-  if (!u.themeOf && (ref.universe ?? '%root') === '%root' && UNIVERSAL_THEMES.includes(ref.name.toLowerCase())) return { kind: 'universal', origin: 'default' };
-  if (!u.themeOf && (ref.universe ?? '%root') === '%root' && theme?.collection && theme.collection === u.field) return { kind: 'field', origin: 'default' };
+  if (!u.themeOf && atRoot && UNIVERSAL_THEMES.includes(ref.name.toLowerCase())) return { kind: 'universal', origin: 'default' };
+  // A theme of the field collection of the universe (Theme.official since v126.1.0): given by default unless chosen, which only appearanceApplied tells.
+  if (!u.themeOf && atRoot && theme?.collection && theme.collection === u.field && theme.official !== false) return { kind: 'field', origin: 'default' };
   return { kind: 'theme', origin: 'theme' };
 }
 
 /** The appearance of a universe as the apps draw it, each value with its origin. */
 export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
-  // themeOf names a universe above; the API may answer the universe itself for its own theme (read as null).
-  const u = { ...r.universe, themeOf: r.universe.themeOf && r.universe.themeOf.toLowerCase() !== r.universe.name.toLowerCase() ? r.universe.themeOf : null };
+  // themeOf: null for its own theme or a default one, else the universe above (v126.1.0). Tolerated: the universe itself, as a backend before it answered.
+  const own = r.universe.themeOf?.toLowerCase() === r.universe.name.toLowerCase();
+  const u = own ? { ...r.universe, themeOf: null } : r.universe;
   const live = r.history?.find((e) => e.live) ?? null;
   const ref = u.themeRef && !u.themeRef.deleted ? u.themeRef : null;
   const served = ref ? r.theme ?? null : r.socle ?? null;
@@ -222,14 +238,16 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
     ...(characterValue ? {} : { note: `no appearance character for ${title ?? 'its typeface'}` }),
   };
 
-  // The image: the slots page and pageHeader as served (a trial: the upload ids of its document), the focal point of the block.
+  // The image: the slots page and pageHeader as served (a trial: its imageSlots since v126.1.0, else the upload ids of its document), the focal point of the block.
   const uploadId = block && typeof block.image === 'string' ? block.image : null;
   const focal = block && isObject(block.focalPoint) && typeof block.focalPoint.x === 'number' && typeof block.focalPoint.y === 'number' ? { x: block.focalPoint.x, y: block.focalPoint.y } : uploadId ? { x: 0.5, y: 0.5 } : null;
-  const page = trial ? (draftSlot(doc, 'page') ? { url: null, urlNight: null } : null) : slotOf(served?.imageSlots?.page);
-  const pageHeader = trial ? (draftSlot(doc, 'pageHeader') ? { url: null, urlNight: null } : null) : slotOf(served?.imageSlots?.pageHeader);
+  const trialSlots = trial?.imageSlots ?? null;
+  const fromDraft = (key: string) => (draftSlot(doc, key) ? { url: null, urlNight: null } : null);
+  const page = trial ? (trialSlots ? slotOf(trialSlots.page) : fromDraft('page')) : slotOf(served?.imageSlots?.page);
+  const pageHeader = trial ? (trialSlots ? slotOf(trialSlots.pageHeader) : fromDraft('pageHeader')) : slotOf(served?.imageSlots?.pageHeader);
   const imageOrigin: Origin = trial ? 'trial' : socle ? 'default' : base.kind === 'started-from-theme' ? (uploadId ? 'set' : 'theme') : base.origin;
   const image: ResolvedAppearance['image'] = {
-    value: { page, pageHeader, focalPoint: focal, uploadId: uploadId ?? (trial ? draftSlot(doc, 'pageHeader') ?? draftSlot(doc, 'page') : null) },
+    value: { page, pageHeader, focalPoint: focal, uploadId: uploadId ?? (trial && !trialSlots ? draftSlot(doc, 'pageHeader') ?? draftSlot(doc, 'page') : null) },
     origin: imageOrigin, ...(page || pageHeader ? {} : { note: 'no image' }),
   };
 
@@ -258,10 +276,16 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
 
   const contrast = trial ? { value: 'AA', origin: 'trial' as Origin, note: 'validated as at publication' } : served?.contrastLevel ? { value: served.contrastLevel, origin: o } : { value: null, origin: 'unknown' as Origin };
 
-  // When and by whom: the appearance history entry in use, the theme version, an adopted proposal near that time.
-  const appliedAt = live && (!ref || sameRef(live.theme, ref)) ? live.setAt : base.kind === 'built' || base.kind === 'started-from-theme' ? served?.updatedAt ?? null : null;
+  // When and by whom: Universe.appearanceApplied (v126.1.0); not served, inferred from the history entry in use, the theme version, an adopted proposal near that time.
+  const served126 = u.appearanceApplied !== undefined;
+  const applied = u.appearanceApplied ?? null;
+  const inferredAt = live && (!ref || sameRef(live.theme, ref)) ? live.setAt : base.kind === 'built' || base.kind === 'started-from-theme' ? served?.updatedAt ?? null : null;
+  const appliedAt = served126 ? applied?.appliedAt ?? null : inferredAt;
   const adopted = (r.proposals ?? []).filter((p) => p.status === 'ADOPTED' && p.endsAt).sort((a, b) => String(b.endsAt).localeCompare(String(a.endsAt)));
-  const near = appliedAt ? adopted.find((p) => Math.abs(Date.parse(p.endsAt!) - Date.parse(appliedAt)) <= 15 * 60_000) ?? null : null;
+  const near = served126
+    ? (applied?.proposalId ? (r.proposals ?? []).find((p) => p.id === applied.proposalId) ?? { id: applied.proposalId, status: 'ADOPTED' } : null)
+    : appliedAt ? adopted.find((p) => Math.abs(Date.parse(p.endsAt!) - Date.parse(appliedAt)) <= 15 * 60_000) ?? null : null;
+  const by = applied?.appliedBy ? (applied.appliedBy.deleted || !applied.appliedBy.handle ? 'a deleted account' : `@${applied.appliedBy.handle}`) : null;
   const pendingStatuses = ['OPEN', 'WAITING_SUPPORT', 'COUNTING'];
 
   return {
@@ -269,7 +293,7 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
     source: {
       kind: trial ? 'trial' : base.kind, origin: o, theme: ref ? { universe: ref.universe ?? null, name: ref.name, version: ref.version ?? null } : socle ? SOCLE : null,
       inheritedFrom: u.themeOf ?? null, look, frozenAt: u.themeHeldVersion ?? null, appliedAt,
-      appliedBy: near?.author?.handle ? `@${near.author.handle}` : null,
+      appliedBy: served126 ? by : near?.author?.handle ? `@${near.author.handle}` : null, appliedFrom: served126 ? 'api' : 'inferred',
       proposal: near ? { id: near.id, title: near.title, author: near.author?.handle, endsAt: near.endsAt } : null,
     },
     trial: trial ? { draftId: trial.draftId, version: trial.version, startedAt: trial.startedAt, endsAt: trial.endsAt, startedBy: trial.startedBy?.handle, layout: trial.layout ?? null, base: ref } : null,
@@ -291,7 +315,7 @@ const day = (iso: string | null | undefined) => (iso ? iso.slice(0, 16).replace(
 const tag = (o: Origin) => paint.dim(`[${o}]`);
 const SOURCE_TEXT: Record<ResolvedAppearance['source']['kind'], string> = {
   built: 'an appearance built in Customize', 'started-from-theme': 'an appearance started from a theme in Customize', theme: 'a theme applied by the universe',
-  trial: 'a theme trial of 24 hours', country: 'the country theme (D-158)', universal: 'the universal theme, chosen by the platform', field: 'the field theme, chosen by the platform', socle: 'Socle, the platform default',
+  trial: 'a theme trial of 24 hours', country: 'the country theme (D-158)', universal: 'the universal theme, chosen by the platform', field: 'the official theme of its field, given by default', socle: 'Socle, the platform default',
 };
 
 /** The effective appearance in text: labelled lines, each value with its origin. */
@@ -300,7 +324,7 @@ export function appearanceText(a: ResolvedAppearance): string {
   const pal = (p: Palette | null) => (p ? ['background', 'surface', 'text', 'primary', 'accent', 'link'].filter((k) => p[k]).map((k) => `${k} ${swatch(p[k])}`).join('  ') : 'unknown');
   const lines = [paint.bold(`${a.universe}: the appearance applied`)];
   lines.push(`source: ${SOURCE_TEXT[s.kind]}  ${tag(s.origin)}`);
-  if (s.kind === 'field') lines.push(`  ${paint.dim('a theme of its field collection, given by the platform unless the universe chose it: the API does not tell them apart')}`);
+  if (s.kind === 'field' && s.appliedFrom === 'inferred') lines.push(`  ${paint.dim('unless the universe chose it: this backend does not tell (before specs v126.1.0)')}`);
   if (a.trial) {
     lines.push(`  trial: the draft ${a.trial.draftId}${a.trial.version ? ` v${a.trial.version}` : ''}, for every reader, until ${day(a.trial.endsAt)}${a.trial.startedBy ? `, started by @${a.trial.startedBy}` : ''}`);
     lines.push(`  after it: ${refText(a.trial.base)}`);
@@ -308,9 +332,11 @@ export function appearanceText(a: ResolvedAppearance): string {
     lines.push(`  theme: ${refText(s.theme)}${s.inheritedFrom ? ` (inherited from ${s.inheritedFrom})` : ''}${s.frozenAt ? ` (frozen at version ${s.frozenAt})` : ''}`);
   }
   if (s.look) lines.push(`  started from: ${refText(s.look)}`);
-  if (s.kind !== 'socle' && s.kind !== 'universal' && s.kind !== 'field' && s.kind !== 'country' && !a.trial) {
+  const proposal = s.proposal ? ` (proposal ${s.proposal.id}${s.proposal.title ? ` "${s.proposal.title}"` : ''}, adopted)` : '';
+  if (s.appliedFrom === 'api' && s.appliedAt && !a.trial) lines.push(`  applied: on ${day(s.appliedAt)} by ${s.appliedBy ?? 'the platform'}${proposal}`);
+  else if (s.appliedFrom !== 'api' && s.kind !== 'socle' && s.kind !== 'universal' && s.kind !== 'field' && s.kind !== 'country' && !a.trial) {
     const when = s.appliedAt ? `on ${day(s.appliedAt)}` : null, who = s.appliedBy ? `by ${s.appliedBy}` : null;
-    lines.push(`  applied: ${when && who ? `${when} ${who}` : when ? `${when}, by whom not given by the API` : who ? `${who}, when not given by the API` : 'when and by whom not given by the API'}${s.proposal ? ` (proposal ${s.proposal.id}${s.proposal.title ? ` "${s.proposal.title}"` : ''}, adopted)` : ''}`);
+    lines.push(`  applied: ${when && who ? `${when} ${who}` : when ? `${when}, by whom not given by this backend` : who ? `${who}, when not given by this backend` : 'when and by whom not given by this backend'}${proposal}`);
   }
   if (a.myDraftPreview) lines.push(`  your draft preview (you alone see it): the draft ${a.myDraftPreview.draftId} until ${day(a.myDraftPreview.endsAt)}`);
   const ac = a.accent.value;

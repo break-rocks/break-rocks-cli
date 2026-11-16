@@ -27,6 +27,26 @@ describe('platform measures and terms', () => {
     expect(await h.run('me', 'measures', '--json')).toBe(0);
     expect(last<{ items: { universe: string | null }[] }>(h).items.map((m) => m.universe)).toEqual(['%paris', null]);
   });
+  it('names what each measure targets from targetKind, a value not known as a content (v126.1.0)', async () => {
+    const base = { kind: 'CONTENT_REMOVAL', article: 0, startsAt: '2026-11-16T10:00:00.000Z', endsAt: null, cancelled: false, appealableUntil: null, appeal: null, statement: 'S', universe: null };
+    const items = [
+      { ...base, id: 'pm4', targetKind: 'UNIVERSE_SEARCH_WORDS', snippet: 'spam, scam', subjectWhere: '%paris' },
+      { ...base, id: 'pm5', targetKind: 'UNIVERSE_SEARCH_WORD', snippet: 'scam', subjectWhere: '%paris' },
+      { ...base, id: 'pm6', kind: 'POSTING_BAN', targetKind: 'ACCOUNT', snippet: null, subjectWhere: null },
+      { ...base, id: 'pm7', targetKind: 'SOMETHING_NEW', snippet: null, subjectWhere: null },
+    ];
+    const { h, calls } = scripted({ myPlatformMeasures: { items, next: null } });
+    expect(await h.run('me', 'measures')).toBe(0);
+    expect(calls[0].query).toMatch(/\btargetKind\b/);
+    expect(h.lines.at(-1)!.split('\n')).toEqual([
+      'pm4  CONTENT_REMOVAL  article 0  2026-11-16T10:00:00.000Z  the whole list of universe search words  "spam, scam"  in %paris',
+      'pm5  CONTENT_REMOVAL  article 0  2026-11-16T10:00:00.000Z  a universe search word  "scam"  in %paris',
+      'pm6  POSTING_BAN  article 0  2026-11-16T10:00:00.000Z  the account',
+      'pm7  CONTENT_REMOVAL  article 0  2026-11-16T10:00:00.000Z  a content',
+    ]);
+    expect(await h.run('me', 'measures', '--json')).toBe(0);
+    expect(last<{ items: { targetKind: string }[] }>(h).items.map((m) => m.targetKind)).toEqual(['UNIVERSE_SEARCH_WORDS', 'UNIVERSE_SEARCH_WORD', 'ACCOUNT', 'SOMETHING_NEW']);
+  });
   it('reads the terms accepted and accepts the latest (read first when not given)', async () => {
     const terms = { terms: '2026-09-01', rules: '2026-09-01', acceptedAt: '2026-09-02T00:00:00.000Z', latestTerms: '2026-11-01', latestRules: '2026-09-01', latestTermsAppliesAt: '2026-11-15', latestRulesAppliesAt: '2026-09-01' };
     const { h, calls } = scripted({ myTermsAcceptance: terms, acceptTerms: { ...terms, terms: '2026-11-01' } });

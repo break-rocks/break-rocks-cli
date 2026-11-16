@@ -534,6 +534,11 @@ type PlatformMeasure {
   """
   startsAt: AWSDateTime!
   """
+  Since v126.1.0: the kind of content the measure targets (PlatformMeasureTargetKind), ACCOUNT for a measure on an
+  account; the client reads it instead of guessing from "snippet" or "subjectWhere".
+  """
+  targetKind: PlatformMeasureTargetKind!
+  """
   The facts, as written by the member of the platform team, or the fixed template of an automatic measure.
   """
   statement: String!
@@ -625,6 +630,37 @@ enum PlatformMeasureKind {
   CONTENT_REMOVAL
   POSTING_BAN
   SUSPENSION
+}
+
+"""
+The kind of content a platform measure targets (since v126.1.0; contracts/platform-measures.md § The kind of the
+target). The values of "content" in the public log of platform measures, except that the universe search words are
+told apart: UNIVERSE_SEARCH_WORDS, the whole list of universe search words of a universe (usw#<universe key>, D-397);
+UNIVERSE_SEARCH_WORD, one universe search word removed alone (usw#<universe key>#<word id>); the public log writes
+SEARCH_WORDS for both. POST is a post (a clip too: a post with a vertical video), REPLY a reply,
+CONNECTION_REQUEST_MESSAGE the message of a waiting connection request, AGENT_TEXT a text of a platform AI agent,
+ACCOUNT a measure on an account (a platform posting ban, a platform suspension, a platform ban, the suspension of a
+delegated agent). A content mask (CONTENT_MASK) carries the kind of the content masked. Values may be added in a minor
+version; a client shows a value it does not know as a content without its kind.
+"""
+enum PlatformMeasureTargetKind {
+  ACCOUNT
+  AGENT_TEXT
+  CHANNEL_MESSAGE
+  CONNECTION_REQUEST_MESSAGE
+  DIRECT_MESSAGE
+  GROUP_CHAT
+  GROUP_MESSAGE
+  MAP_PRESENCE
+  PLAYLIST
+  POST
+  REPLY
+  THEME
+  UNIVERSE_BANNER
+  UNIVERSE_PAGE
+  UNIVERSE_SEARCH_WORD
+  UNIVERSE_SEARCH_WORDS
+  UNIVERSE_TERRITORY
 }
 
 """

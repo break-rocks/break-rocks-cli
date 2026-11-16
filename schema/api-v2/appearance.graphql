@@ -805,7 +805,9 @@ type Theme {
   """
   name: String!
   """
-  Whether it is an official theme of the platform.
+  Whether it is an official theme of the platform. Since v126.1.0, written as the contract: true for every theme of a
+  field collection of "%root" (the official themes of the fields, contracts/themes.md § Field collections); Socle and
+  the other themes keep their value.
   """
   official: Boolean!
   """
@@ -1202,6 +1204,12 @@ type UniverseThemeTrial {
   """
   startedBy: AccountRef!
   """
+  Since v126.1.0: the image slots of its document, page and pageHeader (the banner), with the URLs of their variants,
+  as Theme.imageSlots; a slot without an image is null. The client reads the URLs here, never from the upload ids of
+  "document".
+  """
+  imageSlots: ThemeImageSlots!
+  """
   The address of the universe, with its sign ("%paris").
   """
   universe: String!
@@ -1424,7 +1432,8 @@ PNG or WebP, at least 1,500 × 500 pixels (APPEARANCE_IMAGE_INVALID; IMAGE_NOT_F
 THEME_IMAGE_TOO_LARGE); null: no image, a flat universe sky. focalPoint: { 0.5, 0.5 } by default. ground: the
 subtle background, false by default. accent: "#RRGGBB" (APPEARANCE_ACCENT_INVALID); null: the proposed accent of
 the image, or without an image the primary of the default colors of the universe. character: PLACE by
-default. logo, clear (LOGO): as setUniverseIdentity (UNIVERSE_LOGO_TOO_SMALL); ignored by
+default. clear APPEARANCE_IMAGE (since v126.0.0, D-401): no image, as imageId null; with themeRef, the images
+of the theme removed (below). logo, clear (LOGO): as setUniverseIdentity (UNIVERSE_LOGO_TOO_SMALL); ignored by
 buildUniverseAppearance, which builds the theme only. watermark and clear WATERMARK: ignored since v96.0.0
 (D-289, the watermark is gone). layout (since v96.0.0): the default layout the appearance sets, "feed-first",
 "village-square" or "hud" (UNIVERSE_LAYOUT_NOT_OFFERED otherwise); null: unchanged; carried in the block
@@ -1451,12 +1460,20 @@ input UniverseAppearanceInput {
   in quick start; it replaces countryTheme of v101.10.0, D-310, which no client sent): start from a theme of
   "%root" that quick start offers, Socle, an official theme, a theme of a field collection, of the universal
   collection or of the country collection (APPEARANCE_THEME_REF_INVALID otherwise). The appearance takes its whole
-  document at that moment (its palette, its four theme surfaces, its title typeface, its image slots); imageId,
-  focalPoint, ground, accent and character are then ignored; logo, clear, layout and sky apply as before; since
-  v122.4.0, imageShows applies too when given (how the images of the theme show, without leaving the theme), the
-  value of the theme when it is left out. Applied, it is published as the next version of the theme "appearance" of the universe, a copy that a
+  document at that moment (its palette, its four theme surfaces, its title typeface, its image slots); logo, clear,
+  layout and sky apply as before; since v122.4.0, imageShows applies too when given (how the images of the theme
+  show, without leaving the theme), the value of the theme when it is left out. Since v126.0.0 (D-401; contracts/
+  themes.md § The theme kept after quick start), the theme stays the base and these change only their part of the
+  copy: accent its primary and accent and what derives from them (the link, the gradient, the theme surface
+  control), checked AA against the theme surfaces of the theme and adjusted, never refused; character its title
+  typeface; imageId its slots pageHeader and page, with focalPoint (focalPoint is ignored without imageId, the
+  images of the theme keeping their crops); clear APPEARANCE_IMAGE empties its slots pageHeader and page, the
+  universe sky flat in the theme surface sky of the theme (ignored when imageId is given). ground
+  stays ignored with themeRef: it is deprecated and imageShows, which applies, replaces it. Until v126.0.0
+  imageId, focalPoint, accent and character were ignored with themeRef. Applied, it is published as the next version of the theme "appearance" of the universe, a copy that a
   later version of that theme does not change, its block "appearance" naming it in "look". Null: the appearance
-  is built from the steps.
+  is built from the steps ("Start from the steps again" sends none). A proposal of kind APPEARANCE (its appearance), a trial for
+  oneself and a 24-hour trial carry themeRef and its changes as applying does.
   """
   themeRef: ThemeRefInput
   """

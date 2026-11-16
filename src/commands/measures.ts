@@ -10,13 +10,20 @@ import { usageError } from '../errors.js';
 import { api } from '../session.js';
 import { pageText } from './shared.js';
 
-type Measure = { id: string; kind: string; article?: number; startsAt?: string; endsAt?: string | null; cancelled?: boolean; appealableUntil?: string | null; appeal?: { status?: string; outcome?: string | null } | null; statement?: string; universe?: string | null; snippet?: string | null; subjectWhere?: string | null };
-// universe (D-398): a measure against a universe (its theme, banner or a page), seen by its leadership. snippet and
-// subjectWhere: what was removed and where, such as the search words of a universe (D-397).
-const measureLine = (m: Measure) => `${m.id}  ${m.kind}  article ${m.article ?? '-'}  ${m.startsAt ?? ''}${m.endsAt ? ` → ${m.endsAt}` : ''}${m.universe ? `  universe ${m.universe}` : ''}${m.snippet ? `  "${m.snippet}"` : ''}${m.subjectWhere ? `  in ${m.subjectWhere}` : ''}${m.cancelled ? '  cancelled' : ''}${m.appeal ? `  appeal ${m.appeal.status}${m.appeal.outcome ? ` (${m.appeal.outcome})` : ''}` : m.appealableUntil ? `  appealable until ${m.appealableUntil}` : ''}`;
+type Measure = { id: string; kind: string; article?: number; startsAt?: string; endsAt?: string | null; cancelled?: boolean; appealableUntil?: string | null; appeal?: { status?: string; outcome?: string | null } | null; statement?: string; universe?: string | null; snippet?: string | null; subjectWhere?: string | null; targetKind?: string | null };
+/** What a measure targets (PlatformMeasureTargetKind, v126.1.0); a value not known yet: a content without its kind. */
+export const TARGET_KINDS: Record<string, string> = {
+  ACCOUNT: 'the account', AGENT_TEXT: 'an agent text', CHANNEL_MESSAGE: 'a channel message', CONNECTION_REQUEST_MESSAGE: 'a connection request message', DIRECT_MESSAGE: 'a direct message',
+  GROUP_CHAT: 'a group chat', GROUP_MESSAGE: 'a group message', MAP_PRESENCE: 'a map presence', PLAYLIST: 'a playlist', POST: 'a post', REPLY: 'a reply', THEME: 'a theme',
+  UNIVERSE_BANNER: 'a universe banner', UNIVERSE_PAGE: 'a universe page', UNIVERSE_SEARCH_WORD: 'a universe search word', UNIVERSE_SEARCH_WORDS: 'the whole list of universe search words', UNIVERSE_TERRITORY: 'a universe territory',
+};
+export const targetLabel = (kind: string | null | undefined) => (kind ? TARGET_KINDS[kind] ?? 'a content' : null);
+// universe (D-398): a measure against a universe (its theme, banner or a page), seen by its leadership. targetKind: what
+// it targets, read from the API, never guessed from snippet or subjectWhere (v126.1.0); snippet and subjectWhere: what and where.
+const measureLine = (m: Measure) => { const target = targetLabel(m.targetKind); return `${m.id}  ${m.kind}  article ${m.article ?? '-'}  ${m.startsAt ?? ''}${m.endsAt ? ` → ${m.endsAt}` : ''}${m.universe ? `  universe ${m.universe}` : ''}${target ? `  ${target}` : ''}${m.snippet ? `  "${m.snippet}"` : ''}${m.subjectWhere ? `  in ${m.subjectWhere}` : ''}${m.cancelled ? '  cancelled' : ''}${m.appeal ? `  appeal ${m.appeal.status}${m.appeal.outcome ? ` (${m.appeal.outcome})` : ''}` : m.appealableUntil ? `  appealable until ${m.appealableUntil}` : ''}`; };
 export const meMeasures = apiCommand({
   name: 'me measures', summary: 'The platform measures the account received in the last 2 years, each with its statement of reasons and its appeal (myPlatformMeasures)',
-  description: 'Readable in restricted access (suspended, banned). Also the measures against a universe you lead (universe; counted against no account). --json gives the statements of reasons.',
+  description: 'Readable in restricted access (suspended, banned). Also the measures against a universe you lead (universe; counted against no account). Each names what it targets (targetKind). --json gives the statements of reasons.',
   kind: 'query', op: 'myPlatformMeasures', text: pageText(measureLine), examples: ['breakrocks me measures', 'breakrocks me measures --all --json'],
 });
 export const meMeasuresAppeal = apiCommand({
