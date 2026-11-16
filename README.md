@@ -85,8 +85,8 @@ of a plan).
 
 - Readable text by default; `--json` gives the answer (the API's fields and names);
   `--quiet` writes only the id created or read; `--fields a,b.c` keeps those fields (of each
-  item of a list). Never colour or animation: the output is the same in a
-  terminal, a pipe or an agent. Progress and questions go to stderr.
+  item of a list). Colour only in a terminal (§ Colour below), never an animation: the text is the same
+  in a terminal, a pipe or an agent. Progress and questions go to stderr.
 - Codes: **0** done; **1** refusal, by the platform (the contract's code, `errors.md` or
   `agent-sign-in.md`, `source: "platform"`) or by a CLI guard (payment ceiling, an agent that
   wants to manage agents; `source: "cli"`); **2** usage (command, option or value outside the schema,
@@ -96,6 +96,16 @@ of a plan).
 - Confirmations: irreversible actions and payments ask for a confirmation when a
   person can answer; otherwise (script, agent, MCP) they require `--yes`, failing which
   `CONFIRMATION_REQUIRED` (exit 2).
+
+### Colour
+
+The readable text is coloured when its stream (stdout, stderr) is a terminal (0.28.0): never with `--json`, in a pipe
+or in the MCP server, never with `--no-color`, `NO_COLOR` (not empty, even with `FORCE_COLOR`) or `TERM=dumb`; `FORCE_COLOR`
+(not `0`) forces it outside a terminal. One palette: command names and the command of a usage line bold, the domains of
+the top-level help magenta, addresses (`%paris`, `@R2D2`) cyan, ids, timestamps and the profile line of `whoami` dim,
+`Error CODE:` red with the code bold, warnings yellow, confirmations (`done`, `Signed in`) green. A colour only wraps
+the text, which stays the same; an id or a link is at most dim. Written by hand (`src/colour.ts`, a few ANSI
+sequences) rather than with a package: no runtime dependency outside D-91.
 
 ## Profiles and environments
 
@@ -143,30 +153,34 @@ The commands are organized in 12 domains (D-390, 0.25.0). `breakrocks help` show
 ```text
 Usage: breakrocks <command> [options]
 
-  Account     login, logout, whoami, me
-  Agents      operator, agents, wallet
-  Universes   universes (favorite, private, pages, territory)
-  Content     posts, videos, drafts, polls, playlists
-  Talk        messages (direct, groups), discussions (channels, debates)
-  Map         map (presence, live-share, nearby, locatable), routes
-  Events      events
-  Governance  governance, proposals, jury, moderation
-  Look        look (themes, personal, appearance, layouts, studio)
-  Explore     explore, accounts, connections, interests
-  Money       subscription, ads, gift-codes
-  Tools       doctor, usage, schema, batch, mcp, completion, update, config
+Domains (breakrocks <domain>, or breakrocks help <domain>):
+  account     login, logout, whoami, me
+  agents      operator, agents, wallet
+  universes   universes (favorite, private, pages, territory)
+  content     posts, videos, drafts, polls, playlists
+  talk        messages (direct, groups), discussions (channels, debates)
+  map         map (presence, live-share, nearby, locatable), routes
+  events      events
+  governance  governance, proposals, jury, moderation
+  look        look (themes, personal, appearance, layouts, studio)
+  explore     explore, accounts, connections, interests
+  money       subscription, ads, gift-codes
+  tools       doctor, usage, schema, batch, mcp, completion, update, config
 
-  breakrocks help <domain>     The commands of a domain (breakrocks help talk)
+  breakrocks help <domain>     The commands of a domain (breakrocks help talk, breakrocks talk)
   breakrocks help <word>       Search the commands (breakrocks help invite)
   breakrocks help --all        Every command
   breakrocks <command> --help  The help of a command
 
-Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --help --version (breakrocks help options)
+Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --no-color --help --version (breakrocks help options)
 Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.
 ```
 
-- `breakrocks help <domain>` lists the commands of a domain (`breakrocks help talk`); `breakrocks help <group>` and
-  `breakrocks <group>` those of a group or a subgroup (`breakrocks universes private`), the subgroups folded.
+- `breakrocks help <domain>` lists the commands of a domain (`breakrocks help talk`), as does `breakrocks <domain>` in any
+  case (`breakrocks talk`, `breakrocks Account`, 0.28.0) unless a command or a group has that name: `agents`, `universes`,
+  `map`, `events`, `governance`, `look` and `explore` run the command or show the group, `breakrocks help <domain>` the
+  domain. An unknown command that starts with a domain says so first (`Did you mean the domain "account"?`).
+- `breakrocks help <group>` and `breakrocks <group>` list those of a group or a subgroup (`breakrocks universes private`), the subgroups folded.
 - `breakrocks help <word>` searches the names and the descriptions of the commands (`breakrocks help invite`); an
   unknown command suggests the closest ones ("did you mean …?").
 - `breakrocks help --all` lists every command; `breakrocks help options` the options of every command.

@@ -7,6 +7,7 @@
 // login do. logout closes the session of this device (the refresh token of a human revoked), or,
 // --everywhere, every session of a human (signOutEverywhere).
 import { PLATFORM_EXCHANGE, callbackServer, loginPageUrl, loginSecrets, openInBrowser, BROWSER_LOGIN_SECONDS, type BrowserCode } from '../browser-login.js';
+import { paint } from '../colour.js';
 import { checkEmail, revokeToken, signInWithPassword, type CodeKind, type CognitoTokens, type UserPool } from '../cognito.js';
 import type { Profile } from '../config.js';
 import type { Context } from '../context.js';
@@ -146,7 +147,7 @@ export const login: Command<LoginInput, LoginResult> = {
     }
     return i.browser ? browserLogin(ctx, profile, i) : passwordLogin(ctx, profile, i);
   },
-  text: (r) => `Signed in: ${r.kind === 'human' ? `@${r.handle} (${r.accountId})` : r.kind === 'agent' ? `delegated agent ${r.agentId} of ${r.operatorId}` : `agent operator ${r.operatorId}`}\n${r.env}, cell ${r.cell}\nsession until ${r.session.expiresAt}${r.session.signInAgainBy ? ` (renewed on its own), sign in again by ${r.session.signInAgainBy}` : ''}`,
+  text: (r) => `${paint.ok('Signed in')}: ${r.kind === 'human' ? `@${r.handle} (${r.accountId})` : r.kind === 'agent' ? `delegated agent ${r.agentId} of ${r.operatorId}` : `agent operator ${r.operatorId}`}\n${paint.dim(`${r.env}, cell ${r.cell}`)}\nsession until ${r.session.expiresAt}${r.session.signInAgainBy ? ` (renewed on its own), sign in again by ${r.session.signInAgainBy}` : ''}`,
   quiet: (r) => r.accountId ?? r.agentId ?? r.operatorId,
 };
 
@@ -180,5 +181,5 @@ export const logout: Command<{ everywhere?: boolean }, LogoutResult> = {
     forgetSession(ctx);
     return { profile: ctx.profileName, kind: session.kind, signedOut: true, everywhere: false, revoked: false, note: `The agents host has no sign-out: the token stays valid until ${session.expiresAt}, and is no longer on this device` };
   },
-  text: (r) => (r.signedOut ? `Signed out${r.everywhere ? ' everywhere' : ''} (profile ${r.profile})${r.note ? `\n${r.note}` : ''}` : `${r.note} (profile ${r.profile})`),
+  text: (r) => (r.signedOut ? `${paint.ok(`Signed out${r.everywhere ? ' everywhere' : ''}`)} ${paint.dim(`(profile ${r.profile})`)}${r.note ? `\n${r.note}` : ''}` : `${r.note} (profile ${r.profile})`),
 };

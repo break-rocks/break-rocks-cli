@@ -3,6 +3,7 @@
 // (the fields of the contract the CLI was built with that the deployed API lacks, read by
 // introspection: the cause of a command refused with "FieldUndefined"). Text, or JSON with --json; an MCP tool.
 import { SCHEMA } from '../api/schema.generated.js';
+import { paint } from '../colour.js';
 import type { Context } from '../context.js';
 import { asCliError } from '../errors.js';
 import { localAgentKey, requireLocalAgent } from '../local-agents.js';
@@ -163,6 +164,6 @@ export const doctor: Command<Record<string, never>, DoctorResult> = {
 
     return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, ...(SCHEMA.version ? { contract: SCHEMA.version } : {}), ...(unknown ? { unknown } : {}), profile: ctx.profileName, ...(ctx.agentName ? { agent: ctx.agentName } : {}), env, checks, missingFields, missingDeprecatedFields, missingOperations };
   },
-  text: (r) => [`breakrocks ${r.version}${r.contract ? `, contract of specs ${r.contract}` : ''}`, ...r.checks.map((c) => `${{ ok: 'ok  ', warn: 'warn', fail: 'FAIL', skip: 'skip' }[c.status]}  ${c.name.padEnd(8)} ${c.detail}`), r.ok ? 'All good.' : 'Something fails: see above.'].join('\n'),
+  text: (r) => [`breakrocks ${r.version}${r.contract ? `, contract of specs ${r.contract}` : ''}`, ...r.checks.map((c) => `${{ ok: paint.ok('ok') + '  ', warn: paint.warn('warn'), fail: paint.error('FAIL'), skip: paint.dim('skip') }[c.status]}  ${c.name.padEnd(8)} ${c.detail}`), r.ok ? paint.ok('All good.') : paint.error('Something fails: see above.')].join('\n'),
   exitCode: (r) => (r.ok ? 0 : 1),
 };

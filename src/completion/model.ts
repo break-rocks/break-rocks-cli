@@ -70,6 +70,7 @@ const GLOBALS: OptionModel[] = [
   { flags: ['--proxy'], kind: free, description: globalDescription('--proxy') },
   { flags: ['--ca-file'], kind: { type: 'file' }, description: globalDescription('--ca-file') },
   { flags: ['--yes', '-y'], kind: none, description: globalDescription('--yes') },
+  { flags: ['--no-color'], kind: none, description: globalDescription('--no-color') },
   { flags: ['--help', '-h'], kind: none, description: globalDescription('--help') },
   { flags: ['--version'], kind: none, description: globalDescription('--version') },
 ];

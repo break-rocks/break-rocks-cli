@@ -360,7 +360,7 @@ describe('the help', () => {
     const h = harness();
     await h.run('help');
     expect(h.lines[0]).not.toContain('moderation ban');
-    expect(h.lines[0]).toContain('Governance  governance, proposals, jury, moderation');
+    expect(h.lines[0]).toContain('governance  governance, proposals, jury, moderation');
     await h.run('help', 'governance');
     expect(h.lines[1]).toContain('moderation ban');
   });

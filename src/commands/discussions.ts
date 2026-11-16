@@ -2,6 +2,7 @@
 // messages; and, on a message of a discussion, its reactions (a free emoji) and its thread. A reaction or a
 // reply is a write: --dry-run tells what would be sent, nothing more. The refusals are the platform's.
 import { apiCommand } from '../api/command.js';
+import { paint } from '../colour.js';
 import { selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
@@ -135,7 +136,7 @@ const onDiscussion = {
   extra: { discussion: { type: 'string' as const, description: 'The universe discussion: its address (%paris&general) or its id' } },
   prepare: async (i: Record<string, unknown>, ctx: Context): Promise<Record<string, unknown>> => { const { discussion, ...rest } = i; return { ...rest, id: await discussionIdOf(ctx, String(discussion)) }; },
 };
-const done = (r: unknown) => (r === true ? 'done' : r == null ? '(none)' : JSON.stringify(r));
+const done = (r: unknown) => (r === true ? paint.ok('done') : r == null ? '(none)' : JSON.stringify(r));
 type InMessages = DiscussionView & { lastMessage?: { text?: string | null; createdAt?: string } | null; pinnedByMe?: boolean };
 export const messagesUniverses = apiCommand({
   name: 'messages universes', summary: 'The Universes section of Messages: the universe discussions one joined, wrote in or pinned for oneself, the latest message first (myDiscussionsInMessages)',
