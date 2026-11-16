@@ -94,7 +94,7 @@ describe('the theme gallery', () => {
     const { h, calls } = scripted({ themeCatalog: { items: [{ theme: { universe: '%root', name: 'socle', version: 3 }, reason: 'UNIVERSAL', starred: true, variant: 'NIGHT', palette: ['#000000'] }], next: null } });
     expect(await h.run('themes', 'gallery', '%paris', '--high-contrast', '--night')).toBe(0);
     expect(calls[0].variables).toMatchObject({ universe: '%paris', order: 'GALLERY', highContrast: true, variant: 'NIGHT' });
-    expect(h.lines.join('\n')).toBe('* %root/socle v3  NIGHT  UNIVERSAL  #000000');
+    expect(h.lines.join('\n').split('\n').slice(1)).toEqual(['UNIVERSAL (1)', '* %root/socle  v3   -      ?         no image  0      0     0     #000000']);
     expect(await h.run('themes', 'gallery', '%paris', '--day', '--json')).toBe(0);
     expect(calls[1].variables).toMatchObject({ variant: 'DAY' });
     expect(await h.run('themes', 'gallery', '%paris', '--day', '--night', '--json')).toBe(2);

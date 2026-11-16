@@ -107,6 +107,11 @@ the top-level help magenta, addresses (`%paris`, `@R2D2`) cyan, ids, timestamps 
 the text, which stays the same; an id or a link is at most dim. Written by hand (`src/colour.ts`, a few ANSI
 sequences) rather than with a package: no runtime dependency outside D-91.
 
+The colors of a theme palette (`look themes gallery`, `look themes list`, `look themes show`, 0.29.0) are drawn as
+swatches when stdout is coloured and the terminal draws 24-bit colours (`COLORTERM=truecolor` or `24bit`, or
+`FORCE_COLOR=3`): the hex on a background of that color, the text black or white by its luminance; else the hex alone.
+The text stays the same.
+
 ## Profiles and environments
 
 - `--env dev|staging|prod` (default `prod`) chooses the environment of a profile with no account; a profile
@@ -988,9 +993,21 @@ tools follow the format the platform accepts today (the backend's `validateTheme
 - **`look themes publish`** takes the archive too (`look themes publish stade-nuit.zip --in %paris`) and removes `screenshots` as it
   removes `scrims` and `textScrims` (a document exported elsewhere); `appearance` and `pageImageOnPhone` are sent as they are.
 - **`look themes list`**: `--order QUICK_START` (every theme of `%root` that quick start offers for `--universe`) and `COUNTRY`,
-  `--group LOOK|COUNTRY|OFFICIAL|UNIVERSAL`, `--with-image`, `--without-image`; the text tells the reason, the look and
-  whether the theme has a background image. **`look themes show`** answers in text: the theme, how its image shows and its sky,
-  each image slot with its day and night URLs and their widths, the screenshots, what was corrected at publication.
+  `--group LOOK|COUNTRY|OFFICIAL|UNIVERSAL`, `--with-image`, `--without-image`, `--all` (and `--max`) since 0.29.0.
+- **`look themes gallery`** and **`look themes list`** in text (0.29.0): a header naming the columns (theme, version, field,
+  title typeface, image slots filled `img N` or `no image`, screenshots, universes and accounts using it, the palette of
+  the variant shown: background surface text primary accent link), the rows grouped under the title of their section (the
+  reason: `UNIVERSAL`, `MOST_USED`, `COLLECTION_<field>`, `COUNTRY`…), a theme already listed in an earlier section not
+  listed again (its first row ends with `also in MOST_USED`, the section title counts it: `MOST_USED (49, 6 listed
+  above)`), the look of an item of the reason `LOOK`, and the next page as a command line: `more: breakrocks look themes
+  gallery '%lyon' --all  (or --after eyIwIjoiMDAw…; --json holds the full cursor)`. `--json` is the answer as served.
+- **`look themes show`** answers in text: name and version, description, universe, collection, creator (and the original of
+  a copy), created and updated, contrast level, typefaces (title, accent), use (universes, accounts), the night and day
+  palettes labelled, how its image shows and its sky, each image slot (page, pageHeader the banner, and timeColumn and
+  channelHeader when the document still names them, ignored since specs v99) with its day and night URLs and their widths
+  or `removed by the platform team`, the screenshot URLs night and day, the page of a universe per breakpoint, the command
+  that downloads them (`look themes shots … --out <folder>`), what was corrected at publication. `--fields` picks fields
+  of the JSON as before.
 - **`look themes prompt`** (and the MCP prompt `theme-prompt`) writes that format, in English and French: the block
   `appearance` (`accent` the night primary, `imageShows`, `sky`), `pageImageOnPhone`, and the list of the 4 images (each
   slot and variant, its size, what it shows, what lies over it: the page at the reader's page opacity, the readability mask,

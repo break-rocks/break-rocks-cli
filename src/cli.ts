@@ -14,7 +14,7 @@ import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
 import { applyNetwork, redactText } from './network.js';
-import { colourEnabled, highlight, paintErr, setColour } from './colour.js';
+import { colourEnabled, highlight, paintErr, setColour, truecolorEnabled } from './colour.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
 export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tokens: string[] } {
@@ -122,7 +122,7 @@ export function defaultIo(out: Output = terminal): Io {
 }
 
 /** Writes the answer of [command] as the global options ask, and answers its exit code. */
-export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown): number {
+export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown, input: Record<string, unknown> = {}): number {
   const { out } = ctx.io;
   const { flags } = ctx;
   if (result === undefined) return command.exitCode?.(result) ?? EXIT.OK;
@@ -131,7 +131,7 @@ export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown):
     if (id !== undefined && !flags.json) out.line(id);
     else if (flags.json) out.json(id === undefined ? selectFields(result, flags.fields) : { id });
   } else if (flags.json) out.json(selectFields(result, flags.fields));
-  else out.line(highlight(flags.fields ? renderText(selectFields(result, flags.fields)) : command.text ? command.text(result) : renderText(result)));
+  else out.line(highlight(flags.fields ? renderText(selectFields(result, flags.fields)) : command.text ? command.text(result, input) : renderText(result)));
   return command.exitCode?.(result) ?? EXIT.OK;
 }
 
@@ -151,7 +151,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   // The colours of this run, before anything is written (a refusal of the command line too).
   const options = argv.slice(0, argv.includes('--') ? argv.indexOf('--') : undefined);
   const colour = (tty: boolean | undefined) => colourEnabled({ env: io.env, tty: !!tty, json: options.includes('--json'), noColor: options.includes('--no-color') });
-  setColour({ out: colour(io.tty?.out), err: colour(io.tty?.err) });
+  setColour({ out: colour(io.tty?.out), err: colour(io.tty?.err), truecolor: truecolorEnabled(io.env) });
   try {
     const { flags, tokens } = parseGlobals(argv);
     json = flags.json;
@@ -180,7 +180,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
     if (!command.offline) await io.configureNetwork?.(ctx.network());
     const result = await execute(ctx, command, input);
-    const exit = writeAnswer(ctx, command, result);
+    const exit = writeAnswer(ctx, command, result, input);
     if (exit === EXIT.OK) rememberUse(ctx, command, input, result);
     return exit;
   } catch (error) {
