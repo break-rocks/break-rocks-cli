@@ -921,6 +921,15 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   `me data confirm <data request id>` (`confirmDataRequest`, confirmation: `--yes`) confirms it; like the other writes of My data it needs a
   recent sign-in (`RECENT_SIGN_IN_REQUIRED`: sign in again, then retry).
 
+### Image links that open (0.32.0)
+
+- **`look appearance show`**, **`look themes show`**: an image of the API (`ThemeImage`, `Image`) is the folder of its
+  variants, which the media CDN refuses (403); the CLI prints the files, `<url>/<width>.webp`: the 1080 (or the smallest
+  wider, else the largest) and the `largest`, day and night, and the universe image (logo). These links are public and do not
+  expire. `--json` keeps `url` and adds `links` (`{ variant, width, url, expiresAt }`, `expiresAt` null).
+- **`--signed-links`** (both commands) asks for time-limited links: the API has no operation that signs a media link yet,
+  so the CLI says so (`signedLinks { available: false, reason }` in `--json`).
+
 ### What a measure targets, who applied an appearance (0.31.0, specs v126.1.0)
 
 `specs/common` pinned on **v126.1.0** and `schema/api-v2` regenerated.

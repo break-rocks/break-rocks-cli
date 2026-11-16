@@ -5,6 +5,7 @@
 import { paint, swatch } from '../colour.js';
 import { kebab } from '../schema.js';
 import { PLACEMENTS } from '../tree.js';
+import { imageLinks, openableLinks, SIGNED_LINKS, signedLinksLine, type SignedLinks } from './media-links.js';
 
 type ThemeOfItem = { universe?: string | null; name: string; version?: number; collection?: string | null; document?: unknown };
 export type CatalogItem = {
@@ -120,10 +121,16 @@ export type ThemeServed = {
   universe?: string | null; name: string; version?: number; description?: string | null; collection?: string | null; official?: boolean; format?: string; contrastLevel?: string;
   creator?: { handle?: string } | null; typography?: { title?: string | null; accent?: string | null } | null; corrected?: string[]; universeCount?: number; accountCount?: number; document?: unknown;
   createdAt?: string; updatedAt?: string; deleted?: boolean; copiedFrom?: { universe?: string | null; name?: string } | null;
-  imageSlots?: Record<string, ServedImage>; screenshots?: string[]; screenshotsDay?: string[]; pageScreenshots?: Record<string, { url?: string | null; urlNight?: string | null } | null> | null;
+  signedLinks?: SignedLinks; imageSlots?: Record<string, ServedImage>; screenshots?: string[]; screenshotsDay?: string[]; pageScreenshots?: Record<string, { url?: string | null; urlNight?: string | null } | null> | null;
 };
 
 const SLOT_LABELS: Record<string, string> = { page: 'page', pageHeader: 'pageHeader (banner)', timeColumn: 'timeColumn', channelHeader: 'channelHeader' };
+
+/** [t] with the links that open on each image slot ("links", media-links.ts), and the answer to --signed-links. */
+export function withLinks<T extends ThemeServed>(t: T, signed?: boolean): T & { signedLinks?: SignedLinks } {
+  const slots = t.imageSlots ? Object.fromEntries(Object.entries(t.imageSlots).map(([k, v]) => [k, v && !v.removed ? { ...v, links: imageLinks(v) } : v])) : t.imageSlots;
+  return { ...t, ...(t.imageSlots ? { imageSlots: slots } : {}), ...(signed ? { signedLinks: SIGNED_LINKS } : {}) };
+}
 
 /** The page of a theme in text: what it is, its palettes, its typefaces, its image slots, its screenshots, its use. */
 export function themeText(t: ThemeServed): string {
@@ -159,8 +166,12 @@ export function themeText(t: ThemeServed): string {
     const name = `    ${pad(SLOT_LABELS[k], 20)}`;
     if (served?.removed) out.push(`${name}removed by the platform team`);
     else if (served && (served.url || served.urlNight)) {
-      if (served.url) out.push(`${name}day ${served.url}${widths(served.widths)}`);
-      if (served.urlNight) out.push(`${served.url ? `    ${pad('', 20)}` : name}night ${served.urlNight}${widths(served.widthsNight)}`);
+      const lines = [...openableLinks(served.url, served.widths, 'day'), ...openableLinks(served.urlNight, served.widthsNight, 'night')].map((l, i, all) => {
+        const largest = i > 0 && all[i - 1].variant === l.variant;
+        const first = !largest ? widths(l.variant === 'day' ? served.widths : served.widthsNight) : '';
+        return `${l.variant}${largest ? ' largest' : ''} ${l.url}${first}`;
+      });
+      lines.forEach((l, i) => out.push(`${i ? `    ${pad('', 20)}` : name}${l}`));
     } else if (filled.has(k)) out.push(`${name}${k === 'timeColumn' || k === 'channelHeader' ? 'in the document, ignored by the platform since specs v99' : 'in the document, not served'}`);
     else if (k in docSlots || k === 'page' || k === 'pageHeader') out.push(`${name}none`);
   }
@@ -173,5 +184,6 @@ export function themeText(t: ThemeServed): string {
   for (const [bp, v] of shots) out.push(`    ${pad(bp, 8)}${v!.url ? `day ${v!.url}` : ''}${v!.url && v!.urlNight ? '  ' : ''}${v!.urlNight ? `night ${v!.urlNight}` : ''}`);
   out.push(paint.dim(`  download them: breakrocks look themes shots ${quote(address)} --out <folder>`));
   if ((t.corrected ?? []).length) out.push(`  corrected at publication: ${t.corrected!.join(', ')}`);
+  if (t.signedLinks) out.push(`  ${signedLinksLine(t.signedLinks)}`);
   return out.join('\n');
 }

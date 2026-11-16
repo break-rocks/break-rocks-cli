@@ -279,7 +279,7 @@ describe('the theme catalog and the page of a theme', () => {
     const { h } = scripted({ theme: () => theme });
     expect(await h.run('themes', 'show', '%paris/stade-nuit')).toBe(0);
     for (const line of ['%paris/stade-nuit v3\n', '  collection     SPORT\n', '  creator        @alice\n', '  page image     shows through, sky band\n',
-      '    page                day https://media.example/posts/u1 (2160, 1080)\n                        night https://media.example/posts/u2 (2160)\n',
+      '    page                day https://media.example/posts/u1/1080.webp (2160, 1080)\n                        day largest https://media.example/posts/u1/2160.webp\n                        night https://media.example/posts/u2/2160.webp (2160)\n',
       '  screenshots night (3)\n    a\n', '    desktop day x  night y\n    phone   day z\n', "breakrocks look themes shots '%paris/stade-nuit' --out <folder>", 'corrected at publication: night.text']) expect(h.all()).toContain(line);
   });
 });
