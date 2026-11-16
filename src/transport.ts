@@ -142,6 +142,9 @@ const DEGRADED = new WeakMap<Context, Map<string, Degraded>>();
 const WARNED = new WeakMap<Context, Set<string>>();
 const degradedOf = (ctx: Context) => { let m = DEGRADED.get(ctx); if (!m) DEGRADED.set(ctx, m = new Map()); return m; };
 
+/** Whether the backend refused "Type.field" in this run (an older contract): its null then means "not served", not "none". */
+export const unservedInRun = (ctx: Context, field: string): boolean => WARNED.get(ctx)?.has(field) ?? false;
+
 /** Says once per field, on stderr (with --json too), that the backend is behind this CLI and the field is null. */
 function warnUnserved(ctx: Context, degraded: Degraded): void {
   let warned = WARNED.get(ctx);

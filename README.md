@@ -921,6 +921,18 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   `me data confirm <data request id>` (`confirmDataRequest`, confirmation: `--yes`) confirms it; like the other writes of My data it needs a
   recent sign-in (`RECENT_SIGN_IN_REQUIRED`: sign in again, then retry).
 
+### What a measure targets, who applied an appearance (0.31.0, specs v126.1.0)
+
+`specs/common` pinned on **v126.1.0** and `schema/api-v2` regenerated.
+- **`me measures`**: each measure names what it targets (`targetKind`): `the account`, `a post`, `a reply`, `a universe
+  search word`, `the whole list of universe search words` (D-397)… A value not known yet prints `a content`. `--json` carries
+  `targetKind`.
+- **`look appearance show`**: `applied: on <date> by @x` (or `by the platform`, a country theme), with the proposal adopted,
+  read from `Universe.appearanceApplied`; the official theme of its field (`Theme.official`) is told apart: given by default
+  when the universe has no theme of its own, chosen by it otherwise. `themeOf` names a universe above only. A trial shows the
+  URLs of its images (`UniverseThemeTrial.imageSlots`). A backend before v126.1.0: these fields are said not served on
+  stderr and the CLI infers as in 0.30.0.
+
 ### Platform measures against a universe (0.27.0, specs v125.1.0)
 
 `specs/common` pinned on **v125.1.0** and `schema/api-v2` regenerated.
@@ -999,14 +1011,14 @@ tools follow the format the platform accepts today (the backend's `validateTheme
   appearance applied to a universe, resolved as the apps draw it, each value tagged with its origin: `set` (chosen in
   Customize), `theme` (the universe theme applied), `trial` (a 24 h trial in progress, until its end, by whom), `country`
   (the country theme of a country universe, D-158), `default` (Socle with the default colors of the universe, the universal
-  or field theme chosen by the platform, the default layout, the sky column, the subtle background), `unknown` (neither the
+  theme chosen by the platform, the official theme of its field given by default, the default layout, the sky column, the subtle background), `unknown` (neither the
   API nor the contract says). The source (the theme, inherited from a universe above, started from a theme of quick start,
-  when and by whom when the appearance history and an adopted proposal say it), the accent and the character, the image
+  when and by whom from `Universe.appearanceApplied` since 0.31.0), the accent and the character, the image
   (banner and page URLs, focal point, or no image), the image display, the layout, the sky, the logo or the monogram, the
   day and night palettes (swatches in a truecolor terminal), the typefaces, the contrast level, the proposals APPEARANCE and
   THEME pending and the command of the history. `--json`: the resolved object, `{ value, origin, note? }` per field. Reads
-  `universe`, `theme(appliedIn)`, `appliedLayout`, `universeAppearanceHistory` (when the caller may) and `proposals`. Who
-  applied a theme is told only through an adopted proposal: the API names nobody otherwise. `look themes gallery` lists the
+  `universe`, `theme(appliedIn)`, `appliedLayout`, `universeAppearanceHistory` (when the caller may) and `proposals`.
+  `look themes gallery` lists the
   themes offered in a universe, not what is applied.
 - **`look themes gallery`** and **`look themes list`** in text (0.29.0): a header naming the columns (theme, version, field,
   title typeface, image slots filled `img N` or `no image`, screenshots, universes and accounts using it, the palette of
@@ -1502,7 +1514,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v125.1.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v126.1.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

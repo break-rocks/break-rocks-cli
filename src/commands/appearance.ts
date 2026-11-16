@@ -11,6 +11,7 @@ import { checkImage, uploadImage, whileProcessing } from '../media.js';
 import type { Command } from '../registry.js';
 import { object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
+import { unservedInRun } from '../transport.js';
 import { appearanceText, resolveAppearance, type AppearanceReads, type ResolvedAppearance, type ServedTheme, type ServedUniverse } from '../theme/appearance.js';
 import { listText, pageText, universeAndTag } from './shared.js';
 
@@ -95,10 +96,10 @@ export const appearanceShow: Command<{ universe: string }, ResolvedAppearance> =
   description: [
     'Resolved as the apps draw the universe: its universe theme (Universe.themeRef, its own or of a universe above), a universe theme trial in progress',
     '(served to every reader for 24 hours), else what the platform gives: the country theme of a country universe (D-158), the universal or field theme',
-    'chosen by the platform, Socle with the default colors of the universe; the default layout (layouts.md § Which layout applies), the sky column and the',
+    'given by default, Socle with the default colors of the universe; the default layout (layouts.md § Which layout applies), the sky column and the',
     'subtle background when the appearance says nothing. Each value is tagged with its origin: set (chosen in Customize), theme (from the theme applied),',
     'trial, country, default, or unknown when neither the API nor the contract says. Also: the proposals APPEARANCE and THEME pending (a public universe)',
-    'and the command of the appearance history. Also typed "breakrocks look appearance <universe>". --json: the resolved object, "origin" on each field.',
+    'who applied it and when (Universe.appearanceApplied), and the command of the appearance history. Also typed "breakrocks look appearance <universe>". --json: the resolved object, "origin" on each field.',
   ].join(' '),
   api: 'universe, theme, appliedLayout, universeAppearanceHistory, proposals',
   examples: ["breakrocks look appearance show '%lyon'", "breakrocks look appearance '%lyon'", 'breakrocks look appearance show %paris --json'],
@@ -106,13 +107,15 @@ export const appearanceShow: Command<{ universe: string }, ResolvedAppearance> =
   output: openObject({}, 'The appearance resolved: source, trial, accent, character, image, imageShows, layout, sky, logo, palettes, universeColors, typefaces, contrastLevel, proposalsPending, history; each value { value, origin, note? }'),
   args: { positionals: ['universe'] },
   run: async (ctx, { universe }) => {
-    const base = await api<{ universe: ServedUniverse | null }>(ctx, `query($n: String!) { universe(name: $n) { name exists private field themeRef { universe name version deleted } themeOf themeHeldVersion layoutRef { universe name version } layoutOf image { url } imageOf } }`, { n: universe });
+    const base = await api<{ universe: ServedUniverse | null }>(ctx, `query($n: String!) { universe(name: $n) { name exists private field themeRef { universe name version deleted } themeOf themeHeldVersion appearanceApplied { appliedAt appliedBy { handle deleted } proposalId } layoutRef { universe name version } layoutOf image { url } imageOf } }`, { n: universe });
     const u = base.universe;
+    // A backend before v126.1.0 does not serve appearanceApplied: its null then says nothing (undefined: inferred below).
+    if (u && unservedInRun(ctx, 'Universe.appearanceApplied')) delete u.appearanceApplied;
     if (!u || u.exists === false) throw usageError('UNIVERSE_NOT_FOUND', `No universe ${universe}`, { universe });
     const name = u.name;
     const ref = u.themeRef && !u.themeRef.deleted ? u.themeRef : null;
     const [trials, trialLayout, theme, socle, appliedLayout, history, proposals] = await Promise.all([
-      maybe(api<{ universe: Pick<ServedUniverse, 'themeTrial' | 'myDraftPreview'> | null }>(ctx, `query($n: String!) { universe(name: $n) { themeTrial { draftId document version startedAt endsAt startedBy { handle } } myDraftPreview { draftId version endsAt } } }`, { n: name })),
+      maybe(api<{ universe: Pick<ServedUniverse, 'themeTrial' | 'myDraftPreview'> | null }>(ctx, `query($n: String!) { universe(name: $n) { themeTrial { draftId document version startedAt endsAt startedBy { handle } imageSlots { page { url urlNight removed } pageHeader { url urlNight removed } } } myDraftPreview { draftId version endsAt } } }`, { n: name })),
       maybe(api<{ universe: { themeTrial: { layout?: string | null } | null } | null }>(ctx, `query($n: String!) { universe(name: $n) { themeTrial { layout } } }`, { n: name })),
       ref ? maybe(api<{ theme: ServedTheme | null }>(ctx, THEME_QUERY, { u: ref.universe ?? '%root', n: ref.name, in: name })) : Promise.resolve(null),
       ref ? Promise.resolve(null) : maybe(api<{ theme: ServedTheme | null }>(ctx, THEME_QUERY, { u: '%root', n: 'socle', in: null })),
@@ -122,6 +125,7 @@ export const appearanceShow: Command<{ universe: string }, ResolvedAppearance> =
         `query($u: String!, $k: ProposalKind) { proposals(universe: $u, kind: $k, limit: 50) { items { id title status kind endsAt createdAt author { handle } } } }`, { u: name, k: kind })).proposals?.items ?? []))),
     ]);
     const trial = trials?.universe?.themeTrial ?? null;
+    if (trial && unservedInRun(ctx, 'UniverseThemeTrial.imageSlots')) delete trial.imageSlots;
     const reads: AppearanceReads = {
       universe: { ...u, themeTrial: trial ? { ...trial, layout: trialLayout?.universe?.themeTrial?.layout ?? null } : null, myDraftPreview: trials?.universe?.myDraftPreview ?? null },
       theme: theme?.theme ?? null, socle: socle?.theme ?? null, appliedLayout: appliedLayout?.appliedLayout ?? null,

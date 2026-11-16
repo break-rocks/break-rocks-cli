@@ -4,7 +4,9 @@
 import { describe, expect, it } from 'vitest';
 import { appearanceText, defaultColors, resolveAppearance, type AppearanceReads, type ServedTheme } from '../src/theme/appearance.js';
 import { plain } from '../src/colour.js';
-import { last } from './helpers.js';
+import { harness, last } from './helpers.js';
+import { Context, NO_FLAGS } from '../src/context.js';
+import { saveSession } from '../src/session.js';
 import { scripted } from './scripted.js';
 
 const palette = (primary: string, background = '#FFFFFF') => ({ palette: { background, surface: '#F4F5F7', text: '#14171C', primary, accent: '#0067B8', link: '#0057A0' } });
@@ -114,6 +116,75 @@ describe('the resolution of the appearance', () => {
     expect(field.source.kind).toBe('field');
     expect(field.character).toMatchObject({ value: 'STAGE', origin: 'default' });
     expect(field.layout).toMatchObject({ value: 'hud', origin: 'default', note: 'the field layout of SPORT' });
+  });
+});
+
+describe('the appearance applied as served since v126.1.0', () => {
+  const field = { name: '%club', private: false, field: 'SPORT', themeRef: { universe: '%root', name: 'sport-stade', version: 1 }, themeOf: null };
+  const stade = theme({ name: 'sport-stade', collection: 'SPORT', official: true, document: doc({}, 'Bebas Neue') });
+
+  it('appearanceApplied: when and by whom, the proposal adopted; the platform for a country theme', () => {
+    const ref = { universe: '%club', name: 'appearance', version: 2 };
+    const a = resolveAppearance({
+      universe: { name: '%club', private: false, themeRef: ref, themeOf: null, appearanceApplied: { appliedAt: '2026-11-15T08:00:00.000Z', appliedBy: { handle: 'ana' }, proposalId: 'p9' } },
+      theme: theme({ universe: '%club', name: 'appearance', version: 2, updatedAt: '2026-11-01T00:00:00.000Z' }),
+      proposals: [{ id: 'p9', title: 'A gym look', status: 'ADOPTED', kind: 'APPEARANCE', author: { handle: 'ana' } }],
+    });
+    expect(a.source).toMatchObject({ kind: 'built', appliedAt: '2026-11-15T08:00:00.000Z', appliedBy: '@ana', appliedFrom: 'api', proposal: { id: 'p9', title: 'A gym look' } });
+    expect(plain(appearanceText(a))).toContain('  applied: on 2026-11-15 08:00 UTC by @ana (proposal p9 "A gym look", adopted)');
+    const country = resolveAppearance({ universe: { name: '%france', private: false, themeRef: { universe: '%france', name: 'pays-france', version: 1 }, themeOf: null, appearanceApplied: { appliedAt: '2026-10-27T00:00:00.000Z', appliedBy: null, proposalId: null } }, theme: theme({ universe: '%france', name: 'pays-france' }) });
+    expect(country.source).toMatchObject({ kind: 'country', origin: 'country', appliedBy: null });
+    expect(plain(appearanceText(country))).toContain('  applied: on 2026-10-27 00:00 UTC by the platform');
+    const gone = resolveAppearance({ universe: { name: '%club', private: false, themeRef: ref, appearanceApplied: { appliedAt: '2026-11-15T08:00:00.000Z', appliedBy: { handle: '', deleted: true } } }, theme: theme({ universe: '%club', name: 'appearance' }) });
+    expect(gone.source.appliedBy).toBe('a deleted account');
+  });
+
+  it('the official theme of its field: given by default when appearanceApplied is null, chosen by the universe otherwise', () => {
+    const byDefault = resolveAppearance({ universe: { ...field, appearanceApplied: null }, theme: stade });
+    expect(byDefault.source).toMatchObject({ kind: 'field', origin: 'default', appliedFrom: 'api', appliedAt: null });
+    const text = plain(appearanceText(byDefault));
+    expect(text).toContain('source: the official theme of its field, given by default  [default]');
+    expect(text).not.toContain('applied:');
+    expect(text).not.toContain('does not tell');
+    const chosen = resolveAppearance({ universe: { ...field, appearanceApplied: { appliedAt: '2026-11-14T10:00:00.000Z', appliedBy: { handle: 'leo' } } }, theme: stade });
+    expect(chosen.source).toMatchObject({ kind: 'theme', origin: 'theme', appliedBy: '@leo' });
+    expect(chosen.character.origin).toBe('theme');
+    // Not served (a backend before v126.1.0): inferred, and said.
+    expect(plain(appearanceText(resolveAppearance({ universe: field, theme: stade })))).toContain('unless the universe chose it: this backend does not tell');
+  });
+
+  it('themeOf: the universe above only; the universe itself tolerated as its own theme', () => {
+    const inherited = resolveAppearance({ universe: { name: '%paris/velo', private: false, themeRef: { universe: '%paris', name: 'appearance', version: 3 }, themeOf: '%paris', appearanceApplied: null }, theme: theme({ universe: '%paris', name: 'appearance' }) });
+    expect(inherited.source).toMatchObject({ kind: 'built', inheritedFrom: '%paris', appliedAt: null });
+    expect(plain(appearanceText(inherited))).toContain('(inherited from %paris)');
+    const itself = resolveAppearance({ universe: { name: '%paris', private: false, themeRef: { universe: '%paris', name: 'appearance', version: 3 }, themeOf: '%paris' }, theme: theme({ universe: '%paris', name: 'appearance' }) });
+    expect(itself.source.inheritedFrom).toBeNull();
+  });
+
+  it('a trial: the URLs of its imageSlots, not the upload ids of its document', () => {
+    const a = resolveAppearance({
+      universe: { name: '%paris', private: false, themeRef: null, themeTrial: { draftId: 'd2', document: doc({ imageSlots: { page: { day: 'up9' } } }), imageSlots: { page: { url: 'https://m.test/tp', urlNight: null, removed: false }, pageHeader: null } } },
+    });
+    expect(a.image.value).toMatchObject({ page: { url: 'https://m.test/tp', urlNight: null }, pageHeader: null, uploadId: null });
+    expect(plain(appearanceText(a))).toContain('  page: https://m.test/tp');
+  });
+
+  it('a backend before v126.1.0: the fields not served are dropped and inferred, said on stderr', async () => {
+    const universe = { name: '%lyon', exists: true, private: false, field: null, themeRef: null, themeOf: null, themeHeldVersion: null, layoutRef: null, layoutOf: null, image: null, imageOf: null, themeTrial: null, myDraftPreview: null };
+    const h = harness({
+      env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+      fetch: async (url, init) => {
+        if (String(url) !== 'https://api.test/graphql') return new Response(null, { status: 204 });
+        const { query } = JSON.parse(String(init!.body)) as { query: string };
+        if (query.includes('appearanceApplied')) return Response.json({ errors: [{ message: "Validation error of type FieldUndefined: Field 'appearanceApplied' in type 'Universe' is undefined @ 'universe/appearanceApplied'" }] });
+        const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
+        return Response.json({ data: { [field]: field === 'universe' ? universe : null } });
+      },
+    });
+    saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+    expect(await h.run('look', 'appearance', 'show', '%lyon', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ source: { kind: 'socle', appliedFrom: 'inferred' } });
+    expect(h.errors.join('\n')).toContain('Universe.appearanceApplied');
   });
 });
 

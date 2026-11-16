@@ -5,6 +5,24 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-16
+
+### Added
+
+- `me measures`: what each measure targets, from `PlatformMeasure.targetKind` (specs v126.1.0): the account, a post, a
+  universe search word, the whole list of universe search words (D-397)…; a value not known yet prints `a content`. `--json`
+  carries `targetKind`.
+
+### Changed
+
+- `specs/common` on v126.1.0, `schema/api-v2` regenerated.
+- `look appearance show`: `applied: on <date> by @x` (`by the platform` for a country theme) and the proposal adopted, read
+  from `Universe.appearanceApplied` instead of inferred from the history and the proposals; the official theme of its field
+  is told apart, given by default or chosen by the universe ("the official theme of its field, given by default"); a trial
+  shows the URLs of `UniverseThemeTrial.imageSlots` instead of the upload ids of its draft; `themeOf` read as the contract
+  says (a universe above, else null), the universe itself still tolerated. Against a backend before v126.1.0 these fields
+  are said not served and the 0.30.0 inference applies; `--json` adds `source.appliedFrom` (`api` or `inferred`).
+
 ## [0.30.0] - 2026-11-16
 
 ### Added
