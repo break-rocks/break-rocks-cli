@@ -8,10 +8,13 @@
 // (UniverseThemed.tsx, themeObject.ts, themeOpacity.ts imageShowsOf, universeSky.ts skyOfDocument, Customize.tsx).
 // Pure: the command (src/commands/appearance.ts) reads the API, this module resolves and writes the text.
 import { paint, swatch } from '../colour.js';
+import { imageLinks, linkLines, signedLinksLine, type MediaLink, type SignedLinks } from './media-links.js';
 
 export type Origin = 'set' | 'theme' | 'trial' | 'country' | 'default' | 'unknown';
 type Ref = { universe?: string | null; name: string; version?: number | null; deleted?: boolean };
-type Slot = { url?: string | null; urlNight?: string | null; removed?: boolean } | null;
+type Slot = { url?: string | null; urlNight?: string | null; widths?: number[] | null; widthsNight?: number[] | null; removed?: boolean } | null;
+/** An image slot resolved: the folder URLs as served, and the links that open (media-links.ts). */
+type SlotValue = { url: string | null; urlNight: string | null; links: MediaLink[] };
 export type ServedTheme = {
   universe?: string | null; name: string; version?: number; createdAt?: string; updatedAt?: string; official?: boolean; collection?: string | null;
   creator?: { id?: string; handle?: string; kind?: string } | null; contrastLevel?: string; typography?: { title?: string | null } | null;
@@ -24,7 +27,7 @@ export type ServedUniverse = {
   appearanceApplied?: AppliedAppearance | null;
   themeTrial?: { draftId: string; document?: unknown; version?: number; startedAt?: string; endsAt?: string; startedBy?: { handle?: string } | null; layout?: string | null; imageSlots?: { page?: Slot; pageHeader?: Slot } | null } | null;
   myDraftPreview?: { draftId: string; version?: number; endsAt?: string; layout?: string | null } | null;
-  layoutRef?: Ref | null; layoutOf?: string | null; image?: { url?: string | null } | null; imageOf?: string | null;
+  layoutRef?: Ref | null; layoutOf?: string | null; image?: { url?: string | null; widths?: number[] | null } | null; imageOf?: string | null;
 };
 export type AppliedAppearance = { appliedAt: string; appliedBy?: { handle?: string; deleted?: boolean } | null; proposalId?: string | null };
 export type AppliedLayout = { source?: string; of?: string | null; ref?: Ref | null } | null;
@@ -60,17 +63,19 @@ export type ResolvedAppearance = {
   myDraftPreview: { draftId: string; version?: number; endsAt?: string } | null;
   accent: Valued<{ day: string | null; night: string | null; name: string | null }>;
   character: Valued<string | null>;
-  image: Valued<{ page: { url: string | null; urlNight: string | null } | null; pageHeader: { url: string | null; urlNight: string | null } | null; focalPoint: { x: number; y: number } | null; uploadId: string | null }>;
+  image: Valued<{ page: SlotValue | null; pageHeader: SlotValue | null; focalPoint: { x: number; y: number } | null; uploadId: string | null }>;
   imageShows: Valued<'NONE' | 'SUBTLE' | 'THROUGH'>;
   layout: Valued<string | null> & { of?: string | null };
   sky: Valued<'COLUMN' | 'BAND'>;
-  logo: Valued<{ url: string | null; of: string | null; monogram: { initial: string; on: string | null } | null }>;
+  logo: Valued<{ url: string | null; links: MediaLink[]; of: string | null; monogram: { initial: string; on: string | null } | null }>;
   palettes: Valued<{ day: Palette | null; night: Palette | null }>;
   universeColors: Valued<{ primary: string; accent: string; tintDay: string; tintNight: string }> | null;
   typefaces: { title: Valued<string | null>; body: Valued<string> };
   contrastLevel: Valued<string | null>;
   proposalsPending: number | null;
   history: string;
+  /** --signed-links: what the API gives (no operation yet). */
+  signedLinks?: SignedLinks;
 };
 
 // ---- The contract's constants (contracts/themes.md) ----
@@ -153,7 +158,7 @@ function skyOf(block: Record<string, unknown> | null): { value: 'COLUMN' | 'BAND
 }
 const characterOfTypeface = (typeface: string | null) => Object.entries(CHARACTER_TYPEFACES).find(([, t]) => t === typeface)?.[0] ?? null;
 const sameRef = (a: Ref | null | undefined, b: Ref | null | undefined) => !!a && !!b && (a.universe ?? '').toLowerCase() === (b.universe ?? '').toLowerCase() && a.name.toLowerCase() === b.name.toLowerCase();
-const slotOf = (s: Slot | undefined) => (s && !s.removed && (s.url || s.urlNight) ? { url: s.url ?? null, urlNight: s.urlNight ?? null } : null);
+const slotOf = (s: Slot | undefined): SlotValue | null => (s && !s.removed && (s.url || s.urlNight) ? { url: s.url ?? null, urlNight: s.urlNight ?? null, links: imageLinks(s) } : null);
 const draftSlot = (doc: Record<string, unknown>, key: string): string | null => {
   const s = isObject(doc.imageSlots) ? doc.imageSlots[key] : null;
   if (typeof s === 'string') return s || null;
@@ -242,7 +247,7 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
   const uploadId = block && typeof block.image === 'string' ? block.image : null;
   const focal = block && isObject(block.focalPoint) && typeof block.focalPoint.x === 'number' && typeof block.focalPoint.y === 'number' ? { x: block.focalPoint.x, y: block.focalPoint.y } : uploadId ? { x: 0.5, y: 0.5 } : null;
   const trialSlots = trial?.imageSlots ?? null;
-  const fromDraft = (key: string) => (draftSlot(doc, key) ? { url: null, urlNight: null } : null);
+  const fromDraft = (key: string): SlotValue | null => (draftSlot(doc, key) ? { url: null, urlNight: null, links: [] } : null);
   const page = trial ? (trialSlots ? slotOf(trialSlots.page) : fromDraft('page')) : slotOf(served?.imageSlots?.page);
   const pageHeader = trial ? (trialSlots ? slotOf(trialSlots.pageHeader) : fromDraft('pageHeader')) : slotOf(served?.imageSlots?.pageHeader);
   const imageOrigin: Origin = trial ? 'trial' : socle ? 'default' : base.kind === 'started-from-theme' ? (uploadId ? 'set' : 'theme') : base.origin;
@@ -271,8 +276,8 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
   const logoUrl = u.image?.url ?? null;
   const initial = [...universeKey(u.name)][0]?.toUpperCase() ?? '?';
   const logo: ResolvedAppearance['logo'] = logoUrl
-    ? { value: { url: logoUrl, of: u.imageOf ?? null, monogram: null }, origin: 'set', ...(u.imageOf ? { note: `from ${u.imageOf}` } : {}) }
-    : { value: { url: null, of: null, monogram: { initial, on: accent.value.day } }, origin: 'default', note: 'no universe image: the monogram' };
+    ? { value: { url: logoUrl, links: imageLinks(u.image), of: u.imageOf ?? null, monogram: null }, origin: 'set', ...(u.imageOf ? { note: `from ${u.imageOf}` } : {}) }
+    : { value: { url: null, links: [], of: null, monogram: { initial, on: accent.value.day } }, origin: 'default', note: 'no universe image: the monogram' };
 
   const contrast = trial ? { value: 'AA', origin: 'trial' as Origin, note: 'validated as at publication' } : served?.contrastLevel ? { value: served.contrastLevel, origin: o } : { value: null, origin: 'unknown' as Origin };
 
@@ -347,15 +352,18 @@ export function appearanceText(a: ResolvedAppearance): string {
   else {
     lines.push(`image:  ${tag(a.image.origin)}${im.uploadId ? `  upload ${im.uploadId}` : ''}${im.focalPoint ? `  focal point ${im.focalPoint.x},${im.focalPoint.y}` : ''}`);
     for (const [k, v] of [['banner (pageHeader)', im.pageHeader], ['page', im.page]] as const) {
-      if (v) lines.push(`  ${k}: ${v.url ?? '(in the draft)'}${v.urlNight && v.urlNight !== v.url ? `  night ${v.urlNight}` : ''}`);
-      else lines.push(`  ${k}: none`);
+      if (!v) lines.push(`  ${k}: none`);
+      else if (!v.links.length) lines.push(`  ${k}: (in the draft)`);
+      else { const [first, ...rest] = linkLines(v.links); lines.push(`  ${k}: ${first}`, ...rest.map((l) => `    ${l}`)); }
     }
   }
   lines.push(`image display: ${a.imageShows.value.toLowerCase()}${a.imageShows.origin === 'default' ? ' (default)' : ''}  ${tag(a.imageShows.origin)}${a.imageShows.note ? `  ${a.imageShows.note}` : ''}`);
   lines.push(`layout: ${a.layout.value ?? 'unknown'}${a.layout.origin === 'default' ? ' (default)' : ''}${a.layout.of && a.layout.origin !== 'default' ? ` (from ${a.layout.of})` : ''}  ${tag(a.layout.origin)}${a.layout.note ? `  ${a.layout.note}` : ''}`);
   lines.push(`sky: ${a.sky.value.toLowerCase()}${a.sky.origin === 'default' ? ' (default)' : ''}  ${tag(a.sky.origin)}`);
   const lg = a.logo.value;
-  lines.push(lg.url ? `logo: ${lg.url}  ${tag(a.logo.origin)}${a.logo.note ? `  ${a.logo.note}` : ''}` : `logo: none, the monogram "${lg.monogram?.initial ?? '?'}" on ${lg.monogram?.on ? swatch(lg.monogram.on) : 'the accent'}  ${tag(a.logo.origin)}`);
+  const logoLines = linkLines(lg.links);
+  lines.push(lg.url ? `logo: ${logoLines[0] ?? lg.url}  ${tag(a.logo.origin)}${a.logo.note ? `  ${a.logo.note}` : ''}` : `logo: none, the monogram "${lg.monogram?.initial ?? '?'}" on ${lg.monogram?.on ? swatch(lg.monogram.on) : 'the accent'}  ${tag(a.logo.origin)}`);
+  if (lg.url) lines.push(...logoLines.slice(1).map((l) => `  ${l}`));
   lines.push(`day palette: ${pal(a.palettes.value.day)}  ${tag(a.palettes.origin)}`);
   lines.push(`night palette: ${pal(a.palettes.value.night)}  ${tag(a.palettes.origin)}`);
   if (a.universeColors) {
@@ -366,5 +374,6 @@ export function appearanceText(a: ResolvedAppearance): string {
   lines.push(`contrast: ${a.contrastLevel.value ?? 'unknown'}  ${tag(a.contrastLevel.origin)}${a.contrastLevel.note ? `  ${a.contrastLevel.note}` : ''}`);
   lines.push(`proposals pending: ${a.proposalsPending ?? '-'}`);
   lines.push(`history: ${a.history}`);
+  if (a.signedLinks) lines.push(signedLinksLine(a.signedLinks));
   return lines.join('\n');
 }

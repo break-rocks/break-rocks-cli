@@ -19,7 +19,8 @@ import { checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, withoutI
 import { isZipName, openArchive } from '../theme/bundle.js';
 import { isSystemFile, writeZip } from '../theme/zip.js';
 import { WIDGET_REGISTRY, checkLayout, kindOfLayout } from '../theme/design.js';
-import { catalogText, commandLine, themeText, type CatalogPage, type ThemeServed } from '../theme/listing.js';
+import { catalogText, commandLine, themeText, withLinks, type CatalogPage, type ThemeServed } from '../theme/listing.js';
+import { SIGNED_LINKS_HELP } from '../theme/media-links.js';
 
 const THEME = selection('Theme', 2);
 /** A theme or a layout: %universe/name. */
@@ -60,12 +61,12 @@ async function themeOf(ctx: Context, value: string, appliedIn?: string) {
   return t;
 }
 
-export const themesShow: Command<{ theme: string; appliedIn?: string }, unknown> = {
+export const themesShow: Command<{ theme: string; appliedIn?: string; signedLinks?: boolean }, unknown> = {
   name: 'themes show', summary: 'The page of a theme: screenshots, palette, typefaces, images, origin, use',
-  description: 'The text: its universe, version, collection, description, creator, dates, contrast level, typefaces, its palettes night and day (swatches in a truecolor terminal), each image slot with the URLs of its variants (or removed), its screenshots and those of the page of a universe (themes shots downloads them), the universes and accounts using it. --fields picks fields of the JSON.', examples: ['breakrocks look themes show %test-village-multisport/sport-gabriel-04'],
-  input: object({ theme: str('The theme: %universe/name', { pattern: REF }), appliedIn: str('The universe it is applied in (a non-member reads it there)') }, ['theme']),
+  description: 'The text: its universe, version, collection, description, creator, dates, contrast level, typefaces, its palettes night and day (swatches in a truecolor terminal), each image slot with the URLs of its variants (or removed), its screenshots and those of the page of a universe (themes shots downloads them), the universes and accounts using it. Each image slot: the links that open (<url>/<width>.webp, the 1080 and the largest), under "links" in --json. --fields picks fields of the JSON.', examples: ['breakrocks look themes show %test-village-multisport/sport-gabriel-04'],
+  input: object({ theme: str('The theme: %universe/name', { pattern: REF }), appliedIn: str('The universe it is applied in (a non-member reads it there)'), signedLinks: bool(SIGNED_LINKS_HELP) }, ['theme']),
   output: outputSchema('Theme', 1), args: { positionals: ['theme'] },
-  run: (ctx, { theme, appliedIn }) => themeOf(ctx, theme, appliedIn),
+  run: async (ctx, { theme, appliedIn, signedLinks }) => withLinks(await themeOf(ctx, theme, appliedIn) as ThemeServed, signedLinks),
   text: (r) => themeText(r as ThemeServed),
 };
 

@@ -11,7 +11,8 @@ import { scripted } from './scripted.js';
 
 const palette = (primary: string, background = '#FFFFFF') => ({ palette: { background, surface: '#F4F5F7', text: '#14171C', primary, accent: '#0067B8', link: '#0057A0' } });
 const doc = (o: Record<string, unknown> = {}, title = 'Montserrat', primary = '#1F5FD6') => JSON.stringify({ format: 'break-rocks-theme/2', typography: { title }, variants: { day: palette(primary), night: palette('#4C8DFF', '#0E1116') }, ...o });
-const slots = { page: { url: 'https://m.test/p', urlNight: 'https://m.test/pn', removed: false }, pageHeader: { url: 'https://m.test/h', urlNight: 'https://m.test/hn', removed: false } };
+const W = [160, 480, 1080, 2160];
+const slots = { page: { url: 'https://m.test/p', urlNight: 'https://m.test/pn', widths: W, widthsNight: W, removed: false }, pageHeader: { url: 'https://m.test/h', urlNight: 'https://m.test/hn', widths: [480], widthsNight: [], removed: false } };
 const system = { id: '0', handle: 'system', kind: 'system' };
 const theme = (t: Partial<ServedTheme> & { name: string }): ServedTheme => ({ universe: '%root', version: 1, contrastLevel: 'AA', creator: system, document: doc(), imageSlots: { page: null, pageHeader: null }, ...t });
 
@@ -51,7 +52,8 @@ describe('the resolution of the appearance', () => {
     expect(a.source).toMatchObject({ kind: 'theme', origin: 'theme', inheritedFrom: null, appliedAt: '2026-11-10T12:00:00.000Z', appliedBy: '@ana', proposal: { id: 'p1' } });
     expect(a.accent).toMatchObject({ value: { day: '#3F637E', night: '#4C8DFF' }, origin: 'theme' });
     expect(a.character).toMatchObject({ value: null, origin: 'theme' });
-    expect(a.image.value.pageHeader).toEqual({ url: 'https://m.test/h', urlNight: 'https://m.test/hn' });
+    expect(a.image.value.pageHeader).toEqual({ url: 'https://m.test/h', urlNight: 'https://m.test/hn', links: [
+      { variant: 'day', width: 480, url: 'https://m.test/h/480.webp', expiresAt: null }, { variant: 'night', width: null, url: 'https://m.test/hn', expiresAt: null }] });
     expect(a.layout).toMatchObject({ value: 'village-square', origin: 'set' });
     expect(a.proposalsPending).toBe(1);
     expect(a.universeColors).toBeNull();
@@ -208,8 +210,12 @@ describe('look appearance show', () => {
       'accent: #1F5FD6 (night #4C8DFF)  [default]',
       'character: none  [default]  no appearance character for Montserrat',
       'image:  [default]',
-      '  banner (pageHeader): https://m.test/h  night https://m.test/hn',
-      '  page: https://m.test/p  night https://m.test/pn',
+      '  banner (pageHeader): https://m.test/h/480.webp',
+      '    night https://m.test/hn',
+      '  page: https://m.test/p/1080.webp',
+      '    largest https://m.test/p/2160.webp',
+      '    night https://m.test/pn/1080.webp',
+      '    night largest https://m.test/pn/2160.webp',
       'image display: subtle (default)  [default]',
       'layout: hud (default)  [default]  the platform layout',
       'sky: column (default)  [default]',

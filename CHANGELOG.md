@@ -5,6 +5,21 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-16
+
+### Added
+
+- `look appearance show`, `look themes show`: `--signed-links` asks for time-limited links to the images; the API has no
+  operation for them yet, so it says so (text: `signed links: not available…`; `--json`: `signedLinks { available: false,
+  reason }`).
+
+### Fixed
+
+- `look appearance show`, `look themes show`: the image links open. The API serves an image as the folder of its variants
+  (`url` + `widths`), which the media CDN answers 403; the CLI now prints `<url>/<width>.webp`, the 1080 (or the smallest
+  wider, else the largest) and the largest, day and night, and the universe image (logo) the same. `--json` keeps `url` and
+  adds `links` (`{ variant, width, url, expiresAt }`, `expiresAt` null: public, no expiry) on each image.
+
 ## [0.31.0] - 2026-11-16
 
 ### Added
