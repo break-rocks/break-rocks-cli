@@ -361,6 +361,9 @@ A data request: "scope" for a bulk erasure only; "dueAt" requestedAt plus 1 cale
 "cancellableUntil" a bulk erasure's 24 hours; "expiresAt" a data copy's 7 days once ready;
 "parts" a data copy READY only (500 at most); "kept" what a legal obligation keeps (empty: nothing);
 "rectification" (since specs v103.4.0) what a rectification request asks, served to its account only.
+Since D-394 (decided on 2026-11-16; contracts/accounts.md § My data): a data copy or a bulk erasure the platform team
+recorded from a contact message is AWAITING_CONFIRMATION until its account confirms it (confirmDataRequest), its
+requestedAt and dueAt counted from the receipt of the contact message; "confirmBy" the end of its 30 days.
 """
 type DataRequest {
   """
@@ -371,6 +374,11 @@ type DataRequest {
   When the platform must have answered it.
   """
   dueAt: AWSDateTime!
+  """
+  Since D-394: for a data request AWAITING_CONFIRMATION, until when its account can confirm it (30 days after the
+  invitation); then it is NOT_CONFIRMED. Null otherwise.
+  """
+  confirmBy: AWSDateTime
   """
   When it expires.
   """
@@ -467,14 +475,18 @@ type DataRequestRectification {
 """
 IN_PROGRESS (a data copy prepared, a rectification request waiting, a bulk erasure past its 24 hours being
 erased), CANCELLABLE (a bulk erasure within its 24 hours), READY (a data copy, 7 days), DONE, CANCELLED,
-EXPIRED (a data copy past its 7 days).
+EXPIRED (a data copy past its 7 days). Since D-394: AWAITING_CONFIRMATION (a data copy or a bulk erasure recorded by
+the platform team from a contact message, waiting for its account to confirm it: nothing runs), NOT_CONFIRMED (not
+confirmed within 30 days of the invitation: closed without running, kept in the register of data requests).
 """
 enum DataRequestStatus {
+  AWAITING_CONFIRMATION
   CANCELLABLE
   CANCELLED
   DONE
   EXPIRED
   IN_PROGRESS
+  NOT_CONFIRMED
   READY
 }
 

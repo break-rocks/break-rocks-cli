@@ -195,7 +195,8 @@ type Notification {
   """
   createdAt: AWSDateTime!
   """
-  DATA_COPY_READY, BULK_ERASURE_DONE, DATA_REQUEST_ANSWERED (since v68.1.0): the data request.
+  DATA_COPY_READY, BULK_ERASURE_DONE, DATA_REQUEST_ANSWERED (since v68.1.0), DATA_REQUEST_CONFIRMATION_ASKED (since
+  D-394): the data request.
   """
   dataRequest: NotificationDataRequest
   """
@@ -459,6 +460,9 @@ REPORT_DECIDED (M-09), the platform team decided a report of the reader (categor
 only a decision of the platform team, never one of the moderators of a universe.
 Since v103.0.0 (D-327): AD_CORRECTION_REQUESTED, the platform team asked the advertiser a correction of a creative of
 its ad campaign ("subject" the campaign id, "message" the ad rule and the correction; category account, mandatory).
+Since D-394 (decided on 2026-11-16): DATA_REQUEST_CONFIRMATION_ASKED, the platform team recorded a data copy or a bulk
+erasure of the account from a contact message, waiting for its confirmation ("dataRequest": its id, kind, scope;
+category account security, mandatory; with an e-mail to the address of the account).
 """
 enum NotificationKind {
   AD_CORRECTION_REQUESTED
@@ -471,6 +475,7 @@ enum NotificationKind {
   CONNECTION_REQUEST
   DATA_COPY_READY
   DATA_REQUEST_ANSWERED
+  DATA_REQUEST_CONFIRMATION_ASKED
   DELEGATED_AGENTS_DEACTIVATED
   DIRECT_MESSAGE
   DOCUMENT_REFUSED

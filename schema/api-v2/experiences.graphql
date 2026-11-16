@@ -324,8 +324,9 @@ enum FeatGalleryOrder {
 
 """
 Where the post of a published experience feat is placed (experience-feats.feature): POINT_OF_INTEREST (an adult only,
-the default for an adult: the point of interest of the place feat, in the feat gallery and the pin cluster; a clip also
-a placed video there), NONE ("not on the map": not placed, neither in the feat gallery nor the pin cluster, still
+the default for an adult: the point of interest of the place feat, in the feat gallery and the pin cluster; until D-393,
+a clip also a placed video there; since D-393, never drawn as a placed post nor a placed video, its experience feat
+showing by its place only), NONE ("not on the map": not placed, neither in the feat gallery nor the pin cluster, still
 counted; the default for a minor) or CITY (a minor only: the city of the point of interest, never closer, never in the
 feat gallery nor the pin cluster). Another combination: INVALID_REQUEST.
 """
@@ -379,6 +380,26 @@ type MapPlaceFeats {
   poster, and for a place without a published experience feat.
   """
   photoUrl: AWSURL
+  """
+  Since D-393 (decided on 2026-11-16; map-markers.feature, contracts/map.md § One map marker per place): the number of its
+  place-folded posts, the "+N" of its round: the placed posts and the placed videos of public universes at its point of
+  interest (MapPost.foldedPlaceId, the placeId of this place), the posts of published experience feats left out (they
+  are counted in publishedCount), a content of a minor never (never at a point); read with universe, those of that
+  universe, as publishedCount; since D-395, a post of a private universe never (never a place-folded post). The same
+  for every reader: it may count the posts of an account of hiddenAccounts of the caller (the files are the same for
+  everyone, D-347), which the section "Also here" of the place card leaves out (PlaceCard.alsoHere). 0 when none.
+  """
+  foldedCount: Int!
+  """
+  Since D-393: among foldedCount, the placed videos, so that the apps take them out of the count "videos" of the density
+  mark of its child cell while they draw its round (contracts/map.md § One map marker per place). 0 when none.
+  """
+  foldedVideoCount: Int!
+  """
+  Since D-393: among foldedVideoCount, the placed videos with a vertical clip (the "clips" of the label of a density
+  glow). 0 when none.
+  """
+  foldedClipCount: Int!
 }
 
 """
