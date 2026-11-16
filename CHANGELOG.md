@@ -5,6 +5,28 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-16
+
+### Changed
+
+- `look themes gallery` and `look themes list` in text: a header naming the columns (theme, version, field, title
+  typeface, image slots filled, screenshots, universes, accounts, the palette of the variant shown), the rows grouped
+  under the title of their section instead of the reason on each row, a theme already listed in an earlier section not
+  listed again (`also in MOST_USED` on its first row, the section title counts it), and the next page as a command line
+  (`more: breakrocks look themes gallery '%lyon' --all  (or --after eyIwIjoiMDAw…; --json holds the full cursor)`)
+  instead of the raw cursor. The JSON is unchanged.
+- `look themes show` in text: a page with labelled lines (universe, collection, creator, created and updated, contrast,
+  typefaces, use), the night and day palettes, each image slot with its URLs or removed (timeColumn and channelHeader
+  when the document names them), the screenshot URLs, the page of a universe per breakpoint and the `look themes shots`
+  command that downloads them.
+
+### Added
+
+- Palette swatches: a color of a theme drawn on its own background when stdout is coloured and the terminal draws 24-bit
+  colours (`COLORTERM=truecolor`, `24bit`, or `FORCE_COLOR=3`); the plain text is unchanged (README § Colour).
+- `look themes list --all` (bounded by `--max`, 10 pages by default) follows the pages.
+- A command's text renderer receives the input of the command line (`Command.text(result, input)`).
+
 ## [0.28.0] - 2026-11-16
 
 ### Changed

@@ -31,8 +31,8 @@ export type Command<I = Record<string, unknown>, O = unknown> = {
   /** Left out of the MCP server (the server itself). */
   mcp?: false;
   run: (ctx: Context, input: I) => Promise<O> | O;
-  /** Its answer in plain text (default: the fields, one per line). */
-  text?: (result: O) => string;
+  /** Its answer in plain text (default: the fields, one per line); [input] the input of the command line (the next page told). */
+  text?: (result: O, input: I) => string;
   /** The exit code of an answer that is not a success (a report of problems): 0 by default. */
   exitCode?: (result: O) => ExitCode;
   /** What --quiet writes: the identifier created or read, nothing otherwise. */

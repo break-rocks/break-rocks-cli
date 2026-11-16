@@ -52,7 +52,7 @@ export type ApiDef<O = unknown> = {
   dry?: true;
   /** The answer turned into the command's (default: the field of the operation). */
   map?: (data: unknown, input: Record<string, unknown>) => O;
-  text?: (result: O) => string;
+  text?: (result: O, input: Record<string, unknown>) => string;
   quiet?: (result: O) => string | undefined;
   /** Extra properties of the command (not arguments of the operation) and how they turn into arguments. */
   extra?: Record<string, JsonSchema>;
@@ -116,7 +116,7 @@ export function argViews(def: Pick<ApiDef, 'kind' | 'op' | 'rename' | 'descripti
 }
 
 /** The answer of a page followed to its end ([max] pages), its items together. */
-async function pages(ctx: Context, document: string, field: string, variables: Record<string, unknown>, max: number) {
+export async function pages(ctx: Context, document: string, field: string, variables: Record<string, unknown>, max: number) {
   const items: unknown[] = [];
   let next: unknown = variables.after ?? null;
   let first: Record<string, unknown> | undefined;
@@ -212,7 +212,7 @@ export function apiCommand<O = unknown>(def: ApiDef<O>): Command<Record<string, 
         : await api<Record<string, unknown>>(ctx, doc, vars);
       return (def.map ? def.map(data[op.name], given) : data[op.name]) as O;
     },
-    ...(def.text ? { text: (r: O) => (def.dry && isObject(r) && r.dryRun === true ? dryRunText(r) : def.text!(r)) } : {}),
+    ...(def.text ? { text: (r: O, input: Record<string, unknown>) => (def.dry && isObject(r) && r.dryRun === true ? dryRunText(r) : def.text!(r, input)) } : {}),
     quiet: def.quiet ?? ((r: O) => (isObject(r) && typeof r.id === 'string' ? r.id : undefined)),
   };
 }

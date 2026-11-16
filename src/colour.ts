@@ -4,7 +4,7 @@
 // with or without them: a colour only wraps it, so the plain output (a pipe, a test) never changes.
 
 type Stream = 'out' | 'err';
-const state: Record<Stream, boolean> = { out: false, err: false };
+const state: Record<Stream, boolean> & { truecolor: boolean } = { out: false, err: false, truecolor: false };
 
 /** What decides: the environment, whether the stream is a terminal, --json and --no-color. */
 export type ColourInputs = { env: NodeJS.ProcessEnv; tty: boolean; json: boolean; noColor: boolean };
@@ -19,8 +19,24 @@ export function colourEnabled({ env, tty, json, noColor }: ColourInputs): boolea
   return tty;
 }
 
-/** Turns the colours of stdout and stderr on or off for this run (cli.ts; off in the MCP server). */
-export function setColour(on: { out: boolean; err: boolean }): void { state.out = on.out; state.err = on.err; }
+/** Whether the terminal draws 24-bit colours: COLORTERM truecolor or 24bit, or FORCE_COLOR=3. */
+export const truecolorEnabled = (env: NodeJS.ProcessEnv): boolean => /^(truecolor|24bit)$/i.test(env.COLORTERM ?? '') || env.FORCE_COLOR === '3';
+
+/** Turns the colours of stdout and stderr on or off for this run (cli.ts; off in the MCP server); truecolor: the swatches. */
+export function setColour(on: { out: boolean; err: boolean; truecolor?: boolean }): void { state.out = on.out; state.err = on.err; state.truecolor = !!on.truecolor; }
+
+/**
+ * A color (#RRGGBB) of a palette as a swatch: its hex on a background of that color, the text black or
+ * white by its luminance, when stdout is coloured and the terminal draws 24-bit colours; else the hex
+ * alone. The plain text is the same either way.
+ */
+export function swatch(hex: string): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!state.out || !state.truecolor || !m) return hex;
+  const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16));
+  const fg = 0.2126 * r + 0.7152 * g + 0.0722 * b > 140 ? '30' : '97';
+  return `\x1b[48;2;${r};${g};${b};${fg}m${hex}\x1b[39;49m`;
+}
 
 const style = (stream: Stream, open: string, close: string) => (text: string) => (state[stream] && text ? `\x1b[${open}m${text}\x1b[${close}m` : text);
 
