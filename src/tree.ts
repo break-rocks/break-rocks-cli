@@ -79,6 +79,7 @@ me data copy | = | Ask for a copy of the account data
 me data download | = | Download a part of a data copy
 me data erase | = | Ask for the bulk erasure of a scope
 me data erase-cancel | = | Cancel a bulk erasure
+me data confirm | = | Confirm a data request waiting for you
 me data rectify | = | Ask for the rectification of data
 me onboarding | = | The onboarding and its steps
 me onboarding start | = | Start the onboarding
@@ -276,6 +277,8 @@ map routes | = | The route markers of an area
 map channels | = | The placed channels of an area
 map posts | = | The placed posts of an area
 map places | = | The places with a recent placed post
+map place-feats | = | The places with a place feat of an area
+map place-card | = | The card of a place and what is also there
 map presences | = | The map presences of an area
 map groups | = | The groups of map presence of an area
 presence show | map presence | Your map presence

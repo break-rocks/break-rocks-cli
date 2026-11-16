@@ -99,8 +99,8 @@ export const meDeleteConfirm = apiCommand({
   examples: ['breakrocks me delete confirm <token> --yes'],
 });
 
-type DataRequest = { id: string; kind: string; status: string; scope?: string | null; requestedAt?: string; dueAt?: string; cancellableUntil?: string | null; parts?: unknown[] | null };
-const dataRequestLine = (d: DataRequest) => `${d.id}  ${d.kind}${d.scope ? ` ${d.scope}` : ''}  ${d.status}  asked ${d.requestedAt ?? '-'}  due ${d.dueAt ?? '-'}${d.cancellableUntil ? `  cancellable until ${d.cancellableUntil}` : ''}${d.parts?.length ? `  ${d.parts.length} part(s)` : ''}`;
+type DataRequest = { id: string; kind: string; status: string; scope?: string | null; requestedAt?: string; dueAt?: string; cancellableUntil?: string | null; confirmBy?: string | null; parts?: unknown[] | null };
+const dataRequestLine = (d: DataRequest) => `${d.id}  ${d.kind}${d.scope ? ` ${d.scope}` : ''}  ${d.status}  asked ${d.requestedAt ?? '-'}  due ${d.dueAt ?? '-'}${d.cancellableUntil ? `  cancellable until ${d.cancellableUntil}` : ''}${d.status === 'AWAITING_CONFIRMATION' || d.confirmBy ? `  confirm by ${d.confirmBy ?? '-'}` : ''}${d.status === 'NOT_CONFIRMED' ? '  not confirmed: closed without running' : ''}${d.parts?.length ? `  ${d.parts.length} part(s)` : ''}`;
 const dataRequestText = (r: unknown) => (r ? dataRequestLine(r as DataRequest) : '(none)');
 const dataRequestId = { dataRequestId: 'The data request (me data requests)' };
 
@@ -126,6 +126,12 @@ export const meDataErase = apiCommand({
 export const meDataEraseCancel = apiCommand({
   name: 'me data erase-cancel', summary: 'Cancel a bulk erasure within its 24 hours (cancelBulkErasure)', kind: 'mutation', op: 'cancelBulkErasure', positionals: ['dataRequestId'], descriptions: dataRequestId, text: dataRequestText,
   examples: ['breakrocks me data erase-cancel <data request id>'],
+});
+export const meDataConfirm = apiCommand({
+  name: 'me data confirm', summary: 'Confirm a data copy or a bulk erasure recorded from a contact message, within its 30 days (confirmDataRequest)', kind: 'mutation', op: 'confirmDataRequest', positionals: ['dataRequestId'],
+  description: 'A data request AWAITING_CONFIRMATION (me data requests shows it with its "confirm by") runs as if asked here once confirmed; it needs a recent sign-in (RECENT_SIGN_IN_REQUIRED: sign in again, then retry). A bulk erasure stays cancellable for 24 hours.',
+  descriptions: dataRequestId, confirm: () => 'Confirm this data request? A bulk erasure it holds is cancellable for 24 hours, then for good.', text: dataRequestText,
+  examples: ['breakrocks me data confirm <data request id> --yes'],
 });
 export const meDataRectify = apiCommand({
   name: 'me data rectify', summary: 'Ask for the rectification of data of the account, in a text (requestRectification)', kind: 'mutation', op: 'requestRectification', positionals: ['text'],
@@ -187,7 +193,7 @@ export const meInviteExceptionsRemove = inviteException(false);
 
 export const meCommands = [
   meProfileSet, meHandleCheck, meHandleChange, mePassword, meEmailChange, meEmailConfirm, meDelete, meDeleteConfirm,
-  meDataRequests, meDataCopy, meDataDownload, meDataErase, meDataEraseCancel, meDataRectify,
+  meDataRequests, meDataCopy, meDataDownload, meDataErase, meDataEraseCancel, meDataConfirm, meDataRectify,
   meOnboarding, meOnboardingStart, meOnboardingSkip, meOnboardingRecord, meInvitationLink, meInvitationLinkRenew, meInvitationLinkRead,
   meInteractions, mePosts, meReports, meInviteExceptionsAdd, meInviteExceptionsRemove,
 ];
