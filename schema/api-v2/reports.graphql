@@ -546,6 +546,11 @@ type PlatformMeasure {
   account.
   """
   subjectWhere: String
+  """
+  Since D-398: the address of the universe a platform measure against a universe targets (the removal of its
+  universe theme, its universe banner or a universe page); null for any other measure.
+  """
+  universe: String
 }
 
 """

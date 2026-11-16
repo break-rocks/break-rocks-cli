@@ -5,6 +5,20 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-16
+
+Specs v125.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated).
+
+### Changed
+
+- `me measures` also lists the platform measures against a universe the account leads (D-398: the removal of its
+  universe theme, banner or a page) and prints their `universe` (`--json` carries it); such a measure is counted
+  against no account, unless written against the author of a page. It prints `snippet` and `subjectWhere` when set,
+  such as the search words removed from a universe and the universe (D-397).
+- `me measures appeal`: a measure against a universe is appealed by its leadership, once whoever files it; new
+  refusals named in its help: `PLATFORM_APPEAL_LEADERSHIP_ONLY` (another member) and `PLATFORM_APPEAL_EXISTS`
+  (already appealed, by anyone), each printed with its sentence when the API answers the code alone.
+
 ## [0.26.0] - 2026-11-16
 
 Specs v125.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 220 queries, 354 mutations).

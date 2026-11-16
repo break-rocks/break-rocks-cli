@@ -1,6 +1,8 @@
 // Specs v84.4.0 to v87.3.0: platform measures and their appeal, the terms accepted, advertising. Against a scripted API.
 import { describe, expect, it } from 'vitest';
-import { last } from './helpers.js';
+import { Context, NO_FLAGS } from '../src/context.js';
+import { saveSession } from '../src/session.js';
+import { harness, last } from './helpers.js';
 import { scripted } from './scripted.js';
 
 describe('platform measures and terms', () => {
@@ -13,6 +15,17 @@ describe('platform measures and terms', () => {
     expect(await h.run('--yes', 'me', 'measures', 'appeal', 'pm1', '--text', 'A quote')).toBe(0);
     expect(calls.at(-1)).toMatchObject({ field: 'appealPlatformMeasure', variables: { measureId: 'pm1', text: 'A quote' } });
     expect(h.lines.at(-1)).toBe('pm1  CONTENT_REMOVAL  article 4  2026-11-01T10:00:00.000Z  appeal OPEN');
+  });
+  it('shows a measure against a universe and the removed search words, with universe in JSON (D-397, D-398)', async () => {
+    const theme = { id: 'pm2', kind: 'CONTENT_REMOVAL', article: 0, startsAt: '2026-11-16T10:00:00.000Z', endsAt: null, cancelled: false, appealableUntil: null, appeal: null, statement: 'Theme', universe: '%paris', snippet: null, subjectWhere: null };
+    const words = { ...theme, id: 'pm3', universe: null, snippet: 'spam, scam', subjectWhere: '%paris' };
+    const { h, calls } = scripted({ myPlatformMeasures: { items: [theme, words], next: null } });
+    expect(await h.run('me', 'measures')).toBe(0);
+    expect(calls[0].query).toMatch(/\buniverse\b/);
+    expect(calls[0].query).toMatch(/\bsnippet\b/);
+    expect(h.lines.at(-1)!.split('\n')).toEqual(['pm2  CONTENT_REMOVAL  article 0  2026-11-16T10:00:00.000Z  universe %paris', 'pm3  CONTENT_REMOVAL  article 0  2026-11-16T10:00:00.000Z  "spam, scam"  in %paris']);
+    expect(await h.run('me', 'measures', '--json')).toBe(0);
+    expect(last<{ items: { universe: string | null }[] }>(h).items.map((m) => m.universe)).toEqual(['%paris', null]);
   });
   it('reads the terms accepted and accepts the latest (read first when not given)', async () => {
     const terms = { terms: '2026-09-01', rules: '2026-09-01', acceptedAt: '2026-09-02T00:00:00.000Z', latestTerms: '2026-11-01', latestRules: '2026-09-01', latestTermsAppliesAt: '2026-11-15', latestRulesAppliesAt: '2026-09-01' };
@@ -66,5 +79,16 @@ describe('advertising', () => {
     expect(h.lines.at(-1)).toBe('on: SPORTS');
     expect(await h.run('ads', 'interests', 'set', 'NOPE', '--enabled', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'INVALID_INPUT' } });
+  });
+});
+
+describe('refusals of an appeal (D-398)', () => {
+  it('gives the sentence of PLATFORM_APPEAL_LEADERSHIP_ONLY and PLATFORM_APPEAL_EXISTS answered without one', async () => {
+    for (const [code, sentence] of [['PLATFORM_APPEAL_LEADERSHIP_ONLY', 'A measure against a universe is appealed by its leadership only'], ['PLATFORM_APPEAL_EXISTS', 'This measure is already appealed: one appeal per measure, whoever filed it']]) {
+      const h = harness({ env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' }, fetch: async () => Response.json({ data: null, errors: [{ errorType: code, message: code }] }) });
+      saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+      expect(await h.run('--yes', 'me', 'measures', 'appeal', 'pm2', '--json')).toBe(1);
+      expect(last(h)).toMatchObject({ error: { code, message: sentence, source: 'platform' } });
+    }
   });
 });

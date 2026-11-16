@@ -10,16 +10,18 @@ import { usageError } from '../errors.js';
 import { api } from '../session.js';
 import { pageText } from './shared.js';
 
-type Measure = { id: string; kind: string; article?: number; startsAt?: string; endsAt?: string | null; cancelled?: boolean; appealableUntil?: string | null; appeal?: { status?: string; outcome?: string | null } | null; statement?: string };
-const measureLine = (m: Measure) => `${m.id}  ${m.kind}  article ${m.article ?? '-'}  ${m.startsAt ?? ''}${m.endsAt ? ` → ${m.endsAt}` : ''}${m.cancelled ? '  cancelled' : ''}${m.appeal ? `  appeal ${m.appeal.status}${m.appeal.outcome ? ` (${m.appeal.outcome})` : ''}` : m.appealableUntil ? `  appealable until ${m.appealableUntil}` : ''}`;
+type Measure = { id: string; kind: string; article?: number; startsAt?: string; endsAt?: string | null; cancelled?: boolean; appealableUntil?: string | null; appeal?: { status?: string; outcome?: string | null } | null; statement?: string; universe?: string | null; snippet?: string | null; subjectWhere?: string | null };
+// universe (D-398): a measure against a universe (its theme, banner or a page), seen by its leadership. snippet and
+// subjectWhere: what was removed and where, such as the search words of a universe (D-397).
+const measureLine = (m: Measure) => `${m.id}  ${m.kind}  article ${m.article ?? '-'}  ${m.startsAt ?? ''}${m.endsAt ? ` → ${m.endsAt}` : ''}${m.universe ? `  universe ${m.universe}` : ''}${m.snippet ? `  "${m.snippet}"` : ''}${m.subjectWhere ? `  in ${m.subjectWhere}` : ''}${m.cancelled ? '  cancelled' : ''}${m.appeal ? `  appeal ${m.appeal.status}${m.appeal.outcome ? ` (${m.appeal.outcome})` : ''}` : m.appealableUntil ? `  appealable until ${m.appealableUntil}` : ''}`;
 export const meMeasures = apiCommand({
   name: 'me measures', summary: 'The platform measures the account received in the last 2 years, each with its statement of reasons and its appeal (myPlatformMeasures)',
-  description: 'Readable in restricted access (suspended, banned). --json gives the statements of reasons.',
+  description: 'Readable in restricted access (suspended, banned). Also the measures against a universe you lead (universe; counted against no account). --json gives the statements of reasons.',
   kind: 'query', op: 'myPlatformMeasures', text: pageText(measureLine), examples: ['breakrocks me measures', 'breakrocks me measures --all --json'],
 });
 export const meMeasuresAppeal = apiCommand({
   name: 'me measures appeal', summary: 'Appeal a platform measure, once, free, within 6 months, with a text of 2,000 characters at most (appealPlatformMeasure; DSA art. 20)',
-  description: 'Decided by a member of the platform team other than its author; the measure stays in force until then. Never by a delegated agent (DELEGATED_AGENT_NOT_ALLOWED). PLATFORM_APPEAL_DEADLINE_PASSED, PLATFORM_APPEAL_EXISTS, PLATFORM_APPEAL_NOT_AVAILABLE (an authority order), PLATFORM_APPEAL_TEXT_TOO_LONG.',
+  description: 'Decided by a member of the platform team other than its author; the measure stays in force until then. Never by a delegated agent (DELEGATED_AGENT_NOT_ALLOWED). A measure against a universe: by its leadership. PLATFORM_APPEAL_DEADLINE_PASSED, PLATFORM_APPEAL_EXISTS (already appealed, by anyone), PLATFORM_APPEAL_LEADERSHIP_ONLY (a universe measure: its leadership only), PLATFORM_APPEAL_NOT_AVAILABLE (an authority order), PLATFORM_APPEAL_TEXT_TOO_LONG.',
   kind: 'mutation', op: 'appealPlatformMeasure', positionals: ['measureId'], dry: true, descriptions: { measureId: 'The measure (me measures)', text: 'Why (2,000 characters at most)' },
   confirm: (i) => `Appeal the measure ${String(i.measureId)}? An appeal is made once.`, text: (r) => (r ? measureLine(r as Measure) : '(none)'),
   examples: ['breakrocks me measures appeal <measure id> --text "The post quoted a news article" --yes'],

@@ -29,6 +29,13 @@ export const cliRefusal = (code: string, message: string, details: Record<string
 export const platformRefusal = (code: string, message: string, details: Record<string, unknown> = {}) => new CliError(code, message, EXIT.REFUSED, details, 'platform');
 export const networkError = (code: string, message: string, details: Record<string, unknown> = {}, source: ErrorSource = 'cli') => new CliError(code, message, EXIT.NETWORK, details, source);
 
+/** The sentence of a platform code the API answers without one (its message empty or the code itself). */
+export const REFUSAL_SENTENCES: Record<string, string> = {
+  PLATFORM_APPEAL_EXISTS: 'This measure is already appealed: one appeal per measure, whoever filed it',
+  PLATFORM_APPEAL_LEADERSHIP_ONLY: 'A measure against a universe is appealed by its leadership only',
+};
+export const refusalSentence = (code: string, message?: string) => (!message || message === code ? REFUSAL_SENTENCES[code] ?? message ?? code : message);
+
 /** Any thrown value as a CliError (an unexpected one keeps its message, code INTERNAL_ERROR). */
 export function asCliError(error: unknown): CliError {
   if (error instanceof CliError) return error;

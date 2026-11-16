@@ -804,7 +804,8 @@ type Query {
   """
   The platform measures the caller received in the last 2 years, the newest first, each with its statement
   of reasons (since v84.4.0, contracts/platform-measures.md); readable in restricted access (suspended,
-  banned). limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
+  banned). Since D-398, also the platform measures against a universe the caller is a member of the leadership of
+  (the owner or an admin of a private universe), with their universe. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
   myPlatformMeasures(after: String, limit: Int): PlatformMeasurePage
 
@@ -2933,7 +2934,10 @@ type Mutation {
   until the decision, and is lifted at once when the appeal cancels it. Allowed in restricted access and under a
   platform suspension; never by a delegated agent (DELEGATED_AGENT_NOT_ALLOWED). PLATFORM_MEASURE_NOT_FOUND,
   PLATFORM_APPEAL_DEADLINE_PASSED, PLATFORM_APPEAL_EXISTS, PLATFORM_APPEAL_NOT_AVAILABLE (an authority order),
-  PLATFORM_APPEAL_TEXT_TOO_LONG. Returns the measure with its appeal.
+  PLATFORM_APPEAL_TEXT_TOO_LONG. Since D-398, a platform measure against a universe (the removal of its universe
+  theme, its universe banner or a universe page) is appealed by a member of its leadership (the owner or an admin of a
+  private universe), once per measure whoever files it: PLATFORM_APPEAL_LEADERSHIP_ONLY for another account.
+  Returns the measure with its appeal.
   """
   appealPlatformMeasure(measureId: ID!, text: String, requestId: ID!): PlatformMeasure
 
