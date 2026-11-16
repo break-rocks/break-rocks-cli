@@ -97,7 +97,7 @@ export const appearanceShow: Command<{ universe: string; signedLinks?: boolean }
   description: [
     'Resolved as the apps draw the universe: its universe theme (Universe.themeRef, its own or of a universe above), a universe theme trial in progress',
     '(served to every reader for 24 hours), else what the platform gives: the country theme of a country universe (D-158), the universal or field theme',
-    'given by default, Socle with the default colors of the universe; the default layout (layouts.md § Which layout applies), the sky column and the',
+    'given by default, Socle with the colors of its name (its monogram and address badges only); the default layout (layouts.md § Which layout applies), the sky column and the',
     'subtle background when the appearance says nothing. Each value is tagged with its origin: set (chosen in Customize), theme (from the theme applied),',
     'trial, country, default, or unknown when neither the API nor the contract says. Also: the proposals APPEARANCE and THEME pending (a public universe)',
     'who applied it and when (Universe.appearanceApplied), and the command of the appearance history. Also typed "breakrocks look appearance <universe>". --json: the resolved object, "origin" on each field.',

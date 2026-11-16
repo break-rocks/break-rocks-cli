@@ -67,7 +67,7 @@ export type ResolvedAppearance = {
   imageShows: Valued<'NONE' | 'SUBTLE' | 'THROUGH'>;
   layout: Valued<string | null> & { of?: string | null };
   sky: Valued<'COLUMN' | 'BAND'>;
-  logo: Valued<{ url: string | null; links: MediaLink[]; of: string | null; monogram: { initial: string; on: string | null } | null }>;
+  logo: Valued<{ url: string | null; links: MediaLink[]; of: string | null; monogram: { initial: string; on: string | null; from: 'name' | 'theme' } | null }>;
   palettes: Valued<{ day: Palette | null; night: Palette | null }>;
   universeColors: Valued<{ primary: string; accent: string; tintDay: string; tintNight: string }> | null;
   typefaces: { title: Valued<string | null>; body: Valued<string> };
@@ -220,7 +220,7 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
     ? { value: { day, night }, origin: base.kind === 'started-from-theme' && !trial ? fromLook(day, lookDay) : o }
     : { value: { day: null, night: null }, origin: 'unknown', note: 'Socle not read' };
   const socle = base.kind === 'socle' && !trial;
-  // The default colors of the universe: on Socle (the apps); with a universal theme the contract keeps them too (§ The universal collection).
+  // The colors of the name (§ Default colors of a universe): on Socle, and with a universal theme (since v127.0.0, D-402) they color only the monogram and the address badges, the pages show the palette of the theme.
   const colors = socle || (base.kind === 'universal' && !trial) ? defaultColors(u.name) : null;
 
   // The accent: the block's (Customize), else the primary of the palette; on Socle the primary of the default colors.
@@ -275,9 +275,12 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
   // The logo: the universe image (its own or of a universe above), else the monogram: its initial on the accent.
   const logoUrl = u.image?.url ?? null;
   const initial = [...universeKey(u.name)][0]?.toUpperCase() ?? '?';
+  // The monogram: on the primary of the name's colors with a universal theme (and on Socle), else on the primary of the theme (v127.0.0, D-402).
+  const monogram = (): { initial: string; on: string | null; from: 'name' | 'theme' } =>
+    colors ? { initial, on: colors.primary, from: 'name' } : { initial, on: day?.primary ?? accent.value.day, from: 'theme' };
   const logo: ResolvedAppearance['logo'] = logoUrl
     ? { value: { url: logoUrl, links: imageLinks(u.image), of: u.imageOf ?? null, monogram: null }, origin: 'set', ...(u.imageOf ? { note: `from ${u.imageOf}` } : {}) }
-    : { value: { url: null, links: [], of: null, monogram: { initial, on: accent.value.day } }, origin: 'default', note: 'no universe image: the monogram' };
+    : { value: { url: null, links: [], of: null, monogram: monogram() }, origin: 'default', note: 'no universe image: the monogram' };
 
   const contrast = trial ? { value: 'AA', origin: 'trial' as Origin, note: 'validated as at publication' } : served?.contrastLevel ? { value: served.contrastLevel, origin: o } : { value: null, origin: 'unknown' as Origin };
 
@@ -304,7 +307,7 @@ export function resolveAppearance(r: AppearanceReads): ResolvedAppearance {
     trial: trial ? { draftId: trial.draftId, version: trial.version, startedAt: trial.startedAt, endsAt: trial.endsAt, startedBy: trial.startedBy?.handle, layout: trial.layout ?? null, base: ref } : null,
     myDraftPreview: u.myDraftPreview ? { draftId: u.myDraftPreview.draftId, version: u.myDraftPreview.version, endsAt: u.myDraftPreview.endsAt } : null,
     accent, character, image, imageShows, layout, sky, logo, palettes,
-    universeColors: colors ? { value: colors, origin: 'default', note: socle ? 'from its name' : 'from its name; kept with a universal theme (contract), the web draws the palette of the theme' } : null,
+    universeColors: colors ? { value: colors, origin: 'default', note: 'from its name: the monogram and the address badges, not its pages' } : null,
     typefaces: { title: { value: title, origin: socle ? 'default' : character.origin === 'unknown' ? 'unknown' : character.origin }, body: { value: BODY_TYPEFACE, origin: 'default', note: 'the readable typeface of Socle, in every theme' } },
     contrastLevel: contrast,
     proposalsPending: r.proposals ? r.proposals.filter((p) => pendingStatuses.includes(p.status)).length : null,
@@ -362,13 +365,13 @@ export function appearanceText(a: ResolvedAppearance): string {
   lines.push(`sky: ${a.sky.value.toLowerCase()}${a.sky.origin === 'default' ? ' (default)' : ''}  ${tag(a.sky.origin)}`);
   const lg = a.logo.value;
   const logoLines = linkLines(lg.links);
-  lines.push(lg.url ? `logo: ${logoLines[0] ?? lg.url}  ${tag(a.logo.origin)}${a.logo.note ? `  ${a.logo.note}` : ''}` : `logo: none, the monogram "${lg.monogram?.initial ?? '?'}" on ${lg.monogram?.on ? swatch(lg.monogram.on) : 'the accent'}  ${tag(a.logo.origin)}`);
+  lines.push(lg.url ? `logo: ${logoLines[0] ?? lg.url}  ${tag(a.logo.origin)}${a.logo.note ? `  ${a.logo.note}` : ''}` : `logo: none, the monogram "${lg.monogram?.initial ?? '?'}" on ${lg.monogram?.from === 'name' ? "the name's" : "the theme's"} primary${lg.monogram?.on ? ` ${swatch(lg.monogram.on)}` : ''}  ${tag(a.logo.origin)}`);
   if (lg.url) lines.push(...logoLines.slice(1).map((l) => `  ${l}`));
-  lines.push(`day palette: ${pal(a.palettes.value.day)}  ${tag(a.palettes.origin)}`);
-  lines.push(`night palette: ${pal(a.palettes.value.night)}  ${tag(a.palettes.origin)}`);
+  lines.push(`day palette (the pages): ${pal(a.palettes.value.day)}  ${tag(a.palettes.origin)}`);
+  lines.push(`night palette (the pages): ${pal(a.palettes.value.night)}  ${tag(a.palettes.origin)}`);
   if (a.universeColors) {
     const c = a.universeColors.value;
-    lines.push(`universe colors: primary ${swatch(c.primary)}  accent ${swatch(c.accent)}  tint day ${swatch(c.tintDay)}  tint night ${swatch(c.tintNight)}  ${tag('default')}  ${a.universeColors.note ?? ''}`.trimEnd());
+    lines.push(`name colors (monogram, address badges): primary ${swatch(c.primary)}  accent ${swatch(c.accent)}  tint day ${swatch(c.tintDay)}  tint night ${swatch(c.tintNight)}  ${tag('default')}`);
   }
   lines.push(`typefaces: title ${a.typefaces.title.value ?? 'unknown'} ${tag(a.typefaces.title.origin)}, body ${a.typefaces.body.value} ${tag('default')}`);
   lines.push(`contrast: ${a.contrastLevel.value ?? 'unknown'}  ${tag(a.contrastLevel.origin)}${a.contrastLevel.note ? `  ${a.contrastLevel.note}` : ''}`);

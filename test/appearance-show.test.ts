@@ -32,7 +32,7 @@ describe('the resolution of the appearance', () => {
     expect(a.sky).toEqual({ value: 'COLUMN', origin: 'default' });
     expect(a.imageShows).toMatchObject({ value: 'SUBTLE', origin: 'default' });
     expect(a.image).toMatchObject({ value: { page: null, pageHeader: null }, origin: 'default', note: 'no image' });
-    expect(a.logo.value.monogram).toEqual({ initial: 'L', on: '#B54C3B' });
+    expect(a.logo.value.monogram).toEqual({ initial: 'L', on: '#B54C3B', from: 'name' });
     expect(a.palettes.origin).toBe('default');
     expect(a.typefaces.title).toEqual({ value: 'Montserrat', origin: 'default' });
     expect(a.proposalsPending).toBeNull();
@@ -57,6 +57,8 @@ describe('the resolution of the appearance', () => {
     expect(a.layout).toMatchObject({ value: 'village-square', origin: 'set' });
     expect(a.proposalsPending).toBe(1);
     expect(a.universeColors).toBeNull();
+    // Another universe theme than a universal one: the monogram is on the primary of the theme, no name colors (v127.0.0, D-402).
+    expect(a.logo.value.monogram).toEqual({ initial: 'C', on: '#3F637E', from: 'theme' });
   });
 
   it('a built appearance: set in Customize (image, focal point, accent, character, image display, sky)', () => {
@@ -114,6 +116,7 @@ describe('the resolution of the appearance', () => {
     const universal = resolveAppearance({ universe: { name: '%lyon', private: false, themeRef: { universe: '%root', name: 'universel-eau', version: 1 } }, theme: theme({ name: 'universel-eau' }) });
     expect(universal.source).toMatchObject({ kind: 'universal', origin: 'default' });
     expect(universal.universeColors?.value.primary).toBe('#B54C3B');
+    expect(universal.logo.value.monogram).toMatchObject({ on: '#B54C3B', from: 'name' });
     const field = resolveAppearance({ universe: { name: '%club', private: false, field: 'SPORT', themeRef: { universe: '%root', name: 'sport-stade' } }, theme: theme({ name: 'sport-stade', collection: 'SPORT', document: doc({}, 'Bebas Neue') }), appliedLayout: { source: 'FIELD', of: 'SPORT', ref: { name: 'hud' } } });
     expect(field.source.kind).toBe('field');
     expect(field.character).toMatchObject({ value: 'STAGE', origin: 'default' });
@@ -219,10 +222,10 @@ describe('look appearance show', () => {
       'image display: subtle (default)  [default]',
       'layout: hud (default)  [default]  the platform layout',
       'sky: column (default)  [default]',
-      'logo: none, the monogram "L" on #1F5FD6  [default]',
-      'day palette: background #FFFFFF  surface #F4F5F7  text #14171C  primary #1F5FD6  accent #0067B8  link #0057A0  [default]',
-      'night palette: background #0E1116  surface #F4F5F7  text #14171C  primary #4C8DFF  accent #0067B8  link #0057A0  [default]',
-      'universe colors: primary #B54C3B  accent #996517  tint day #FCEAE6  tint night #271512  [default]  from its name; kept with a universal theme (contract), the web draws the palette of the theme',
+      'logo: none, the monogram "L" on the name\'s primary #B54C3B  [default]',
+      'day palette (the pages): background #FFFFFF  surface #F4F5F7  text #14171C  primary #1F5FD6  accent #0067B8  link #0057A0  [default]',
+      'night palette (the pages): background #0E1116  surface #F4F5F7  text #14171C  primary #4C8DFF  accent #0067B8  link #0057A0  [default]',
+      'name colors (monogram, address badges): primary #B54C3B  accent #996517  tint day #FCEAE6  tint night #271512  [default]',
       'typefaces: title Montserrat [default], body Atkinson Hyperlegible [default]',
       'contrast: AA  [default]',
       'proposals pending: 1',
