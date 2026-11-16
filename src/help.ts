@@ -5,7 +5,7 @@
 import { aliases, commands, commandsUnder, groupOf, type AnyCommand } from './registry.js';
 import { kebab, mainType, type JsonSchema } from './schema.js';
 import { paint } from './colour.js';
-import { ALIASES_REMOVED_IN, DOMAINS, GROUP_SUMMARIES } from './tree.js';
+import { ALIASES_REMOVED_IN, DEFAULT_ACTIONS, DOMAINS, GROUP_SUMMARIES } from './tree.js';
 
 export { GROUP_SUMMARIES };
 
@@ -116,6 +116,7 @@ export function groupHelp(path: string): string {
     ...(own ? table([[own.name, own.summary]]) : []),
     ...childRows(path),
     '',
+    ...(DEFAULT_ACTIONS[path] ? ['', `Without an action: breakrocks ${path} <${commands().find((c) => c.name === `${path} ${DEFAULT_ACTIONS[path]}`)?.args?.positionals?.[0] ?? 'argument'}> runs ${path} ${DEFAULT_ACTIONS[path]}`] : []),
     `Help of a command: breakrocks ${path} <action> --help`,
   ].join('\n');
 }

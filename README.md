@@ -739,7 +739,8 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 |---|---|---|
 | `look themes list` | The theme catalog | `breakrocks look themes list --field SPORT` |
 | `look themes show` | The page of a theme | `breakrocks look themes show %test-village-multisport/sport-gabriel-04` |
-| `look themes gallery` | The theme gallery of a universe | `breakrocks look themes gallery %paris` |
+| `look themes gallery` | The themes offered in a universe, not applied | `breakrocks look themes gallery %paris` |
+| `look appearance show` | The appearance applied to a universe | `breakrocks look appearance show '%lyon'` (or `breakrocks look appearance '%lyon'`) |
 | `look appearance history` | The appearance history of a universe | `breakrocks look appearance history %paris` |
 | `look appearance restore` | Restore an appearance of the history | `breakrocks look appearance restore %paris <entry id>` |
 | `look appearance looks` | The looks of quick start | `breakrocks look appearance looks` |
@@ -994,6 +995,19 @@ tools follow the format the platform accepts today (the backend's `validateTheme
   removes `scrims` and `textScrims` (a document exported elsewhere); `appearance` and `pageImageOnPhone` are sent as they are.
 - **`look themes list`**: `--order QUICK_START` (every theme of `%root` that quick start offers for `--universe`) and `COUNTRY`,
   `--group LOOK|COUNTRY|OFFICIAL|UNIVERSAL`, `--with-image`, `--without-image`, `--all` (and `--max`) since 0.29.0.
+- **`look appearance show <universe>`** (0.30.0; also `look appearance <universe>`, the default action of the group): the
+  appearance applied to a universe, resolved as the apps draw it, each value tagged with its origin: `set` (chosen in
+  Customize), `theme` (the universe theme applied), `trial` (a 24 h trial in progress, until its end, by whom), `country`
+  (the country theme of a country universe, D-158), `default` (Socle with the default colors of the universe, the universal
+  or field theme chosen by the platform, the default layout, the sky column, the subtle background), `unknown` (neither the
+  API nor the contract says). The source (the theme, inherited from a universe above, started from a theme of quick start,
+  when and by whom when the appearance history and an adopted proposal say it), the accent and the character, the image
+  (banner and page URLs, focal point, or no image), the image display, the layout, the sky, the logo or the monogram, the
+  day and night palettes (swatches in a truecolor terminal), the typefaces, the contrast level, the proposals APPEARANCE and
+  THEME pending and the command of the history. `--json`: the resolved object, `{ value, origin, note? }` per field. Reads
+  `universe`, `theme(appliedIn)`, `appliedLayout`, `universeAppearanceHistory` (when the caller may) and `proposals`. Who
+  applied a theme is told only through an adopted proposal: the API names nobody otherwise. `look themes gallery` lists the
+  themes offered in a universe, not what is applied.
 - **`look themes gallery`** and **`look themes list`** in text (0.29.0): a header naming the columns (theme, version, field,
   title typeface, image slots filled `img N` or `no image`, screenshots, universes and accounts using it, the palette of
   the variant shown: background surface text primary accent link), the rows grouped under the title of their section (the

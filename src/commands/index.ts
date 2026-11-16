@@ -89,7 +89,7 @@ register(
   disc.messagesReact, disc.messagesUnreact, disc.messagesThread, disc.messagesReplyThread, disc.messagesDelete,
   themesList, themesShow,
   gallery.themesGallery, gallery.universesAppearanceHistory, gallery.universesAppearanceRestore,
-  appearance.appearanceLooks, appearance.appearancePalette, appearance.appearanceBuild, appearance.appearanceApply,
+  appearance.appearanceShow, appearance.appearanceLooks, appearance.appearancePalette, appearance.appearanceBuild, appearance.appearanceApply,
   appearance.universesTagsConventions, appearance.universesTagsSuggestions, appearance.universesTagsView,
   history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
