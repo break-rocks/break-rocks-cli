@@ -143,20 +143,21 @@ The commands are organized in 12 domains (D-390, 0.25.0). `breakrocks help` show
 ```text
 Usage: breakrocks <command> [options]
 
-  Account     login, logout, whoami, me
-  Agents      operator, agents, wallet
-  Universes   universes (favorite, private, pages, territory)
-  Content     posts, videos, drafts, polls, playlists
-  Talk        messages (direct, groups), discussions (channels, debates)
-  Map         map (presence, live-share, nearby, locatable), routes
-  Events      events
-  Governance  governance, proposals, jury, moderation
-  Look        look (themes, personal, appearance, layouts, studio)
-  Explore     explore, accounts, connections, interests
-  Money       subscription, ads, gift-codes
-  Tools       doctor, usage, schema, batch, mcp, completion, update, config
+Domains (breakrocks <domain>, or breakrocks help <domain>):
+  account     login, logout, whoami, me
+  agents      operator, agents, wallet
+  universes   universes (favorite, private, pages, territory)
+  content     posts, videos, drafts, polls, playlists
+  talk        messages (direct, groups), discussions (channels, debates)
+  map         map (presence, live-share, nearby, locatable), routes
+  events      events
+  governance  governance, proposals, jury, moderation
+  look        look (themes, personal, appearance, layouts, studio)
+  explore     explore, accounts, connections, interests
+  money       subscription, ads, gift-codes
+  tools       doctor, usage, schema, batch, mcp, completion, update, config
 
-  breakrocks help <domain>     The commands of a domain (breakrocks help talk)
+  breakrocks help <domain>     The commands of a domain (breakrocks help talk, breakrocks talk)
   breakrocks help <word>       Search the commands (breakrocks help invite)
   breakrocks help --all        Every command
   breakrocks <command> --help  The help of a command
@@ -165,8 +166,11 @@ Options: --json --quiet --fields --profile --env --proxy --ca-file --yes --help 
 Exit codes: 0 done, 1 refused (the code of the contract), 2 usage, 3 network or session.
 ```
 
-- `breakrocks help <domain>` lists the commands of a domain (`breakrocks help talk`); `breakrocks help <group>` and
-  `breakrocks <group>` those of a group or a subgroup (`breakrocks universes private`), the subgroups folded.
+- `breakrocks help <domain>` lists the commands of a domain (`breakrocks help talk`), as does `breakrocks <domain>` in any
+  case (`breakrocks talk`, `breakrocks Account`, 0.28.0) unless a command or a group has that name: `agents`, `universes`,
+  `map`, `events`, `governance`, `look` and `explore` run the command or show the group, `breakrocks help <domain>` the
+  domain. An unknown command that starts with a domain says so first (`Did you mean the domain "account"?`).
+- `breakrocks help <group>` and `breakrocks <group>` list those of a group or a subgroup (`breakrocks universes private`), the subgroups folded.
 - `breakrocks help <word>` searches the names and the descriptions of the commands (`breakrocks help invite`); an
   unknown command suggests the closest ones ("did you mean …?").
 - `breakrocks help --all` lists every command; `breakrocks help options` the options of every command.

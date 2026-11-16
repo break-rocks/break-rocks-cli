@@ -120,6 +120,12 @@ export function groupHelp(path: string): string {
 /** The domain named [word] ("talk", "Map"), if any. */
 export const domainOf = (word: string) => DOMAINS.find((d) => d.name === word.toLowerCase());
 
+/**
+ * The domains whose name is also a command or a group ("events", "map"): "breakrocks <name>" runs the
+ * command or shows the group, the domain is reached by "breakrocks help <name>".
+ */
+export const domainCollisions = () => DOMAINS.map((d) => d.name).filter((name) => isGroup(name) || commands().some((c) => c.name === name));
+
 /** The help of a domain: the help of each of its groups. */
 export function domainHelp(name: string): string {
   const domain = domainOf(name)!;
@@ -128,19 +134,20 @@ export function domainHelp(name: string): string {
     const rows = [...(own ? table([[own.name, own.summary]]) : []), ...childRows(g)];
     return [`${g}: ${GROUP_SUMMARIES[g] ?? ''}`.trimEnd(), ...rows].join('\n');
   });
-  return [`${domain.title}`, '', sections.join('\n\n'), '', 'Help of a group: breakrocks help <group>; of a command: breakrocks <command> --help'].join('\n');
+  return [`Domain ${domain.name}: ${domain.line}`, '', sections.join('\n\n'), '', 'Help of a group: breakrocks help <group>; of a command: breakrocks <command> --help'].join('\n');
 }
 
 /** The overview: the domains and their groups, then how to go further. About 30 lines. */
 export function overviewHelp(): string {
-  const width = Math.max(...DOMAINS.map((d) => d.title.length));
+  const width = Math.max(...DOMAINS.map((d) => d.name.length));
   return [
     'Usage: breakrocks <command> [options]',
     '',
-    ...DOMAINS.map((d) => `  ${d.title.padEnd(width)}  ${d.line}`),
+    'Domains (breakrocks <domain>, or breakrocks help <domain>):',
+    ...DOMAINS.map((d) => `  ${d.name.padEnd(width)}  ${d.line}`),
     '',
     ...table([
-      ['breakrocks help <domain>', 'The commands of a domain (breakrocks help talk)'],
+      ['breakrocks help <domain>', 'The commands of a domain (breakrocks help talk, breakrocks talk)'],
       ['breakrocks help <word>', 'Search the commands (breakrocks help invite)'],
       ['breakrocks help --all', 'Every command'],
       ['breakrocks <command> --help', 'The help of a command'],

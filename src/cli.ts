@@ -6,7 +6,7 @@ import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
 import { CliError, EXIT, asCliError, usageError } from './errors.js';
-import { commandHelp, groupHelp, isGroup, movedHelp } from './help.js';
+import { commandHelp, domainOf, groupHelp, isGroup, movedHelp } from './help.js';
 import { unknownCommand } from './commands/core.js';
 import { terminal, type Output } from './output.js';
 import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type AnyCommand } from './registry.js';
@@ -159,6 +159,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       // A group or a subgroup alone: its help ("breakrocks universes private").
       const path = words.join(' ');
       if (isGroup(path)) return writeAnswer(ctx, helpCommand, { text: groupHelp(path), commands: commandsUnder(path).map(({ name, summary }) => ({ name, summary })) });
+      // A domain alone, in any case ("breakrocks talk", "breakrocks Account"): its help; a command or a group of the same name wins above.
+      if (words.length === 1 && domainOf(path)) return writeAnswer(ctx, helpCommand, await execute(ctx, helpCommand, { command: [path] }));
       const moved = movedHelp(path);
       if (moved) return writeAnswer(ctx, helpCommand, { text: moved, commands: [] });
       throw unknownCommand(words);

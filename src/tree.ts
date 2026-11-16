@@ -614,19 +614,19 @@ export const PLACEMENTS: ReadonlyMap<string, Placement> = new Map(TABLE.trim().s
 }));
 
 /** The domains of the overview (breakrocks help <domain>): their groups, as the top-level help shows them. */
-export const DOMAINS: { name: string; title: string; groups: string[]; line: string }[] = [
-  { name: 'account', title: 'Account', groups: ['login', 'logout', 'whoami', 'me'], line: 'login, logout, whoami, me' },
-  { name: 'agents', title: 'Agents', groups: ['operator', 'agents', 'wallet'], line: 'operator, agents, wallet' },
-  { name: 'universes', title: 'Universes', groups: ['universes'], line: 'universes (favorite, private, pages, territory)' },
-  { name: 'content', title: 'Content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
-  { name: 'talk', title: 'Talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
-  { name: 'map', title: 'Map', groups: ['map', 'routes'], line: 'map (presence, live-share, nearby, locatable), routes' },
-  { name: 'events', title: 'Events', groups: ['events'], line: 'events' },
-  { name: 'governance', title: 'Governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
-  { name: 'look', title: 'Look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
-  { name: 'explore', title: 'Explore', groups: ['explore', 'accounts', 'connections', 'interests'], line: 'explore, accounts, connections, interests' },
-  { name: 'money', title: 'Money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
-  { name: 'tools', title: 'Tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
+export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
+  { name: 'account', groups: ['login', 'logout', 'whoami', 'me'], line: 'login, logout, whoami, me' },
+  { name: 'agents', groups: ['operator', 'agents', 'wallet'], line: 'operator, agents, wallet' },
+  { name: 'universes', groups: ['universes'], line: 'universes (favorite, private, pages, territory)' },
+  { name: 'content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
+  { name: 'talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
+  { name: 'map', groups: ['map', 'routes'], line: 'map (presence, live-share, nearby, locatable), routes' },
+  { name: 'events', groups: ['events'], line: 'events' },
+  { name: 'governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
+  { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
+  { name: 'explore', groups: ['explore', 'accounts', 'connections', 'interests'], line: 'explore, accounts, connections, interests' },
+  { name: 'money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
+  { name: 'tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
 ];
 
 /** The summary of a group or a subgroup in the lists (breakrocks help <group>, the completion). */

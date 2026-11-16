@@ -5,6 +5,21 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-16
+
+### Changed
+
+- The top-level help shows the domains in lower case under a line `Domains (breakrocks <domain>, or breakrocks help
+  <domain>):`, so that they no longer read as commands.
+
+### Added
+
+- A domain typed as a command shows its help, in any case (`breakrocks talk`, `breakrocks Account`); a command or a
+  group of the same name wins (`agents`, `universes`, `map`, `events`, `governance`, `look`, `explore`: `breakrocks
+  help <domain>` shows the domain).
+- `UNKNOWN_COMMAND` names the domain first when the unknown command starts with one, ignoring case (`Did you mean the
+  domain "account"? breakrocks help account.`; `--json`: `domain`).
+
 ## [0.27.0] - 2026-11-16
 
 Specs v125.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated).
