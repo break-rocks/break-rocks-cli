@@ -9,8 +9,8 @@ type Ref = { universe: string; name: string; version?: number };
 const ref = (t: Ref) => `${t.universe}/${t.name}${t.version ? ` v${t.version}` : ''}`;
 
 export const themesGallery = apiCommand({
-  name: 'themes gallery', summary: 'The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day)',
-  description: 'The text groups the themes by section (COLLECTION_<field>, UNIVERSAL, MOST_USED) under a header naming the columns (version, field, title typeface, image slots filled, screenshots, universes and accounts using it, the palette of the variant, as swatches in a truecolor terminal, * starred); a theme of an earlier section is not listed again ("also in MOST_USED" on its first row); the next page is told as a command line (--all). --json: the answer as served, the cursor whole. --high-contrast keeps the AAA themes (7:1 for body text).',
+  name: 'themes gallery', summary: 'The themes offered in a universe (the gallery), not what is applied: see look appearance show. Its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day)',
+  description: 'The themes offered in a universe (the gallery), not what is applied: see look appearance show. The text groups the themes by section (COLLECTION_<field>, UNIVERSAL, MOST_USED) under a header naming the columns (version, field, title typeface, image slots filled, screenshots, universes and accounts using it, the palette of the variant, as swatches in a truecolor terminal, * starred); a theme of an earlier section is not listed again ("also in MOST_USED" on its first row); the next page is told as a command line (--all). --json: the answer as served, the cursor whole. --high-contrast keeps the AAA themes (7:1 for body text).',
   kind: 'query', op: 'themeCatalog', positionals: ['universe'], require: ['universe'], fixed: { order: 'GALLERY' },
   hide: ['collection', 'creator', 'query', 'use', 'variant'],
   extra: { night: { type: 'boolean', description: 'The night variant' }, day: { type: 'boolean', description: 'The day variant' } },

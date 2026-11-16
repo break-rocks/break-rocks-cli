@@ -9,7 +9,7 @@ import { CliError, EXIT, asCliError, usageError } from './errors.js';
 import { commandHelp, domainOf, groupHelp, isGroup, movedHelp } from './help.js';
 import { unknownCommand } from './commands/core.js';
 import { terminal, type Output } from './output.js';
-import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type AnyCommand } from './registry.js';
+import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, withDefaultAction, type AnyCommand } from './registry.js';
 import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
@@ -153,7 +153,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
   const colour = (tty: boolean | undefined) => colourEnabled({ env: io.env, tty: !!tty, json: options.includes('--json'), noColor: options.includes('--no-color') });
   setColour({ out: colour(io.tty?.out), err: colour(io.tty?.err), truecolor: truecolorEnabled(io.env) });
   try {
-    const { flags, tokens } = parseGlobals(argv);
+    const { flags, tokens: typed } = parseGlobals(argv);
+    const tokens = withDefaultAction(typed);
     json = flags.json;
     const words: string[] = [];
     for (const t of tokens) { if (t.startsWith('-') || words.length === MAX_WORDS) break; words.push(t); }

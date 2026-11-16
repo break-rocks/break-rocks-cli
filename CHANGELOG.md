@@ -5,6 +5,24 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-16
+
+### Added
+
+- `look appearance show <universe>`, also typed `look appearance <universe>` (the default action of the group, told in its
+  help): the appearance applied to a universe, resolved as the apps draw it, each value tagged with its origin (`set`,
+  `theme`, `trial`, `country`, `default`, `unknown`): the source (theme applied, appearance built or started from a theme
+  in Customize, 24 h trial, country theme, universal or field theme chosen by the platform, Socle), when and by whom when
+  the API says it, the accent and the character, the image (URLs, focal point, no image), the image display, the layout,
+  the sky, the logo or the monogram, the day and night palettes, the default colors of the universe, the typefaces, the
+  contrast level, the proposals pending and the command of the history. `--json`: the resolved object, an `origin` per
+  field. MCP tool `breakrocks_look_appearance_show`.
+
+### Changed
+
+- `look themes gallery`: its help says it lists the themes offered in a universe (the gallery), not what is applied, and
+  points to `look appearance show`.
+
 ## [0.29.0] - 2026-11-16
 
 ### Changed
