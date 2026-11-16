@@ -921,6 +921,16 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   `me data confirm <data request id>` (`confirmDataRequest`, confirmation: `--yes`) confirms it; like the other writes of My data it needs a
   recent sign-in (`RECENT_SIGN_IN_REQUIRED`: sign in again, then retry).
 
+### The colors of a universe name (0.33.0, specs v127.0.0)
+
+`specs/common` pinned on **v127.0.0** and `schema/api-v2` regenerated (comments only; D-402 a).
+- **`look appearance show`**: with a universal theme, the pages of the universe show the palette of the theme; the colors
+  computed from the name of the universe serve only its monogram and its address badges outside its pages. The line is now
+  `name colors (monogram, address badges): primary … accent … tint day … tint night …` (it no longer says the colors are
+  kept with a universal theme), the palettes are `day palette (the pages)` and `night palette (the pages)`, and the
+  monogram is drawn `on the name's primary` with a universal theme (or on Socle) and `on the theme's primary` with another
+  universe theme. `--json`: `logo.value.monogram.from` (`name` or `theme`); `universeColors` unchanged.
+
 ### Image links that open (0.32.0)
 
 - **`look appearance show`**, **`look themes show`**: an image of the API (`ThemeImage`, `Image`) is the folder of its
@@ -1024,7 +1034,7 @@ tools follow the format the platform accepts today (the backend's `validateTheme
   API nor the contract says). The source (the theme, inherited from a universe above, started from a theme of quick start,
   when and by whom from `Universe.appearanceApplied` since 0.31.0), the accent and the character, the image
   (banner and page URLs, focal point, or no image), the image display, the layout, the sky, the logo or the monogram, the
-  day and night palettes (swatches in a truecolor terminal), the typefaces, the contrast level, the proposals APPEARANCE and
+  day and night palettes of the pages (swatches in a truecolor terminal), the name colors of the monogram and the address badges, the typefaces, the contrast level, the proposals APPEARANCE and
   THEME pending and the command of the history. `--json`: the resolved object, `{ value, origin, note? }` per field. Reads
   `universe`, `theme(appliedIn)`, `appliedLayout`, `universeAppearanceHistory` (when the caller may) and `proposals`.
   `look themes gallery` lists the
@@ -1523,7 +1533,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v126.1.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v127.0.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the

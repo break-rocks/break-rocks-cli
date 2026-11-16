@@ -812,12 +812,15 @@ type Theme {
   official: Boolean!
   """
   Since v48.3.0: the page of a universe at the three breakpoints (a desktop, a tablet, a phone), in
-  both variants, generated at publication too; null for a theme published before and not drawn again.
+  both variants, generated at publication too; null for a theme published before and not drawn again. Since
+  v126.2.0, drawn with the background image shown through at the lowest page opacity, whatever imageShows (as every
+  screenshot of a theme, contracts/themes.md § The theme object); a card of quick start shows the one of the
+  breakpoint of the reader.
   """
   pageScreenshots: Screenshots
   """
   The 3 screenshots generated at publication (the page of a universe, a post, a conversation): night variant;
-  "screenshotsDay": day variant.
+  "screenshotsDay": day variant. Since v126.2.0, drawn with the background image shown through (as pageScreenshots).
   """
   screenshots: [String!]!
   """

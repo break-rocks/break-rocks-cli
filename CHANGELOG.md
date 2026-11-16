@@ -5,6 +5,20 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-16
+
+Specs v127.0.0 (`specs/common` pinned on that tag; D-402 a). `schema/api-v2` regenerated: comments only, no schema change.
+
+### Changed
+
+- `look appearance show`: with a universal theme, the pages of the universe show the palette of the theme and the colors
+  computed from its name serve only the monogram and the address badges. The line `universe colors: … kept with a
+  universal theme (contract)…` becomes `name colors (monogram, address badges): primary … accent … tint day … tint night
+  …`; the palettes are labelled `day palette (the pages)` and `night palette (the pages)`; the monogram is drawn `on the
+  name's primary` with a universal theme (or on Socle), `on the theme's primary` with another universe theme.
+  `--json`: `logo.value.monogram.from` (`name` or `theme`), the monogram of a universal theme on the primary of the name
+  (it was the primary of the theme).
+
 ## [0.32.0] - 2026-11-16
 
 ### Added
