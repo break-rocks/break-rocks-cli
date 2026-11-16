@@ -901,6 +901,16 @@ appearance from a look keeps its images: platform behavior, `themeRef` and `imag
   `me data confirm <data request id>` (`confirmDataRequest`, confirmation: `--yes`) confirms it; like the other writes of My data it needs a
   recent sign-in (`RECENT_SIGN_IN_REQUIRED`: sign in again, then retry).
 
+### Platform measures against a universe (0.27.0, specs v125.1.0)
+
+`specs/common` pinned on **v125.1.0** and `schema/api-v2` regenerated.
+- **`me measures`** (D-398) also lists the platform measures against a universe the account leads (its universe theme,
+  banner or a page removed) with `universe <key>`; such a measure is counted against no account, unless written against
+  the author of a page. `snippet` and `subjectWhere` are printed when set, such as the search words removed from a
+  universe (D-397). `--json` carries `universe`.
+- **`me measures appeal`**: a measure against a universe is appealed by its leadership, once whoever files it
+  (`PLATFORM_APPEAL_EXISTS`); another account gets `PLATFORM_APPEAL_LEADERSHIP_ONLY`.
+
 ### Author of the placed posts (0.24.0, specs v124.0.0)
 
 `specs/common` pinned on **v124.0.0** and `schema/api-v2` regenerated (15 SDL files: 220 queries, 353 mutations). The
@@ -1447,7 +1457,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v125.0.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v125.1.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
