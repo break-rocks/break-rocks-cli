@@ -3,7 +3,8 @@
 // again once, after the seconds it gives (Retry-After, at most 60); a GraphQL RATE_LIMITED whose
 // retryAt is within 60 seconds likewise. A refusal is a CliError with the code of the contract.
 import type { Context } from './context.js';
-import { CliError, EXIT, networkError, platformRefusal } from './errors.js';
+import { paintErr } from './colour.js';
+import { CliError, EXIT, networkError, platformRefusal, refusalSentence } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
 import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
 import { VERSION } from './version.js';
@@ -130,7 +131,7 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
         return graphql<T>(ctx, url, token, query, variables, true, partial, extra);
       }
     }
-    throw platformRefusal(code, first.message ?? code, { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });
+    throw platformRefusal(code, refusalSentence(code, first.message), { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });
   }
   if (!res.ok) throw platformRefusal(`HTTP_${res.status}`, `The API answered ${res.status}`, { status: res.status });
   return (body.data ?? {}) as T;
@@ -141,6 +142,9 @@ const DEGRADED = new WeakMap<Context, Map<string, Degraded>>();
 const WARNED = new WeakMap<Context, Set<string>>();
 const degradedOf = (ctx: Context) => { let m = DEGRADED.get(ctx); if (!m) DEGRADED.set(ctx, m = new Map()); return m; };
 
+/** Whether the backend refused "Type.field" in this run (an older contract): its null then means "not served", not "none". */
+export const unservedInRun = (ctx: Context, field: string): boolean => WARNED.get(ctx)?.has(field) ?? false;
+
 /** Says once per field, on stderr (with --json too), that the backend is behind this CLI and the field is null. */
 function warnUnserved(ctx: Context, degraded: Degraded): void {
   let warned = WARNED.get(ctx);
@@ -148,5 +152,5 @@ function warnUnserved(ctx: Context, degraded: Degraded): void {
   const fields = [...new Set(degraded.removed.map((r) => `${r.type}.${r.field}`))].filter((f) => !warned.has(f));
   if (!fields.length) return;
   for (const f of fields) warned.add(f);
-  ctx.notice(`The backend is behind this CLI (contract of specs ${CONTRACT.version ?? '?'}), likely by one minor version: the field${fields.length > 1 ? 's' : ''} ${fields.join(', ')} ${fields.length > 1 ? 'are' : 'is'} not served; null in the answer (breakrocks doctor tells more)`);
+  ctx.notice(paintErr.warn(`The backend is behind this CLI (contract of specs ${CONTRACT.version ?? '?'}), likely by one minor version: the field${fields.length > 1 ? 's' : ''} ${fields.join(', ')} ${fields.length > 1 ? 'are' : 'is'} not served; null in the answer (breakrocks doctor tells more)`));
 }

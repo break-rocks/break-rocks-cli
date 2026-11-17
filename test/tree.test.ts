@@ -4,7 +4,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SCHEMA as GENERATED } from '../src/api/schema.generated.js';
-import { toolName } from '../src/commands/core.js';
+import { DOMAIN_COLLISIONS, toolName } from '../src/commands/core.js';
+import { domainCollisions } from '../src/help.js';
 import { commandOfTool } from '../src/mcp/server.js';
 import { aliases, commands, findCommand, groupOf } from '../src/registry.js';
 import { DOMAINS, GROUP_SUMMARIES, PLACEMENTS } from '../src/tree.js';
@@ -18,7 +19,9 @@ describe('the top-level help', () => {
     expect(await h.run('help')).toBe(0);
     const text = h.lines[0];
     expect(text.split('\n').length).toBeLessThan(40);
-    for (const d of DOMAINS) expect(text).toContain(`${d.title}`);
+    expect(text).toContain('Domains (breakrocks <domain>, or breakrocks help <domain>):');
+    expect(text).not.toMatch(/^  [A-Z]/m);
+    for (const d of DOMAINS) expect(text).toContain(`  ${d.name} `);
     expect(text).toContain('breakrocks help <domain>');
     expect(text).toContain('breakrocks help <word>');
     expect(text).toContain('breakrocks help options');
@@ -98,6 +101,40 @@ describe('the help of a domain, a group, a word', () => {
     expect(await h.run('help', 'options')).toBe(0);
     expect(h.lines[0]).toContain('--json');
     expect(h.lines[0]).toContain('Exit codes');
+  });
+});
+
+describe('a domain typed as a command', () => {
+  it('shows the help of the domain, in any case', async () => {
+    const h = harness();
+    expect(await h.run('help', 'talk')).toBe(0);
+    const talk = h.lines[0];
+    expect(await h.run('talk')).toBe(0);
+    expect(await h.run('Talk')).toBe(0);
+    expect(h.lines.slice(1)).toEqual([talk, talk]);
+    expect(await h.run('Account')).toBe(0);
+    expect(await h.run('account')).toBe(0);
+    expect(h.lines[3]).toMatch(/^Domain account: login, logout, whoami, me\n/);
+    expect(h.lines[4]).toBe(h.lines[3]);
+    expect(await h.run('money', '--json')).toBe(0);
+    expect(last<{ commands: { name: string }[] }>(h).commands.map((c) => c.name)).toContain('gift-codes redeem');
+  });
+  it('leaves a command or a group of the same name first; help <domain> shows the domain', async () => {
+    expect(domainCollisions()).toEqual(DOMAIN_COLLISIONS);
+    const h = harness();
+    expect(await h.run('events')).toBe(0);
+    expect(h.lines[0]).toMatch(/^Universe events and relays\n/);
+    expect(await h.run('help', 'events')).toBe(0);
+    expect(h.lines[1]).toMatch(/^Domain events: events\n/);
+  });
+  it('is named in the hint of an unknown command, before the commands close to it', async () => {
+    const h = harness();
+    expect(await h.run('Account', 'nope')).toBe(2);
+    expect(h.errors.at(-1)).toBe('Error UNKNOWN_COMMAND: Unknown command "Account nope". Did you mean the domain "account"? breakrocks help account. breakrocks help <word> searches the commands.');
+    expect(await h.run('talk', 'nope', '--json')).toBe(2);
+    expect(last<{ error: Record<string, unknown> }>(h).error).toMatchObject({ code: 'UNKNOWN_COMMAND', domain: 'talk' });
+    expect(await h.run('accont')).toBe(2);
+    expect(h.errors.at(-1)).not.toContain('the domain');
   });
 });
 

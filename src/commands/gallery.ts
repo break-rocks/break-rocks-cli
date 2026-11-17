@@ -3,18 +3,14 @@
 // restoration. The writes offer --dry-run.
 import { apiCommand } from '../api/command.js';
 import { usageError } from '../errors.js';
+import { catalogText, commandLine, type CatalogPage } from '../theme/listing.js';
 
-type Item = { theme: { universe: string; name: string; version?: number }; reason?: string; starred?: boolean; variant?: string; palette?: string[]; universeCount?: number; accountCount?: number };
-const ref = (t: Item['theme']) => `${t.universe}/${t.name}${t.version ? ` v${t.version}` : ''}`;
-const catalogText = (r: unknown) => {
-  const p = r as { items?: Item[]; next?: string | null } | null;
-  if (!p?.items?.length) return '(none)';
-  return [...p.items.map((x) => `${x.starred ? '*' : ' '} ${ref(x.theme)}  ${x.variant ?? ''}  ${x.reason ?? ''}${x.palette?.length ? `  ${x.palette.join(' ')}` : ''}`), ...(p.next ? [`next: ${p.next}`] : [])].join('\n');
-};
+type Ref = { universe: string; name: string; version?: number };
+const ref = (t: Ref) => `${t.universe}/${t.name}${t.version ? ` v${t.version}` : ''}`;
 
 export const themesGallery = apiCommand({
-  name: 'themes gallery', summary: 'The theme gallery of a universe: its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day)',
-  description: 'Each theme comes with its reason (COLLECTION_<field>, UNIVERSAL, MOST_USED), its palette and whether you starred it. --high-contrast keeps the AAA themes (7:1 for body text).',
+  name: 'themes gallery', summary: 'The themes offered in a universe (the gallery), not what is applied: see look appearance show. Its field collection, then the universal one, then the most used (themeCatalog GALLERY; --high-contrast, --night or --day)',
+  description: 'The themes offered in a universe (the gallery), not what is applied: see look appearance show. The text groups the themes by section (COLLECTION_<field>, UNIVERSAL, MOST_USED) under a header naming the columns (version, field, title typeface, image slots filled, screenshots, universes and accounts using it, the palette of the variant, as swatches in a truecolor terminal, * starred); a theme of an earlier section is not listed again ("also in MOST_USED" on its first row); the next page is told as a command line (--all). --json: the answer as served, the cursor whole. --high-contrast keeps the AAA themes (7:1 for body text).',
   kind: 'query', op: 'themeCatalog', positionals: ['universe'], require: ['universe'], fixed: { order: 'GALLERY' },
   hide: ['collection', 'creator', 'query', 'use', 'variant'],
   extra: { night: { type: 'boolean', description: 'The night variant' }, day: { type: 'boolean', description: 'The day variant' } },
@@ -24,7 +20,7 @@ export const themesGallery = apiCommand({
     const { night, day, ...rest } = i;
     return { ...rest, ...(night ? { variant: 'NIGHT' } : day ? { variant: 'DAY' } : {}) };
   },
-  text: catalogText,
+  text: (r, input) => catalogText(r as CatalogPage, commandLine('themes gallery', input, ['universe']), input),
   examples: ['breakrocks look themes gallery %paris', 'breakrocks look themes gallery %paris --high-contrast --night --json'],
 });
 

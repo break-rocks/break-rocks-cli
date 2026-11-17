@@ -6,18 +6,23 @@ import { DOMAINS } from '../tree.js';
 import { bool, list, object, openObject, str } from '../schema.js';
 import { VERSION } from '../version.js';
 
+/** The domains that are also a command or a group (help.ts domainCollisions(), checked by test/tree.test.ts): the registry is not filled when this description is written. */
+export const DOMAIN_COLLISIONS = ['agents', 'universes', 'map', 'events', 'governance', 'look', 'explore'];
+
 type HelpResult = { text: string; commands: { name: string; summary: string }[] };
 
 /** The refusal of an unknown command, with the commands closest to it. */
 export function unknownCommand(words: readonly string[]) {
   const typed = words.join(' ');
   const close = suggestions(words);
-  return usageError('UNKNOWN_COMMAND', `Unknown command "${typed}".${close.length ? ` Did you mean ${close.map((c) => `"${c}"`).join(', ')}?` : ''} breakrocks help <word> searches the commands.`, { command: typed, suggestions: close });
+  // A domain typed as a command ("Account"): the domain first, then the commands close to it.
+  const domain = words[0] ? domainOf(words[0])?.name : undefined;
+  return usageError('UNKNOWN_COMMAND', `Unknown command "${typed}".${domain ? ` Did you mean the domain "${domain}"? breakrocks help ${domain}.` : ''}${close.length ? ` Did you mean ${close.map((c) => `"${c}"`).join(', ')}?` : ''} breakrocks help <word> searches the commands.`, { command: typed, ...(domain ? { domain } : {}), suggestions: close });
 }
 
 export const help: Command<{ command?: string[]; all?: boolean }, HelpResult> = {
   name: 'help', summary: 'Show the help of the CLI, of a domain, of a group or of a command, or search the commands',
-  description: `The overview shows the domains (${DOMAINS.map((d) => d.name).join(', ')}); breakrocks help <domain> their commands; breakrocks help <word> searches the names and the descriptions of the commands; breakrocks help options the options of every command; --all every command.`,
+  description: `The overview shows the domains (${DOMAINS.map((d) => d.name).join(', ')}); breakrocks help <domain> their commands, as breakrocks <domain> in any case (breakrocks talk, breakrocks Account) unless a command or a group has that name (${DOMAIN_COLLISIONS.join(', ')}: the command wins, breakrocks help <domain> shows the domain); breakrocks help <word> searches the names and the descriptions of the commands; breakrocks help options the options of every command; --all every command.`,
   examples: ['breakrocks help', 'breakrocks help talk', 'breakrocks help invite', 'breakrocks help agents create', 'breakrocks help --all', 'breakrocks help --json'],
   input: object({ command: list('The domain, the group, the command or the words to search'), all: bool('Every command') }),
   output: openObject({ text: str('The help as text'), commands: list('The commands it is about', openObject({ name: str('Its name'), summary: str('What it does') })) }),

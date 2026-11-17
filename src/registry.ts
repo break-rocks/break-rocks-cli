@@ -2,9 +2,10 @@
 // Schema of its input (options and positionals) and of its output, and its run. The help, --json,
 // `breakrocks schema <command>` and the MCP server (one tool per command) derive from it.
 import type { Context } from './context.js';
+import { paintErr } from './colour.js';
 import type { ExitCode } from './errors.js';
 import { assertValid, type ArgSpec, type JsonSchema, type ObjectSchema } from './schema.js';
-import { PLACEMENTS } from './tree.js';
+import { DEFAULT_ACTIONS, PLACEMENTS } from './tree.js';
 
 export type Command<I = Record<string, unknown>, O = unknown> = {
   /** Its words, the group first: "agents create", "whoami" (its path in the tree, src/tree.ts). */
@@ -30,8 +31,8 @@ export type Command<I = Record<string, unknown>, O = unknown> = {
   /** Left out of the MCP server (the server itself). */
   mcp?: false;
   run: (ctx: Context, input: I) => Promise<O> | O;
-  /** Its answer in plain text (default: the fields, one per line). */
-  text?: (result: O) => string;
+  /** Its answer in plain text (default: the fields, one per line); [input] the input of the command line (the next page told). */
+  text?: (result: O, input: I) => string;
   /** The exit code of an answer that is not a success (a report of problems): 0 by default. */
   exitCode?: (result: O) => ExitCode;
   /** What --quiet writes: the identifier created or read, nothing otherwise. */
@@ -98,11 +99,26 @@ export function findCommand(words: readonly string[]): { command: AnyCommand; re
   return undefined;
 }
 
+/**
+ * The words of a command line with the default action of a group put in (src/tree.ts DEFAULT_ACTIONS): "look appearance
+ * %lyon" → "look appearance show %lyon", when the word after the group is not an option, a command or a subgroup.
+ */
+export function withDefaultAction(tokens: readonly string[]): string[] {
+  for (const [group, action] of Object.entries(DEFAULT_ACTIONS)) {
+    const words = group.split(' ');
+    if (tokens.length <= words.length || words.some((w, i) => tokens[i] !== w)) continue;
+    const next = tokens[words.length];
+    if (next.startsWith('-') || COMMANDS.some((c) => c.name === `${group} ${next}` || c.name.startsWith(`${group} ${next} `))) continue;
+    return [...words, action, ...tokens.slice(words.length)];
+  }
+  return [...tokens];
+}
+
 /** The commands under the path [prefix] (a group or a subgroup): "universes private" → its commands. */
 export const commandsUnder = (prefix: string) => COMMANDS.filter((c) => c.name.startsWith(`${prefix} `));
 
 /** The one-line notice of a former name, on stderr. */
-export const deprecationNotice = (alias: string, command: AnyCommand) => `Warning: "breakrocks ${alias}" is deprecated, use "breakrocks ${command.name}".`;
+export const deprecationNotice = (alias: string, command: AnyCommand) => paintErr.warn(`Warning: "breakrocks ${alias}" is deprecated, use "breakrocks ${command.name}".`);
 
 /** The input schema of a command as an MCP client sees it: its own, with "yes" when it may ask a confirmation. */
 export function toolInputSchema(c: AnyCommand): ObjectSchema {

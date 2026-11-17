@@ -5,7 +5,7 @@
 // reports; the layouts likewise; the drafts of the studio.
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { accountIdOf, apiCommand, refOf } from '../api/command.js';
+import { accountIdOf, apiCommand, pages, refOf } from '../api/command.js';
 import { outputSchema, selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
 import { endpoints } from '../endpoints.js';
@@ -19,6 +19,8 @@ import { checkTheme, fileFor, imageRefs, imagesBeside, isFileReference, withoutI
 import { isZipName, openArchive } from '../theme/bundle.js';
 import { isSystemFile, writeZip } from '../theme/zip.js';
 import { WIDGET_REGISTRY, checkLayout, kindOfLayout } from '../theme/design.js';
+import { catalogText, commandLine, themeText, withLinks, type CatalogPage, type ThemeServed } from '../theme/listing.js';
+import { SIGNED_LINKS_HELP } from '../theme/media-links.js';
 
 const THEME = selection('Theme', 2);
 /** A theme or a layout: %universe/name. */
@@ -27,10 +29,10 @@ type Ref = { universe: string; name: string };
 const ref = (value: string, what = 'theme') => refOf(value, what) as Ref;
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-type CatalogItem = { theme: { universe: string; name: string; version: number }; reason?: string; universeCount: number; accountCount: number; hasImage?: boolean | null; look?: { name?: string } | null };
-export const themesList: Command<{ field?: string; creator?: string; order?: string; universe?: string; query?: string; variant?: string; use?: string; group?: string; withImage?: boolean; withoutImage?: boolean; after?: string }, unknown> = {
+type ListInput = { field?: string; creator?: string; order?: string; universe?: string; query?: string; variant?: string; use?: string; group?: string; withImage?: boolean; withoutImage?: boolean; after?: string; all?: boolean; max?: number };
+export const themesList: Command<ListInput, unknown> = {
   name: 'themes list', summary: 'The theme catalog: by field, creator, order, universe, text; quick start and the country collection (themeCatalog)',
-  description: 'Since specs v101.13.0 (D-314): --order QUICK_START lists every theme of %root that quick start offers for --universe (the 30 looks and the theme of its country first), filtered by --group LOOK|COUNTRY|OFFICIAL|UNIVERSAL, --field, --with-image or --without-image; --order COUNTRY the country collection only (v101.10.0). Each item tells its reason (LOOK, COUNTRY, OFFICIAL, COLLECTION_<field>, UNIVERSAL, MOST_USED…) and whether the theme has a background image.',
+  description: 'Since specs v101.13.0 (D-314): --order QUICK_START lists every theme of %root that quick start offers for --universe (the 30 looks and the theme of its country first), filtered by --group LOOK|COUNTRY|OFFICIAL|UNIVERSAL, --field, --with-image or --without-image; --order COUNTRY the country collection only (v101.10.0). Each item tells its reason (LOOK, COUNTRY, OFFICIAL, COLLECTION_<field>, UNIVERSAL, MOST_USED…) and whether the theme has a background image. The text groups the themes by reason under a header naming the columns (version, field, title typeface, image slots filled, screenshots, universes and accounts using it, the palette of the variant, as swatches in a truecolor terminal); a theme of an earlier section is not listed again ("also in …" on its first row); the next page is told as a command line (--all follows the pages, bounded by --max).',
   examples: ['breakrocks look themes list --field SPORT', 'breakrocks look themes list --creator @gabriel --order NEWEST --json', 'breakrocks look themes list --order QUICK_START --universe %paris --group COUNTRY', 'breakrocks look themes list --order QUICK_START --universe %paris --with-image --query stade'],
   input: object({
     field: str('A field: its collection first', { enum: ['CULTURE', 'ENTERTAINMENT', 'EVERYDAY_LIFE', 'GAMES', 'PLACES', 'POLITICS', 'SCIENCE', 'SPORT', 'TECH', 'WORK'] }),
@@ -39,15 +41,17 @@ export const themesList: Command<{ field?: string; creator?: string; order?: str
     use: str('PERSONAL or UNIVERSE', { enum: ['PERSONAL', 'UNIVERSE'] }),
     group: str('With QUICK_START: one group of quick start', { enum: ['LOOK', 'COUNTRY', 'OFFICIAL', 'UNIVERSAL'] }),
     withImage: bool('With QUICK_START: the themes with a background image only'), withoutImage: bool('With QUICK_START: the themes without a background image only'),
-    after: str('The cursor of the next page'),
+    after: str('The cursor of the next page'), all: bool('Follow the pages to the end (bounded by --max)'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }),
   }),
   output: outputSchema('ThemeCatalogPage', 2),
   run: async (ctx, i) => {
     if (i.withImage && i.withoutImage) throw usageError('INVALID_INPUT', '--with-image or --without-image, not both');
-    return (await api<{ themeCatalog: unknown }>(ctx, `query($c: UniverseField, $cr: ID, $o: ThemeCatalogOrder, $u: String, $q: String, $v: ThemeVariant, $use: ThemeUse, $g: ThemeCatalogGroup, $wi: Boolean, $after: String) { themeCatalog(collection: $c, creator: $cr, order: $o, universe: $u, query: $q, variant: $v, use: $use, group: $g, withImage: $wi, after: $after) ${selection('ThemeCatalogPage', 2)} }`,
-      { c: i.field ?? null, cr: i.creator ? await accountIdOf(ctx, i.creator) : null, o: i.order ?? null, u: i.universe ?? null, q: i.query ?? null, v: i.variant ?? null, use: i.use ?? null, g: i.group ?? null, wi: i.withImage ? true : i.withoutImage ? false : null, after: i.after ?? null })).themeCatalog;
+    const document = `query($c: UniverseField, $cr: ID, $o: ThemeCatalogOrder, $u: String, $q: String, $v: ThemeVariant, $use: ThemeUse, $g: ThemeCatalogGroup, $wi: Boolean, $after: String) { themeCatalog(collection: $c, creator: $cr, order: $o, universe: $u, query: $q, variant: $v, use: $use, group: $g, withImage: $wi, after: $after) ${selection('ThemeCatalogPage', 2)} }`;
+    const variables = { c: i.field ?? null, cr: i.creator ? await accountIdOf(ctx, i.creator) : null, o: i.order ?? null, u: i.universe ?? null, q: i.query ?? null, v: i.variant ?? null, use: i.use ?? null, g: i.group ?? null, wi: i.withImage ? true : i.withoutImage ? false : null, after: i.after ?? null };
+    if (i.all) return pages(ctx, document, 'themeCatalog', variables, i.max ?? 10);
+    return (await api<{ themeCatalog: unknown }>(ctx, document, variables)).themeCatalog;
   },
-  text: (r) => ((r as { items: CatalogItem[] }).items.map((x) => `${x.theme.universe}/${x.theme.name} v${x.theme.version}  ${x.reason ?? ''}${x.look?.name ? ` (look ${x.look.name})` : ''}  ${x.hasImage ? 'with image' : 'without image'}  ${x.universeCount} universes, ${x.accountCount} accounts`).join('\n') || '(none)'),
+  text: (r, input) => catalogText(r as CatalogPage, commandLine('themes list', input as Record<string, unknown>, []), input as Record<string, unknown>),
 };
 
 async function themeOf(ctx: Context, value: string, appliedIn?: string) {
@@ -57,37 +61,14 @@ async function themeOf(ctx: Context, value: string, appliedIn?: string) {
   return t;
 }
 
-export const themesShow: Command<{ theme: string; appliedIn?: string }, unknown> = {
-  name: 'themes show', summary: 'The page of a theme: screenshots, palette, typefaces, images, origin, use', examples: ['breakrocks look themes show %test-village-multisport/sport-gabriel-04'],
-  input: object({ theme: str('The theme: %universe/name', { pattern: REF }), appliedIn: str('The universe it is applied in (a non-member reads it there)') }, ['theme']),
+export const themesShow: Command<{ theme: string; appliedIn?: string; signedLinks?: boolean }, unknown> = {
+  name: 'themes show', summary: 'The page of a theme: screenshots, palette, typefaces, images, origin, use',
+  description: 'The text: its universe, version, collection, description, creator, dates, contrast level, typefaces, its palettes night and day (swatches in a truecolor terminal), each image slot with the URLs of its variants (or removed), its screenshots and those of the page of a universe (themes shots downloads them), the universes and accounts using it. Each image slot: the links that open (<url>/<width>.webp, the 1080 and the largest), under "links" in --json. --fields picks fields of the JSON.', examples: ['breakrocks look themes show %test-village-multisport/sport-gabriel-04'],
+  input: object({ theme: str('The theme: %universe/name', { pattern: REF }), appliedIn: str('The universe it is applied in (a non-member reads it there)'), signedLinks: bool(SIGNED_LINKS_HELP) }, ['theme']),
   output: outputSchema('Theme', 1), args: { positionals: ['theme'] },
-  run: (ctx, { theme, appliedIn }) => themeOf(ctx, theme, appliedIn),
+  run: async (ctx, { theme, appliedIn, signedLinks }) => withLinks(await themeOf(ctx, theme, appliedIn) as ThemeServed, signedLinks),
   text: (r) => themeText(r as ThemeServed),
 };
-
-type ServedImage = { url?: string | null; urlNight?: string | null; widths?: number[]; widthsNight?: number[]; removed?: boolean | null } | null;
-type ThemeServed = {
-  universe?: string | null; name: string; version?: number; description?: string | null; collection?: string | null; official?: boolean; format?: string; contrastLevel?: string;
-  creator?: { handle?: string } | null; typography?: { title?: string | null } | null; corrected?: string[]; universeCount?: number; accountCount?: number; document?: unknown;
-  imageSlots?: Record<string, ServedImage>; screenshots?: string[]; screenshotsDay?: string[]; pageScreenshots?: Record<string, { url?: string | null; urlNight?: string | null } | null> | null;
-};
-/** The page of a theme in text: what it is, its image slots served (their widths), its screenshots, how its image shows. */
-export function themeText(t: ThemeServed): string {
-  let doc: Record<string, unknown> = {};
-  try { doc = (typeof t.document === 'string' ? JSON.parse(t.document) : t.document ?? {}) as Record<string, unknown>; } catch { /* kept empty */ }
-  const appearance = isObject(doc.appearance) ? doc.appearance : undefined;
-  const slots = Object.entries(t.imageSlots ?? {}).filter(([k, v]) => v && (k === 'page' || k === 'pageHeader' || v.url || v.urlNight));
-  const shots = Object.entries(t.pageScreenshots ?? {}).filter(([, v]) => v);
-  return [
-    `${t.universe ?? ''}/${t.name} v${t.version ?? '?'}${t.official ? ' (official)' : ''}${t.collection ? `  ${t.collection}` : ''}${t.creator?.handle ? `  by @${t.creator.handle}` : ''}`,
-    ...(t.description ? [`  ${t.description}`] : []),
-    `  typeface ${t.typography?.title ?? '?'}  contrast ${t.contrastLevel ?? '?'}  ${t.universeCount ?? 0} universes, ${t.accountCount ?? 0} accounts`,
-    `  image of the page shows ${appearance && typeof appearance.imageShows === 'string' ? appearance.imageShows : 'subtle'}${appearance?.sky ? `, sky ${String(appearance.sky)}` : ''}`,
-    ...slots.map(([k, v]) => `  slot ${k}: ${v!.removed ? 'removed by the platform team' : `${v!.url ? `day ${v!.url} (${(v!.widths ?? []).join(', ') || 'no width yet'})` : 'no day image'}${v!.urlNight ? `, night ${v!.urlNight} (${(v!.widthsNight ?? []).join(', ') || 'no width yet'})` : ''}`}`),
-    `  screenshots: ${t.screenshots?.length ?? 0} night, ${t.screenshotsDay?.length ?? 0} day; page of a universe: ${shots.length ? shots.map(([bp]) => bp).join(', ') : 'none yet'} (theme shots downloads them)`,
-    ...((t.corrected ?? []).length ? [`  corrected at publication: ${t.corrected!.join(', ')}`] : []),
-  ].join('\n');
-}
 
 /** [doc] with each reference of [values] (a place and a variant: "page.day", "wordmark") replaced. */
 export function replaceRefs(doc: Record<string, unknown>, values: Map<string, string>): Record<string, unknown> {

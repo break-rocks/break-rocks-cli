@@ -1,6 +1,7 @@
 // breakrocks mcp: the MCP server on stdio, until the client closes it.
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from '../mcp/server.js';
+import { setColour } from '../colour.js';
 import { stderrOnly } from '../output.js';
 import type { Command } from '../registry.js';
 import { object } from '../schema.js';
@@ -13,6 +14,8 @@ export const mcpCommand: Command<Record<string, never>, undefined> = {
   run: async (ctx) => {
     // The commands it serves call the network (README § Proxy): its settings apply to the whole server.
     await ctx.io.configureNetwork?.(ctx.network());
+    // Never a colour in what the tools answer (stdout is the protocol).
+    setColour({ out: false, err: false });
     const server = createServer({ ...ctx.io, out: stderrOnly, interactive: false }, { profile: ctx.flags.profile, env: ctx.flags.env, agent: ctx.agentName });
     // Until the client closes the connection, or stdin ends (the client went away).
     const closed = new Promise<void>((resolve) => {

@@ -743,6 +743,29 @@ type TimeColumn {
 }
 
 """
+Who applied the appearance of a universe and when (Universe.appearanceApplied, since v126.1.0;
+contracts/themes.md § Customize, Who applied the appearance). Public to every reader of the universe, as the creator
+of its theme already is in the theme catalog (Theme.creator).
+"""
+type AppliedAppearance {
+  """
+  When its universe theme became the universe theme: applied at once, adopted by a proposal, restored from the
+  appearance history, applied after a trial of 24 hours, or set by the social platform.
+  """
+  appliedAt: AWSDateTime!
+  """
+  The account that applied it at once or restored it, or the author of the proposal adopted; null when the social
+  platform set it (a country theme).
+  """
+  appliedBy: AccountRef
+  """
+  The proposal of kind APPEARANCE (or THEME) adopted that set it; null when applied at once or set by the social
+  platform.
+  """
+  proposalId: ID
+}
+
+"""
 A universe: a place where posts are written, named by its address ("%paris"). themeRef: its universe theme,
 its own or of its nearest universe above that has one (themeOf), or Socle; imageOf, watermarkOf, bannerOf: the
 universe the image (its logo), the watermark and the banner come from; description and image: its own. A
@@ -1134,9 +1157,17 @@ type Universe {
   """
   territory: Territory
   """
-  The universe its theme comes from; null when its own.
+  The universe its theme comes from; null when its own. Since v126.1.0, written as the contract: null when the
+  universe has a universe theme of its own (applied, adopted, or a country theme), and when it shows Socle or the
+  field theme because no universe above it has a universe theme; never the address of the universe itself.
   """
   themeOf: String
+  """
+  Since v126.1.0: who applied the appearance of the universe and when (AppliedAppearance); null when the universe has
+  no universe theme of its own (themeOf not null, Socle or the field theme). Readable by every reader of the universe
+  (its members only for a private universe, as its other fields).
+  """
+  appearanceApplied: AppliedAppearance
   """
   The theme, as a reference (a removed theme: Socle).
   """
@@ -2058,7 +2089,9 @@ input UniverseIdentityInput {
 """
 A part of a universe to remove (P-5: clear instead of removeX): its banner, the night variant of its
 banner, its image (the logo), its watermark (setUniverseIdentity, a proposal of kind SHOWCASE), its
-universe territory (setUniverseTerritory, a proposal of kind TERRITORY).
+universe territory (setUniverseTerritory, a proposal of kind TERRITORY), since v126.0.0 (D-401) the image of an
+appearance (UniverseAppearanceInput.clear only, in applyUniverseAppearance, buildUniverseAppearance and a proposal of kind
+APPEARANCE: "No image", which keeps a theme started from quick start; ignored elsewhere).
 """
 enum UniverseIdentityPart {
   BANNER
@@ -2066,6 +2099,7 @@ enum UniverseIdentityPart {
   LOGO
   WATERMARK
   TERRITORY
+  APPEARANCE_IMAGE
 }
 
 """

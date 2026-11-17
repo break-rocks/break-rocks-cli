@@ -1,5 +1,6 @@
 // whoami, usage and capabilities: who the profile is, what it used, what it may do.
 import { selection } from '../api/graphql.js';
+import { paint } from '../colour.js';
 import type { Context } from '../context.js';
 import { CliError } from '../errors.js';
 import type { Command } from '../registry.js';
@@ -72,8 +73,8 @@ export const whoami: Command<Record<string, never>, WhoamiResult> = {
     return { actor: current.kind === 'agent' ? 'delegated-agent' : 'operator', profile: ctx.profileName, env: at.env, cell: at.cell, account: me, ...(current.agentId ? { agentId: current.agentId } : {}), session: { sessionId: current.sessionId, expiresAt: current.expiresAt } };
   },
   text: (r) => [
-    `${r.actor === 'delegated-agent' ? `delegated agent ${r.agentId} of ` : ''}@${r.account.handle} (${r.account.kind}, ${r.account.id})`,
-    `${r.env}, cell ${r.cell}, profile ${r.profile}`,
+    `${r.actor === 'delegated-agent' ? `delegated agent ${paint.dim(String(r.agentId))} of ` : ''}${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.kind}, ${r.account.id})`)}`,
+    paint.dim(`${r.env}, cell ${r.cell}, profile ${r.profile}`),
     ...(r.actor === 'human' ? [`plan ${r.subscription ? `${r.subscription.tier} (${r.subscription.status}) until ${r.subscription.paidUntil}` : r.account.paidTier ?? 'free'}`, r.residences?.length ? `resident of ${r.residences.map((p) => p.universe).join(', ')}` : 'resident of no universe'] : []),
     ...(r.account.paidUntil && r.actor !== 'human' ? [`paid until ${r.account.paidUntil}`] : []),
     `session until ${r.session.expiresAt}${r.session.signInAgainBy ? ` (renewed on its own), sign in again by ${r.session.signInAgainBy}` : ''}`,

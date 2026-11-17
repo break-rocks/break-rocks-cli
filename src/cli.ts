@@ -6,14 +6,15 @@ import { rememberUse } from './completion/model.js';
 import { isEnvironment } from './config.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from './context.js';
 import { CliError, EXIT, asCliError, usageError } from './errors.js';
-import { commandHelp, groupHelp, isGroup, movedHelp } from './help.js';
+import { commandHelp, domainOf, groupHelp, isGroup, movedHelp } from './help.js';
 import { unknownCommand } from './commands/core.js';
 import { terminal, type Output } from './output.js';
-import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, type AnyCommand } from './registry.js';
+import { MAX_WORDS, commandsUnder, deprecationNotice, execute, findCommand, withDefaultAction, type AnyCommand } from './registry.js';
 import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
 import { applyNetwork, redactText } from './network.js';
+import { colourEnabled, highlight, paintErr, setColour, truecolorEnabled } from './colour.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
 export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tokens: string[] } {
@@ -32,6 +33,7 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--json': flags.json = true; break;
       case '--quiet': case '-q': flags.quiet = true; break;
       case '--yes': case '-y': flags.yes = true; break;
+      case '--no-color': flags.noColor = true; break;
       case '--help': case '-h': flags.help = true; break;
       // --version after a command is its own option (theme publish --version), before one the version of the CLI.
       case '--version': if (tokens.some((x) => !x.startsWith('-'))) tokens.push(t); else flags.version = true; break;
@@ -115,11 +117,12 @@ export function defaultIo(out: Output = terminal): Io {
     now: () => Date.now(), sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     readStdin: async () => { const chunks: Buffer[] = []; for await (const c of process.stdin) chunks.push(c as Buffer); return Buffer.concat(chunks).toString('utf8'); },
     configureNetwork: applyNetwork,
+    tty: { out: !!process.stdout.isTTY, err: !!process.stderr.isTTY },
   };
 }
 
 /** Writes the answer of [command] as the global options ask, and answers its exit code. */
-export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown): number {
+export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown, input: Record<string, unknown> = {}): number {
   const { out } = ctx.io;
   const { flags } = ctx;
   if (result === undefined) return command.exitCode?.(result) ?? EXIT.OK;
@@ -128,7 +131,7 @@ export function writeAnswer(ctx: Context, command: AnyCommand, result: unknown):
     if (id !== undefined && !flags.json) out.line(id);
     else if (flags.json) out.json(id === undefined ? selectFields(result, flags.fields) : { id });
   } else if (flags.json) out.json(selectFields(result, flags.fields));
-  else out.line(flags.fields ? renderText(selectFields(result, flags.fields)) : command.text ? command.text(result) : renderText(result));
+  else out.line(highlight(flags.fields ? renderText(selectFields(result, flags.fields)) : command.text ? command.text(result, input) : renderText(result)));
   return command.exitCode?.(result) ?? EXIT.OK;
 }
 
@@ -137,7 +140,7 @@ export function writeError(out: Output, json: boolean, error: CliError): number 
   // A proxy URL, its credentials, never written (README § Proxy).
   const message = redactText(error.message);
   if (json) out.json({ error: { ...error.toJSON().error, message } });
-  else out.error(`Error ${error.code}: ${message}`);
+  else out.error(`${paintErr.error('Error')} ${paintErr.code(error.code)}${paintErr.error(':')} ${message}`);
   return error.exit;
 }
 
@@ -145,8 +148,13 @@ export function writeError(out: Output, json: boolean, error: CliError): number 
 export async function run(argv: readonly string[], io: Io): Promise<number> {
   if (argv[0] === '__complete') return runComplete(argv.slice(1), io);
   let json = argv.includes('--json');
+  // The colours of this run, before anything is written (a refusal of the command line too).
+  const options = argv.slice(0, argv.includes('--') ? argv.indexOf('--') : undefined);
+  const colour = (tty: boolean | undefined) => colourEnabled({ env: io.env, tty: !!tty, json: options.includes('--json'), noColor: options.includes('--no-color') });
+  setColour({ out: colour(io.tty?.out), err: colour(io.tty?.err), truecolor: truecolorEnabled(io.env) });
   try {
-    const { flags, tokens } = parseGlobals(argv);
+    const { flags, tokens: typed } = parseGlobals(argv);
+    const tokens = withDefaultAction(typed);
     json = flags.json;
     const words: string[] = [];
     for (const t of tokens) { if (t.startsWith('-') || words.length === MAX_WORDS) break; words.push(t); }
@@ -159,6 +167,8 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
       // A group or a subgroup alone: its help ("breakrocks universes private").
       const path = words.join(' ');
       if (isGroup(path)) return writeAnswer(ctx, helpCommand, { text: groupHelp(path), commands: commandsUnder(path).map(({ name, summary }) => ({ name, summary })) });
+      // A domain alone, in any case ("breakrocks talk", "breakrocks Account"): its help; a command or a group of the same name wins above.
+      if (words.length === 1 && domainOf(path)) return writeAnswer(ctx, helpCommand, await execute(ctx, helpCommand, { command: [path] }));
       const moved = movedHelp(path);
       if (moved) return writeAnswer(ctx, helpCommand, { text: moved, commands: [] });
       throw unknownCommand(words);
@@ -171,7 +181,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     const input = parseCommandLine(command.input, command.args ?? {}, rest);
     if (!command.offline) await io.configureNetwork?.(ctx.network());
     const result = await execute(ctx, command, input);
-    const exit = writeAnswer(ctx, command, result);
+    const exit = writeAnswer(ctx, command, result, input);
     if (exit === EXIT.OK) rememberUse(ctx, command, input, result);
     return exit;
   } catch (error) {

@@ -264,7 +264,7 @@ describe('the theme catalog and the page of a theme', () => {
     const { h, calls } = scripted({ themeCatalog: () => ({ items: [item], next: null }) });
     expect(await h.run('themes', 'list', '--order', 'QUICK_START', '--universe', '%paris', '--group', 'COUNTRY', '--with-image')).toBe(0);
     expect(calls[0].variables).toMatchObject({ o: 'QUICK_START', u: '%paris', g: 'COUNTRY', wi: true });
-    expect(h.lines.at(-1)).toBe('%root/belgique v2  COUNTRY  with image  3 universes, 0 accounts');
+    expect(h.lines.at(-1)!.split('\n').slice(1)).toEqual(['COUNTRY (1)', '  %root/belgique  v2   -      ?         img     0      3     0']);
     expect(await h.run('themes', 'list', '--order', 'QUICK_START', '--universe', '%paris', '--without-image', '--json')).toBe(0);
     expect(calls[1].variables).toMatchObject({ wi: false, g: null });
     expect(await h.run('themes', 'list', '--with-image', '--without-image', '--json')).toBe(2);
@@ -278,11 +278,9 @@ describe('the theme catalog and the page of a theme', () => {
     };
     const { h } = scripted({ theme: () => theme });
     expect(await h.run('themes', 'show', '%paris/stade-nuit')).toBe(0);
-    expect(h.all()).toContain('%paris/stade-nuit v3  SPORT  by @alice');
-    expect(h.all()).toContain('image of the page shows through, sky band');
-    expect(h.all()).toContain('slot page: day https://media.example/posts/u1 (2160, 1080), night https://media.example/posts/u2 (2160)');
-    expect(h.all()).toContain('screenshots: 3 night, 3 day; page of a universe: desktop, phone');
-    expect(h.all()).toContain('corrected at publication: night.text');
+    for (const line of ['%paris/stade-nuit v3\n', '  collection     SPORT\n', '  creator        @alice\n', '  page image     shows through, sky band\n',
+      '    page                day https://media.example/posts/u1/1080.webp (2160, 1080)\n                        day largest https://media.example/posts/u1/2160.webp\n                        night https://media.example/posts/u2/2160.webp (2160)\n',
+      '  screenshots night (3)\n    a\n', '    desktop day x  night y\n    phone   day z\n', "breakrocks look themes shots '%paris/stade-nuit' --out <folder>", 'corrected at publication: night.text']) expect(h.all()).toContain(line);
   });
 });
 
@@ -360,7 +358,7 @@ describe('the help', () => {
     const h = harness();
     await h.run('help');
     expect(h.lines[0]).not.toContain('moderation ban');
-    expect(h.lines[0]).toContain('Governance  governance, proposals, jury, moderation');
+    expect(h.lines[0]).toContain('governance  governance, proposals, jury, moderation');
     await h.run('help', 'governance');
     expect(h.lines[1]).toContain('moderation ban');
   });

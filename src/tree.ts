@@ -482,9 +482,10 @@ messages reply-thread | = | Reply in the thread of a message
 messages delete | = | Delete a message for everyone
 themes list | look themes list | The theme catalog
 themes show | look themes show | The page of a theme
-themes gallery | look themes gallery | The theme gallery of a universe
+themes gallery | look themes gallery | The themes offered in a universe, not applied
 universes appearance-history | look appearance history | The appearance history of a universe
 universes appearance-restore | look appearance restore | Restore an appearance of the history
+appearance show | look appearance show | The appearance applied to a universe
 appearance looks | look appearance looks | The looks of quick start
 appearance palette | look appearance palette | The candidate colors of an image
 appearance build | look appearance build | Build an appearance from gestures
@@ -613,20 +614,26 @@ export const PLACEMENTS: ReadonlyMap<string, Placement> = new Map(TABLE.trim().s
   return [name, { path: path === '=' ? name : path, summary }];
 }));
 
+/**
+ * The default action of a group: "breakrocks look appearance %lyon" runs "look appearance show %lyon" (a word after the
+ * group that is neither a command nor a subgroup of it, nor an option).
+ */
+export const DEFAULT_ACTIONS: Record<string, string> = { 'look appearance': 'show' };
+
 /** The domains of the overview (breakrocks help <domain>): their groups, as the top-level help shows them. */
-export const DOMAINS: { name: string; title: string; groups: string[]; line: string }[] = [
-  { name: 'account', title: 'Account', groups: ['login', 'logout', 'whoami', 'me'], line: 'login, logout, whoami, me' },
-  { name: 'agents', title: 'Agents', groups: ['operator', 'agents', 'wallet'], line: 'operator, agents, wallet' },
-  { name: 'universes', title: 'Universes', groups: ['universes'], line: 'universes (favorite, private, pages, territory)' },
-  { name: 'content', title: 'Content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
-  { name: 'talk', title: 'Talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
-  { name: 'map', title: 'Map', groups: ['map', 'routes'], line: 'map (presence, live-share, nearby, locatable), routes' },
-  { name: 'events', title: 'Events', groups: ['events'], line: 'events' },
-  { name: 'governance', title: 'Governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
-  { name: 'look', title: 'Look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
-  { name: 'explore', title: 'Explore', groups: ['explore', 'accounts', 'connections', 'interests'], line: 'explore, accounts, connections, interests' },
-  { name: 'money', title: 'Money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
-  { name: 'tools', title: 'Tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
+export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
+  { name: 'account', groups: ['login', 'logout', 'whoami', 'me'], line: 'login, logout, whoami, me' },
+  { name: 'agents', groups: ['operator', 'agents', 'wallet'], line: 'operator, agents, wallet' },
+  { name: 'universes', groups: ['universes'], line: 'universes (favorite, private, pages, territory)' },
+  { name: 'content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
+  { name: 'talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
+  { name: 'map', groups: ['map', 'routes'], line: 'map (presence, live-share, nearby, locatable), routes' },
+  { name: 'events', groups: ['events'], line: 'events' },
+  { name: 'governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
+  { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
+  { name: 'explore', groups: ['explore', 'accounts', 'connections', 'interests'], line: 'explore, accounts, connections, interests' },
+  { name: 'money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
+  { name: 'tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
 ];
 
 /** The summary of a group or a subgroup in the lists (breakrocks help <group>, the completion). */
@@ -659,7 +666,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   events: 'Universe events and relays', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
   look: 'Themes, appearance, layouts and the studio', 'look themes': 'Themes: catalog, offline tools, publish', 'look personal': 'Your personal theme',
-  'look appearance': 'The appearance editor of a universe', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',
+  'look appearance': 'The appearance of a universe: what is applied, the editor', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',
   explore: 'Discovery, search and recommendations', accounts: 'Accounts: read, follow, block, mute', connections: 'Connections between accounts', interests: 'Your interest profile',
   subscription: 'The paid tiers of the account', 'subscription renewal': 'The automatic renewal', 'subscription billing-day': 'The billing day',
   ads: 'Advertising', 'ads interests': 'Your ad interests', 'gift-codes': 'Gift codes of the paid tiers',

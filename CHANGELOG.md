@@ -5,6 +5,127 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-16
+
+Specs v127.0.0 (`specs/common` pinned on that tag; D-402 a). `schema/api-v2` regenerated: comments only, no schema change.
+
+### Changed
+
+- `look appearance show`: with a universal theme, the pages of the universe show the palette of the theme and the colors
+  computed from its name serve only the monogram and the address badges. The line `universe colors: … kept with a
+  universal theme (contract)…` becomes `name colors (monogram, address badges): primary … accent … tint day … tint night
+  …`; the palettes are labelled `day palette (the pages)` and `night palette (the pages)`; the monogram is drawn `on the
+  name's primary` with a universal theme (or on Socle), `on the theme's primary` with another universe theme.
+  `--json`: `logo.value.monogram.from` (`name` or `theme`), the monogram of a universal theme on the primary of the name
+  (it was the primary of the theme).
+
+## [0.32.0] - 2026-11-16
+
+### Added
+
+- `look appearance show`, `look themes show`: `--signed-links` asks for time-limited links to the images; the API has no
+  operation for them yet, so it says so (text: `signed links: not available…`; `--json`: `signedLinks { available: false,
+  reason }`).
+
+### Fixed
+
+- `look appearance show`, `look themes show`: the image links open. The API serves an image as the folder of its variants
+  (`url` + `widths`), which the media CDN answers 403; the CLI now prints `<url>/<width>.webp`, the 1080 (or the smallest
+  wider, else the largest) and the largest, day and night, and the universe image (logo) the same. `--json` keeps `url` and
+  adds `links` (`{ variant, width, url, expiresAt }`, `expiresAt` null: public, no expiry) on each image.
+
+## [0.31.0] - 2026-11-16
+
+### Added
+
+- `me measures`: what each measure targets, from `PlatformMeasure.targetKind` (specs v126.1.0): the account, a post, a
+  universe search word, the whole list of universe search words (D-397)…; a value not known yet prints `a content`. `--json`
+  carries `targetKind`.
+
+### Changed
+
+- `specs/common` on v126.1.0, `schema/api-v2` regenerated.
+- `look appearance show`: `applied: on <date> by @x` (`by the platform` for a country theme) and the proposal adopted, read
+  from `Universe.appearanceApplied` instead of inferred from the history and the proposals; the official theme of its field
+  is told apart, given by default or chosen by the universe ("the official theme of its field, given by default"); a trial
+  shows the URLs of `UniverseThemeTrial.imageSlots` instead of the upload ids of its draft; `themeOf` read as the contract
+  says (a universe above, else null), the universe itself still tolerated. Against a backend before v126.1.0 these fields
+  are said not served and the 0.30.0 inference applies; `--json` adds `source.appliedFrom` (`api` or `inferred`).
+
+## [0.30.0] - 2026-11-16
+
+### Added
+
+- `look appearance show <universe>`, also typed `look appearance <universe>` (the default action of the group, told in its
+  help): the appearance applied to a universe, resolved as the apps draw it, each value tagged with its origin (`set`,
+  `theme`, `trial`, `country`, `default`, `unknown`): the source (theme applied, appearance built or started from a theme
+  in Customize, 24 h trial, country theme, universal or field theme chosen by the platform, Socle), when and by whom when
+  the API says it, the accent and the character, the image (URLs, focal point, no image), the image display, the layout,
+  the sky, the logo or the monogram, the day and night palettes, the default colors of the universe, the typefaces, the
+  contrast level, the proposals pending and the command of the history. `--json`: the resolved object, an `origin` per
+  field. MCP tool `breakrocks_look_appearance_show`.
+
+### Changed
+
+- `look themes gallery`: its help says it lists the themes offered in a universe (the gallery), not what is applied, and
+  points to `look appearance show`.
+
+## [0.29.0] - 2026-11-16
+
+### Changed
+
+- `look themes gallery` and `look themes list` in text: a header naming the columns (theme, version, field, title
+  typeface, image slots filled, screenshots, universes, accounts, the palette of the variant shown), the rows grouped
+  under the title of their section instead of the reason on each row, a theme already listed in an earlier section not
+  listed again (`also in MOST_USED` on its first row, the section title counts it), and the next page as a command line
+  (`more: breakrocks look themes gallery '%lyon' --all  (or --after eyIwIjoiMDAw…; --json holds the full cursor)`)
+  instead of the raw cursor. The JSON is unchanged.
+- `look themes show` in text: a page with labelled lines (universe, collection, creator, created and updated, contrast,
+  typefaces, use), the night and day palettes, each image slot with its URLs or removed (timeColumn and channelHeader
+  when the document names them), the screenshot URLs, the page of a universe per breakpoint and the `look themes shots`
+  command that downloads them.
+
+### Added
+
+- Palette swatches: a color of a theme drawn on its own background when stdout is coloured and the terminal draws 24-bit
+  colours (`COLORTERM=truecolor`, `24bit`, or `FORCE_COLOR=3`); the plain text is unchanged (README § Colour).
+- `look themes list --all` (bounded by `--max`, 10 pages by default) follows the pages.
+- A command's text renderer receives the input of the command line (`Command.text(result, input)`).
+
+## [0.28.0] - 2026-11-16
+
+### Changed
+
+- The top-level help shows the domains in lower case under a line `Domains (breakrocks <domain>, or breakrocks help
+  <domain>):`, so that they no longer read as commands.
+
+### Added
+
+- A domain typed as a command shows its help, in any case (`breakrocks talk`, `breakrocks Account`); a command or a
+  group of the same name wins (`agents`, `universes`, `map`, `events`, `governance`, `look`, `explore`: `breakrocks
+  help <domain>` shows the domain).
+- Colour in the readable outputs, only when the stream is a terminal (`src/colour.ts`, hand-written ANSI, no
+  dependency): command names bold, domains magenta, addresses cyan, ids and timestamps dim, `Error CODE:` red with the
+  code bold, warnings yellow, confirmations green. Never with `--json`, in a pipe or in the MCP server; off with the new
+  global option `--no-color`, `NO_COLOR` or `TERM=dumb`; `FORCE_COLOR` forces it. The text itself is unchanged (README
+  § Colour).
+- `UNKNOWN_COMMAND` names the domain first when the unknown command starts with one, ignoring case (`Did you mean the
+  domain "account"? breakrocks help account.`; `--json`: `domain`).
+
+## [0.27.0] - 2026-11-16
+
+Specs v125.1.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated).
+
+### Changed
+
+- `me measures` also lists the platform measures against a universe the account leads (D-398: the removal of its
+  universe theme, banner or a page) and prints their `universe` (`--json` carries it); such a measure is counted
+  against no account, unless written against the author of a page. It prints `snippet` and `subjectWhere` when set,
+  such as the search words removed from a universe and the universe (D-397).
+- `me measures appeal`: a measure against a universe is appealed by its leadership, once whoever files it; new
+  refusals named in its help: `PLATFORM_APPEAL_LEADERSHIP_ONLY` (another member) and `PLATFORM_APPEAL_EXISTS`
+  (already appealed, by anyone), each printed with its sentence when the API answers the code alone.
+
 ## [0.26.0] - 2026-11-16
 
 Specs v125.0.0 (`specs/common` pinned on that tag, `schema/api-v2` regenerated: 15 SDL files, 220 queries, 354 mutations).
