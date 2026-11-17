@@ -1178,6 +1178,40 @@ type Query {
   myMapRoutes(after: String, limit: Int): MapRoutePage
 
   """
+  Since v129.1.0 (D-411, map/my-places.feature; contracts/map.md § My places): the saved items of My places of the
+  caller, the latest saved first; never the position of the device. tagId: the saved items that carry that My places
+  tag (MY_PLACES_TAG_NOT_FOUND), none for "All". mapCells: the H3 cells of one resolution (0 to 9) that cover the area
+  shown, 1 to 7 (INVALID_REQUEST otherwise): the saved items whose point is in them, those that no longer exist left
+  out; none for the whole of My places. inCommonPlaylistIds ("In common with"): 1 to 20 ids of playlists of the
+  playlist form MAP of one connected account, each one the caller may read and opened (read by its address, which the
+  backend records for the caller) or follows: the saved items of the caller that are also in them, those that no
+  longer exist and those the caller may not read left out; a playlist the caller never opened nor follows, of an
+  account not connected, or of several accounts answers MY_PLACES_IN_COMMON_NOT_ALLOWED, and nothing of it is told.
+  The apps order by distance on the device. after: the next of the page before. limit: from 1 to 500 (100 by
+  default). Answers MY_PLACES_NOT_OPEN while map.savePlace is off. A delegated agent reads it for its human, notes
+  included.
+  """
+  myPlaces(tagId: ID, mapCells: [String!], inCommonPlaylistIds: [ID!], after: String, limit: Int): SavedItemPage
+
+  """
+  Since v129.1.0 (D-411): the playlist of the playlist form MAP that shares the whole of My places of the caller;
+  null when the whole is not shared (a shared My places tag: MyPlacesTag.playlist). MY_PLACES_NOT_OPEN.
+  """
+  myPlacesPlaylist: Playlist
+
+  """
+  Since v129.1.0 (D-411): the My places tags of the caller, 100 at most, "To try" and "Done" first until deleted, then
+  in the order created. MY_PLACES_NOT_OPEN.
+  """
+  myPlacesTags: [MyPlacesTag!]
+
+  """
+  Since v129.1.0 (D-411): whether the caller saved a thing, read when its card or its sheet opens ("Save" or
+  "Saved"); null when it did not. MY_PLACES_NOT_OPEN.
+  """
+  mySavedItem(kind: SavedItemKind!, targetId: String!): SavedItem
+
+  """
   Since v92.1.0: a route exported to a GPX file (its text), as the caller may read it, without the parts its privacy
   zones hide. ROUTE_NOT_FOUND.
   """
@@ -3918,6 +3952,71 @@ type Mutation {
   keeping its shape, to at most 1,000 points, its waypoints as stages (60 at most). ROUTE_GPX_INVALID, ROUTE_NAME_TAKEN. Returns the route.
   """
   importGpxRoute(gpx: String!, name: String!, mode: RouteMode!, requestId: ID!): MapRoute
+
+  """
+  Since v129.1.0 (D-411, map/my-places.feature): "Save": saves a thing the caller may read to My places, with its My
+  places tags and its My places note (none by default). A thing already saved answers its saved item unchanged
+  (one saved item per thing). MY_PLACES_FULL (5,000, errorInfo { max }), MY_PLACES_TARGET_INVALID (a post, a thing
+  that does not exist or that the caller may not read, an experience feat not published), MY_PLACES_TAGS_TOO_MANY (5),
+  MY_PLACES_TAG_NOT_FOUND, MY_PLACES_NOTE_TOO_LONG (500), MY_PLACES_NOT_OPEN. Nobody is notified. A delegated agent
+  saves for its human, but never so that the saved item shows in a shared playlist (a shared My places tag, or the
+  whole of My places shared): DELEGATED_AGENT_NOT_ALLOWED. Returns the saved item.
+  """
+  saveToMyPlaces(input: SaveToMyPlacesInput!, requestId: ID!): SavedItem
+
+  """
+  Since v129.1.0 (D-411): changes the My places tags and the My places note of a saved item of the caller.
+  SAVED_ITEM_NOT_FOUND, MY_PLACES_TAGS_TOO_MANY, MY_PLACES_TAG_NOT_FOUND, MY_PLACES_NOTE_TOO_LONG; a delegated agent
+  never puts a shared My places tag (DELEGATED_AGENT_NOT_ALLOWED). Putting the starting tag DONE records doneAt.
+  Returns the saved item.
+  """
+  updateSavedItem(itemId: ID!, input: SavedItemChangeInput!, requestId: ID!): SavedItem
+
+  """
+  Since v129.1.0 (D-411): removes a saved item from My places, in one gesture, for good; one per call, a delegated agent
+  too, within the rate limits of its account. SAVED_ITEM_NOT_FOUND. Returns true.
+  """
+  removeSavedItem(itemId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v129.1.0 (D-411): deletes the whole of My places of the caller, every saved item, every My places tag and the
+  playlists of the playlist form MAP that shared them; the account then has "To try" and "Done" again, as at the
+  start. The apps ask for a confirmation first. Final. MY_PLACES_NOT_OPEN; a delegated agent never deletes the whole of
+  My places (DELEGATED_AGENT_NOT_ALLOWED). Returns true.
+  """
+  clearMyPlaces(requestId: ID!): Boolean
+
+  """
+  Since v129.1.0 (D-411): creates a My places tag of the caller. TAG_INVALID (the rules of a tag),
+  MY_PLACES_TAG_NAME_TAKEN, MY_PLACES_TAG_LIMIT (100, errorInfo { max }). Returns the My places tag.
+  """
+  createMyPlacesTag(name: String!, color: MyPlacesTagColor!, requestId: ID!): MyPlacesTag
+
+  """
+  Since v129.1.0 (D-411): renames a My places tag of the caller or changes its color (a field not given stays); a
+  starting tag renamed is shown as written from then on (MyPlacesTag.starter null). MY_PLACES_TAG_NOT_FOUND,
+  TAG_INVALID, MY_PLACES_TAG_NAME_TAKEN; a delegated agent never renames a shared My places tag
+  (DELEGATED_AGENT_NOT_ALLOWED). The playlist that shares it keeps its playlist name. Returns the My places tag.
+  """
+  updateMyPlacesTag(tagId: ID!, name: String, color: MyPlacesTagColor, requestId: ID!): MyPlacesTag
+
+  """
+  Since v129.1.0 (D-411): deletes a My places tag of the caller, in one gesture: it leaves its saved items, which stay;
+  the playlist of the playlist form MAP that shares it is deleted. MY_PLACES_TAG_NOT_FOUND; a delegated agent never
+  deletes a shared My places tag (DELEGATED_AGENT_NOT_ALLOWED). Returns true.
+  """
+  deleteMyPlacesTag(tagId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v129.1.0 (D-411, map/my-places.feature): shares a My places tag (tagId), or the whole of My places (tagId
+  none), as an ACCOUNT playlist of the playlist form MAP named name (the rules of createPlaylist: PLAYLIST_NAME_INVALID,
+  PLAYLIST_NAME_TAKEN, ACCOUNT_PLAYLIST_LIMIT), with the playlist visibility given (PRIVATE when not given). It holds
+  the saved items of its tag, or of the whole of My places, as they change, without their notes nor their other tags;
+  its saved items are not playlist items (no bound of 500). MY_PLACES_TAG_NOT_FOUND; MY_PLACES_ALREADY_SHARED when
+  that tag, or the whole of My places, is already shared (errorInfo { playlistId }); a delegated agent never shares
+  My places (DELEGATED_AGENT_NOT_ALLOWED). Returns the playlist.
+  """
+  shareMyPlaces(tagId: ID, name: String!, visibility: PlaylistVisibility, requestId: ID!): Playlist
 
   """
   Since v92.1.0: sets the privacy zones of the caller, 0 to 3 (ROUTE_PRIVACY_ZONES_INVALID beyond, or a radius other

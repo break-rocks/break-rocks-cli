@@ -827,7 +827,8 @@ universe followed by words is sent as mapFilter and query. when: the time window
 when not given. days: with DAYS only, 1 to 90, 7 when not given (INVALID_REQUEST otherwise; the time slider sends DAYS
 and its days). kinds: the map kinds chosen, every one when not given; PEOPLE is ignored (the app holds the people it
 shows and adds them). families: the keys of the event families chosen (EventFamily.key, as universeEvents takes them),
-every one when not given.
+every one when not given; since v129.0.0 (D-410), the apps keep the event families chosen while EVENTS is not among
+the kinds, without effect: given with kinds that leave out EVENTS, families is ignored.
 mapFilter: the map filter, an address of at most one public universe and its tags ("%paris#market", "#market"), as the
 link carries it: its universe is the where of the explore filter, its tags are a part of what; null: none; an invalid
 part is left out; with words, a result carries one of its tags and the words. scope: AREA (the default) or EVERYWHERE
@@ -871,9 +872,10 @@ enum ZoomBand {
 """
 Since v128.0.0 (D-408): the time window of the explore filter, in the times of the area shown: NOW the next 60 minutes;
 TONIGHT from 6 p.m. today (from now when later) to 6 a.m. the next day; WEEKEND from Friday 6 p.m. to Sunday midnight
-(from now during it); DAYS from now to ExploreFilterInput.days days (7: the rule of D-382, an event type on the map of
-Explore within 7 days or a universe event shown beyond its universe within 30 days; any other number, both within that
-number of days). It narrows the universe events (in progress at a moment of the window) and the live shares only.
+(from now during it); DAYS from now to ExploreFilterInput.days days: an event type on the map of Explore within that
+number of days, and a universe event shown beyond its universe (D-383) within 30 days for a window of 7 days or more,
+within the window for a shorter one (so a longer window never shows less). It narrows the universe events (in progress
+at a moment of the window) and the live shares only.
 """
 enum ExploreWhen {
   DAYS

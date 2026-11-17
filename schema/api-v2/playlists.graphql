@@ -144,10 +144,15 @@ enum PlaylistKind {
 The playlist form of a playlist (since v87.1.0, D-264, playlists.feature), chosen and changed by its owner: SIMPLE, a
 flat list (the default; WATCH_LATER always: PLAYLIST_FORM_NOT_ALLOWED); SECTIONS, its items in titled playlist
 sections; CHAPTERS, a course: numbered playlist sections, ordered playback if required, posts with text or images beside its videos.
-Every kind takes every form. A client shows an unknown form as SIMPLE.
+Every kind takes every form. A client shows an unknown form as SIMPLE. Since v129.1.0 (D-411, map/my-places.feature):
+MAP, an ACCOUNT playlist that shares a My places tag or the whole of My places, created by shareMyPlaces only, read
+by mapItems, holding no video, never played; stopped by deletePlaylist (the tag and the saved items stay); while
+map.savePlace is off, playlist answers PLAYLIST_NOT_FOUND for it ("not available"); createPlaylist or updatePlaylist with MAP, a MAP playlist made another form, and
+addToPlaylist on a MAP playlist answer PLAYLIST_FORM_NOT_ALLOWED.
 """
 enum PlaylistForm {
   CHAPTERS
+  MAP
   MONTAGE
   ROUTE
   SECTIONS
@@ -548,6 +553,16 @@ type Playlist {
   """
   address: String
   """
+  Since v129.1.0 (D-411, the form MAP): its saved items the caller may read, by name (the apps order them by distance
+  from the area shown on the device), never by date saved and without any date, nor their My places notes, nor their
+  other My places tags; those that no longer exist and those of an account blocked either way left out. mapCells:
+  the H3 cells of one resolution (0 to 9) that cover the area shown, 1 to 7, or none for all. inCommon true ("In
+  common"): only those the caller saved too, for a playlist the caller opened (read by its address) or follows
+  (MY_PLACES_IN_COMMON_NOT_ALLOWED otherwise). Null for another playlist form. limit: from 1 to 500 (100 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before.
+  """
+  mapItems(inCommon: Boolean, mapCells: [String!], after: String, limit: Int): MapPlaylistItemPage
+  """
   Its route (since v92.1.0, the form ROUTE), as the caller may read it; null otherwise, and when the caller may not
   read it (the playlist then read as SIMPLE). Since v101.3.0: null too once the route is deleted, the playlist read
   as SIMPLE with every stageIndex null; no copy of its line is kept (unlike a universe event).
@@ -600,7 +615,8 @@ type Playlist {
   """
   id: ID!
   """
-  The number of its videos the caller can read.
+  The number of its videos the caller can read; since v129.1.0, for the form MAP, the number of its saved items the
+  caller may read (the playlist card says "N saved items", durationMs 0 and coverUrl null).
   """
   itemCount: Int!
   """
