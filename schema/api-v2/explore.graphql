@@ -816,3 +816,347 @@ type MutedUniverse {
   """
   since: AWSDateTime!
 }
+
+"""
+Since v128.0.0 (D-408, posts/explore-search.feature; contracts/map.md § The explore filter): the explore filter, as
+exploreSearch and randomHighlight read it. area: the area shown; null for randomHighlight only, the whole world (the map
+under the zoom 3); exploreSearch answers INVALID_REQUEST without it. query: the words, 2 to 200 characters, as search
+takes them; null: no words, for randomHighlight only (exploreSearch answers INVALID_REQUEST without words: without
+them the apps count what the map shows); an address alone is landed by the app (D-246), and an address of a public
+universe followed by words is sent as mapFilter and query. when: the time window, DAYS
+when not given. days: with DAYS only, 1 to 90, 7 when not given (INVALID_REQUEST otherwise; the time slider sends DAYS
+and its days). kinds: the map kinds chosen, every one when not given; PEOPLE is ignored (the app holds the people it
+shows and adds them). families: the keys of the event families chosen (EventFamily.key, as universeEvents takes them),
+every one when not given.
+mapFilter: the map filter, an address of at most one public universe and its tags ("%paris#market", "#market"), as the
+link carries it: its universe is the where of the explore filter, its tags are a part of what; null: none; an invalid
+part is left out; with words, a result carries one of its tags and the words. scope: AREA (the default) or EVERYWHERE
+(randomHighlight ignores it). order: in the area, HIGHLIGHTS only (the order of the map highlights among what matches,
+the default there); everywhere, RELEVANCE (the default there) or DATE, as the reader orders them; another order answers
+INVALID_REQUEST.
+"""
+input ExploreFilterInput {
+  area: ExploreAreaInput
+  query: String
+  when: ExploreWhen
+  days: Int
+  kinds: [MapKind!]
+  families: [String!]
+  mapFilter: String
+  scope: ExploreScope
+  order: ExploreOrder
+}
+
+"""
+Since v128.0.0 (D-408): the area shown, as the files of the map highlights read it: mapCells, the H3 cells of one
+resolution (0 to 9) that cover it, 1 to 7 (INVALID_REQUEST otherwise), and band, its zoom band. Never the position of
+the device.
+"""
+input ExploreAreaInput {
+  mapCells: [String!]!
+  band: ZoomBand!
+}
+
+"""
+Since v128.0.0 (D-408): a zoom band (map-highlights.feature): COUNTRY under the zoom 9, CITY from 9 to under 12,
+NEIGHBOURHOOD from 12 to under 15, STREET from 15.
+"""
+enum ZoomBand {
+  CITY
+  COUNTRY
+  NEIGHBOURHOOD
+  STREET
+}
+
+"""
+Since v128.0.0 (D-408): the time window of the explore filter, in the times of the area shown: NOW the next 60 minutes;
+TONIGHT from 6 p.m. today (from now when later) to 6 a.m. the next day; WEEKEND from Friday 6 p.m. to Sunday midnight
+(from now during it); DAYS from now to ExploreFilterInput.days days (7: the rule of D-382, an event type on the map of
+Explore within 7 days or a universe event shown beyond its universe within 30 days; any other number, both within that
+number of days). It narrows the universe events (in progress at a moment of the window) and the live shares only.
+"""
+enum ExploreWhen {
+  DAYS
+  NOW
+  TONIGHT
+  WEEKEND
+}
+
+"""
+Since v128.0.0 (D-408): AREA, what the explore filter finds in the area shown ("In the area"); EVERYWHERE, what it finds
+without the area ("Everywhere"), the search of the social platform included (accounts, universe discussions, playlists,
+tags).
+"""
+enum ExploreScope {
+  AREA
+  EVERYWHERE
+}
+
+"""
+Since v128.0.0 (D-408): the order of the results: HIGHLIGHTS, the order of the map highlights among what matches (the
+list of the map says the same as the map; in the area only); RELEVANCE, as search ranks, and DATE, the most recent
+first (everywhere only, as the reader orders them).
+"""
+enum ExploreOrder {
+  DATE
+  HIGHLIGHTS
+  RELEVANCE
+}
+
+"""
+Since v128.0.0 (D-408, posts/explore-search.feature): an explore reason, what a result tells of why it is there:
+IN_TIME_WINDOW (it takes place in the time window), IN_AREA (it is in the area), CROSSES_AREA (a route that crosses the
+area), TERRITORY_IN_AREA (a universe whose universe territory meets the area), WORD_IN_NAME (a word is in its name, its
+title or its display name), WORD_IN_TEXT (a word is in the text of a post), WORD_IN_SEARCH_WORDS (a word is a universe
+search word or a platform search word of a universe), CARRIES_TAG (it carries a tag of the words or of the map filter).
+Never a reason about the reader.
+"""
+enum ExploreReason {
+  CARRIES_TAG
+  CROSSES_AREA
+  IN_AREA
+  IN_TIME_WINDOW
+  TERRITORY_IN_AREA
+  WORD_IN_NAME
+  WORD_IN_SEARCH_WORDS
+  WORD_IN_TEXT
+}
+
+"""
+Since v128.0.0 (D-408): one explore reason of a result, in the order the apps show them (the time window, the place,
+the words, the tags).
+"""
+type ExploreResultReason {
+  """
+  The explore reason.
+  """
+  reason: ExploreReason!
+  """
+  What matched, as written: the word for WORD_IN_NAME, WORD_IN_TEXT and WORD_IN_SEARCH_WORDS, the tag with its sign
+  ("#jazz") for CARRIES_TAG; null for the others.
+  """
+  value: String
+}
+
+"""
+Since v128.0.0 (D-408): what a result of Explore is: a placed or unplaced post (POST), a post with a clip or a long video
+(VIDEO), a place with a place feat (PLACE), a universe event (EVENT), a route (ROUTE), a public universe (UNIVERSE), and,
+everywhere only, an account (ACCOUNT), a universe discussion (DISCUSSION), a playlist (PLAYLIST) or a tag (TAG).
+"""
+enum ExploreResultKind {
+  ACCOUNT
+  DISCUSSION
+  EVENT
+  PLACE
+  PLAYLIST
+  POST
+  ROUTE
+  TAG
+  UNIVERSE
+  VIDEO
+}
+
+"""
+Since v128.0.0 (D-408, posts/explore-search.feature): a result of Explore, in the area or everywhere: its kind, its point
+when it has a place, the object of its kind (one field set, the others null) and its explore reasons. A result with a
+point moves the map over it when touched among the results everywhere (the app, at the zoom 16).
+"""
+type ExploreResult {
+  """
+  Its kind; the field of that kind is set.
+  """
+  kind: ExploreResultKind!
+  """
+  Its point on the map: the place of a placed post or a placed video, the point of interest of a place, the point of a
+  universe event (the center of its zone), the start of a route as the caller sees its route start marker, the nearest
+  point of the universe territory of a universe to the center of the area; null without a place (an unplaced post, an
+  account, a universe discussion, a playlist, a tag, a universe without a universe territory).
+  """
+  point: Point
+  """
+  POST or VIDEO: the post as the caller reads it; null otherwise.
+  """
+  post: Post
+  """
+  POST or VIDEO placed on the map: what its map marker needs, as mapPosts answers it; null for an unplaced post and
+  for the other kinds.
+  """
+  mapPost: MapPost
+  """
+  PLACE: the place with a place feat, as mapPlaceFeats answers it; null otherwise.
+  """
+  place: MapPlaceFeats
+  """
+  EVENT: the universe event as the caller reads it; null otherwise.
+  """
+  event: UniverseEvent
+  """
+  ROUTE: the route in its light form, as mapRouteMarkers answers it; null otherwise.
+  """
+  route: MapRouteMarker
+  """
+  UNIVERSE: the public universe, with its universe territory and its primary color as the list by AREA answers them;
+  null otherwise.
+  """
+  universe: ExploreUniverse
+  """
+  ACCOUNT: the account, as search answers it; null otherwise.
+  """
+  account: Account
+  """
+  DISCUSSION: the universe discussion; null otherwise.
+  """
+  discussion: UniverseDiscussion
+  """
+  PLAYLIST: the public playlist; null otherwise.
+  """
+  playlist: Playlist
+  """
+  TAG: the tag, with its sign ("#jazz"); null otherwise.
+  """
+  tag: String
+  """
+  Its explore reasons, 1 at least for a result of exploreSearch; empty for the result of randomHighlight and
+  highlightOfTheDay.
+  """
+  reasons: [ExploreResultReason!]!
+}
+
+"""
+Since v128.0.0 (D-408): what a child cell of the area holds of one map kind among the results, for the density marks
+of the map with words (they count only what carries the words).
+"""
+type ExploreDensity {
+  """
+  The child cell (H3), of the resolution the files of the map highlights use for the density of that zoom band.
+  """
+  mapCell: String!
+  """
+  The map kind.
+  """
+  kind: MapKind!
+  """
+  The number of results of that map kind in that cell.
+  """
+  count: Int!
+}
+
+"""
+Since v128.0.0 (D-408, posts/explore-search.feature): the results of the explore filter, one page of its scope, and the
+two counts the list of results shows.
+"""
+type ExploreSearchResults {
+  """
+  "In the area · N": the number of results in the area shown (the people the app shows not counted: the app adds
+  them). Without words, the apps do not read exploreSearch: "In the area · N" counts what the map shows, and
+  "Everywhere · —" shows no number.
+  """
+  inArea: Int!
+  """
+  "Everywhere · M": the number of results without the area, counted as search counts (500 posts at most); when the
+  posts reach that bound, the apps show "Everywhere · 500+".
+  """
+  everywhere: Int!
+  """
+  The results of the page, in the order asked.
+  """
+  items: [ExploreResult!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+  """
+  AREA, first page only: what the area holds among the results beyond the page answered (the results the map draws
+  one by one), by child cell and map kind, for the density marks; empty otherwise.
+  """
+  density: [ExploreDensity!]!
+  """
+  AREA, when inArea is 0: the nearest activity that carries the words (map-highlights.feature, D-353), within 500
+  kilometres of the center of the area (the app shows its direction and its distance); null otherwise and when nothing
+  is within 500 kilometres.
+  """
+  nearest: ExploreResult
+  """
+  The state of the search engine of the posts (with words), as search answers it; READY without words.
+  """
+  postsStatus: SearchPostsStatus!
+  """
+  While the engine of the posts starts, the seconds to wait before reading again; null otherwise.
+  """
+  retryAfterSeconds: Int
+}
+
+"""
+Since v128.0.0 (D-408): the number of public contents of one map kind.
+"""
+type MapKindCount {
+  """
+  The map kind: POSTS, VIDEOS, FEATS or EVENTS.
+  """
+  kind: MapKind!
+  """
+  The number.
+  """
+  count: Int!
+}
+
+"""
+Since v128.0.0 (D-408): the activity of a map cell of about 1 kilometre (H3 resolution 8): its public contents of a
+period (the last 7 days, for randomHighlight), a content of a private universe never counted, nor what the map keeps
+out (map-highlights.feature).
+"""
+type MapCellActivity {
+  """
+  The map cell (H3, resolution 8).
+  """
+  mapCell: String!
+  """
+  The name of its place: the point of interest of the result when it has one, else the locality of the map cell from
+  the cartography ("Vieux-Port, Marseille"); null when the cartography gives none.
+  """
+  name: String
+  """
+  The number of its public contents of the period: placed posts, placed videos, published experience feats and
+  universe events in progress or held there.
+  """
+  contents: Int!
+  """
+  That number by map kind, the most numerous first; a map kind with none is not answered.
+  """
+  kinds: [MapKindCount!]!
+}
+
+"""
+Since v128.0.0 (D-408, map-highlights.feature): the result of a random jump: the map highlight drawn, the activity of
+its very lively map cell, and the number of very lively map cells it was drawn from (the first step of the draw).
+"""
+type RandomHighlight {
+  """
+  The map highlight drawn: a placed post, a placed video, a place with a place feat or a universe event (POST, VIDEO,
+  PLACE or EVENT), with its point; reasons empty.
+  """
+  result: ExploreResult!
+  """
+  The activity of its map cell over the last 7 days.
+  """
+  activity: MapCellActivity!
+  """
+  The number of very lively map cells of the explore filter it was drawn from.
+  """
+  candidates: Int!
+}
+
+"""
+Since v128.0.0 (D-408, universes/explore.feature): the highlight of the day of a country.
+"""
+type HighlightOfTheDay {
+  """
+  The map highlight with the highest highlight score among the placed posts and the placed videos of the last 24 hours
+  in the country (POST or VIDEO), with its point and its author (mapPost.author); reasons empty.
+  """
+  result: ExploreResult!
+  """
+  When it was computed (every hour).
+  """
+  computedAt: AWSDateTime!
+}

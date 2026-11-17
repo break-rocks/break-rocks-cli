@@ -30,6 +30,10 @@ export type Command<I = Record<string, unknown>, O = unknown> = {
   offline?: boolean;
   /** Left out of the MCP server (the server itself). */
   mcp?: false;
+  /** Its MCP tool when it is not breakrocks_<its words>: a tool name an earlier command held is never given to another one (0.34.0). */
+  tool?: string;
+  /** Tool names it still answers to and lists, deprecated (a name its command held before it moved). */
+  formerTools?: string[];
   run: (ctx: Context, input: I) => Promise<O> | O;
   /** Its answer in plain text (default: the fields, one per line); [input] the input of the command line (the next page told). */
   text?: (result: O, input: I) => string;

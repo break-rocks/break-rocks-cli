@@ -67,7 +67,7 @@ export const schema: Command<{ command: string[] }, SchemaResult | SchemaResult[
   args: { positionals: ['command'] }, offline: true,
   run: (_ctx, { command }) => {
     const describe = (c: AnyCommand): SchemaResult => ({
-      command: c.name, summary: c.summary, ...(c.aliases?.length ? { formerNames: c.aliases } : {}), interactive: !!c.interactive, offline: !!c.offline, input: toolInputSchema(c), output: c.output, mcpTool: toolName(c.name),
+      command: c.name, summary: c.summary, ...(c.aliases?.length ? { formerNames: c.aliases } : {}), interactive: !!c.interactive, offline: !!c.offline, input: toolInputSchema(c), output: c.output, mcpTool: toolOf(c), ...(c.formerTools?.length ? { formerMcpTools: c.formerTools } : {}),
     });
     if (command.length === 1 && command[0] === 'all') return commands().map(describe);
     const found = findCommand(command);
@@ -79,3 +79,5 @@ export const schema: Command<{ command: string[] }, SchemaResult | SchemaResult[
 
 /** The MCP tool of a command: breakrocks_<group>_<action>, words joined by "_" ("operator recovery-key set": breakrocks_operator_recovery_key_set). */
 export const toolName = (name: string) => `breakrocks_${name.replace(/[ -]/g, '_')}`;
+/** The MCP tool of [c]: its own name when it has one (a name another command held before is never reused), else toolName of its words. */
+export const toolOf = (c: Pick<AnyCommand, 'name' | 'tool'>) => c.tool ?? toolName(c.name);

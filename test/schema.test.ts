@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toolName } from '../src/commands/core.js';
+import { toolName, toolOf } from '../src/commands/core.js';
 import { CliError } from '../src/errors.js';
 import { commands, findCommand, toolInputSchema } from '../src/registry.js';
 import { object, parseCommandLine, validate, list, str, int, bool } from '../src/schema.js';
@@ -44,10 +44,11 @@ describe('the registry', () => {
     }
   });
   it('names one MCP tool per command, unique and valid, with "yes" for those that ask a confirmation', () => {
-    const names = commands().filter((c) => c.mcp !== false).map((c) => toolName(c.name));
+    const names = commands().filter((c) => c.mcp !== false).flatMap((c) => [toolOf(c), ...(c.formerTools ?? [])]);
     expect(new Set(names).size).toBe(names.length);
     for (const n of names) expect(n).toMatch(/^[a-zA-Z0-9_-]{1,64}$/);
     expect(toolName('operator recovery-key set')).toBe('breakrocks_operator_recovery_key_set');
+    expect(names.filter((n) => ['breakrocks_search', 'breakrocks_explore_search', 'breakrocks_explore_filter'].includes(n)).sort()).toEqual(['breakrocks_explore_filter', 'breakrocks_explore_search', 'breakrocks_search']);
     const del = findCommand(['agents', 'delete'])!.command;
     expect(toolInputSchema(del).properties.yes).toBeTruthy();
     expect(toolInputSchema(findCommand(['agents', 'list'])!.command).properties.yes).toBeUndefined();

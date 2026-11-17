@@ -6,7 +6,7 @@
 // (stdin and stdout are the protocol), progress goes to stderr.
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { toolName } from '../commands/core.js';
+import { toolName, toolOf } from '../commands/core.js';
 import { Context, NO_FLAGS, type GlobalFlags, type Io } from '../context.js';
 import { asCliError, usageError } from '../errors.js';
 import { commands, execute, findCommand, toolInputSchema, type AnyCommand } from '../registry.js';
@@ -22,16 +22,21 @@ export const RESOURCES = [
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** The tools: one per command of the registry (the server itself apart). */
-export const tools = () => commands().filter((c) => c.mcp !== false).map((c) => ({
-  name: toolName(c.name),
-  title: `breakrocks ${c.name}`,
-  description: [c.summary, c.description, c.interactive ? 'Irreversible or paid: refused unless "yes": true.' : '', c.offline ? 'Offline.' : ''].filter(Boolean).join(' '),
-  inputSchema: toolInputSchema(c),
-}));
+/** The tools: one per command of the registry (the server itself apart), then the former tool names a command still answers to, deprecated. */
+export const tools = () => commands().filter((c) => c.mcp !== false).flatMap((c) => {
+  const description = [c.summary, c.description, c.interactive ? 'Irreversible or paid: refused unless "yes": true.' : '', c.offline ? 'Offline.' : ''].filter(Boolean).join(' ');
+  const tool = { name: toolOf(c), title: `breakrocks ${c.name}`, description, inputSchema: toolInputSchema(c) };
+  return [tool, ...(c.formerTools ?? []).map((name) => ({ ...tool, name, description: `Deprecated: use ${tool.name}. ${description}` }))];
+});
 
-/** The command of a tool: by its name, or by the former name of its command (hidden, deprecated: src/tree.ts). */
-export const commandOfTool = (name: string): AnyCommand | undefined => commands().find((c) => c.mcp !== false && (toolName(c.name) === name || c.aliases?.some((a) => toolName(a) === name)));
+/**
+ * The command of a tool: by its tool name or a former tool name it still answers to, else by the former name of its
+ * command (hidden, deprecated: src/tree.ts).
+ */
+export const commandOfTool = (name: string): AnyCommand | undefined => {
+  const served = commands().filter((c) => c.mcp !== false);
+  return served.find((c) => toolOf(c) === name || c.formerTools?.includes(name)) ?? served.find((c) => c.aliases?.some((a) => toolName(a) === name));
+};
 
 /** Runs a command for an MCP client: its JSON answer, or its refusal ({ error }) marked isError. */
 export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: AnyCommand, args: Record<string, unknown>) {

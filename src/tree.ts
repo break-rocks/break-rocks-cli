@@ -260,7 +260,10 @@ explore mute | = | Mute a universe from discovery
 explore unmute | = | Unmute a universe from discovery
 explore reset | = | Reset the recommendations
 resolve | explore resolve | Resolve an address
-search | explore search | Search posts, accounts, universes and more
+search | = | Search posts, accounts, universes and more
+explore search | = | Search Explore with words, in an area and everywhere
+explore random | = | Jump to a lively map highlight at random
+explore today | = | The highlight of the day of a country
 clips feed | posts clips | The clip feed
 clips platform | posts clips platform | The platform clips, best first
 clips popular | posts clips popular | The popular clips of the week
@@ -312,6 +315,7 @@ nearby sightings | map nearby sightings | Send the nearby tokens seen around
 posts place | = | Place your post on the map
 routes list | = | Your routes
 routes show | = | Show a route
+routes nearby | = | The nearby routes of a route
 routes create | = | Save a new route
 routes edit | = | Change a route
 routes delete | = | Delete a route
@@ -631,7 +635,7 @@ export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
   { name: 'events', groups: ['events'], line: 'events' },
   { name: 'governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
   { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
-  { name: 'explore', groups: ['explore', 'accounts', 'connections', 'interests'], line: 'explore, accounts, connections, interests' },
+  { name: 'explore', groups: ['explore', 'search', 'accounts', 'connections', 'interests'], line: 'explore, search, accounts, connections, interests' },
   { name: 'money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
   { name: 'tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
 ];
@@ -667,7 +671,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
   look: 'Themes, appearance, layouts and the studio', 'look themes': 'Themes: catalog, offline tools, publish', 'look personal': 'Your personal theme',
   'look appearance': 'The appearance of a universe: what is applied, the editor', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',
-  explore: 'Discovery, search and recommendations', accounts: 'Accounts: read, follow, block, mute', connections: 'Connections between accounts', interests: 'Your interest profile',
+  explore: 'Discovery, the explore filter and recommendations', search: 'The platform search', accounts: 'Accounts: read, follow, block, mute', connections: 'Connections between accounts', interests: 'Your interest profile',
   subscription: 'The paid tiers of the account', 'subscription renewal': 'The automatic renewal', 'subscription billing-day': 'The billing day',
   ads: 'Advertising', 'ads interests': 'Your ad interests', 'gift-codes': 'Gift codes of the paid tiers',
   doctor: 'Check the CLI', usage: 'Usage and limits', schema: 'JSON Schemas of the commands', batch: 'Actions of a file', mcp: 'The MCP server',

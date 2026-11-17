@@ -409,6 +409,59 @@ type Route {
   Whether it is a loop, its end joined to its start (since v92.1.0); false otherwise.
   """
   loop: Boolean!
+  """
+  Since v128.0.0 (D-408, routes.feature): its route difficulty, from its duration for its mode (seconds, else
+  estimatedSeconds) and its ascent, the harder of both, by the thresholds map.routeDifficulty of the platform (on foot
+  EASY up to 2 hours and 300 metres, MODERATE up to 5 hours and 900 metres; by bicycle 2 hours and 400 metres, 5 hours
+  and 1,200 metres; DIFFICULT beyond); from its duration alone when ascent is null; null when its length is unknown.
+  """
+  difficulty: RouteDifficulty
+  """
+  Since v128.0.0 (D-408): its estimated duration, in seconds, when it does not follow the streets and paths (snapped
+  false): its metres at 5 km/h on foot and 15 km/h by bicycle, told "estimated"; null when it follows them (seconds) or
+  when its length is unknown. One name per concept: seconds is the duration measured along the ways.
+  """
+  estimatedSeconds: Int
+  """
+  Since v128.0.0 (D-408): its route surfaces along the streets and paths it follows (snapped true), each with its
+  metres, the longest first, from the routing (contracts/map.md § The explore filter); empty when it does not follow
+  them.
+  """
+  surfaces: [RouteSurfaceShare!]!
+}
+
+"""
+Since v128.0.0 (D-408, routes.feature): the route difficulty of a route.
+"""
+enum RouteDifficulty {
+  DIFFICULT
+  EASY
+  MODERATE
+}
+
+"""
+Since v128.0.0 (D-408, routes.feature): a route surface: PAVED (asphalt, concrete, paving), COBBLESTONES (cobblestones,
+setts, rough paving), GRAVEL (gravel, compacted), UNPAVED (earth, grass, a path).
+"""
+enum RouteSurface {
+  COBBLESTONES
+  GRAVEL
+  PAVED
+  UNPAVED
+}
+
+"""
+Since v128.0.0 (D-408): a route surface and its share of the length of a route.
+"""
+type RouteSurfaceShare {
+  """
+  The route surface.
+  """
+  surface: RouteSurface!
+  """
+  The metres of the route along it.
+  """
+  metres: Int!
 }
 
 """
@@ -1144,6 +1197,29 @@ type MapRouteMarker {
   counts them.
   """
   tags: [String!]!
+  """
+  Since v128.0.0 (D-408, routes.feature): its duration for its mode, in seconds, of the whole route, measured along the
+  streets and paths it follows (Route.seconds); null when it does not follow them (estimatedSeconds).
+  """
+  seconds: Int
+  """
+  Since v128.0.0 (D-408): its estimated duration, in seconds, of the whole route, when it does not follow the streets
+  and paths (Route.estimatedSeconds): the route marker card tells it "estimated"; null otherwise.
+  """
+  estimatedSeconds: Int
+  """
+  Since v128.0.0 (D-408): its elevation gain, in metres, of the whole route (Route.ascent); null when unknown.
+  """
+  ascent: Int
+  """
+  Since v128.0.0 (D-408): its route difficulty (Route.difficulty); null when its length is unknown.
+  """
+  difficulty: RouteDifficulty
+  """
+  Since v128.0.0 (D-408): its 2 route surfaces with the longest share of its length (Route.surfaces), the longest
+  first; empty when it does not follow the streets and paths.
+  """
+  surfaces: [RouteSurfaceShare!]!
 }
 
 """

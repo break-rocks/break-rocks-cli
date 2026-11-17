@@ -168,7 +168,7 @@ Domains (breakrocks <domain>, or breakrocks help <domain>):
   events      events
   governance  governance, proposals, jury, moderation
   look        look (themes, personal, appearance, layouts, studio)
-  explore     explore, accounts, connections, interests
+  explore     explore, search, accounts, connections, interests
   money       subscription, ads, gift-codes
   tools       doctor, usage, schema, batch, mcp, completion, update, config
 
@@ -619,6 +619,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `map nearby sightings` | Send the nearby tokens seen around | `breakrocks map nearby sightings --sightings '[{"token":"<token>","closeness":"NEAR"}]'` |
 | `routes list` | Your routes | `breakrocks routes list` |
 | `routes show` | Show a route | `breakrocks routes show <route id>` |
+| `routes nearby` | The nearby routes of a route | `breakrocks routes nearby <route id>` |
 | `routes create` | Save a new route | `breakrocks routes create canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap --tags running` |
 | `routes edit` | Change a route | `breakrocks routes edit <route id> canal-run --mode FOOT --points "48.871,2.366;48.884,2.370" --snap` |
 | `routes delete` | Delete a route (confirmation: `--yes`) | `breakrocks routes delete <route id> --yes` |
@@ -800,13 +801,16 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `explore unmute` | Unmute a universe from discovery | `breakrocks explore unmute %paris-foot` |
 | `explore reset` | Reset the recommendations (confirmation: `--yes`) | `breakrocks explore reset --yes` |
 | `explore resolve` | Resolve an address | `breakrocks explore resolve "@erin>journey?t=90"` |
-| `explore search` | Search posts, accounts, universes and more | `breakrocks explore search "velo paris"` |
+| `search` | Search posts, accounts, universes and more | `breakrocks search "velo paris"` |
 | `interests show` | Your interest profile | `breakrocks interests show` |
 | `interests add` | Add interests to your profile | `breakrocks interests add --tags football,velo --universes %paris` |
 | `interests fields` | Choose your fields | `breakrocks interests fields SPORT PLACES` |
 | `interests forget` | Forget interests (confirmation: `--yes`) | `breakrocks interests forget --tags football --yes` |
 | `interests tags` | The tags you engaged with | `breakrocks interests tags` |
 | `interests not-interested` | What you said you are not interested in | `breakrocks interests not-interested` |
+| `explore search` | Search Explore with words, in an area and everywhere | `breakrocks explore search jazz --near "Vieux-Port, Marseille" --when tonight` |
+| `explore random` | Jump to a lively map highlight at random | `breakrocks explore random` |
+| `explore today` | The highlight of the day of a country | `breakrocks explore today` |
 | `explore area` | The universes of an area of the map | `breakrocks explore area --boundary R7444` |
 | `accounts show` | The profile of an account | `breakrocks accounts show @alice` |
 | `accounts followers` | The followers of an account | `breakrocks accounts followers @alice --all` |
@@ -1447,12 +1451,36 @@ specs v96 and v99 (above).
 - **Map**: `map places search <text> --bounds <s>,<w>,<n>,<e>` (`places`, with the `universes` of each
   place; `MAP_SERVICE_STARTING`: the search is waking up, retry after `retryAfterSeconds`);
   `explore area --cells <h3,…>` or `--boundary <id>` (`exploreUniverses(by: AREA)`, 1 to 19 cells of
-  resolution 5). **The CLI has no H3 library** (no new dependency): no
+  resolution 5). **No H3 package** (no new dependency): `src/h3.ts` (0.34.0) computes only the cell of a point
+  and the parent of a cell (ported from the H3 C library v4.1.0, Apache 2.0, checked against h3-js); no
   `--bbox`; `--boundary` takes the cells of the shape (refused when it is compacted into coarser
   cells or has more than 19). `map boundary <id> [--geojson]` reads the catalogue of the
   environment's mapping service (`catalog.json` → `boundaries.url`, kept an hour in `cache/`)
   without a session: name, level, bbox, cells, address of the shape; `--geojson` the whole Feature; a
   404 is `BOUNDARY_SHAPE_NOT_FOUND` (exit 1: the apps fall back to the point).
+- **The explore filter** (0.34.0, specs v128.0.0, D-408 b, `posts/explore-search.feature`, `contracts/map.md` § The
+  explore filter): `explore search <words>` (`exploreSearch`) with where, when and what: `--near "<place>"` (the
+  first match of `places`, over the whole world: its boundary shape when the cartography has one, its cells
+  brought to one resolution, 7 at most; else the 7 cells of resolution 6 around its point), `--where
+  %universe[#tag…]` (the map filter; its universe territory is the area when `--near` and `--cells` are absent:
+  a boundary by its shape, a circle by the cells around its centre at a resolution that fits its radius),
+  `--cells <h3,…>` (one resolution of 0 to 9, 1 to 7; the zoom band follows the resolution: `COUNTRY` 0 to 2,
+  `CITY` 3 and 4, `NEIGHBOURHOOD` 5 and 6, `STREET` beyond), `--when now|tonight|weekend|<n>d` (1 to 90 days),
+  `--kinds`, `--families`; `%paris jazz` sets where and the words. With an area the results come in the order of
+  the map highlights (`AREA`, `HIGHLIGHTS`); with `--everywhere`, or without an area, everywhere (`RELEVANCE` or
+  `--order date`). The text prints where the area came from, `In the area · N   Everywhere · M` (`—` without an
+  area, `500+` at the bound of search), one line per result (its kind, id, names, point) and its explore reasons
+  (`why: in the time window · in the area · "jazz" in its name · carries #jazz`), the nearest activity when the
+  area holds nothing; `--json` the answer with the `filter` sent and `where`. Never the position of the machine.
+  `explore random [<words>]` (`randomHighlight`: the whole world without an area, `--except <id>` the last one
+  jumped to) and `explore today [--country FR]` (`highlightOfTheDay`, by default `me.own.country`). `routes show`
+  prints the four figures of a route (difficulty, duration measured or `(estimated)`, length, `+ascent`) and its
+  surfaces; `routes nearby <id|url>` (`nearbyRoutes`, 5 at most within 5 km), and `map routes` prints the same
+  figures. A backend before v128.0.0: `OPERATION_NOT_SERVED` (exit 1, "This backend does not serve explore search
+  yet"); the new fields of a route are left out by the degraded selection. The platform search of the search bar
+  is `search <words>` again (it was `explore search` from 0.25.0 to 0.33.0). The MCP tools keep their names: the
+  platform search answers to `breakrocks_search` and still to `breakrocks_explore_search` (listed as deprecated), the
+  search of Explore is `breakrocks_explore_filter`; a tool name an earlier command held is never given to another one.
 - **Pages of a universe** (`layouts.md` § The pages of a universe, as built 66ba2a2): `universes pages`
   (the menu, `pagesVersion`), `universes pages get <u> <name> [--document]`, `publish --file`, `check
   --file`, `hide|show`, `move [--before]`, `delete` (confirmation), `report [--block]`, `universes
@@ -1803,6 +1831,10 @@ only.
   `breakrocks_agents_create`, `breakrocks_operator_recovery_key_set`…), with the input schema of
   `breakrocks schema`; the answer is the command's `--json`, a refusal `{ "error": … }` marked
   `isError`;
+- **stable tool names** (0.34.0): a tool name is never given to another command. When a command's words take a
+  name an earlier command's tool held, it gets its own (`explore search` is `breakrocks_explore_filter`), and the
+  earlier command keeps answering to its former tool, listed with "Deprecated: use …" (`breakrocks_explore_search`,
+  the platform search, now `breakrocks_search`); `breakrocks schema` gives `mcpTool` and `formerMcpTools`;
 - **no tool** for `mcp`, `completion`, `update` (the CLI's installation), `login` and `logout`
   (a human's sign-in, their password and their sessions belong to the person at the terminal;
   an agent signs in through `breakrocks_agent_login`, an operator through `breakrocks_operator_login`), nor

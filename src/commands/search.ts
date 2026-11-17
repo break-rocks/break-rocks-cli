@@ -14,7 +14,7 @@ const postLine = (p: PostLine) => `${p.id}  ${p.createdAt ?? ''}  ${p.author?.ha
 type Results = { text?: string | null; postsStatus?: string; addresses?: string[]; tags?: string[]; accounts?: { handle?: string }[]; universeResults?: { universes?: { name?: string }[] }[]; posts?: PostLine[]; next?: string | null };
 export const search = apiCommand({
   name: 'search', summary: 'Search posts, accounts, universes, pages, discussions, playlists and tags (search: 2 to 200 characters, words and addresses)',
-  description: '--order RELEVANCE (by default) or DATE; --hidden-replies: the hidden replies too; --after: the next of the same search (within an hour). 500 posts at most. The cell called only.',
+  description: 'The search bar of the apps (the search of Explore with an area: breakrocks explore search). --order RELEVANCE (by default) or DATE; --hidden-replies: the hidden replies too; --after: the next of the same search (within an hour). 500 posts at most. The cell called only.',
   kind: 'query', op: 'search', positionals: ['query'], descriptions: { query: 'The words and addresses (2 to 200 characters)', hiddenReplies: 'The hidden replies too' },
   text: (r) => {
     const s = r as Results | null;
@@ -25,8 +25,10 @@ export const search = apiCommand({
       ...(s.posts ?? []).map(postLine), ...(s.postsStatus && s.postsStatus !== 'OK' ? [`posts: ${s.postsStatus}`] : []), ...(s.next ? [`next: ${s.next}`] : []),
     ].join('\n') || '(nothing found)';
   },
-  examples: ['breakrocks explore search "velo paris"', 'breakrocks explore search "#football %paris" --order DATE --json'],
+  examples: ['breakrocks search "velo paris"', 'breakrocks search "#football %paris" --order DATE --json'],
 });
+// Its MCP tool until 0.33.0 (when the command was explore search) keeps answering, deprecated: the agents that call it.
+search.formerTools = ['breakrocks_explore_search'];
 
 /** A clip of a feed: its post with its author, its recommendation, its stage. */
 const CLIP_ITEM = selection('ClipFeedItem', 2);
