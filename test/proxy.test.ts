@@ -65,8 +65,11 @@ beforeAll(async () => {
 });
 afterAll(() => { target.close(); proxy.close(); socks.close(); });
 
+// The fetch of Node bundles its own undici (7 in Node 24), whose handlers predate the dispatchers of undici 8: a dispatcher
+// passed to it goes through Dispatcher1Wrapper, as setGlobalDispatcher does for the global one.
+const forNodeFetch = async (settings: NetworkSettings) => new (await import('undici')).Dispatcher1Wrapper(await createDispatcher(settings));
 const via = async (settings: NetworkSettings, url: string) => {
-  const dispatcher = await createDispatcher(settings);
+  const dispatcher = await forNodeFetch(settings);
   try { return await (await fetch(url, { dispatcher } as RequestInit)).json(); } finally { await dispatcher.close(); }
 };
 
@@ -168,12 +171,12 @@ describe('the requests', () => {
   });
   it('of a command go through the proxy of --proxy before the profile and the environment; doctor shows it, redacted', async () => {
     proxySeen.length = 0;
-    let dispatcher: Awaited<ReturnType<typeof createDispatcher>> | undefined;
+    let dispatcher: Awaited<ReturnType<typeof forNodeFetch>> | undefined;
     const h = harness({
       env: { BREAKROCKS_API_URL: `${targetUrl}/graphql`, BREAKROCKS_AGENTS_URL: `${targetUrl}/agents`, BREAKROCKS_NPM_URL: `${targetUrl}/npm`, BREAKROCKS_RELEASES_URL: `${targetUrl}/releases`, HTTP_PROXY: 'http://127.0.0.1:9/' },
       fetch: (url, init) => fetch(url, { ...init, ...(dispatcher ? { dispatcher } : {}) } as RequestInit),
     });
-    h.io.configureNetwork = async (s) => { dispatcher = await createDispatcher(s); };
+    h.io.configureNetwork = async (s) => { dispatcher = await forNodeFetch(s); };
     expect(await h.run('config', 'add', 'work', '--env', 'dev', '--use')).toBe(0);
     expect(await h.run('config', 'set', 'proxy', 'http://127.0.0.1:9/')).toBe(0);
     await h.run('--proxy', `http://alice:s3cret@127.0.0.1:${proxyPort}`, 'doctor', '--json');
@@ -188,9 +191,9 @@ describe('the requests', () => {
     await dispatcher?.close();
   });
   it('fail with the proxy unreachable, without its credentials in the error', async () => {
-    let dispatcher: Awaited<ReturnType<typeof createDispatcher>> | undefined;
+    let dispatcher: Awaited<ReturnType<typeof forNodeFetch>> | undefined;
     const h = harness({ env: { BREAKROCKS_API_URL: `${targetUrl}/graphql`, BREAKROCKS_AGENTS_URL: `${targetUrl}/agents` }, fetch: (url, init) => fetch(url, { ...init, ...(dispatcher ? { dispatcher } : {}) } as RequestInit) });
-    h.io.configureNetwork = async (s) => { dispatcher = await createDispatcher(s); };
+    h.io.configureNetwork = async (s) => { dispatcher = await forNodeFetch(s); };
     expect(await h.run('--proxy', 'http://alice:s3cret@127.0.0.1:9', 'universes', 'show', '%paris', '--json')).not.toBe(0);
     expect(h.all()).not.toContain('s3cret');
     expect(proxyFile).toBeTypeOf('function');

@@ -153,7 +153,8 @@ export async function createDispatcher(settings: NetworkSettings) {
       agent = protocol === 'socks5:' || protocol === 'socks:'
         // requestTls: the TLS of the target through the tunnel (in undici, not in its types yet); no proxyTls (it would speak TLS to the proxy).
         ? new undici.Socks5ProxyAgent(proxy, (ca ? { requestTls: tlsOptions } : {}) as ConstructorParameters<typeof undici.Socks5ProxyAgent>[1])
-        : new undici.ProxyAgent({ uri: proxy, requestTls: tlsOptions, proxyTls: tlsOptions, connect: tlsOptions });
+        // proxyTunnel: plain http through CONNECT too, as before undici 8 (which forwards it in absolute form by default).
+        : new undici.ProxyAgent({ uri: proxy, requestTls: tlsOptions, proxyTls: tlsOptions, connect: tlsOptions, proxyTunnel: true });
       agents.set(proxy, agent);
     }
     return agent;
