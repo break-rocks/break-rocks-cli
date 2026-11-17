@@ -5,6 +5,28 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-17
+
+Specs v129.1.0 (`specs/common` pinned on that tag; D-411, My places). `schema/api-v2` regenerated: `myPlaces`,
+`myPlacesPlaylist`, `myPlacesTags`, `mySavedItem` (228 reads), `saveToMyPlaces`, `updateSavedItem`, `removeSavedItem`,
+`clearMyPlaces`, `createMyPlacesTag`, `updateMyPlacesTag`, `deleteMyPlacesTag`, `shareMyPlaces` (362 writes),
+`Playlist.mapItems` and the playlist form `MAP`.
+
+### Added
+
+- The group `my-places` (domain `map`): `list` (`--tag`, `--cells`, `--in-common`, `--all`), `show`, `save`, `edit`
+  (`--clear-tags`), `remove`, `clear`, `tags`, `tags create`, `tags edit`, `tags delete`, `share`, `shared`, `playlist`.
+  My places tags are given by name or id. `--dry-run` on the writes.
+- `my-places clear` deletes the whole of My places and needs `--yes` (exit 2 without it; `"yes": true` from the MCP
+  server). `my-places share` without `--tag` shares all of My places, which shares what is saved later too: it needs
+  `--yes` as well.
+- `my-places playlist <address>` reads the saved items of a playlist of the form MAP (`Playlist.mapItems`), with `--in-common`.
+- A delegated agent refused (`DELEGATED_AGENT_NOT_ALLOWED`: sharing, deleting the whole, a shared tag) gets a sentence that
+  says what it may not do and that its human may; the code and the source are unchanged.
+- `MY_PLACES_NOT_OPEN` has a sentence of its own when the platform sends none; a backend before v129.1.0 answers
+  `OPERATION_NOT_SERVED` (exit 1, "This backend does not serve My places yet (it came with specs v129.1.0 …)").
+- No command for the proximity alert: it is a setting of the device.
+
 ## [0.34.0] - 2026-11-17
 
 Specs v128.0.0 (`specs/common` pinned on that tag; D-408 b, the search of Explore keeps its map). `schema/api-v2`

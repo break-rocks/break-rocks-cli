@@ -16,16 +16,16 @@ import { BOUNDARY_ID, RADII, boundaryShape } from './geo.js';
 
 // ---- The backend behind this CLI ----
 
-const NOT_SERVED = /FieldUndefined: Field '\w+' in type '(?:Query|Mutation)'|UnknownType|Unknown type/;
+const NOT_SERVED = /FieldUndefined: Field '\w+' in type '(?:Query|Mutation|Playlist)'|UnknownType|Unknown type/;
 /**
  * [run], or OPERATION_NOT_SERVED (exit 1) when the backend does not know its operation or its input type yet (a contract
- * older than v128.0.0): "this backend does not serve <what> yet".
+ * older than [since], v128.0.0 by default): "this backend does not serve <what> yet".
  */
-export async function served<T>(what: string, run: () => Promise<T>): Promise<T> {
+export async function served<T>(what: string, run: () => Promise<T>, since = 'v128.0.0'): Promise<T> {
   try {
     return await run();
   } catch (error) {
-    if (error instanceof CliError && NOT_SERVED.test(error.message)) throw cliRefusal('OPERATION_NOT_SERVED', `This backend does not serve ${what} yet (it came with specs v128.0.0; this CLI is built on ${CONTRACT.version ?? '?'}): breakrocks doctor tells more`, { what });
+    if (error instanceof CliError && NOT_SERVED.test(error.message)) throw cliRefusal('OPERATION_NOT_SERVED', `This backend does not serve ${what} yet (it came with specs ${since}; this CLI is built on ${CONTRACT.version ?? '?'}): breakrocks doctor tells more`, { what });
     throw error;
   }
 }

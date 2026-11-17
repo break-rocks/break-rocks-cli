@@ -617,6 +617,19 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `map nearby decline` | Decline a Nearby request | `breakrocks map nearby decline <request id>` |
 | `map nearby leave` | Stop Nearby | `breakrocks map nearby leave` |
 | `map nearby sightings` | Send the nearby tokens seen around | `breakrocks map nearby sightings --sightings '[{"token":"<token>","closeness":"NEAR"}]'` |
+| `my-places list` | Your saved items | `breakrocks my-places list` |
+| `my-places show` | Whether a thing is saved | `breakrocks my-places show PLACE <place id>` |
+| `my-places save` | Save a place, a feat, an event or a route | `breakrocks my-places save PLACE <place id>` |
+| `my-places edit` | Change the tags and the note of a saved item | `breakrocks my-places edit <item id> --tags done` |
+| `my-places remove` | Remove a saved item | `breakrocks my-places remove <item id>` |
+| `my-places clear` | Delete the whole of My places (confirmation: `--yes`) | `breakrocks my-places clear --yes` |
+| `my-places tags` | Your My places tags | `breakrocks my-places tags` |
+| `my-places tags create` | Create a My places tag | `breakrocks my-places tags create bakeries --color MUSTARD` |
+| `my-places tags edit` | Rename a My places tag or change its color | `breakrocks my-places tags edit to-try --color LAGOON` |
+| `my-places tags delete` | Delete a My places tag | `breakrocks my-places tags delete bakeries` |
+| `my-places share` | Share a tag or all of My places as a playlist (confirmation: `--yes`) | `breakrocks my-places share bakeries --tag bakeries --visibility PUBLIC` |
+| `my-places shared` | The playlist that shares all of My places | `breakrocks my-places shared` |
+| `my-places playlist` | The saved items of a shared My places playlist | `breakrocks my-places playlist @erin>places` |
 | `routes list` | Your routes | `breakrocks routes list` |
 | `routes show` | Show a route | `breakrocks routes show <route id>` |
 | `routes nearby` | The nearby routes of a route | `breakrocks routes nearby <route id>` |
@@ -884,6 +897,35 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `doctor` | Check what keeps the CLI from working | `breakrocks doctor` |
 | `batch` | Run the actions of a JSON lines file | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
+
+### My places (0.35.0, specs v129.1.0)
+
+D-411 (`map/my-places.feature`, `contracts/map.md` § My places): the group `my-places`, in the domain `map`. My places is the
+private map of what the account saved from the map: a place, an experience feat, a universe event or a route (never a
+post), 5,000 at most, each with 0 to 5 My places tags and a private note of 500 characters.
+
+- `my-places list [--tag <tag>] [--cells <h3 cells>] [--in-common <playlist>…] [--all]` (`myPlaces`): the saved items, the
+  latest saved first, with how many in all; `--cells` are 1 to 7 H3 map cells of one resolution (0 to 9) of the area shown
+  (the position of the machine is never read; the apps order by distance on the device). `--in-common` compares with 1 to 20
+  playlists of the form MAP of one connected account (`@erin>places` or an id).
+- `my-places show <kind> <target id>` (`mySavedItem`), `my-places save <kind> <target id> [--tags …] [--note …]`
+  (`saveToMyPlaces`), `my-places edit <item id> [--tags … | --clear-tags] [--note …]` (`updateSavedItem`),
+  `my-places remove <item id>` (`removeSavedItem`). `<kind>` is `PLACE`, `FEAT`, `EVENT` or `ROUTE`. Tags are given by
+  name (`to-try`, `#done`) or id.
+- `my-places tags` (`myPlacesTags`), `tags create <name> --color …`, `tags edit <tag> [--name …] [--color …]`,
+  `tags delete <tag>` (the saved items stay). Colors: AUBERGINE, BRICK, FOREST, INK, LAGOON, MUSTARD, OLIVE, SLATE.
+- `my-places share <name> [--tag <tag>] [--visibility …]` (`shareMyPlaces`) shares a tag, or all of My places, as an account
+  playlist of the form MAP (never the notes); all of My places needs `--yes` (what is saved later is shared too).
+  `my-places shared` (`myPlacesPlaylist`) tells whether all of it is shared; stop sharing with `playlists delete`.
+  `my-places playlist <address> [--in-common] [--cells …] [--all]` reads the saved items of a playlist of the form MAP
+  (`Playlist.mapItems`), as the reader may.
+- `my-places clear --yes` (`clearMyPlaces`): deletes the whole of My places, final; refused without `--yes` (exit 2).
+- No command for the proximity alert: it is a setting of each device.
+- A delegated agent reads, saves, tags and writes notes for its human, and removes one saved item per call; it never shares
+  My places, never deletes the whole of it and never touches a shared tag: the platform answers
+  `DELEGATED_AGENT_NOT_ALLOWED` (exit 1) and the CLI says what the agent may not do and that its human may.
+  `MY_PLACES_NOT_OPEN` (the switch `map.savePlace` is off) and the other codes of the contract are printed as the platform
+  answers them; a backend before v129.1.0 answers `OPERATION_NOT_SERVED`. A playlist of the form MAP is read by its address.
 
 ### Help by domains, command tree and proxy (0.25.0)
 

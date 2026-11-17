@@ -1275,7 +1275,7 @@ input RoutePrivacyZoneInput {
 }
 
 """
-A map kind of the row of the map kinds (map.kinds, map-highlights.feature): POSTS "Posts and photos", VIDEOS "Videos", FEATS
+A map kind, among the choices of what since D-410 (map.kinds, map-highlights.feature): POSTS "Posts and photos", VIDEOS "Videos", FEATS
 "Feats", EVENTS "Events", PEOPLE "People", UNIVERSES "Universes" (the map of Explore only), ROUTES "Routes".
 """
 enum MapKind {
@@ -1412,4 +1412,222 @@ type MapGatheringKind {
   its place feat count, a universe event in progress first, then the next 7 days by attendees, then the soonest).
   """
   contents: [PlaceContent!]!
+}
+
+"""
+The nature of a saved item of My places (since v129.1.0, D-411, map/my-places.feature; contracts/map.md § My places):
+PLACE, a point of interest of the cartography, with or without a place feat (targetId: its placeId); FEAT, a published
+experience feat (targetId: the id of its experience instance); EVENT, a universe event (targetId: its id); ROUTE, a
+route (targetId: its id). Never a post. A client shows an unknown nature as a PLACE.
+"""
+enum SavedItemKind {
+  EVENT
+  FEAT
+  PLACE
+  ROUTE
+}
+
+"""
+The color of a My places tag (since v129.1.0, D-411): one of the 8 ambiance colors of the social platform
+(customize-universe.feature), a color token of the design system. A client shows an unknown color as SLATE.
+"""
+enum MyPlacesTagColor {
+  AUBERGINE
+  BRICK
+  FOREST
+  INK
+  LAGOON
+  MUSTARD
+  OLIVE
+  SLATE
+}
+
+"""
+A starting My places tag (since v129.1.0, D-411): TO_TRY ("To try") and DONE ("Done"), which every account has from
+the start; the apps show them in the language of the reader until they are renamed.
+"""
+enum MyPlacesStarterTag {
+  DONE
+  TO_TRY
+}
+
+"""
+A My places tag of the caller (since v129.1.0, D-411, map/my-places.feature): a label of My places that plays the
+role of a list; read by its owner only.
+"""
+type MyPlacesTag {
+  """
+  The identifier of the My places tag.
+  """
+  id: ID!
+  """
+  Its name, in its canonical form, without "#" (the rules of a tag: TAG_INVALID); for a starting tag never renamed,
+  its English name ("to-try", "done"), shown translated (starter).
+  """
+  name: String!
+  """
+  Its color, one of the 8 ambiance colors; AUBERGINE (magenta) for "To try" and FOREST (green) for "Done" at the
+  start.
+  """
+  color: MyPlacesTagColor!
+  """
+  TO_TRY or DONE for a starting tag never renamed (the apps show it in the language of the reader); null for another
+  tag and once renamed.
+  """
+  starter: MyPlacesStarterTag
+  """
+  The number of saved items that carry it ("To try · 14").
+  """
+  itemCount: Int!
+  """
+  The playlist of the playlist form MAP that shares it (shareMyPlaces); null when it is not shared.
+  """
+  playlist: Playlist
+}
+
+"""
+A saved item of My places of the caller (since v129.1.0, D-411, map/my-places.feature): what it saved from a card or
+a sheet of the map, read by its owner only.
+"""
+type SavedItem {
+  """
+  The identifier of the saved item.
+  """
+  id: ID!
+  """
+  The nature of the thing saved.
+  """
+  kind: SavedItemKind!
+  """
+  The identifier of the thing saved, by its nature (SavedItemKind).
+  """
+  targetId: String!
+  """
+  Whether the thing still exists for the caller: false once deleted by its author, removed by the moderation or by
+  the platform team, or no longer readable by the caller; the apps then show "no longer exists", with its tags and
+  its note only, and draw it on no map.
+  """
+  exists: Boolean!
+  """
+  The name of the thing (the name of a place or of a route, the title of a universe event, the place feat of an
+  experience feat), as the caller may read it when read; null when it no longer exists.
+  """
+  name: String
+  """
+  Its point on the map, read when read: the point of interest of a place, the place of an experience feat, the point of
+  a universe event (the center of its zone without one), the route start marker of a route as the caller sees it; null
+  when it no longer exists or has no point. The apps compute the distance from it on the device.
+  """
+  point: Point
+  """
+  The H3 cell of resolution 9 of its point, as point; null with it.
+  """
+  mapCell: String
+  """
+  For a universe event, its end, so that the proximity alert leaves it out once over; null otherwise.
+  """
+  endsAt: AWSDateTime
+  """
+  When the starting tag DONE ("Done", renamed or not) was put on it: the row shows "done on <date>"; null when it
+  does not carry it.
+  """
+  doneAt: AWSDateTime
+  """
+  Its My places tags, 0 to 5, in the order put.
+  """
+  tags: [MyPlacesTag!]!
+  """
+  Its My places note, 0 to 500 visible characters; an empty string when none. Never shared.
+  """
+  note: String!
+  """
+  When it was saved.
+  """
+  savedAt: AWSDateTime!
+}
+
+"""
+A page of saved items (since v129.1.0, D-411).
+"""
+type SavedItemPage {
+  """
+  The saved items of the page.
+  """
+  items: [SavedItem!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+  """
+  The number of saved items the read answers in all, every page together ("In the area · 4", "In common with @alice ·
+  3").
+  """
+  total: Int!
+}
+
+"""
+A saved item of a playlist of the playlist form MAP, as its reader may read it (since v129.1.0, D-411): never its My
+places note nor its other My places tags.
+"""
+type MapPlaylistItem {
+  """
+  The nature of the thing saved.
+  """
+  kind: SavedItemKind!
+  """
+  The identifier of the thing saved.
+  """
+  targetId: String!
+  """
+  Its name, as the reader may read it.
+  """
+  name: String!
+  """
+  Its point as the reader sees it, as SavedItem.point: for a route, its route start marker for that reader, at the
+  edge of the privacy zones of its author (routes.feature); null when it has none.
+  """
+  point: Point
+  """
+  Whether the reader saved it too (In common), for a playlist the reader opened or follows; false otherwise.
+  """
+  inCommon: Boolean!
+}
+
+"""
+A page of the saved items of a playlist of the playlist form MAP (since v129.1.0, D-411).
+"""
+type MapPlaylistItemPage {
+  """
+  The saved items of the page, the latest saved first.
+  """
+  items: [MapPlaylistItem!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+  """
+  The number of saved items the read answers in all.
+  """
+  total: Int!
+}
+
+"""
+What to save to My places (since v129.1.0, D-411, saveToMyPlaces): the nature and the identifier of the thing, its My
+places tags (0 to 5, by id; none by default) and its My places note (none by default).
+"""
+input SaveToMyPlacesInput {
+  kind: SavedItemKind!
+  targetId: String!
+  tagIds: [ID!]
+  note: String
+}
+
+"""
+The changes of a saved item (since v129.1.0, D-411, updateSavedItem): a field not given stays; tagIds replaces its My
+places tags, 0 to 5 (MY_PLACES_TAGS_TOO_MANY); note, 0 to 500 visible characters (MY_PLACES_NOTE_TOO_LONG), an empty
+string removes it.
+"""
+input SavedItemChangeInput {
+  tagIds: [ID!]
+  note: String
 }

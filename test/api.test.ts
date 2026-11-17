@@ -51,10 +51,10 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect({ ...parseSdl(readContract(source)), version: readFileSync(join(source, 'VERSION'), 'utf8').trim() }).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    expect(GENERATED.version).toBe('v128.0.0');
-    // The descriptions ("""…""") are not fields: Query holds the 224 reads of API v2, Mutation its 354 writes.
-    expect(Object.keys(GENERATED.query).length).toBe(224);
-    expect(Object.keys(GENERATED.mutation).length).toBe(354);
+    expect(GENERATED.version).toBe('v129.1.0');
+    // The descriptions ("""…""") are not fields: Query holds the 228 reads of API v2, Mutation its 362 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(228);
+    expect(Object.keys(GENERATED.mutation).length).toBe(362);
     expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(15);
   });
   it('takes a requestId on every mutation but the four ephemeral signals', () => {
@@ -94,6 +94,7 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
+  'my-places playlist': { playlist: '@erin>places', inCommon: true }, 'my-places share': { name: 'Bakeries', tag: 'to-try' },
   'messages groups meeting-point': { id: 'g', clear: true }, 'governance backup-delegate': { universe: '%x', clear: true }, 'interests add': { tags: ['x'] }, 'interests forget': { all: true },
   'posts create': { text: 'x', in: '%x' }, 'messages direct send': { account: '@x', text: 'x' }, 'messages groups send': { id: 'g', text: 'x' }, 'discussions send': { channel: '%x&a', text: 'x' }, 'posts reply': { id: 'p', text: 'x' }, 'posts quote': { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'look layouts check': { document: '{}', in: '%x', online: true },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },

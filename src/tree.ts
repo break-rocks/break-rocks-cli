@@ -313,6 +313,19 @@ nearby decline | map nearby decline | Decline a Nearby request
 nearby leave | map nearby leave | Stop Nearby
 nearby sightings | map nearby sightings | Send the nearby tokens seen around
 posts place | = | Place your post on the map
+my-places list | = | Your saved items
+my-places show | = | Whether a thing is saved
+my-places save | = | Save a place, a feat, an event or a route
+my-places edit | = | Change the tags and the note of a saved item
+my-places remove | = | Remove a saved item
+my-places clear | = | Delete the whole of My places
+my-places tags | = | Your My places tags
+my-places tags create | = | Create a My places tag
+my-places tags edit | = | Rename a My places tag or change its color
+my-places tags delete | = | Delete a My places tag
+my-places share | = | Share a tag or all of My places as a playlist
+my-places shared | = | The playlist that shares all of My places
+my-places playlist | = | The saved items of a shared My places playlist
 routes list | = | Your routes
 routes show | = | Show a route
 routes nearby | = | The nearby routes of a route
@@ -631,7 +644,7 @@ export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
   { name: 'universes', groups: ['universes'], line: 'universes (favorite, private, pages, territory)' },
   { name: 'content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
   { name: 'talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
-  { name: 'map', groups: ['map', 'routes'], line: 'map (presence, live-share, nearby, locatable), routes' },
+  { name: 'map', groups: ['map', 'my-places', 'routes'], line: 'map (presence, live-share, nearby, locatable), my-places, routes' },
   { name: 'events', groups: ['events'], line: 'events' },
   { name: 'governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
   { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
@@ -666,6 +679,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'discussions creation': 'Who creates discussions', 'discussions agents': 'Delegated agents in a channel', 'discussions presence-choice': 'Who sees you by name',
   map: 'The map: areas, presence, live shares, Nearby', 'map presence': 'Your map presence', 'map presence ghost': 'The ghost mode', 'map live-share': 'Live shares of your position',
   'map nearby': 'Nearby connections', 'map locatable': 'Being locatable', 'map places': 'Places of the map',
+  'my-places': 'My places: saved items, tags, sharing', 'my-places tags': 'My places tags',
   routes: 'Routes: saved, GPX, privacy zones, planning', 'routes gpx': 'GPX files', 'routes privacy-zones': 'Privacy zones',
   events: 'Universe events and relays', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
