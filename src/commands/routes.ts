@@ -11,17 +11,23 @@ import { usageError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, object, str } from '../schema.js';
 import { api } from '../session.js';
+import { routeFigures, routeMarkerLine, served, type RouteMarker as Marker } from './explore-map.js';
 import { cellsProperty, doneText, listText, pageText, pointOf, pointsOf } from './shared.js';
 
-type MapRoute = { id: string; name: string; url?: string; universe?: string | null; visibility?: string; tags?: string[]; owner?: { handle?: string } | null; copiedFrom?: string | null; route?: { mode?: string; metres?: number | null; seconds?: number | null; points?: unknown[]; snapped?: boolean; loop?: boolean; stages?: unknown[] | null } };
+type MapRoute = { id: string; name: string; url?: string; universe?: string | null; visibility?: string; tags?: string[]; owner?: { handle?: string } | null; copiedFrom?: string | null; route?: { mode?: string; metres?: number | null; seconds?: number | null; estimatedSeconds?: number | null; ascent?: number | null; difficulty?: string | null; surfaces?: { surface: string; metres: number }[] | null; points?: unknown[]; snapped?: boolean; loop?: boolean; stages?: unknown[] | null } };
 const km = (m?: number | null) => (m == null ? '-' : `${(m / 1000).toFixed(1)} km`);
 const routeLine = (r: MapRoute) => `${r.id}  ${r.name}  ${r.route?.mode ?? ''}  ${km(r.route?.metres)}  ${r.visibility ?? ''}  ${r.universe ?? (r.owner?.handle ? `@${r.owner.handle}` : '')}${r.tags?.length ? `  #${r.tags.join(' #')}` : ''}${r.copiedFrom ? `  (copy of ${r.copiedFrom})` : ''}`;
 const routeText = (r: unknown) => {
   const x = r as MapRoute | null;
   if (!x) return '(none)';
-  return [routeLine(x), `points: ${x.route?.points?.length ?? 0}${x.route?.stages?.length ? `, stages: ${x.route.stages.length}` : ''}${x.route?.snapped ? ', snapped to the streets and paths' : ', as drawn'}${x.route?.loop ? ', a loop' : ''}`, ...(x.url ? [x.url] : [])].join('\n');
+  // Since specs v128.0.0 (D-408): the route difficulty, the duration (measured, else estimated), the length, the elevation gain, the route surfaces.
+  const shape = x.route;
+  const figures = shape && (shape.difficulty != null || shape.surfaces?.length || shape.estimatedSeconds != null || shape.seconds != null || shape.ascent != null) ? [routeFigures(shape)] : [];
+  return [routeLine(x), ...figures, `points: ${x.route?.points?.length ?? 0}${x.route?.stages?.length ? `, stages: ${x.route.stages.length}` : ''}${x.route?.snapped ? ', snapped to the streets and paths' : ', as drawn'}${x.route?.loop ? ', a loop' : ''}`, ...(x.url ? [x.url] : [])].join('\n');
 };
 const ROUTE = selection('MapRoute', 2);
+/** A route as routes show reads it: with its route surfaces (one level deeper than the generated selection). */
+const ROUTE_SHOWN = ROUTE.replace(' route { ', ' route { surfaces { surface metres } ');
 
 export const routesList = apiCommand({
   name: 'routes list', summary: 'The routes of the account, the most recent first (myMapRoutes)', kind: 'query', op: 'myMapRoutes', select: `{ items ${ROUTE} next }`, text: pageText(routeLine),
@@ -29,14 +35,34 @@ export const routesList = apiCommand({
 });
 export const routesShow: Command<{ route: string }, unknown> = {
   name: 'routes show', summary: 'A route by its id or its URL (/a/alice/w/canal-run), as the account may read it: the parts within the privacy zones of its author left out (mapRoute, mapRouteByUrl)',
+  description: 'Since specs v128.0.0 (D-408): its route difficulty (easy, moderate, difficult, by the thresholds of the platform for its mode), its duration (measured along the streets and paths, else estimated: "(estimated)"), its length, its elevation gain and its route surfaces (paved, cobblestones, gravel, unpaved; none for a route that does not follow the streets and paths). A backend before v128.0.0 serves none of them: the line is left out. Its nearby routes: routes nearby.',
   examples: ['breakrocks routes show <route id>', 'breakrocks routes show /a/alice/w/canal-run --json'],
   input: object({ route: str('The route: its id, or its URL (/a/alice/w/canal-run, https://…)') }, ['route']), output: { description: 'The route (MapRoute)' }, args: { positionals: ['route'] },
   run: async (ctx, { route }) => {
     const byUrl = route.startsWith('/') || /^https?:\/\//.test(route);
-    const data = await api<Record<string, unknown>>(ctx, byUrl ? `query($v: String!) { mapRouteByUrl(url: $v) ${ROUTE} }` : `query($v: ID!) { mapRoute(id: $v) ${ROUTE} }`, { v: route });
+    const data = await api<Record<string, unknown>>(ctx, byUrl ? `query($v: String!) { mapRouteByUrl(url: $v) ${ROUTE_SHOWN} }` : `query($v: ID!) { mapRoute(id: $v) ${ROUTE_SHOWN} }`, { v: route });
     return data[byUrl ? 'mapRouteByUrl' : 'mapRoute'] ?? null;
   },
   text: routeText, quiet: (r) => (r as { id?: string } | null)?.id,
+};
+
+/** The id of a route given by its id or its URL. */
+async function routeIdOf(ctx: Parameters<typeof api>[0], route: string): Promise<string> {
+  if (!(route.startsWith('/') || /^https?:\/\//.test(route))) return route;
+  const found = (await api<{ mapRouteByUrl: { id: string } | null }>(ctx, 'query($v: String!) { mapRouteByUrl(url: $v) { id } }', { v: route })).mapRouteByUrl;
+  if (!found) throw usageError('ROUTE_NOT_FOUND', `No route ${route}`, { route });
+  return found.id;
+}
+export const routesNearby: Command<{ route: string }, Marker[]> = {
+  name: 'routes nearby', summary: 'The nearby routes of a route: 5 at most within 5 km of its start, the nearest first (nearbyRoutes)',
+  description: 'The public routes of the accounts and the universe routes of the public universes whose start lies within 5 kilometres of the start of the route, the nearest first, never itself, never an unlisted nor a private route; each with its four figures (difficulty, duration, length, elevation gain) and its route surfaces. ROUTE_NOT_FOUND when the account may not read the route. A backend before specs v128.0.0: OPERATION_NOT_SERVED.',
+  examples: ['breakrocks routes nearby <route id>', 'breakrocks routes nearby /a/alice/w/canal-run --json'],
+  input: object({ route: str('The route: its id, or its URL (/a/alice/w/canal-run, https://…)') }, ['route']), output: { type: 'array', description: 'The nearby routes (MapRouteMarker)', items: { type: 'object' } }, args: { positionals: ['route'] },
+  run: async (ctx, { route }) => {
+    const routeId = await routeIdOf(ctx, route);
+    return served('the nearby routes', async () => (await api<{ nearbyRoutes: Marker[] | null }>(ctx, `query($r: ID!) { nearbyRoutes(routeId: $r) ${selection('MapRouteMarker', 2)} }`, { r: routeId })).nearbyRoutes ?? []);
+  },
+  text: (r) => (r.length ? r.map(routeMarkerLine).join('\n') : '(no nearby route)'), quiet: (r) => r[0]?.id,
 };
 
 const routeFields = {
@@ -131,11 +157,10 @@ export const routesPlan = apiCommand({
 
 const cells = { parentMapCells: 'cells' };
 const universeFilter = { universe: 'The universe filter: one public universe (none: every public universe)' };
-type RouteMarker = { id: string; name: string; mode?: string; metres?: number | null; tags?: string[] };
 export const mapRoutes = apiCommand({
   name: 'map routes', summary: 'The route markers of an area of the map: public routes and universe routes of public universes, 100 at most (mapRouteMarkers)', kind: 'query', op: 'mapRouteMarkers', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
   description: 'Since specs v118 (D-374) the map reads the markers of the routes (their start and end, no line): routes show <id> reads the line of one (mapRoute). mapRoutes is deprecated.',
-  text: listText((r: RouteMarker) => `${r.id}  ${r.name}  ${r.mode ?? ''}  ${km(r.metres)}${r.tags?.length ? `  #${r.tags.join(' #')}` : ''}`), examples: ['breakrocks map routes --cells 861fb4677ffffff', 'breakrocks map routes --cells 861fb4677ffffff --universe %paris --json'],
+  text: listText((r: Marker) => routeMarkerLine(r)), examples: ['breakrocks map routes --cells 861fb4677ffffff', 'breakrocks map routes --cells 861fb4677ffffff --universe %paris --json'],
 });
 type Channel = { address: string; presentCount?: number; place?: { name?: string } | null; lastMessage?: { text?: string | null } | null };
 export const mapChannels = apiCommand({

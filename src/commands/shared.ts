@@ -39,7 +39,7 @@ export function textOrFile(ctx: Context, value: string): string {
 
 /** The map cells of resolution 6 of an area shown (1 to 4, as the map reads them). */
 export const CELL_R6 = '^86[0-9a-fA-F]{13}$';
-export const cellsProperty: JsonSchema = { type: 'array', items: { type: 'string', pattern: CELL_R6 }, minItems: 1, maxItems: 4, description: 'The map cells of resolution 6 (H3) of the area shown, 1 to 4 (the CLI computes none from a box: no H3 library)' };
+export const cellsProperty: JsonSchema = { type: 'array', items: { type: 'string', pattern: CELL_R6 }, minItems: 1, maxItems: 4, description: 'The map cells of resolution 6 (H3) of the area shown, 1 to 4 (the CLI computes none from a box)' };
 
 /** The discussion that holds a message: exactly one of --channel, --group or --with (DiscussionRefInput). */
 export const discussionTarget = {
