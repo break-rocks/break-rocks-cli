@@ -94,6 +94,7 @@ function sample(s: JsonSchema, name: string): unknown {
 
 /** Inputs of the commands whose required properties are not enough to send a request. */
 const SAMPLES: Record<string, Record<string, unknown>> = {
+  'my-places playlist': { playlist: '@erin>places', inCommon: true }, 'my-places share': { name: 'Bakeries', tag: 'to-try' },
   'messages groups meeting-point': { id: 'g', clear: true }, 'governance backup-delegate': { universe: '%x', clear: true }, 'interests add': { tags: ['x'] }, 'interests forget': { all: true },
   'posts create': { text: 'x', in: '%x' }, 'messages direct send': { account: '@x', text: 'x' }, 'messages groups send': { id: 'g', text: 'x' }, 'discussions send': { channel: '%x&a', text: 'x' }, 'posts reply': { id: 'p', text: 'x' }, 'posts quote': { id: 'p', text: 'x' }, 'proposals vote': { id: 'p', choice: 'for' }, 'proposals file': { universe: '%x', kind: 'ACTION', title: 'x', tags: ['x'] }, 'look layouts check': { document: '{}', in: '%x', online: true },
   'universes territory set': { universe: '%x', circle: '48.85,2.35', radius: '500', name: 'Place' }, 'explore area': { cells: ['851fb463fffffff'] },
