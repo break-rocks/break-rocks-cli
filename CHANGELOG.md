@@ -5,6 +5,37 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-17
+
+Specs v128.0.0 (`specs/common` pinned on that tag; D-408 b, the search of Explore keeps its map). `schema/api-v2`
+regenerated: `exploreSearch`, `randomHighlight`, `highlightOfTheDay`, `nearbyRoutes` (224 reads), the explore filter
+types, `Route.difficulty`, `estimatedSeconds`, `surfaces`, the figures of `MapRouteMarker`.
+
+### Added
+
+- `explore search <words>`: the explore filter, in an area (`--near "<place>"`, `--where %universe[#tag]`, `--cells`)
+  or everywhere (`--everywhere`, or no area), with `--when now|tonight|weekend|<n>d`, `--kinds`, `--families`,
+  `--order relevance|date` everywhere, `--after`, `--limit` (1 to 60). Prints where the area came from, the counts
+  `In the area · N   Everywhere · M` (`500+` at the bound of search), each result with its explore reasons (`why: …`),
+  the nearest activity when the area holds nothing. `%paris jazz` sets where and the words. `--near` goes through the
+  places search of the platform, then the boundary shape of the place or the map cells around its point: never the
+  position of the machine.
+- `explore random [<words>]`: the random jump (the whole world without an area; `--except <id>`), with the activity of
+  its very lively map cell.
+- `explore today [--country FR]`: the highlight of the day of a country, by default the country of the account.
+- `routes nearby <route id|url>`: the nearby routes of a route, 5 at most within 5 km, with their figures.
+- `src/h3.ts`: the H3 cell of a point and the parent of a cell, without a dependency (ported from H3 v4.1.0, Apache 2.0;
+  checked against h3-js on 330,000 points and resolutions).
+
+### Changed
+
+- `explore search` is now the search of Explore (`exploreSearch`). The platform search of the search bar (`search`,
+  `explore search` from 0.25.0 to 0.33.0) is `search <words>`, unchanged otherwise.
+- `routes show` prints the four figures of a route (difficulty, duration measured or estimated, length, elevation gain)
+  and its route surfaces; `map routes` prints the same figures.
+- A backend before v128.0.0 answers these commands `OPERATION_NOT_SERVED` (exit 1: "This backend does not serve explore
+  search yet"), with no trace.
+
 ## [0.33.0] - 2026-11-16
 
 Specs v127.0.0 (`specs/common` pinned on that tag; D-402 a). `schema/api-v2` regenerated: comments only, no schema change.
