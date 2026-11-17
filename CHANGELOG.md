@@ -36,6 +36,16 @@ types, `Route.difficulty`, `estimatedSeconds`, `surfaces`, the figures of `MapRo
 - A backend before v128.0.0 answers these commands `OPERATION_NOT_SERVED` (exit 1: "This backend does not serve explore
   search yet"), with no trace.
 
+### MCP tools
+
+- The tool names stay stable: a name an earlier command held is never given to another one. `breakrocks_explore_search`
+  is still the platform search, listed as deprecated ("Deprecated: use breakrocks_search."), with the same input;
+  `breakrocks_search` is the platform search. The search of Explore of v128.0.0 is the new tool
+  `breakrocks_explore_filter` (the same filter as `explore search`); `breakrocks_explore_random`,
+  `breakrocks_explore_today` and `breakrocks_routes_nearby` are new tools.
+- A command may name its tool (`tool`) and keep former tool names (`formerTools`); `breakrocks schema` gives
+  `mcpTool` and `formerMcpTools`.
+
 ## [0.33.0] - 2026-11-16
 
 Specs v127.0.0 (`specs/common` pinned on that tag; D-402 a). `schema/api-v2` regenerated: comments only, no schema change.

@@ -258,6 +258,8 @@ const whereLine = (w: WhereFrom, f: Filter) => {
 
 export const exploreSearch: Command<SearchInput, SearchAnswer> = {
   name: 'explore search', summary: 'Search Explore with words: in an area, everywhere, with the reasons of each result (exploreSearch)',
+  // Its MCP tool is breakrocks_explore_filter: breakrocks_explore_search stays the platform search it named until 0.33.0.
+  tool: 'breakrocks_explore_filter',
   description: [
     'The explore filter of the map of Explore: where (--near a place, --where a universe and its tags, --cells), when (--when) and what (--kinds, --families, the tags of --where), and the words.',
     'In the area (by default when an area is given) the results come in the order of the map highlights; --everywhere (or no area) reads them everywhere, by relevance or by date (--order), the accounts, discussions, playlists and tags of the platform search included.',

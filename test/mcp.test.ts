@@ -9,6 +9,7 @@ import { createServer } from '../src/mcp/server.js';
 import { commands } from '../src/registry.js';
 import { fakePayer, onPlatform } from './fake-platform.js';
 import { harness } from './helpers.js';
+import { scripted } from './scripted.js';
 
 async function connected(h: ReturnType<typeof harness>, base = {}) {
   const server = createServer(h.io, base);
@@ -27,7 +28,8 @@ describe('the MCP server', () => {
     // Every command but the server itself, the completion of the shells, the update of the CLI, the
     // sign-in and sign-out of a human, the change of its password, and the change of the current profile.
     expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'config set', 'config unset', 'config use', 'login', 'logout', 'mcp', 'me password', 'update']);
-    expect(tools.length).toBe(commands().length - 9);
+    // One tool per command, and the former tool names still served (deprecated): breakrocks_explore_search.
+    expect(tools.length).toBe(commands().length - 9 + commands().reduce((n, c) => n + (c.formerTools?.length ?? 0), 0));
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_me_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_look_themes_prompt', 'breakrocks_agents_login', 'breakrocks_config_list']));
     for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_config_use', 'breakrocks_update']) expect(names).not.toContain(name);
@@ -47,6 +49,26 @@ describe('the MCP server', () => {
     }
     expect(incomplete).toEqual([]);
     expect(tools.map((t) => t.name)).toEqual(expect.arrayContaining(['breakrocks_posts_list', 'breakrocks_posts_create', 'breakrocks_look_themes_publish', 'breakrocks_batch', 'breakrocks_moderation_ban', 'breakrocks_look_layouts_apply']));
+  });
+  it('never gives a tool name to another command: breakrocks_explore_search stays the platform search, deprecated', async () => {
+    const { h } = scripted({ search: { addresses: ['%paris'], tags: [], accounts: [], universeResults: [], posts: [], postsStatus: 'OK', next: null }, exploreSearch: { inArea: 1, everywhere: 1, items: [], next: null, density: [], nearest: null, postsStatus: 'READY', retryAfterSeconds: null }, randomHighlight: null, highlightOfTheDay: null, nearbyRoutes: [] });
+    const client = await connected(h);
+    const { tools } = await client.listTools();
+    const byName = new Map(tools.map((t) => [t.name, t]));
+    for (const name of ['breakrocks_search', 'breakrocks_explore_search', 'breakrocks_explore_filter', 'breakrocks_explore_random', 'breakrocks_explore_today', 'breakrocks_routes_nearby']) expect(byName.has(name), name).toBe(true);
+    expect(byName.get('breakrocks_explore_search')!.description).toMatch(/^Deprecated: use breakrocks_search\. /);
+    expect(byName.get('breakrocks_explore_search')!.inputSchema).toEqual(byName.get('breakrocks_search')!.inputSchema);
+    expect(byName.get('breakrocks_explore_filter')!.inputSchema.properties).toHaveProperty('near');
+    expect(new Set(tools.map((t) => t.name)).size).toBe(tools.length);
+    for (const name of ['breakrocks_search', 'breakrocks_explore_search']) {
+      const r = await client.callTool({ name, arguments: { query: 'velo paris' } });
+      expect(r.isError, name).toBeFalsy();
+      expect(textOf(r), name).toMatchObject({ addresses: ['%paris'] });
+    }
+    const filter = await client.callTool({ name: 'breakrocks_explore_filter', arguments: { words: 'jazz', cells: ['861fb4677ffffff'], when: 'tonight' } });
+    expect(filter.isError).toBeFalsy();
+    expect(textOf(filter)).toMatchObject({ inArea: 1, filter: { scope: 'AREA', when: 'TONIGHT' } });
+    for (const [name, args] of [['breakrocks_explore_random', {}], ['breakrocks_explore_today', { country: 'FR' }], ['breakrocks_routes_nearby', { route: 'rt1' }]] as const) expect((await client.callTool({ name, arguments: args })).isError, name).toBeFalsy();
   });
   it('watches only for a bounded duration', async () => {
     const client = await connected(harness());

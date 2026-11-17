@@ -146,6 +146,10 @@ describe('explore search', () => {
     const { h, calls } = scripted({ search: { addresses: [], tags: [], accounts: [], universeResults: [], posts: [], postsStatus: 'OK', next: null } });
     expect(await h.run('search', 'velo paris')).toBe(0);
     expect(calls[0]).toMatchObject({ field: 'search', variables: { query: 'velo paris' } });
+    expect(await h.run('schema', 'search', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ command: 'search', mcpTool: 'breakrocks_search', formerMcpTools: ['breakrocks_explore_search'] });
+    expect(await h.run('schema', 'explore', 'search', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ command: 'explore search', mcpTool: 'breakrocks_explore_filter' });
   });
 });
 

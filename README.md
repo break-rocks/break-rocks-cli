@@ -1478,7 +1478,9 @@ specs v96 and v99 (above).
   surfaces; `routes nearby <id|url>` (`nearbyRoutes`, 5 at most within 5 km), and `map routes` prints the same
   figures. A backend before v128.0.0: `OPERATION_NOT_SERVED` (exit 1, "This backend does not serve explore search
   yet"); the new fields of a route are left out by the degraded selection. The platform search of the search bar
-  is `search <words>` again (it was `explore search` from 0.25.0 to 0.33.0).
+  is `search <words>` again (it was `explore search` from 0.25.0 to 0.33.0). The MCP tools keep their names: the
+  platform search answers to `breakrocks_search` and still to `breakrocks_explore_search` (listed as deprecated), the
+  search of Explore is `breakrocks_explore_filter`; a tool name an earlier command held is never given to another one.
 - **Pages of a universe** (`layouts.md` § The pages of a universe, as built 66ba2a2): `universes pages`
   (the menu, `pagesVersion`), `universes pages get <u> <name> [--document]`, `publish --file`, `check
   --file`, `hide|show`, `move [--before]`, `delete` (confirmation), `report [--block]`, `universes
@@ -1829,6 +1831,10 @@ only.
   `breakrocks_agents_create`, `breakrocks_operator_recovery_key_set`…), with the input schema of
   `breakrocks schema`; the answer is the command's `--json`, a refusal `{ "error": … }` marked
   `isError`;
+- **stable tool names** (0.34.0): a tool name is never given to another command. When a command's words take a
+  name an earlier command's tool held, it gets its own (`explore search` is `breakrocks_explore_filter`), and the
+  earlier command keeps answering to its former tool, listed with "Deprecated: use …" (`breakrocks_explore_search`,
+  the platform search, now `breakrocks_search`); `breakrocks schema` gives `mcpTool` and `formerMcpTools`;
 - **no tool** for `mcp`, `completion`, `update` (the CLI's installation), `login` and `logout`
   (a human's sign-in, their password and their sessions belong to the person at the terminal;
   an agent signs in through `breakrocks_agent_login`, an operator through `breakrocks_operator_login`), nor

@@ -27,6 +27,8 @@ export const search = apiCommand({
   },
   examples: ['breakrocks search "velo paris"', 'breakrocks search "#football %paris" --order DATE --json'],
 });
+// Its MCP tool until 0.33.0 (when the command was explore search) keeps answering, deprecated: the agents that call it.
+search.formerTools = ['breakrocks_explore_search'];
 
 /** A clip of a feed: its post with its author, its recommendation, its stage. */
 const CLIP_ITEM = selection('ClipFeedItem', 2);
