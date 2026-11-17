@@ -1130,7 +1130,9 @@ type Query {
   not signed in too: the public contents only, as the files of the map highlights. Since D-393 (contracts/map.md § One
   map marker per place) and D-395: a place-folded post is answered under POSTS or VIDEOS, with MapPost.foldedPlaceId
   set, and counted there only, never under FEATS; with "All" chosen, the app draws it inside the gathering thumbnail
-  of its place when it holds that place.
+  of its place when it holds that place. Since v128.0.0 (D-408, placed-videos.feature): "Listen here" reads it with
+  kinds VIDEOS over the cells that cover the area shown, again when the map stops moving; with words in the explore
+  filter, the app reads exploreSearch with kinds VIDEOS instead.
   """
   mapGathering(mapCells: [String!]!, kinds: [MapKind!]!, universe: String): [MapGatheringKind!]
 
@@ -1155,6 +1157,14 @@ type Query {
   zones of its author left out, but for its author). ROUTE_NOT_FOUND (also when the caller may not read it).
   """
   mapRoute(id: ID!): MapRoute
+
+  """
+  Since v128.0.0 (D-408, routes.feature): the nearby routes of a route the caller reads (routeId): the public routes
+  of the accounts and the universe routes of the public universes whose start, as the caller sees its route start
+  marker, is within 5 kilometres of its start, the nearest start first, never itself, never an unlisted nor a private
+  route; 5 at most, empty when none. ROUTE_NOT_FOUND (also when the caller may not read it).
+  """
+  nearbyRoutes(routeId: ID!): [MapRouteMarker!]
 
   """
   Since v92.1.0: a route by its URL ("/a/alice/w/canal-run"). ROUTE_NOT_FOUND.
@@ -1342,6 +1352,44 @@ type Query {
   by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
   search(after: String, hiddenReplies: Boolean, limit: Int, order: SearchOrder, query: String!): SearchResults
+
+  """
+  Since v128.0.0 (D-408, posts/explore-search.feature; contracts/map.md § The explore filter): the results of the explore
+  filter (ExploreFilterInput: the area shown as map cells and a zoom band, never the position of the device; the words;
+  the time window; the map kinds, the event families and the map filter), in the area (scope AREA) or everywhere
+  (EVERYWHERE), with the two counts "In the area" and "Everywhere" and the explore reasons of each result. Read again
+  300 milliseconds after the map stops moving (map-reveal.feature); the app keeps the place of the results that stay
+  and adds the new ones at the end. What the caller may read, with the exclusions of the map (never a content of a
+  private universe the caller is not a member of, nor of an account blocked either way). INVALID_REQUEST for an area
+  missing or invalid with AREA, a query missing or out of 2 to 200 characters, days
+  out of 1 to 90, an order not of its scope. A signed-in caller only, as search: SIGN_IN_REQUIRED for a visitor not
+  signed in (the map highlights, the events files and randomHighlight stay open to it). Phase 1 of the cells (P-16):
+  what the cell called holds, as search. limit:
+  from 1 to 60, the largest marker budget (20 by default; LIMIT_INVALID otherwise); after: the next of the page before
+  (CURSOR_INVALID otherwise).
+  """
+  exploreSearch(filter: ExploreFilterInput!, after: String, limit: Int): ExploreSearchResults
+
+  """
+  Since v128.0.0 (D-408, map-highlights.feature): the random jump, drawn in two steps: a very lively map cell of the
+  explore filter, each with the same chance (filter: its area, null for the whole world; its words, time window, map
+  kinds, event families and map filter; scope and order ignored), a map cell of resolution 8 that holds at least
+  map.randomJump.minContents public contents of the last 7 days (20 by default, a setting of the platform); then one of
+  its map highlights of the filter, each with the same chance: a placed post, a placed video, a place with a place feat
+  or a universe event, never a person, a universe nor a route; never the map highlight exceptId (the one just jumped
+  to); never a content of an account blocked either way (left out before the draw). The same for every reader: nothing
+  else of the caller chooses it. Read by a visitor not signed in too (the map highlights being
+  public). Null when the filter holds no very lively map cell. INVALID_REQUEST for an invalid filter.
+  """
+  randomHighlight(filter: ExploreFilterInput!, exceptId: ID): RandomHighlight
+
+  """
+  Since v128.0.0 (D-408, universes/explore.feature): the highlight of the day of a country (country, ISO 3166-1
+  alpha-2; the apps send the country of the account): the map highlight with the highest highlight score among the
+  placed posts and the placed videos of the public universes of the last 24 hours in that country, a tie to the most
+  recent; computed every hour, the same for every reader of the country. Null when the country holds none. INVALID_REQUEST for an unknown country.
+  """
+  highlightOfTheDay(country: String!): HighlightOfTheDay
 
   """
   The accounts, universes, universe discussions and tags whose name starts with what is typed (text), with its
