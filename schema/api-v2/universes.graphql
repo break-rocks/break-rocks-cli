@@ -1409,6 +1409,12 @@ type UniverseEvent {
   """
   title: String!
   """
+  Its language (ISO 639-1), detected as the language of a post from its title and its conditions of participation
+  together, when it is created and when either is changed (since D-409, the source of its translation, UNIVERSE_EVENT);
+  null when none was detected.
+  """
+  language: String
+  """
   The address of the universe, with its sign ("%paris").
   """
   universe: String!

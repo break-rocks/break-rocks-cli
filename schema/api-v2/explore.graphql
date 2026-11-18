@@ -819,7 +819,7 @@ type MutedUniverse {
 
 """
 Since v128.0.0 (D-408, posts/explore-search.feature; contracts/map.md § The explore filter): the explore filter, as
-exploreSearch and randomHighlight read it. area: the area shown; null for randomHighlight only, the whole world (the map
+exploreSearch, randomHighlight and, since D-419, universeFilterChoices read it. area: the area shown; null for randomHighlight only, the whole world (the map
 under the zoom 3); exploreSearch answers INVALID_REQUEST without it. query: the words, 2 to 200 characters, as search
 takes them; null: no words, for randomHighlight only (exploreSearch answers INVALID_REQUEST without words: without
 them the apps count what the map shows); an address alone is landed by the app (D-246), and an address of a public
@@ -830,11 +830,15 @@ shows and adds them). families: the keys of the event families chosen (EventFami
 every one when not given; since v129.0.0 (D-410), the apps keep the event families chosen while EVENTS is not among
 the kinds, without effect: given with kinds that leave out EVENTS, families is ignored.
 mapFilter: the map filter, an address of at most one public universe and its tags ("%paris#market", "#market"), as the
-link carries it: its universe is the where of the explore filter, its tags are a part of what; null: none; an invalid
+link carries it: its universe is the universe filter of the explore filter (the where of the explore filter until
+D-419; since D-419, apart from where, which holds places only: area), its tags are a part of what; null: none; an invalid
 part is left out; with words, a result carries one of its tags and the words. scope: AREA (the default) or EVERYWHERE
 (randomHighlight ignores it). order: in the area, HIGHLIGHTS only (the order of the map highlights among what matches,
 the default there); everywhere, RELEVANCE (the default there) or DATE, as the reader orders them; another order answers
-INVALID_REQUEST.
+INVALID_REQUEST. access: since D-415 (map/route-findability.feature), the route accessibility filter, the route
+accessibility boxes chosen: only the routes that have every one of them ticked (MapRoute.access), the other kinds
+unchanged; null or empty: none; given with kinds that leave out ROUTES, ignored, as families without EVENTS. Since
+D-415, the words also find a route by its route context and its route description (§ The route context).
 """
 input ExploreFilterInput {
   area: ExploreAreaInput
@@ -846,6 +850,7 @@ input ExploreFilterInput {
   mapFilter: String
   scope: ExploreScope
   order: ExploreOrder
+  access: [RouteAccess!]
 }
 
 """
@@ -909,16 +914,36 @@ enum ExploreOrder {
 Since v128.0.0 (D-408, posts/explore-search.feature): an explore reason, what a result tells of why it is there:
 IN_TIME_WINDOW (it takes place in the time window), IN_AREA (it is in the area), CROSSES_AREA (a route that crosses the
 area), TERRITORY_IN_AREA (a universe whose universe territory meets the area), WORD_IN_NAME (a word is in its name, its
-title or its display name), WORD_IN_TEXT (a word is in the text of a post), WORD_IN_SEARCH_WORDS (a word is a universe
+title or its display name; since D-418, for a route, its name or its route title), WORD_IN_TEXT (a word is in the text of a post), WORD_IN_SEARCH_WORDS (a word is a universe
 search word or a platform search word of a universe), CARRIES_TAG (it carries a tag of the words or of the map filter).
-Never a reason about the reader.
+Since D-415 (map/route-findability.feature), for a route: PASSES_BY (a crossed place of its route context holds every
+word, "passes by the Étangs de Cergy"), STARTS_IN (its route start area holds every word, "starts in Cergy, Port
+Cergy"), THROUGH_ENVIRONMENT (a route environment, named in the language of the caller or in English, "through
+forest"), CROSSES_TERRITORY (the address of a universe whose universe territory it crosses, "crosses the territory of
+%cergy"), WORD_IN_DESCRIPTION (a word is in its route description), DECLARED_ACCESS (a route accessibility box of the
+route accessibility filter that it has ticked, "declared accessible with a pram"). The order the apps show them: the
+time window, the place, the words (WORD_IN_NAME, WORD_IN_TEXT, WORD_IN_SEARCH_WORDS, PASSES_BY, STARTS_IN,
+THROUGH_ENVIRONMENT, CROSSES_TERRITORY, WORD_IN_DESCRIPTION), the tags, then DECLARED_ACCESS. Since D-414, the apps
+show them as icons on the result card and in words under "Why?" (posts/explore-search.feature): PASSES_BY the icon of the
+kind of the crossed place, "Passes by <value>, a place your words name"; STARTS_IN the start flag, "Starts in <value>, an
+area your words name"; THROUGH_ENVIRONMENT the icon of the environment, "<value> on at least 20 % of its length, a word
+you searched"; CROSSES_TERRITORY the monogram of the universe, "Crosses the territory of <value>, a universe your words
+name"; WORD_IN_DESCRIPTION the icon of a description, "<value> is in its description, a word you searched"; DECLARED_ACCESS the icon of the box,
+"Declared accessible with <value> by its author, the box chosen in what"; in the language of the app. Never a reason
+about the reader.
 """
 enum ExploreReason {
   CARRIES_TAG
   CROSSES_AREA
+  CROSSES_TERRITORY
+  DECLARED_ACCESS
   IN_AREA
   IN_TIME_WINDOW
+  PASSES_BY
+  STARTS_IN
   TERRITORY_IN_AREA
+  THROUGH_ENVIRONMENT
+  WORD_IN_DESCRIPTION
   WORD_IN_NAME
   WORD_IN_SEARCH_WORDS
   WORD_IN_TEXT
@@ -935,7 +960,10 @@ type ExploreResultReason {
   reason: ExploreReason!
   """
   What matched, as written: the word for WORD_IN_NAME, WORD_IN_TEXT and WORD_IN_SEARCH_WORDS, the tag with its sign
-  ("#jazz") for CARRIES_TAG; null for the others.
+  ("#jazz") for CARRIES_TAG; since D-415, the name of the crossed place in the language of the caller for PASSES_BY,
+  the route start area ("Cergy, Port Cergy") for STARTS_IN, the RouteEnvironment value for THROUGH_ENVIRONMENT, the
+  universe ("%cergy") for CROSSES_TERRITORY, the word for WORD_IN_DESCRIPTION, the RouteAccess value for
+  DECLARED_ACCESS; null for the others.
   """
   value: String
 }
@@ -1089,6 +1117,65 @@ type ExploreSearchResults {
 }
 
 """
+Since D-414 (posts/explore-search.feature): the counts of the area summary of the area shown, the parts the apps put in
+its sentence ("Tonight in the Marais: 3 concerts, 12 photos, 3 routes"), with the time they were computed.
+"""
+type AreaSummary {
+  """
+  The parts, at most 5, in the order the sentence shows them, the apps taking the first 3: the universe events (by event
+  type when they all have one, else one part of all), the photos, the videos, the feats, the routes; with one map kind
+  alone among kinds, its parts are its kinds, the most numerous first (the universe events by event type, the routes by
+  main travel mode). A part at 0 is never answered; empty when the area holds nothing of the filter.
+  """
+  parts: [AreaSummaryPart!]!
+  """
+  When the counts were computed (the oldest of the cells read), shown by "How is it computed?".
+  """
+  computedAt: AWSDateTime!
+}
+
+"""
+Since D-414: what an AreaSummaryPart counts: EVENTS, the universe events of the time window (in progress at a moment of
+it); PHOTOS, the placed posts with a photo of the last 24 hours; VIDEOS, the placed videos of the last 24 hours; FEATS,
+the experience feats published in the last 24 hours; ROUTES, the routes that cross the area.
+"""
+enum AreaSummaryKind {
+  EVENTS
+  FEATS
+  PHOTOS
+  ROUTES
+  VIDEOS
+}
+
+"""
+Since D-414: one part of the area summary, a number and what it counts. Touching it in the app chooses its map kind
+alone (PHOTOS: POSTS; EVENTS of one event type: EVENTS and its event family).
+"""
+type AreaSummaryPart {
+  """
+  What it counts.
+  """
+  kind: AreaSummaryKind!
+  """
+  EVENTS: the key of the event type they all have (the apps name it in the language of the app, from the event
+  catalog); null when they are of several event types, and for the other kinds.
+  """
+  eventType: String
+  """
+  EVENTS with eventType: the key of its event family; null otherwise.
+  """
+  eventFamily: String
+  """
+  ROUTES, with ROUTES alone among the map kinds: the main travel mode of the routes it counts (D-413: the travel mode of the longest share of their length); null otherwise.
+  """
+  mode: RouteMode
+  """
+  The number, 1 at least.
+  """
+  count: Int!
+}
+
+"""
 Since v128.0.0 (D-408): the number of public contents of one map kind.
 """
 type MapKindCount {
@@ -1161,4 +1248,74 @@ type HighlightOfTheDay {
   When it was computed (every hour).
   """
   computedAt: AWSDateTime!
+}
+
+"""
+Since D-419 (map/map-universe-filter.feature): what "Universe" shows, answered by universeFilterChoices in one read:
+the universe chosen and the favorite universes of the caller that are public universes, each with its counts.
+"""
+type UniverseFilterChoices {
+  """
+  The universe chosen (the universe filter), null when none was given, or when it is unknown, private or the root
+  universe.
+  """
+  chosen: UniverseFilterChoice
+  """
+  "My universes": the favorite universes of the caller that are public universes, other than the root universe and the
+  universe chosen, 20 at most, in the order of the account; empty for a visitor not signed in and for an account
+  without one.
+  """
+  mine: [UniverseFilterChoice!]!
+}
+
+"""
+Since D-419 (map/map-universe-filter.feature): one universe offered by "Universe", with its counts for the area shown
+and the time window ("14 linked places · 3 in the area · 3,120 residents").
+"""
+type UniverseFilterChoice {
+  """
+  The full path of the universe ("paris/jazz"); the apps add the sign.
+  """
+  universe: String!
+  """
+  Its linked places, "See its places · N": the distinct points of what is linked to it (universeFilterChoices); 0: "no
+  linked place", and "See its places" is not offered.
+  """
+  linkedPlaces: Int!
+  """
+  Those of its linked places in the area shown (its universe territory when it meets the area); 0: "none in the
+  area", and the list of results offers "See its places" when linkedPlaces is above 0.
+  """
+  inArea: Int!
+  """
+  The number of its residents, as the universe shows it.
+  """
+  residents: Int!
+  """
+  The bounds of its linked places, which "See its places" fits the map to (at the zoom 16 at most); answered for the
+  universe chosen only, null for the favorite universes and when it has no linked place.
+  """
+  bounds: MapBounds
+}
+
+"""
+Since D-419 (map/map-universe-filter.feature): a box on the map (WGS 84), as BoundsInput takes one.
+"""
+type MapBounds {
+  """
+  The southern latitude.
+  """
+  south: Float!
+  """
+  The western longitude.
+  """
+  west: Float!
+  """
+  The northern latitude.
+  """
+  north: Float!
+  """
+  The eastern longitude.
+  """
+  east: Float!
 }

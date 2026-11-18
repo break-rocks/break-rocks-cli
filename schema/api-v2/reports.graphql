@@ -285,6 +285,7 @@ enum ReportTarget {
   ACCOUNT
   CHANNEL_MESSAGE
   DIRECT_MESSAGE
+  EXPERIENCE
   GROUP_CHAT
   GROUP_MESSAGE
   LAYOUT
@@ -334,6 +335,10 @@ CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { 
   WATCH_LATER: REPORT_TARGET_NOT_ALLOWED). PLAYLIST_ITEM: playlistId and itemId (a course link, a course document:
   PlaylistCourseItem.id) or postId (a video or a post of the playlist, reported as its post: the same report as
   POST, the playlist kept as its context, UNDECLARED_COMMERCIAL admitted too).
+- Since v136.2.0 (experience-moderation.feature, contracts/experiences.md § Moderation): EXPERIENCE: experienceId (an
+  experience of route/1 or challenge/1 the reporter may read, with its experience instances), reported as a route: to the
+  moderation of its universe and the platform team for a universe experience, to the platform team otherwise; its owner
+  reporting it: REPORT_OWN_CONTENT.
 """
 input ReportTargetInput {
   kind: ReportTarget!
@@ -352,6 +357,7 @@ input ReportTargetInput {
   itemId: ID
   playlistId: ID
   routeId: ID
+  experienceId: ID
 }
 
 """
@@ -422,6 +428,10 @@ type ReportTargetRef {
   Since v92.1.0: ROUTE, the route reported; null otherwise.
   """
   routeId: ID
+  """
+  Since v136.2.0: EXPERIENCE, the experience reported; null otherwise.
+  """
+  experienceId: ID
 }
 
 """

@@ -352,7 +352,8 @@ input PositionInput {
 }
 
 """
-The route of a universe event: its 2 to 100 points as drawn, its mode, whether it is snapped to
+The route of a universe event: its 2 to 100 points as drawn (since v131.0.0, D-413, 2 to 2,000 points and at most
+1,000 kilometres), its mode, whether it is snapped to
 the streets and paths ("snapped"; its "line" then the line through them, 2,000 points at most;
 null: the points drawn are the line), its stages, its meeting point (null: its start), its length
 (metres), duration (seconds) and elevation. As an argument (RouteInput): "points", "mode",
@@ -364,7 +365,7 @@ type Route {
   """
   ascent: Int
   """
-  Its descent, in metres; null when unknown.
+  Its descent, in metres; null when unknown. Since v131.0.0 (D-413), the elevation loss of the route.
   """
   descent: Int
   """
@@ -380,9 +381,32 @@ type Route {
   """
   metres: Int
   """
-  How it is travelled.
+  How it is travelled. Since v131.0.0 (D-413, routes.feature): its main travel mode, the travel mode of the longest
+  share of its length, its water crossings left out (of its longest segment for a route on water only).
   """
   mode: RouteMode!
+  """
+  Since v131.0.0 (D-413, routes.feature): its route segments, 1 to 100, in the order of its points, the first from the
+  point 0; a route saved before v131.0.0 answers one segment, in its mode.
+  """
+  segments: [RouteSegment!]!
+  """
+  Since v131.0.0 (D-413): its elevation profile, at most 200 samples evenly spaced along the whole route, its start
+  and its end included; from the routing for a route that follows the ways, from the elevation of the ground for a free
+  line (contracts/map.md § Route recordings); empty when unknown. For another caller than its author, the samples within
+  the parts its privacy zones hide are left out, as they are of its line (metres stays the distance from the start of the
+  whole route).
+  """
+  profile: [ElevationSample!]!
+  """
+  Since v131.0.0 (D-413, route-recording.feature): the posts attached to its line at the save of its route recording, a
+  photo or a clip taken during it, each at its index in points, 60 at most; served under the visibility of the route,
+  except a post the caller may not read (deleted, removed, of an account blocked either way); for another caller than its
+  author, none at a point that a privacy zone of its author hides; never the time a photo or a clip was taken. The one
+  exception to the rounding of a placed post (placed-posts.feature): everywhere else the post stays rounded. Empty when
+  none.
+  """
+  posts: [RoutePost!]!
   """
   Its points as placed.
   """
@@ -414,12 +438,16 @@ type Route {
   estimatedSeconds) and its ascent, the harder of both, by the thresholds map.routeDifficulty of the platform (on foot
   EASY up to 2 hours and 300 metres, MODERATE up to 5 hours and 900 metres; by bicycle 2 hours and 400 metres, 5 hours
   and 1,200 metres; DIFFICULT beyond); from its duration alone when ascent is null; null when its length is unknown.
+  Since v131.0.0 (D-413): by the thresholds of its main travel mode (mode), from the duration of its segments
+  together, its water crossings left out (RouteSegment.waterCrossing, each with its own difficulty).
   """
   difficulty: RouteDifficulty
   """
   Since v128.0.0 (D-408): its estimated duration, in seconds, when it does not follow the streets and paths (snapped
   false): its metres at 5 km/h on foot and 15 km/h by bicycle, told "estimated"; null when it follows them (seconds) or
-  when its length is unknown. One name per concept: seconds is the duration measured along the ways.
+  when its length is unknown. One name per concept: seconds is the duration measured along the ways. Since v131.0.0
+  (D-413): the sum of the estimatedSeconds of its segments, its water crossings left out (the speeds map.routeSpeeds,
+  contracts/map.md § Route recordings).
   """
   estimatedSeconds: Int
   """
@@ -465,7 +493,10 @@ type RouteSurfaceShare {
 }
 
 """
-A route as drawn or snapped (route), to keep with a universe event.
+A route as drawn or snapped (route), to keep with a universe event. Since v131.0.0 (D-413): "segments" gives its route
+segments (null: one segment in "mode"); "recorded" tells a line recorded on a phone (route-recording.feature),
+simplified by the app as a line drawn by hand; "ascent" and "descent" sent by the app (the barometer of the phone) are
+kept only where the elevation of the ground is not known (contracts/map.md § Route recordings).
 """
 input RouteInput {
   ascent: Int
@@ -485,21 +516,171 @@ input RouteInput {
   """
   Since v92.1.0: a loop (false when not given). A line drawn by hand is simplified by the app, keeping its shape (5
   metres by default, a setting of the platform team), to at most 1,000 points before it is sent, with handDrawn
-  true (ROUTE_INVALID beyond; 100 points placed point by point).
+  true (ROUTE_INVALID beyond; 100 points placed point by point). Since v131.0.0 (D-413): at most 2,000 points, drawn
+  by hand, recorded or placed point by point, and 1,000 kilometres.
   """
   loop: Boolean
   """
-  Since v92.1.0: a line drawn by hand or imported, up to 1,000 points (false when not given: 2 to 100 points).
+  Since v92.1.0: a line drawn by hand or imported, up to 1,000 points (false when not given: 2 to 100 points). Since
+  v131.0.0 (D-413): up to 2,000 points either way.
   """
   handDrawn: Boolean
+  """
+  Since v131.0.0 (D-413): the route segments, 1 to 100, the first from the point 0, each "from" after the one before
+  (ROUTE_INVALID otherwise); null: one segment in mode. snap true with a segment that is not on foot nor by bicycle:
+  ROUTE_SNAP_NOT_OFFERED, on saveMapRoute and on the route of a universe event (createUniverseEvent,
+  changeUniverseEvent) alike; a snapping that cannot be followed for a mode that offers it keeps the line as drawn
+  (snapped false), as before.
+  """
+  segments: [RouteSegmentInput!]
+  """
+  Since v131.0.0 (D-413): a line recorded on a phone (route-recording.feature), a free line (false when not given).
+  """
+  recorded: Boolean
+  """
+  Since v131.0.0 (D-413, route-recording.feature): the posts of the owner attached to the line, 0 to 60, each at an
+  index within points (ROUTE_INVALID otherwise; POST_NOT_FOUND for a post that is not the owner's); given only with the
+  first save of a route recording (recorded true and no id: ROUTE_INVALID otherwise), the one moment a photo or a clip
+  is attached; null: kept as they are when a route is changed, none for a new one.
+  """
+  posts: [RoutePostInput!]
 }
 
 """
-How a route is travelled: on foot or by bicycle.
+Since v131.0.0 (D-413, route-recording.feature): a post placed on the line of a route: the index, in Route.points, of
+the point where its photo or its clip was taken, and the post. The post keeps its own place, rounded as any placed post
+(placed-posts.feature); only the route knows that point, which its line already shows. As an argument:
+RoutePostInput.
+"""
+type RoutePost {
+  """
+  The index of its point in Route.points.
+  """
+  index: Int!
+  """
+  The post.
+  """
+  postId: ID!
+}
+
+"""
+Since v131.0.0 (D-413): a post placed on the line of a route, to save.
+"""
+input RoutePostInput {
+  index: Int!
+  postId: ID!
+}
+
+"""
+Since v131.0.0 (D-413, routes.feature): a route segment, from its point "from" (an index in Route.points) up to the
+next segment, in its travel mode; its length, its estimated duration (its metres at the speed of its travel mode, the
+setting map.routeSpeeds; null when it follows the ways, its duration then in Route.seconds) and its route difficulty
+by the thresholds of its travel mode; waterCrossing true for a segment on water (PADDLE, BOAT, SWIM) in a route that has
+a segment on land, counted apart: Route.estimatedSeconds and Route.difficulty leave it out, and the apps show it apart.
+"""
+type RouteSegment {
+  """
+  The index, in Route.points, of its first point.
+  """
+  from: Int!
+  """
+  Its travel mode.
+  """
+  mode: RouteMode!
+  """
+  Its length, in metres; null when unknown.
+  """
+  metres: Int
+  """
+  Its estimated duration, in seconds; null when it follows the ways or when its length is unknown.
+  """
+  estimatedSeconds: Int
+  """
+  Its route difficulty for its travel mode; null when its length is unknown.
+  """
+  difficulty: RouteDifficulty
+  """
+  Whether it is a water crossing, counted apart.
+  """
+  waterCrossing: Boolean!
+}
+
+"""
+Since v131.0.0 (D-413): a route segment to save: "from", the index in RouteInput.points of its first point, and its
+travel mode "mode".
+"""
+input RouteSegmentInput {
+  from: Int!
+  mode: RouteMode!
+}
+
+"""
+Since v131.0.0 (D-413): a sample of an elevation profile: its distance from the start of the route, in metres, and the
+elevation there, in metres above the sea.
+"""
+type ElevationSample {
+  """
+  Its distance from the start, in metres.
+  """
+  metres: Int!
+  """
+  The elevation there, in metres above the sea.
+  """
+  elevation: Int!
+}
+
+"""
+Since v131.0.0 (D-413, route-recording.feature): the figures of the route recording a route was saved from: its moving
+time (its pauses left out) and its total time, in seconds; never when it started, which the platform does not keep.
+Served to the owner of the route only.
+"""
+type RouteRecordingFigures {
+  """
+  Its moving time, in seconds.
+  """
+  movingSeconds: Int!
+  """
+  Its total time, in seconds, its pauses included (86,400 at most).
+  """
+  totalSeconds: Int!
+}
+
+"""
+Since v131.0.0 (D-413): the figures of a route recording, sent with the route saved from it (MapRouteInput.recording):
+movingSeconds 0 to totalSeconds, totalSeconds 1 to 86,400 (ROUTE_INVALID otherwise).
+"""
+input RouteRecordingFiguresInput {
+  movingSeconds: Int!
+  totalSeconds: Int!
+}
+
+"""
+How a route is travelled: on foot or by bicycle. Since v131.0.0 (D-413, routes.feature), its travel mode: on foot
+(FOOT without more, WALK, RUN, HIKE), by bicycle (BICYCLE without more, ROAD_BICYCLE, MOUNTAIN_BICYCLE, GRAVEL_BICYCLE),
+HORSE (on horseback), WHEELCHAIR (in a wheelchair), on snow (ALPINE_SKI, CROSS_COUNTRY_SKI, SKI_TOURING, SNOWSHOES), on
+water (PADDLE "kayak or paddle", BOAT "sail or boat", SWIM "open-water swim"); only the modes on foot and by bicycle
+follow the streets and paths (snap). A client shows a value it does not know as FOOT. The live share of a meet-up
+(meetUpMode) takes FOOT and BICYCLE only, as before (POSITIONS_INVALID); route(snap: true) takes the modes on foot and
+by bicycle only (ROUTE_SNAP_NOT_OFFERED).
 """
 enum RouteMode {
+  ALPINE_SKI
   BICYCLE
+  BOAT
+  CROSS_COUNTRY_SKI
   FOOT
+  GRAVEL_BICYCLE
+  HIKE
+  HORSE
+  MOUNTAIN_BICYCLE
+  PADDLE
+  ROAD_BICYCLE
+  RUN
+  SKI_TOURING
+  SNOWSHOES
+  SWIM
+  WALK
+  WHEELCHAIR
 }
 
 """
@@ -1152,10 +1333,262 @@ type MapRoute {
   """
   tags: [String!]!
   """
-  Its line as kept (since v101.0.0, contracts/map.md § Routes): the simplified line, at most 1,000 points, as an
-  encoded polyline of precision 5, the parts its privacy zones hide left out for another reader than its author.
+  Its line as kept (since v101.0.0, contracts/map.md § Routes): the simplified line, at most 1,000 points (since
+  v131.0.0, D-413, 2,000 points), as an encoded polyline of precision 5, the parts its privacy zones hide left out for
+  another reader than its author.
   """
   encodedLine: String!
+  """
+  Since v131.0.0 (D-413, route-recording.feature): the figures of the route recording it was saved from (its moving
+  time and its total time, never when it started), for its owner only; null for any other caller, and for a route that was not
+  recorded. A route joined from routes (joinMapRoutes) has none.
+  """
+  recording: RouteRecordingFigures
+  """
+  Since D-415 (map/route-findability.feature): its route description, 0 to 500 visible characters of plain text, line
+  breaks kept, without formatting (its addresses and links stay text); null when none. Served to whoever may read the
+  route.
+  """
+  description: String
+  """
+  Since D-415: the delegated agent that wrote its route description last, for the Automated mark ("via scribe ·
+  Automated"), with the name it had then; null when written by the owner or the leadership itself, or when there is no
+  route description.
+  """
+  descriptionAgent: String
+  """
+  Since D-415: its route accessibility, the route accessibility boxes its owner (the leadership for a universe route)
+  ticked, in the order of RouteAccess; empty when none. Never ticked by the platform; the apps tell them "declared by
+  the author".
+  """
+  access: [RouteAccess!]!
+  """
+  Since D-415: its route context, computed by the platform from its line as another reader than its author sees it
+  (contracts/map.md § The route context), the same for every caller who may read the route, its author included (but
+  computedAt, its owner only); null
+  while it is not computed yet, or while it is computed again after a change of the privacy zones of its author.
+  """
+  context: RouteContext
+  """
+  Since D-415 (map/route-findability.feature), for its owner only (the leadership for a universe route): when its name
+  is a prefilled name its owner never changed and names a crossed place or a route start area that the privacy zones of
+  its author now hide, the prefilled name of its route context computed again, which the apps offer as a rename in one
+  gesture (saveMapRoute with its id and that name); the name never changes by itself. Null otherwise, and for any other
+  caller. Since D-418, offered in the same gesture as titleSuggestion when both are set.
+  """
+  renameSuggestion: String
+  """
+  Since D-418 (map/route-findability.feature): its route title, 0 to 80 visible characters of plain text on one line,
+  without formatting (its addresses and links stay text), distinct from its name, which stays the identifier of its
+  URL; not unique. Served as written, never translated, to whoever may read the route; the apps show it in place of the
+  name wherever the route is named (contracts/map.md § The route title), and the name when it is null. Null when
+  none: a route saved with a name typed, a copy, an import, a join, or a route title emptied.
+  """
+  title: String
+  """
+  Since D-418: the delegated agent that wrote its route title last, for the Automated mark ("via scribe · Automated"),
+  with the name it had then; null when written by the owner or the leadership itself, prefilled by the platform, or
+  when there is no route title.
+  """
+  titleAgent: String
+  """
+  Since D-418, for its owner only (the leadership for a universe route): when its route title is a prefilled route title
+  its owner never changed and names a crossed place or a route start area that the privacy zones of its author now
+  hide, the prefilled route title of its route context computed again, which the apps offer in the same gesture as
+  renameSuggestion (saveMapRoute with its id and that title); the route title never changes by itself. Null otherwise,
+  and for any other caller.
+  """
+  titleSuggestion: String
+  """
+  Since D-420 (map/route-versions.feature), for its owner only (the leadership for a universe route): the number of its
+  latest route version, from 1 (a route made before D-420 is at 1); null for any other caller, who never learns that a
+  route has route versions. An update from a follow and record (updateMapRouteFromRecording), a restore
+  (restoreMapRouteVersion) and, since D-421, a change of its line by saveMapRoute make a route version; the other
+  changes of saveMapRoute change the latest one in place.
+  """
+  version: Int
+  """
+  Since D-420 (map/follow-and-record.feature): the URL of the route it was saved "after", from a follow and record of
+  that route; served only while that route is readable through its own visibility, PUBLIC (or a universe route of a
+  public universe): null when none, when its owner removed it (MapRouteInput.removeAfter), and while that route is
+  UNLISTED, PRIVATE, of a private universe, deleted or removed, whatever the caller may read through a route group
+  session or a universe event. The author of that route is never told.
+  """
+  after: AWSURL
+  """
+  Since D-420: the author of the route of after, for a route of an account; null otherwise (a universe route: its URL
+  names its universe), and whenever after is null.
+  """
+  afterAuthor: AccountRef
+}
+
+"""
+Since D-420 (map/route-versions.feature): a route version of a route, as its owner reads it (the leadership for a
+universe route; mapRouteVersions): its line, its route segments, its stages, its attached posts and its figures, whole,
+the parts its privacy zones hide included, as the owner reads the route. Never served to another caller.
+"""
+type MapRouteVersion {
+  """
+  Its number, from 1.
+  """
+  version: Int!
+  """
+  When it was made (the save of the route for the route version 1 of a route made before D-420).
+  """
+  createdAt: AWSDateTime!
+  """
+  Whether it is the latest route version, the one published.
+  """
+  latest: Boolean!
+  """
+  The route version it restores (restoreMapRouteVersion); null for a route version made otherwise.
+  """
+  restoredFrom: Int
+  """
+  Its line, its route segments, its stages, its attached posts (those the owner may still read), its length and its
+  elevation.
+  """
+  route: Route!
+  """
+  Its line as kept, an encoded polyline of precision 5, at most 2,000 points, whole.
+  """
+  encodedLine: String!
+  """
+  The figures of the route recording it was made from (its moving time and its total time); null when it was not made
+  from a route recording.
+  """
+  recording: RouteRecordingFigures
+}
+
+"""
+Since D-420 (map/follow-and-record.feature): an update of a route of the caller (the leadership for a universe route)
+from the route recording of a follow and record (updateMapRouteFromRecording): id, the route; route, its new line, its
+route segments, its stages and the posts attached at this save, with route.recorded true (ROUTE_INVALID otherwise; the
+rules of RouteInput, posts included, as for the first save of a route recording); recording, the figures of the route
+recording. The name, the route title, the free tags, the route description, the route accessibility boxes and the
+visibility are not given: they stay. version: the route version followed (MapRoute.version as the caller read it when
+the route guidance started); sessionId: instead, the route group session it was followed in, whose copy holds its
+route version; exactly one of both (INVALID_REQUEST otherwise); ROUTE_VERSION_STALE when the route has a later route
+version than the one followed. For a universe route, the backend cuts out the parts of the route recording within the
+privacy zones of the caller (myRoutePrivacyZones), at its start and at its end, whatever the app sent: the cut made by
+the app is only a preview.
+"""
+input MapRouteUpdateInput {
+  id: ID!
+  route: RouteInput!
+  recording: RouteRecordingFiguresInput!
+  version: Int
+  sessionId: ID
+}
+
+"""
+Since D-415 (map/route-findability.feature; contracts/map.md § The route context): what the platform computes by itself
+about a route, with nothing asked of its owner, from its line without the parts the privacy zones of its author hide.
+"""
+type RouteContext {
+  """
+  Its crossed places, 20 at most, in their order along the line: each a named place whose part outside every privacy
+  zone of the author lies within 50 metres of the line served to another reader; empty when none.
+  """
+  places: [CrossedPlace!]!
+  """
+  Its route start area, at the point where its route start marker stands for another reader than its author; null
+  when the reverse geocoding finds no city.
+  """
+  startArea: RouteStartArea
+  """
+  Its route environments, each covering at least 20 % of the length of the line served to another reader (the parts
+  hidden by the privacy zones of the author left out), in the order of RouteEnvironment; empty when none.
+  """
+  environments: [RouteEnvironment!]!
+  """
+  The public universes of the first level whose universe territory its line crosses ("%cergy"), 10 at most, the
+  longest share of its line first; empty when none.
+  """
+  universes: [String!]!
+  """
+  When it was computed, for the owner of the route (the leadership for a universe route) only; null for any other
+  caller.
+  """
+  computedAt: AWSDateTime
+}
+
+"""
+Since D-415: a crossed place of a route.
+"""
+type CrossedPlace {
+  """
+  Its kind.
+  """
+  kind: CrossedPlaceKind!
+  """
+  Its name in the language of the caller when the map knows it, else its local name.
+  """
+  name: String!
+  """
+  Its local name, the name of the place in its own language; null when the same as name.
+  """
+  localName: String
+  """
+  The identifier of its point of interest in the cartography, as PlaceMatch.id; null when none.
+  """
+  placeId: String
+  """
+  For a place with a place feat (PLACE_FEAT), the address of its place feat ("%paris*arc-photo"); null otherwise.
+  """
+  placeFeat: String
+}
+
+"""
+Since D-415: the kind of a crossed place: WATER (a lake, a pond, a reservoir), PARK (a park, a garden, a nature reserve),
+MONUMENT (a monument, a memorial, a castle, a historic site), PLACE_FEAT (a place with a place feat, whatever its kind
+in the cartography).
+"""
+enum CrossedPlaceKind {
+  MONUMENT
+  PARK
+  PLACE_FEAT
+  WATER
+}
+
+"""
+Since D-415: the route start area of a route: its city and its neighbourhood, each named in the language of the caller
+when the map knows it, else by its local name.
+"""
+type RouteStartArea {
+  """
+  The city (the municipality).
+  """
+  city: String!
+  """
+  The neighbourhood; null when the reverse geocoding gives none.
+  """
+  neighbourhood: String
+}
+
+"""
+Since D-415: a route environment: TOWN (built-up land), FOREST (woods), WATERSIDE (within 50 metres of the water of a
+lake, a river or the sea), MOUNTAIN (ground above 1,000 metres of elevation); the apps name it in the language of the
+reader.
+"""
+enum RouteEnvironment {
+  FOREST
+  MOUNTAIN
+  TOWN
+  WATERSIDE
+}
+
+"""
+Since D-415: a route accessibility box: PRAM (pram), WHEELCHAIR (wheelchair), DOG (dog), CHILD_BIKE (child's bike), SHADE
+(shaded), WATER_POINT (water point).
+"""
+enum RouteAccess {
+  CHILD_BIKE
+  DOG
+  PRAM
+  SHADE
+  WATER_POINT
+  WHEELCHAIR
 }
 
 """
@@ -1174,7 +1607,13 @@ type MapRouteMarker {
   """
   name: String!
   """
-  How it is travelled: on foot or by bicycle (the icon of its route start marker).
+  Since D-418 (map/route-findability.feature): its route title (MapRoute.title), shown on its route marker card, its
+  result card and the nearby routes in place of its name; null when none, the name then shown.
+  """
+  title: String
+  """
+  How it is travelled: on foot or by bicycle (the icon of its route start marker). Since v131.0.0 (D-413): its main
+  travel mode (Route.mode).
   """
   mode: RouteMode!
   """
@@ -1220,6 +1659,11 @@ type MapRouteMarker {
   first; empty when it does not follow the streets and paths.
   """
   surfaces: [RouteSurfaceShare!]!
+  """
+  Since D-415 (map/route-findability.feature): its route accessibility (MapRoute.access), for the route accessibility
+  filter computed on the device without words; empty when none.
+  """
+  access: [RouteAccess!]!
 }
 
 """
@@ -1238,11 +1682,19 @@ type MapRoutePage {
 
 """
 A route to save (since v92.1.0, saveMapRoute): id to change one, none to create one; universe for a universe route,
-by its leadership; visibility for an account route only (PRIVATE when not given).
+by its leadership; visibility for an account route only (PRIVATE when not given). name: required until D-415; since
+D-415 (map/route-findability.feature), a new route without a name takes its prefilled name (contracts/map.md § The route
+context), and a route changed without a name keeps its own; a new name moves its URL. description: since D-415, its
+route description, 0 to 500 visible characters (ROUTE_DESCRIPTION_TOO_LONG), "" to remove it, not given: kept. access:
+since D-415, its route accessibility, replacing it, each box once (ROUTE_INVALID for a box sent twice), not given:
+kept. title: since D-418 (map/route-findability.feature), its route title, 0 to 80 visible characters
+(ROUTE_TITLE_TOO_LONG), a line break turned into a space and the spaces at both ends removed, "" to remove it, not
+given: kept; a new route without a name and without a title takes its prefilled route title beside its prefilled name
+(contracts/map.md § The route title); a new route with a name and without a title has none.
 """
 input MapRouteInput {
   id: ID
-  name: String!
+  name: String
   universe: String
   visibility: PlaylistVisibility
   route: RouteInput!
@@ -1250,6 +1702,28 @@ input MapRouteInput {
   Since v101.0.0 (D-300): its free tags, 0 to 5, replacing them (FREE_TAGS_TOO_MANY, TAG_INVALID); not given: kept.
   """
   tags: [String!]
+  """
+  Since v131.0.0 (D-413, route-recording.feature): the figures of the route recording the route is saved from, with
+  route.recorded true (ROUTE_INVALID otherwise); kept when the route is changed and not given; ignored for a universe
+  route.
+  """
+  recording: RouteRecordingFiguresInput
+  description: String
+  access: [RouteAccess!]
+  title: String
+  """
+  Since D-420 (map/follow-and-record.feature): the route the new route is saved "after", from a follow and record of
+  it, a route the caller may read (ROUTE_NOT_FOUND otherwise) and readable through its own visibility, PUBLIC or a
+  universe route of a public universe (ROUTE_INVALID otherwise); given only with a new route (no id) and route.recorded
+  true (ROUTE_INVALID otherwise); not given: none. Since D-421, with universe too, a new universe route recorded by its
+  leadership after one of its universe routes, the backend then cutting out the parts of the line within the privacy
+  zones of the caller at its start and at its end, as for updateMapRouteFromRecording.
+  """
+  after: ID
+  """
+  Since D-420: true removes after from a route of the caller (never added back afterwards); not given: kept.
+  """
+  removeAfter: Boolean
 }
 
 """
@@ -1311,6 +1785,26 @@ type NearestActivity {
   Its distance from the center of the area shown, in metres (0 to 500,000).
   """
   metres: Int!
+}
+
+"""
+Since D-414 (pointAddress): what the cartography knows of a point the reader chose by a long press or a secondary click, shown at the
+head of the actions at that point.
+"""
+type PointAddress {
+  """
+  Its postal address as one line ("12 Rue de Turenne, 75003 Paris"), copied by "Copy the address"; null when the
+  cartography gives none (the apps then copy the coordinates).
+  """
+  address: String
+  """
+  The name of its street, shown when address is null; null when none.
+  """
+  street: String
+  """
+  The name of its district (the boundary the title of the map names from the zoom 13); null when none.
+  """
+  district: String
 }
 
 """
@@ -1415,6 +1909,241 @@ type MapGatheringKind {
 }
 
 """
+Since v130.0.0 (D-412, route-guidance.feature): an entry of the route log of the caller, one route guidance of a route,
+alone or in a route group session: created by its first stage check-in or stage skipped (checkInRouteStage), read by
+its account only (myRouteLog), kept until its account deletes it (deleteRouteLogEntry), erases its location data (bulk
+erasure LOCATION) or is deleted. Since the rulings of 2026-11-17, the backend keeps only the route, the day, done or not,
+the number of stages skipped and whether it was made in a route group session: never a stage, a time of a stage
+check-in nor the route group session, which stay on the phone that made them, or are erased (contracts/map.md § Route
+guidance).
+"""
+type RouteLogEntry {
+  """
+  Its identifier: the UUIDv7 the app made when the route guidance started (RouteCheckInInput.guidanceId).
+  """
+  id: ID!
+  """
+  The route followed; null once the route is deleted or the caller may no longer read it (name stays).
+  """
+  routeId: ID
+  """
+  The name of the route, read by the backend from the route when the entry was created.
+  """
+  name: String!
+  """
+  How the route is travelled, read from the route when the entry was created.
+  """
+  mode: RouteMode!
+  """
+  The day the route guidance started, in the time zone of its startedAt as the app sent it.
+  """
+  day: AWSDate!
+  """
+  Whether the route was done: every stage the caller could check, checked or skipped, at least 1 checked.
+  """
+  done: Boolean!
+  """
+  The number of stages skipped ("done with <N> stages skipped").
+  """
+  skippedCount: Int!
+  """
+  Whether it was made in a route group session; which one is never kept.
+  """
+  inGroup: Boolean!
+}
+
+"""
+Since v130.0.0 (D-412): the stage a member of a route group session reached, as the caller may see it: its name taken
+by the backend from the copy of the route of the route group session, never from the app. A route without a stage the
+caller sees has its start and its end as its stages ("Start", "End", the first and the last point of the line the caller
+sees).
+"""
+type RouteCheckIn {
+  """
+  The stage, by its index among the points of the route of the route group session (Stage.index).
+  """
+  stage: Int!
+  """
+  The name of the stage in the route of the route group session; empty for a start or an end, which the app names in
+  the language of the person.
+  """
+  name: String!
+  """
+  When the member checked in, on their device (made without network too).
+  """
+  at: AWSDateTime!
+}
+
+"""
+Since v130.0.0 (D-412): a page of the route log of the caller, the latest route guidance first.
+"""
+type RouteLogPage {
+  """
+  The route log entries of the page.
+  """
+  items: [RouteLogEntry!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+}
+
+"""
+Since v130.0.0 (D-412, route-guidance.feature): a stage check-in or a stage skipped to record (checkInRouteStage), sent at
+the touch, or once the network is back with the time of the touch. guidanceId: the UUIDv7 the app made when the route
+guidance started, the identifier of its route log entry; routeId: the route followed (read by the backend when the
+entry is created, ROUTE_NOT_FOUND when the caller may not read it then); startedAt: when the route guidance started,
+at most 24 hours before the first stage check-in of the entry; sessionId: the route group session the caller joined, if
+any; stage: the stage (Stage.index; for a route without a stage the caller sees, the first or the last point of the
+line the caller sees); skipped: true for "Skip this stage" (false when not given); done: true when this settles the
+last stage the caller could check (false when not given); at: the time of the touch, on the device. No name is taken
+from the app. Since v136.2.0 (route-experiences.feature): runId, the experience instance of a route experience this
+route guidance belongs to (its guidanceId or its route group session), if any: done ends the experience result of the
+caller SUCCESS (DEVICE_CHECKED, with the stages skipped); nothing more is kept than the route log keeps: done or
+not, the stages skipped and the day, never a time (EXPERIENCE_RUN_NOT_FOUND when the caller takes no part in it).
+"""
+input RouteCheckInInput {
+  guidanceId: ID!
+  routeId: ID!
+  startedAt: AWSDateTime!
+  sessionId: ID
+  stage: Int!
+  skipped: Boolean
+  done: Boolean
+  at: AWSDateTime!
+  runId: ID
+}
+
+"""
+Since v130.0.0 (D-412, route-group-sessions.feature): a route group session, as the caller reads it: the line and the
+stages of its route as they were when it started (route), served with the privacy zones of its author as they are now
+(the parts and the stages they hide left out for every caller but its author), its group chat (discussion) or its
+universe event (eventId, universe), who started it, its end, and its members with the stage each reached, between two
+members where one blocked the other left out. Hidden from a caller in a block with who started it
+(ROUTE_SESSION_NOT_FOUND). Erased at its end (contracts/map.md § Route guidance).
+"""
+type RouteGroupSession {
+  """
+  The identifier of the route group session.
+  """
+  id: ID!
+  """
+  The line and the stages of the route as they were when the route group session started, as the caller reads them
+  now (the privacy zones of its author as they are now).
+  """
+  route: Route!
+  """
+  The name of the route when the route group session started.
+  """
+  name: String!
+  """
+  The route; null once deleted or no longer readable by the caller (route stays).
+  """
+  routeId: ID
+  """
+  The group chat it was started from; null for a universe event.
+  """
+  discussion: DiscussionRef
+  """
+  The universe event it was started from; null for a group chat.
+  """
+  eventId: ID
+  """
+  The universe of its universe event ("%paris"); null for a group chat.
+  """
+  universe: String
+  """
+  The member who started it (who ends it for everyone, with the event organizer of its universe event).
+  """
+  startedBy: AccountRef!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+  """
+  When it ends: 8 hours after startedAt, or the end of its universe event when that comes first (a universe event moved
+  moves it, never beyond 8 hours after startedAt).
+  """
+  endsAt: AWSDateTime!
+  """
+  The number of its members, 1 to 50.
+  """
+  memberCount: Int!
+  """
+  Its members and the stage each reached, the earliest joined first, 50 at most: for a member only (empty for a caller
+  who did not join it: a member of its group chat, an attendee, the event organizer of its universe event, who read it
+  as a card), without the members the caller blocked or who blocked the caller.
+  """
+  members: [RouteSessionMember!]!
+  """
+  Whether the caller is a member of it.
+  """
+  joined: Boolean!
+}
+
+"""
+Since v130.0.0 (D-412): a member of a route group session and the stage they reached.
+"""
+type RouteSessionMember {
+  """
+  The member.
+  """
+  account: AccountRef!
+  """
+  When they joined.
+  """
+  joinedAt: AWSDateTime!
+  """
+  The last stage they checked that the caller sees, with its time, never a stage skipped nor a stage (or a start or an
+  end) that the privacy zones of the author of the route hide from the caller; null when there is none.
+  """
+  reached: RouteCheckIn
+}
+
+"""
+Since v130.0.0 (D-412, route-group-sessions.feature): a route group session to start (startRouteGroupSession): exactly
+one of discussion (a group chat the caller is a member of, with routeId, a route the caller may read) and eventId (a
+universe event the caller attends, on its day, that carries a route; routeId not given); INVALID_REQUEST otherwise.
+"""
+input RouteGroupSessionInput {
+  discussion: DiscussionRefInput
+  eventId: ID
+  routeId: ID
+}
+
+"""
+Since v130.0.0 (D-412): the marker a route group session started from a group chat leaves in it (a message), its card
+for every member of the group chat: its route, its number of members, from when to when; "ended" once over, "endsAt"
+then when it ended. Never who reached which stage. Nothing else of the route group session stays.
+"""
+type RouteSessionMarker {
+  """
+  The identifier of the route group session (routeGroupSession(id) while it is in progress).
+  """
+  id: ID!
+  """
+  The name of its route.
+  """
+  name: String!
+  """
+  When it started.
+  """
+  startedAt: AWSDateTime!
+  """
+  When it ends, or when it ended.
+  """
+  endsAt: AWSDateTime!
+  """
+  Whether it ended.
+  """
+  ended: Boolean!
+  """
+  Its number of members (a ruling of 2026-11-17): as it is when the message is read, the number at its end once ended.
+  """
+  memberCount: Int!
+}
+
+"""
 The nature of a saved item of My places (since v129.1.0, D-411, map/my-places.feature; contracts/map.md § My places):
 PLACE, a point of interest of the cartography, with or without a place feat (targetId: its placeId); FEAT, a published
 experience feat (targetId: the id of its experience instance); EVENT, a universe event (targetId: its id); ROUTE, a
@@ -1510,7 +2239,8 @@ type SavedItem {
   exists: Boolean!
   """
   The name of the thing (the name of a place or of a route, the title of a universe event, the place feat of an
-  experience feat), as the caller may read it when read; null when it no longer exists.
+  experience feat), as the caller may read it when read; null when it no longer exists. Since D-418, for a route, its
+  route title, else its name (map/route-findability.feature).
   """
   name: String
   """

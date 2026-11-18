@@ -30,11 +30,12 @@ type PlaceFeat {
   """
   name: String!
   """
-  Its title in the language of the caller, else in its first language ("A photo in front of the Arc de Triomphe").
+  Its title in the language of the caller, else in English (since D-409, the source of its translation, PLACE_FEAT; until
+  then, in its first language) ("A photo in front of the Arc de Triomphe").
   """
   title: String!
   """
-  What to do, in the language of the caller, at most 500 visible characters.
+  What to do, in the language of the caller, else in English (since D-409), at most 500 visible characters.
   """
   instruction: String!
   """
@@ -66,12 +67,12 @@ type PlaceFeat {
   """
   evidencePolicies: [FeatProvenance!]!
   """
-  The photo rules of its place, in the language of the caller, shown before an experience instance starts; empty when
+  The photo rules of its place, in the language of the caller, else in English (since D-409), shown before an experience instance starts; empty when
   none.
   """
   photoRules: [String!]!
   """
-  The place warnings of its place (a road, a ledge), in the language of the caller, shown before an experience instance
+  The place warnings of its place (a road, a ledge), in the language of the caller, else in English (since D-409), shown before an experience instance
   starts; empty when none.
   """
   placeWarnings: [String!]!
@@ -355,6 +356,13 @@ type MapPlaceFeats {
   """
   publishedCount: Int!
   """
+  Since D-414 (map-markers.feature): the number its round carries: the largest place feat count among its place feats
+  (placeFeatIds), never a sum, as its place card shows them (the people who hold an experience feat of one, whatever its
+  visibility); in the files of the map highlights too. The apps show it from 3 people, the display threshold of the
+  place feat count, and no number below. 0 when none.
+  """
+  placeFeatCount: Int!
+  """
   3 authors at most of those published experience feats, chosen among all their authors (since D-352): the connected
   accounts of the caller first, then the accounts the caller follows, then the most recent; never an account the
   caller blocked or that blocked the caller; empty when none (and for a caller not signed in: the most recent only).
@@ -453,4 +461,738 @@ input PublishFeatInput {
   inIt: Boolean!
   peopleShownAgreed: Boolean!
   placement: FeatPlacement
+}
+
+# Since v136.2.0 (D-423, D-424, decided by the user on 2026-11-17): the common envelope and the first slice, the route
+# experience (engine route/1) and the simple challenge (engine challenge/1), behind the switch experiences.open.
+# features/experiences/experience-addresses.feature, experience-instances.feature, simple-challenges.feature,
+# route-experiences.feature, experience-rankings.feature, experience-moderation.feature; contracts/experiences.md (the
+# envelope, the registry of experience engines, the experience template breakrocks.experience/4 and its JSON Schema, the
+# evaluators and the test vectors). The place feats keep their types above (ExperienceInstance, presence/3). The
+# operations take typed arguments; JSON only carries the experience template (P-15), never an operation. Cost at rest
+# (expand only): contracts/experiences.md § At rest.
+
+"""
+Since v136.2.0: an experience engine of the registry of experience engines (contracts/experiences/engines.json) and its
+version: presence 3 (the place feats), route 1, challenge 1. An app runs only the engine versions it implements.
+"""
+type ExperienceEngine {
+  """
+  The name of the engine.
+  """
+  name: ExperienceEngineName!
+  """
+  Its version (an integer from 1).
+  """
+  version: Int!
+}
+
+"""
+Since v136.2.0: the names of the experience engines: PRESENCE (the place feats), ROUTE (the route experience),
+CHALLENGE (the simple challenge).
+"""
+enum ExperienceEngineName {
+  CHALLENGE
+  PRESENCE
+  ROUTE
+}
+
+"""
+Since v136.2.0: the visibility of an experience: PRIVATE (its owner, the leadership for a universe, and, while a group
+experience instance of it lasts, who reads the place of that experience instance), UNLISTED (whoever has its address; never listed nor
+searched), PUBLIC (listed with its owner, found by the search of Explore, copied; after its experience check).
+"""
+enum ExperienceVisibility {
+  PRIVATE
+  PUBLIC
+  UNLISTED
+}
+
+"""
+Since v136.2.0: the experience warnings its creator declares, shown before a person starts or joins an experience
+instance: PHYSICAL_EFFORT, RISKY_PLACE.
+"""
+enum ExperienceWarning {
+  PHYSICAL_EFFORT
+  RISKY_PLACE
+}
+
+"""
+Since v136.2.0: what a simple challenge measures, and the measure of its ranking: COUNT (a counter, in its unit, 0 to
+100,000), TIME (a timer, in seconds, within the hours of the experience instance), NONE (the proof alone; never a
+ranking measure).
+"""
+enum ExperienceMeasure {
+  COUNT
+  NONE
+  TIME
+}
+
+"""
+Since v136.2.0: the order of an experience ranking: HIGHER_FIRST, LOWER_FIRST (the earlier measure first between equal
+values).
+"""
+enum ExperienceRankingOrder {
+  HIGHER_FIRST
+  LOWER_FIRST
+}
+
+"""
+Since v136.2.0: who validates an experience proof of a simple challenge: ORGANIZER (the experience organizer of a group
+experience instance), PARTICIPANT_VOTE (the other experience participants, a proof vote), SELF_REPORTED (nobody; the
+proof is optional). Nobody validates their own proof: without another validator, a success is self-reported.
+"""
+enum ProofValidation {
+  ORGANIZER
+  PARTICIPANT_VOTE
+  SELF_REPORTED
+}
+
+"""
+Since v136.2.0: the experience check of an experience made public (the check of D-422 for proposals): CHECKING (after
+publishExperience(PUBLIC); the experience keeps its former visibility), PASSED (it is public), REFUSED (it stays as it
+was; explanation read by its owner).
+"""
+enum ExperienceCheckStatus {
+  CHECKING
+  PASSED
+  REFUSED
+}
+
+"""
+Since v136.2.0: the last experience check of an experience, read by its owner (the leadership for a universe
+experience); null for anyone else.
+"""
+type ExperienceCheck {
+  """
+  Its status.
+  """
+  status: ExperienceCheckStatus!
+  """
+  Why it was refused, in the language of the caller, else in English; null unless REFUSED.
+  """
+  explanation: String
+  """
+  True when the check gave no answer within 10 minutes: the version is not published, flagged to review by the platform
+  team, whose review publishes or refuses it.
+  """
+  reviewPending: Boolean!
+  """
+  The version of the experience template checked ("2.0").
+  """
+  version: String!
+}
+
+"""
+Since v136.2.0: an experience parameter of an experience template: what a reuse (the sign ":") may change.
+"""
+type ExperienceParameter {
+  """
+  Its key in a reuse ("count"); never "id".
+  """
+  key: String!
+  """
+  The field of the engine block it sets: "target" or "endsWithinHours" (challenge/1).
+  """
+  field: String!
+  """
+  Its lowest value.
+  """
+  min: Int!
+  """
+  Its highest value.
+  """
+  max: Int!
+  """
+  Its value when a reuse does not give it.
+  """
+  default: Int!
+}
+
+"""
+Since v136.2.0: one value of an experience parameter, in a reuse or in an experience instance.
+"""
+type ExperienceParameterValue {
+  """
+  The key of the experience parameter.
+  """
+  key: String!
+  """
+  Its value, within the bounds of the experience parameter.
+  """
+  value: Int!
+}
+
+"""
+Since v136.2.0: an experience reuse ("*squats-100:count=50"), as resolveAddress reads it: the values of its experience
+parameters, keys sorted (a key that is not an experience parameter, given twice, or a value out of its bounds:
+EXPERIENCE_PARAMETERS_INVALID, as at a start).
+"""
+type ExperienceReuse {
+  """
+  The values given, the others taking their defaults.
+  """
+  values: [ExperienceParameterValue!]!
+}
+
+"""
+Since v136.2.0: the engine block of a simple challenge (challenge/1), contracts/experiences.md § The experience
+template.
+"""
+type ChallengeSetup {
+  """
+  What it measures: COUNT, TIME or NONE.
+  """
+  measure: ExperienceMeasure!
+  """
+  What is counted ("squats"), in the language of the caller, else in English; null unless COUNT.
+  """
+  unit: String
+  """
+  The target "at least" (a count, or seconds to hold); null when none.
+  """
+  targetAtLeast: Int
+  """
+  The target "at most" (seconds within which to do it, TIME only); null when none.
+  """
+  targetAtMost: Int
+  """
+  The media kinds a proof may be: IMAGE, VIDEO (a clip, 3 minutes at most).
+  """
+  proofMedia: [MediaKind!]!
+  """
+  Who validates a proof.
+  """
+  proofValidation: ProofValidation!
+  """
+  An experience instance ends at the latest this many hours after it went in progress (1 to 168).
+  """
+  endsWithinHours: Int!
+}
+
+"""
+Since v136.2.0 (D-423, D-424): an experience of the engines route/1 and challenge/1, as the caller may read it (its
+visibility; EXPERIENCE_NOT_FOUND otherwise). Its experience template is the document breakrocks.experience/4
+(contracts/experiences/definition.schema.json). A place feat is served as PlaceFeat, not as Experience.
+"""
+type Experience {
+  """
+  Its identifier (<cell>-<UUIDv7>), kept across versions.
+  """
+  id: ID!
+  """
+  Its address: "@alice*squats-100", "%paris*plank-2-minutes", or "*five-k-under-30" for an experience of the social
+  platform.
+  """
+  address: String!
+  """
+  Its canonical URL ("/a/alice/e/squats-100", "/u/root/e/five-k-under-30").
+  """
+  url: AWSURL!
+  """
+  Its name, by the rules of a channel name.
+  """
+  name: String!
+  """
+  Its owner when it is an account; null otherwise.
+  """
+  ownerAccount: AccountRef
+  """
+  Its owner when it is a universe ("%paris", "%root" for the social platform); null otherwise.
+  """
+  ownerUniverse: String
+  """
+  Its title in the language of the caller, else in English.
+  """
+  title: String!
+  """
+  What to do, in the language of the caller, else in English.
+  """
+  instruction: String!
+  """
+  The version of its experience template ("1.0"): an experience instance keeps the version it started with.
+  """
+  version: String!
+  """
+  Its engine and its version.
+  """
+  engine: ExperienceEngine!
+  """
+  Its visibility.
+  """
+  visibility: ExperienceVisibility!
+  """
+  Its last experience check, read by its owner only; null for anyone else or when it was never made public.
+  """
+  check: ExperienceCheck
+  """
+  Its experience warnings, shown before a person starts or joins an experience instance; empty when none.
+  """
+  warnings: [ExperienceWarning!]!
+  """
+  The measure of its ranking (COUNT or TIME, a simple challenge only), within one group experience instance; null when
+  it has none.
+  """
+  rankingMeasure: ExperienceMeasure
+  """
+  The order of its experience ranking; null when it has none.
+  """
+  rankingOrder: ExperienceRankingOrder
+  """
+  Its experience parameters; empty when none.
+  """
+  parameters: [ExperienceParameter!]!
+  """
+  The engine block of a simple challenge; null for another engine.
+  """
+  challenge: ChallengeSetup
+  """
+  The route of a route experience, as the caller may read it (the privacy zones of its author applied); null for
+  another engine, or when the caller may not read the route.
+  """
+  route: MapRoute
+  """
+  The identifier of the experience it was copied from, as long as that one is readable by the caller; null otherwise.
+  """
+  copiedFrom: ID
+  """
+  The addresses of the public universes that adopted it, the 20 most recent; empty when none.
+  """
+  adoptedBy: [String!]!
+  """
+  Its experience template (breakrocks.experience/4), read by its owner only (the leadership for a universe experience),
+  to change it; null for anyone else.
+  """
+  document: AWSJSON
+  """
+  Written or last changed by a delegated agent: the apps show the Automated mark with the name in via.
+  """
+  automated: Boolean!
+  """
+  The name of that delegated agent when automated; null otherwise.
+  """
+  via: String
+  """
+  The experience instance of the caller whose experience result is not ended yet; null when none.
+  """
+  myRunInProgress: ExperienceRun
+  """
+  Since v136.3.0 (D-433, experience-opinions.feature, contracts/experiences.md § Experience opinions): its experience
+  opinions as the caller may read them, served by the detail reads only (experience, resolveAddress); null = not served
+  here: in the pages of experiences, in ExperienceRun.experience (experienceRun, myExperienceRuns) and in
+  ExperienceCard.experience (posts, replies, messages) (P-8: one meaning of null; P-11: no per-item read in a list).
+  """
+  opinions: ExperienceOpinions
+}
+
+"""
+Since v136.3.0 (D-433): the experience opinions of an experience, read with it by experience and resolveAddress only
+(Experience.opinions). Nobody is served who gave which.
+"""
+type ExperienceOpinions {
+  """
+  The number of accounts whose experience opinion of it is LIKE; read by whoever reads the experience, a delegated agent
+  included; 0 for a copy at its creation.
+  """
+  likeCount: Int!
+  """
+  The number of accounts whose experience opinion of it is DISLIKE, read by its experience owner only: the account it
+  belongs to, or a member of the leadership of the universe it belongs to; null for anyone else: another account, a
+  delegated agent (even of the account it belongs to), the leadership of a universe that adopted it, and every caller
+  for an experience of the social platform (its platform team reads it in the back office: open in v136.3.0).
+  """
+  dislikeCount: Int
+  """
+  The experience opinion of the caller (of its operator for a delegated agent); null when none.
+  """
+  myOpinion: ExperienceOpinion
+  """
+  True when the caller may give or change its experience opinion of it now: a human acting itself, not its experience
+  owner, with an experience result of it ended SUCCESS or FAILURE; false otherwise. Never depends on a block. The apps
+  offer withdrawing whenever myOpinion is set, whatever this value.
+  """
+  canGiveOpinion: Boolean!
+}
+
+"""
+Since v136.3.0 (D-433): what giveExperienceOpinion and withdrawExperienceOpinion changed: the experience opinion of the
+caller, without the experience (as ConnectionState for setBlock), so that a withdrawal never tells whether an experience
+the caller does not read exists. The numbers are read again with experience.
+"""
+type ExperienceOpinionState {
+  """
+  The experience identifier given.
+  """
+  experienceId: ID!
+  """
+  The experience opinion of the caller now; null when none (always null after withdrawExperienceOpinion).
+  """
+  myOpinion: ExperienceOpinion
+}
+
+"""
+Since v136.3.0 (D-433, experience-opinions.feature): an experience opinion, one per account and experience: LIKE or
+DISLIKE (glossary: like an experience, dislike an experience). It ranks no experience.
+"""
+enum ExperienceOpinion {
+  DISLIKE
+  LIKE
+}
+
+"""
+Since v136.2.0: a page of experiences.
+"""
+type ExperiencePage {
+  """
+  The experiences of the page.
+  """
+  items: [Experience!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Since v136.2.0: the state of an experience instance: STARTED (waiting for its scheduled start), IN_PROGRESS, ENDED.
+"""
+enum ExperienceRunState {
+  ENDED
+  IN_PROGRESS
+  STARTED
+}
+
+"""
+Since v136.2.0: where an experience instance is done: SOLO, GROUP_CHAT, UNIVERSE_DISCUSSION (challenge/1),
+UNIVERSE_EVENT.
+"""
+enum ExperienceRunPlace {
+  GROUP_CHAT
+  SOLO
+  UNIVERSE_DISCUSSION
+  UNIVERSE_EVENT
+}
+
+"""
+Since v136.2.0: the state of an experience result: IN_PROGRESS, VALIDATING (its proof waits for its validation, 48
+hours at most), ENDED.
+"""
+enum ExperienceResultState {
+  ENDED
+  IN_PROGRESS
+  VALIDATING
+}
+
+"""
+Since v136.2.0: how an experience result ended: SUCCESS (an experience feat), FAILURE, FREE (left, or not done when its
+experience instance ended).
+"""
+enum ExperienceOutcome {
+  FAILURE
+  FREE
+  SUCCESS
+}
+
+"""
+Since v136.2.0: the experience proof of an experience result: DEVICE_CHECKED (checked on the device: the stage check-ins
+of a route experience), PEOPLE_VALIDATED (by the experience organizer or a proof vote), SELF_REPORTED (marked so; never
+in an experience ranking), PENDING (waiting for its validation), REFUSED (a failure), NOT_NEEDED (a failure on the
+measure, nothing to validate).
+"""
+enum ExperienceProofStatus {
+  DEVICE_CHECKED
+  NOT_NEEDED
+  PENDING
+  PEOPLE_VALIDATED
+  REFUSED
+  SELF_REPORTED
+}
+
+"""
+Since v136.2.0: the photo or the clip of an experience proof, read by who may read its experience instance.
+"""
+type ExperienceProofMedia {
+  """
+  IMAGE or VIDEO.
+  """
+  mediaKind: MediaKind!
+  """
+  Its URL on the media CDN, signed for 1 hour.
+  """
+  mediaUrl: AWSURL!
+}
+
+"""
+Since v136.2.0: an experience participant and their experience result, in an experience instance (contracts/experiences.md
+§ The evaluators). Between two accounts where one blocked the other, left out for the caller.
+"""
+type ExperienceParticipation {
+  """
+  The experience participant.
+  """
+  account: AccountRef!
+  """
+  The state of the experience result.
+  """
+  state: ExperienceResultState!
+  """
+  How it ended; null until ENDED.
+  """
+  outcome: ExperienceOutcome
+  """
+  The value of the final measure (a count, or seconds); null before it, for NONE and for a route experience (route/1
+  has no measure).
+  """
+  measure: Int
+  """
+  The last progress measure (a count, or seconds); null when none.
+  """
+  progress: Int
+  """
+  Its experience proof; null before the final measure (a route experience: until done).
+  """
+  proof: ExperienceProofStatus
+  """
+  The photo or the clip of its proof; null when none.
+  """
+  proofMedia: ExperienceProofMedia
+  """
+  True for a SUCCESS: an experience feat.
+  """
+  feat: Boolean!
+  """
+  The stages skipped of a route experience; null for another engine.
+  """
+  stagesSkipped: Int
+  """
+  True when the experience participant chose to appear in the experience rankings (false by default).
+  """
+  appearsInRanking: Boolean!
+  """
+  When the experience participant joined (began); null for a route experience, which keeps no time (endedOn).
+  """
+  joinedAt: AWSDateTime
+  """
+  When the experience result ended; null until ENDED, and for a route experience.
+  """
+  endedAt: AWSDateTime
+  """
+  The day the experience result ended (a route experience keeps the day only, as the route log); null until ENDED.
+  """
+  endedOn: AWSDate
+}
+
+"""
+Since v136.2.0 (D-424 (Y1), (Y4)): an experience instance of route/1 or challenge/1 (glossary: experience instance; the
+API says run), as the caller may read it: a solo one by its experience participant, a group one by who reads its place;
+EXPERIENCE_RUN_NOT_FOUND otherwise, whether or not it exists.
+"""
+type ExperienceRun {
+  """
+  Its identifier (<cell>-<UUIDv7>), the id of its address ("@alice*squats-100!id=<id>").
+  """
+  id: ID!
+  """
+  Its address ("@alice*squats-100!id=<id>").
+  """
+  address: String!
+  """
+  Its canonical URL ("/a/alice/e/squats-100/i/<id>").
+  """
+  url: AWSURL!
+  """
+  Its experience; null once deleted or removed, or no longer readable by the caller.
+  """
+  experience: Experience
+  """
+  The version of the experience template it started with.
+  """
+  experienceVersion: String!
+  """
+  The engine and the version it runs on.
+  """
+  engine: ExperienceEngine!
+  """
+  The values of its experience parameters (from a reuse, else the defaults); empty when none.
+  """
+  parameters: [ExperienceParameterValue!]!
+  """
+  Where it is done.
+  """
+  place: ExperienceRunPlace!
+  """
+  Its group chat or its universe discussion; null otherwise.
+  """
+  discussion: DiscussionRef
+  """
+  Its universe event; null otherwise.
+  """
+  eventId: ID
+  """
+  Its experience organizer: who started it.
+  """
+  organizer: AccountRef!
+  """
+  Its state.
+  """
+  state: ExperienceRunState!
+  """
+  When it went or goes in progress; null for a route experience once started (it keeps its day only).
+  """
+  startsAt: AWSDateTime
+  """
+  When it ends at the latest; when it ended, once ENDED; null for a route experience once started.
+  """
+  endsAt: AWSDateTime
+  """
+  Its day (in the time zone of its place, else of its experience organizer): the only date a route experience keeps.
+  """
+  day: AWSDate!
+  """
+  Its experience participants, 50 at most, the experience organizer first then by their join.
+  """
+  participants: [ExperienceParticipation!]!
+  """
+  The experience result of the caller; null when the caller does not take part.
+  """
+  myParticipation: ExperienceParticipation
+  """
+  A solo route experience: the guidanceId of the route log entry of its route guidance; null otherwise.
+  """
+  guidanceId: ID
+  """
+  A group route experience: its route group session (routeGroupSession), while it is in progress; null otherwise.
+  """
+  routeSessionId: ID
+}
+
+"""
+Since v136.2.0: a page of experience instances.
+"""
+type ExperienceRunPage {
+  """
+  The experience instances of the page.
+  """
+  items: [ExperienceRun!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Since v136.2.0: one line of an experience ranking.
+"""
+type ExperienceRankingEntry {
+  """
+  Its rank, from 1; equal values keep distinct ranks, the final measure received first by the platform first (never
+  the time on the device).
+  """
+  rank: Int!
+  """
+  The experience participant.
+  """
+  account: AccountRef!
+  """
+  The measure ranked (a count, or seconds), validated by people.
+  """
+  value: Int!
+  """
+  When it was measured, on the device.
+  """
+  measuredAt: AWSDateTime!
+  """
+  The experience instance ranked.
+  """
+  runId: ID!
+}
+
+"""
+Since v136.2.0 (P-15): one problem of a document (checkExperience; errorInfo.problems of EXPERIENCE_DOCUMENT_INVALID):
+its code (contracts/experiences.md § The experience template: SCHEMA, TEXT_TOO_LONG, NAME_INVALID, NAME_TAKEN,
+OWNER_NOT_ALLOWED, ENGINE_NOT_AVAILABLE, RANKING_MEASURE_NOT_SUPPORTED, PARAMETER_OUT_OF_BOUNDS, ROUTE_NOT_AVAILABLE,
+ROUTE_NAME_MISMATCH, FIELD_SET_BY_PLATFORM), one per path.
+"""
+type DocumentProblem {
+  """
+  The code of the problem.
+  """
+  code: String!
+  """
+  The JSON pointer of the field ("/challenge/target/atLeast"); "" for the whole document.
+  """
+  path: String!
+  """
+  What is wrong, in English, for a person or an AI agent.
+  """
+  message: String!
+}
+
+"""
+Since v136.2.0: one value of an experience parameter given at the start: key, an experience parameter of the
+experience; value, within its bounds (EXPERIENCE_PARAMETERS_INVALID otherwise).
+"""
+input ExperienceParameterValueInput {
+  key: String!
+  value: Int!
+}
+
+"""
+Since v136.2.0: what starts an experience instance (startExperienceRun): experienceId; parameters, the values of a reuse
+(none: the defaults); startsAt, a scheduled start from 5 minutes to 30 days ahead (none: at once); the place, at most one
+of discussion (a group chat by groupChatId, or a universe discussion by channel, challenge/1 only) and eventId (a
+universe event the caller attends, on its day); none: solo; appearInRanking, the choice of the caller (false by
+default).
+"""
+input StartExperienceRunInput {
+  experienceId: ID!
+  parameters: [ExperienceParameterValueInput!]
+  startsAt: AWSDateTime
+  discussion: DiscussionRefInput
+  eventId: ID
+  appearInRanking: Boolean
+}
+
+"""
+Since v136.2.0: a measure of the caller in an experience instance of a simple challenge (submitExperienceMeasure):
+runId; value, a count or seconds (null for NONE); final, false for a progress measure (sent at most every 5 seconds),
+true for the final measure (once); proofMediaId, the photo or the clip of its proof (requestMediaUpload, destination
+EXPERIENCE_PROOF), with the final measure; measuredAt, when it was measured on the device (made without network, sent
+with that time once the network is back).
+"""
+input ExperienceMeasureInput {
+  runId: ID!
+  value: Int
+  final: Boolean!
+  proofMediaId: ID
+  measuredAt: AWSDateTime!
+}
+
+"""
+Since v136.2.0 (contracts/text.md § Experience card): what a post, a reply or a message shows for the first URL of an
+experience, an experience reuse or an experience instance in its text, built for each reader, never stored.
+"""
+type ExperienceCard {
+  """
+  The experience as the caller may read it; null when the caller may not read it (the card "not available"), or once it
+  is deleted or removed. A private or unlisted experience shows its card to its owner and, while a group experience
+  instance of it lasts in a group chat, to the members of that group chat only: in a public post, null (its URL stays a
+  plain link).
+  """
+  experience: Experience
+  """
+  The values of a reuse; empty otherwise.
+  """
+  reuse: [ExperienceParameterValue!]!
+  """
+  The experience instance of an experience instance URL, as the caller may read it (a group experience instance in a group
+  chat or a universe discussion: its members, who join it from the card); null otherwise.
+  """
+  run: ExperienceRun
+  """
+  In a post or a reply: the experience result of its author in the experience instance of its URL, shown to every
+  reader of the post (the author's gesture), never the other experience participants nor their proofs; null when the
+  author takes no part in it, in a message, or once the author deleted their experience result.
+  """
+  authorResult: ExperienceParticipation
 }
