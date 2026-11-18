@@ -326,6 +326,12 @@ my-places tags delete | = | Delete a My places tag
 my-places share | = | Share a tag or all of My places as a playlist
 my-places shared | = | The playlist that shares all of My places
 my-places playlist | = | The saved items of a shared My places playlist
+experiences list | = | The experiences of an owner, yours by default
+experiences show | = | Show an experience
+experiences export | = | Export an experience as a JSON document
+experiences check | = | Check an experience document
+experiences import | = | Import experience documents, private by default
+experiences prompt | = | The prompt that asks an AI for an experience
 routes list | = | Your routes
 routes show | = | Show a route
 routes nearby | = | The nearby routes of a route
@@ -645,7 +651,7 @@ export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
   { name: 'content', groups: ['posts', 'videos', 'drafts', 'polls', 'playlists'], line: 'posts, videos, drafts, polls, playlists' },
   { name: 'talk', groups: ['messages', 'discussions'], line: 'messages (direct, groups), discussions (channels, debates)' },
   { name: 'map', groups: ['map', 'my-places', 'routes'], line: 'map (presence, live-share, nearby, locatable), my-places, routes' },
-  { name: 'events', groups: ['events'], line: 'events' },
+  { name: 'events', groups: ['events', 'experiences'], line: 'events, experiences' },
   { name: 'governance', groups: ['governance', 'proposals', 'jury', 'moderation'], line: 'governance, proposals, jury, moderation' },
   { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
   { name: 'explore', groups: ['explore', 'search', 'accounts', 'connections', 'interests'], line: 'explore, search, accounts, connections, interests' },
@@ -681,7 +687,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'map nearby': 'Nearby connections', 'map locatable': 'Being locatable', 'map places': 'Places of the map',
   'my-places': 'My places: saved items, tags, sharing', 'my-places tags': 'My places tags',
   routes: 'Routes: saved, GPX, privacy zones, planning', 'routes gpx': 'GPX files', 'routes privacy-zones': 'Privacy zones',
-  events: 'Universe events and relays', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
+  events: 'Universe events and relays', experiences: 'Experiences: export, check, import, AI prompt', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
   look: 'Themes, appearance, layouts and the studio', 'look themes': 'Themes: catalog, offline tools, publish', 'look personal': 'Your personal theme',
   'look appearance': 'The appearance of a universe: what is applied, the editor', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',

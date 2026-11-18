@@ -125,7 +125,7 @@ describe('a domain typed as a command', () => {
     expect(await h.run('events')).toBe(0);
     expect(h.lines[0]).toMatch(/^Universe events and relays\n/);
     expect(await h.run('help', 'events')).toBe(0);
-    expect(h.lines[1]).toMatch(/^Domain events: events\n/);
+    expect(h.lines[1]).toMatch(/^Domain events: events, experiences\n/);
   });
   it('is named in the hint of an unknown command, before the commands close to it', async () => {
     const h = harness();

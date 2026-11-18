@@ -164,7 +164,7 @@ describe('every command', () => {
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
     // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
-    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password']);
+    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

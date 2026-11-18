@@ -15,7 +15,8 @@ since 0.10.0, theme transparency (opacities, text backdrops), the prompt
 of a universal theme, post transparency, theme trials and previews; since 0.11.0, the
 delegated-agent plans paid by card; since 0.12.0, the platform's **API v2**, in full
 (§ API v2); since 0.15.0, universe discussions (unread, reactions, threads), the theme gallery
-and the universe visit history (§ Discussions, gallery and history).
+and the universe visit history (§ Discussions, gallery and history); since 0.36.0, the experience definitions as
+portable JSON documents (export, check, import) and the prompt kit for an external AI (§ Experience definitions).
 
 ## Installation
 
@@ -165,7 +166,7 @@ Domains (breakrocks <domain>, or breakrocks help <domain>):
   content     posts, videos, drafts, polls, playlists
   talk        messages (direct, groups), discussions (channels, debates)
   map         map (presence, live-share, nearby, locatable), routes
-  events      events
+  events      events, experiences
   governance  governance, proposals, jury, moderation
   look        look (themes, personal, appearance, layouts, studio)
   explore     explore, search, accounts, connections, interests
@@ -662,6 +663,12 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `events relay remove` | Remove a relay of an event (confirmation: `--yes`) | `breakrocks events relay remove <relay id> --yes` |
 | `events relays proposals` | The relay proposals waiting | `breakrocks events relays proposals %paris` |
 | `events catalog` | The event families and types | `breakrocks events catalog` |
+| `experiences list` | The experiences of an owner, yours by default | `breakrocks experiences list` |
+| `experiences show` | Show an experience | `breakrocks experiences show @alice*squats-100` |
+| `experiences export` | Export an experience as a JSON document | `breakrocks experiences export @alice*squats-100 --out squats-100.json` |
+| `experiences check` | Check an experience document | `breakrocks experiences check squats-100.json` |
+| `experiences import` | Import experience documents, private by default | `breakrocks experiences import squats-100.json` |
+| `experiences prompt` | The prompt that asks an AI for an experience (offline) | `breakrocks experiences prompt --engine challenge/1 --theme "a morning workout in a park" --language fr` |
 
 #### Governance
 
@@ -897,6 +904,79 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `doctor` | Check what keeps the CLI from working | `breakrocks doctor` |
 | `batch` | Run the actions of a JSON lines file | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
+
+### Experience definitions (0.36.0, specs v136.3.0)
+
+D-423 and D-424 (`features/experiences/`, `contracts/experiences.md`): the group `experiences`, in the domain `events`. An
+experience of the engines route/1 and challenge/1 is defined by its experience template, the JSON document
+`breakrocks.experience/4`; these commands move it between a file and the platform, and write the prompt that asks an
+external AI for one. Every operation answers `EXPERIENCES_NOT_OPEN` (exit 1) while the platform keeps the switch
+`experiences.open` off (off in staging and prod on 2026-11-18); a backend before v136.2.0 answers `OPERATION_NOT_SERVED`.
+
+- `experiences list [--owner @handle|%universe|%root] [--mine] [--all]` (`experiences`): yours by default (those of the
+  account of your operator for a delegated agent), the most recently changed first; someone else's PUBLIC ones only.
+  `experiences show <address|id> [--document]` (`resolveAddress`, `experience`): an address is `@alice*squats-100`,
+  `%paris*plank-2-minutes` or `*five-k-under-30` (the social platform, `%root`). An account is printed by its id beside
+  its handle (`owner @alice (eu-…)`); the check of a public experience (being checked, passed, refused with its
+  explanation) and the template are read by the owner only.
+- `experiences export <address|id> [--out <file>|-] [--force]`: the **portable document**, exactly the experience template
+  of the contract minus what `createExperience` refuses: `format`, `engine`, `owner`, `name`, `title`, `instruction`,
+  then `warnings`, `ranking`, `parameters` when set, then the engine block (`route` or `challenge`), each object's keys
+  in the order of the JSON Schema (the others, such as the languages of a text, sorted), 2 spaces, a final new line.
+  `id`, `version` and `copiedFrom` (set by the platform: `FIELD_SET_BY_PLATFORM` in `createExperience` and
+  `updateExperience`) are left out, and there is no `$schema` key (the template is closed; `format` names it). Export,
+  import and export again give the same bytes. Only the owner reads a template (`EXPERIENCE_DOCUMENT_NOT_READABLE`
+  otherwise).
+- `experiences check <file|-> [--offline] [--contract <folder>]`: first offline, by the files the backend validates with
+  (`schema/experiences/definition.schema.json` and `engines.json`, copies of the specs): `SCHEMA` (the JSON Schema),
+  `DOCUMENT_TOO_LARGE` (16 KB in UTF-8), `TEXT_TOO_LONG` (visible characters: the cap in code points of the schema is 4 per
+  visible character), `FIELD_SET_BY_PLATFORM`, and from the registry `ENGINE_NOT_AVAILABLE`, `RANKING_MEASURE_NOT_SUPPORTED`,
+  `RANKING_MEASURE_MISMATCH`, `RANKING_SELF_REPORTED`, `PARAMETER_KEY_TWICE`, `PARAMETER_FIELD_TWICE`,
+  `PARAMETER_BOUNDS_INVALID`; then, signed in and without `--offline`, `checkExperience` (writes nothing), which adds what
+  needs the platform (`NAME_INVALID`, `NAME_TAKEN`, `OWNER_NOT_ALLOWED`, `PARAMETER_WITHOUT_TARGET`,
+  `PARAMETER_OUT_OF_BOUNDS`, `TARGET_BEYOND_DURATION`, `ROUTE_NOT_AVAILABLE`, `ROUTE_NAME_MISMATCH`). Each problem with its
+  code and its JSON pointer, one per path, the platform's first. Not signed in, `EXPERIENCES_NOT_OPEN` or an older
+  backend: the offline check alone, said on the first line. Exit 1 when there is a problem.
+- `experiences import <file|-> [--owner …] [--name …] [--visibility private|unlisted|public] [--update] [--dry-run]
+  [--request-id …]`: the offline check (nothing is sent when it finds a problem), then `createExperience`, PRIVATE at the
+  version 1.0; `--update` makes the next version (`updateExperience`) when the address `<owner>*<name>` holds an
+  experience of yours (`EXPERIENCE_NOT_YOURS` when it is someone else's), and creates it otherwise. The owner `@me`
+  becomes your handle; `id`, `version` and `copiedFrom` are left out and said. Never public unless asked: `--visibility
+  unlisted|public` then calls `publishExperience`; PUBLIC is set only once its experience check passes, the experience
+  keeping its former visibility meanwhile, and the command says so (`experiences show` tells the outcome). `--request-id`
+  (made when absent) creates it once even when sent again. `--dry-run` asks `checkExperience` and writes nothing.
+- `experiences import --dir <folder> [--rate <n>]`: every `*.json` of the folder in the order of their names, going on after
+  a failure, a table at the end (file, result, address, id or code, the problems under their file), exit 1 if any failed.
+  The platform creates **20 experiences a day per account** (copies included) and makes 50 changes or publications: at
+  `EXPERIENCE_RATE_LIMITED` the folder stops cleanly, the rest "not tried", with the time it opens again (`retryAt`);
+  `EXPERIENCES_NOT_OPEN` and a network failure stop it too. `--rate <n>` spaces the files to n a minute.
+- **Delegated agents** (D-423 (X8)): an agent creates and sets up an experience for its human (the owner is its operator's
+  account or a universe of its operator's leadership; the Automated mark, printed), and never makes one public:
+  `--visibility public` is refused before anything is sent (`EXPERIENCE_VISIBILITY_NOT_ALLOWED`, source `cli`, exit 1),
+  and the platform's own refusal is said plainly.
+- `experiences prompt --engine <name/version> [--theme …] [--area …] [--language <code>] [--stages <n>]
+  [--places-file <json>] [--owner …] [--out <file>] [--contract <folder>]` (offline): a self-contained prompt for an
+  LLM of your choice: the task and the registry entry of the engine, the JSON Schema of its documents (the template's,
+  narrowed at run time to that engine: its engine fixed, the other engine blocks and the fields the platform sets left out,
+  its conditions applied), the hard rules (JSON only, closed schema, no platform field, the limits in visible characters
+  and the 16 KB, no invented place, the ids and coordinates of the candidates copied exactly, no reward, no money,
+  nothing dangerous, honest warnings, the language and English), an example from the test vectors of the specs, and the
+  candidate places. Nothing about an engine is written in the code: an engine the specs add (visit/1) works as soon as
+  `schema/experiences` carries it, or now with `--contract <checkout of the specs>`; an engine in the registry that the
+  template does not define yet is `ENGINE_NOT_IN_TEMPLATE`, presence/3 (the place feats, `breakrocks.experience/3`)
+  `ENGINE_FORMAT_NOT_SUPPORTED`. `--places-file`: a JSON list (or `{ "places": [...] }`, `{ "items": [...] }`) of
+  `{ "id"?, "name", "lat"?, "lon"? }` or `{ "id"?, "name", "point": { "lat", "lon" } }`, each with an id or a point, 200 at
+  most; `map places search "<what>" --bounds <south,west,north,east> --json > places.json` gives one as it is.
+  `--area` is **text written in the prompt** (a box `south,west,north,east` written out): the prompt command sends nothing,
+  so it reads no place for it; the candidates come from `map places search … --bounds … --json`, given to
+  `--places-file`. `--stages` is for an engine whose template
+  has stages: route/1 and challenge/1 have none (the steps go into the instruction). The CLI calls no LLM and sends
+  nothing anywhere.
+- Waiting for the engine visit/1 (not in the specs on 2026-11-18): a template with stages among places, where
+  `--stages` and the rule "every stage from the candidate places" bind a field of the document; nothing else changes in
+  the CLI.
+- Not covered: `copyExperience`, `deleteExperience`, `setExperienceAdoption`, the experience instances, rankings and
+  opinions (doctor names them).
 
 ### My places (0.35.0, specs v129.1.0)
 
@@ -1603,7 +1683,7 @@ which makes the next version of a theme of the same name (`--version` is kept fo
 ### The API contract
 
 `schema/api-v2/*.graphql` is a versioned copy of the platform's API v2 contract (15
-SDL files, one per domain, with their `"""…"""` descriptions; specs v127.0.0, `schema/api-v2/VERSION`), the
+SDL files, one per domain, with their `"""…"""` descriptions; specs v136.3.0, `schema/api-v2/VERSION`), the
 contract the CLI is built against. `src/api/schema.generated.ts` is its compact form, written by `npm run gen:schema`
 (never edited by hand): `scripts/gen-schema-lib.mjs` reads the files in the order of their names
 with the `graphql` package (descriptions and comments are not fields) and declares the
@@ -1611,7 +1691,10 @@ AppSync scalars that the contract does not declare. To follow a new version of t
 move the submodule `specs/common` to its tag (`git -C specs/common checkout vX.Y.Z`), then `npm run update:schema`
 (or `npm run update:schema -- <path> [vX.Y.Z]`, a local folder of the platform's specifications or of the
 `.graphql` files); it copies them, records the tag in `schema/api-v2/VERSION`
-then regenerates the compact form, and `test/api.test.ts` checks that it is up to date. The
+then regenerates the compact form, and `test/api.test.ts` checks that it is up to date. From a checkout of the specs,
+it also copies `contracts/experiences/engines.json` and `definition.schema.json` into `schema/experiences/` (byte for
+byte) and writes `schema/experiences/index.json` (the version, and per engine the first definition of its test vectors),
+which the `experiences` commands read (§ Experience definitions). The
 commands that are
 an operation of the API take their options, their JSON schemas (help, `schema`, MCP tools) and the
 selection of their answer from it. `test/api.test.ts` checks, with `graphql` (a development dependency),
