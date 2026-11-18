@@ -1,0 +1,55 @@
+{
+  "$comment": "The registry of experience engines (contracts/experiences.md § The registry of experience engines). Closed: extended only by the specs, registryVersion raised at every change. Checked by scripts/check-experiences.mjs.",
+  "registryVersion": 1,
+  "engines": [
+    {
+      "name": "presence",
+      "version": 3,
+      "since": "v104.2.0",
+      "format": "breakrocks.experience/3",
+      "what": "The place feat: one photo or one clip taken at a point of interest (features/experiences/experience-feats.feature). Its own operations, its own format; declared here, never migrated.",
+      "owners": ["universe"],
+      "creators": ["platform team"],
+      "places": ["solo"],
+      "proofs": ["SELF_REPORTED", "DEVICE_CHECKED"],
+      "rankingMeasures": [],
+      "widgets": [],
+      "parameterFields": [],
+      "evaluatorRunsOn": ["device"],
+      "vectors": "vectors/presence-3.json"
+    },
+    {
+      "name": "route",
+      "version": 1,
+      "since": "v136.2.0",
+      "format": "breakrocks.experience/4",
+      "what": "The route as an experience: following it is a run, finishing it an experience feat (features/experiences/route-experiences.feature). The route guidance and the route group sessions stay as they are. Evaluated on the device, not rankable (D-413, D-416 unchanged).",
+      "owners": ["account", "universe"],
+      "creators": ["the owner of the route", "the leadership of the universe of a universe route"],
+      "places": ["solo", "group chat", "universe event"],
+      "proofs": ["DEVICE_CHECKED"],
+      "rankingMeasures": [],
+      "widgets": ["MAP_PROGRESS"],
+      "parameterFields": [],
+      "evaluatorRunsOn": ["device"],
+      "vectors": "vectors/route-1.json"
+    },
+    {
+      "name": "challenge",
+      "version": 1,
+      "since": "v136.2.0",
+      "format": "breakrocks.experience/4",
+      "what": "The simple challenge: a counter, a timer or nothing to measure, and a photo or a clip as proof (features/experiences/simple-challenges.feature).",
+      "owners": ["account", "universe", "root"],
+      "creators": ["an account", "the leadership of a public universe", "the platform team for the root universe"],
+      "places": ["solo", "group chat", "universe discussion", "universe event"],
+      "proofs": ["SELF_REPORTED", "PEOPLE_VALIDATED"],
+      "rankingMeasures": ["COUNT", "TIME"],
+      "widgets": ["COUNTER", "TIMER"],
+      "parameterFields": ["target", "endsWithinHours"],
+      "evaluatorRunsOn": ["platform", "device"],
+      "rankingScope": "one group experience instance",
+      "vectors": "vectors/challenge-1.json"
+    }
+  ]
+}

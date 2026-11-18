@@ -1,0 +1,101 @@
+{
+  "$comment": "Written by scripts/update-schema.mjs from contracts/experiences of the specs: do not edit. The version of the specs, and per engine the first definition of its test vectors (the example of experiences prompt).",
+  "version": "v136.3.0",
+  "examples": {
+    "presence/3": {
+      "file": "vectors/presence-3.json",
+      "key": "arc",
+      "document": {
+        "point": {
+          "lat": 48.8738,
+          "lon": 2.295
+        },
+        "nearPlaceMetres": 300,
+        "media": [
+          "IMAGE",
+          "VIDEO"
+        ],
+        "allowed": [
+          "SELF_REPORTED",
+          "NEAR_PLACE"
+        ]
+      }
+    },
+    "route/1": {
+      "file": "vectors/route-1.json",
+      "key": "canal-run",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "route",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "canal-run",
+        "title": {
+          "en": "Along the Canal Saint-Martin"
+        },
+        "instruction": {
+          "en": "Follow the canal from the lock to the basin."
+        },
+        "route": {
+          "routeId": "eu-0199f3c2-8a00-7c3a-9d2f-0a1b2c3d4e60"
+        }
+      }
+    },
+    "challenge/1": {
+      "file": "vectors/challenge-1.json",
+      "key": "squats",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "challenge",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "squats-100",
+        "title": {
+          "en": "100 squats",
+          "fr": "100 squats"
+        },
+        "instruction": {
+          "en": "Do 100 squats and film the last ten."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "ranking": {
+          "measure": "COUNT",
+          "order": "HIGHER_FIRST"
+        },
+        "parameters": [
+          {
+            "key": "count",
+            "field": "target",
+            "min": 10,
+            "max": 1000,
+            "default": 100
+          }
+        ],
+        "challenge": {
+          "measure": "COUNT",
+          "unit": {
+            "en": "squats"
+          },
+          "target": {
+            "atLeast": 100
+          },
+          "proof": {
+            "media": [
+              "VIDEO"
+            ],
+            "validation": "ORGANIZER"
+          },
+          "endsWithinHours": 24
+        }
+      }
+    }
+  }
+}
