@@ -32,6 +32,7 @@ export const networkError = (code: string, message: string, details: Record<stri
 /** The sentence of a platform code the API answers without one (its message empty or the code itself). */
 export const REFUSAL_SENTENCES: Record<string, string> = {
   PLATFORM_APPEAL_EXISTS: 'This measure is already appealed: one appeal per measure, whoever filed it',
+  EXPERIENCES_NOT_OPEN: 'Experiences are not open on this platform yet (the switch experiences.open is off); what was done is kept',
   MY_PLACES_NOT_OPEN: 'My places is not open on this platform yet (the switch map.savePlace is off); what was saved is kept',
   DELEGATED_AGENT_NOT_ALLOWED: 'A delegated agent may not do this: ask the human the agent acts for',
   PLATFORM_APPEAL_LEADERSHIP_ONLY: 'A measure against a universe is appealed by its leadership only',

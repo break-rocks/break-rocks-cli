@@ -1085,6 +1085,22 @@ type ResolvedAddress {
   """
   experienceInstance: ExperienceInstance
   """
+  Since v136.2.0 (experience-addresses.feature): the experience of an experience address of route/1 or challenge/1
+  ("@alice*squats-100", "%paris*plank-2-minutes", "*five-k-under-30"), of its reuse and of its instance form, as the
+  caller may read it (EXPERIENCE_NOT_FOUND otherwise); null otherwise, and while experiences.open is off (the address
+  then answers SIGN_RESERVED as before).
+  """
+  experience: Experience
+  """
+  Since v136.2.0: the values of an experience reuse ("*squats-100:count=50"); null otherwise.
+  """
+  experienceReuse: ExperienceReuse
+  """
+  Since v136.2.0: the experience instance of a "!id=<id>" form after the address of an experience of route/1 or
+  challenge/1, as the caller may read it (EXPERIENCE_RUN_NOT_FOUND otherwise); null otherwise.
+  """
+  experienceRun: ExperienceRun
+  """
   The canonical URL, the parameters as its query ("/a/erin/l/journey?from=3&t=30").
   """
   url: AWSURL!

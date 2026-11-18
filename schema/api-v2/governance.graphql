@@ -1000,6 +1000,17 @@ type Proposal {
   """
   result: ProposalResult
   """
+  Since v135.0.0 (D-422): the refusal of its proposal check, or of the platform team for a proposal flagged to
+  review, to its author only; null unless status is REFUSED, and to any other caller.
+  """
+  refusal: ProposalRefusal
+  """
+  Since v135.0.0 (D-422, contracts/living-universes.md § The proposal check): flagged to review (its proposal check
+  had no answer within 10 minutes) and not reviewed yet by the platform team: its support and its vote run, but
+  adopted it takes effect only once reviewed. False otherwise.
+  """
+  reviewPending: Boolean!
+  """
   The state of the proposal.
   """
   status: ProposalStatus!
@@ -1266,8 +1277,9 @@ type ProposalPage {
 }
 
 """
-A proposal a platform AI agent refused when filed (fileProposal: PROPOSAL_REFUSED, errorInfo
-proposalId, ground, explanation): why, when its review was asked, and its outcome (OVERTURNED: the
+A proposal a platform AI agent refused (until v135.0.0, when filed: fileProposal PROPOSAL_REFUSED, errorInfo
+proposalId, ground, explanation; since v135.0.0, D-422, by its proposal check after its filing: Proposal.refusal,
+the notification PROPOSAL_REFUSED): why, when its review was asked, and its outcome (OVERTURNED: the
 proposal filed, "filedProposalId"; UPHELD: it stays refused) with the statement of the platform team.
 """
 type ProposalRefusal {
@@ -1357,14 +1369,20 @@ type ProposalResult {
 }
 
 """
-The state of a proposal.
+The state of a proposal. Since v135.0.0 (D-422): CHECKING, filed and being checked by its proposal check, seen by
+its author only; REFUSED, refused by its proposal check (seen by its author only, Proposal.refusal) or, flagged to
+review, by the platform team (readable by every reader of its universe, marked "refused by the platform team"). Never
+served to an app below the minimum version of governance.proposalCheckAfterFiling (contracts/client-config.md): a
+REFUSED proposal reads ANNULLED to it, and it files with the check in the request.
 """
 enum ProposalStatus {
   ADOPTED
   ANNULLED
   CANCELLED
+  CHECKING
   COUNTING
   OPEN
+  REFUSED
   REJECTED
   WAITING_SUPPORT
   WITHDRAWN

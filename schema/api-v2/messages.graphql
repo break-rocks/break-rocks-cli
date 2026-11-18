@@ -636,7 +636,8 @@ enum InboxItemKind {
 
 """
 What the last message of an inbox item is: TEXT (a text only), IMAGES (with images), CLIP (with
-a clip), VOICE (a voice message, "lastText" empty), DELETED (deleted for both: "lastText" empty).
+a clip), VOICE (a voice message, "lastText" empty), DELETED (deleted for both: "lastText" empty); since v130.0.0
+(D-412), ROUTE_SESSION (the marker of a route group session, "lastText" empty).
 """
 enum InboxLastKind {
   ARRIVAL
@@ -646,6 +647,7 @@ enum InboxLastKind {
   LIVE_SHARE
   MEET_UP
   PLACE
+  ROUTE_SESSION
   TEXT
   VOICE
 }
@@ -837,7 +839,7 @@ type Message {
   kind: MessageKind!
   """
   The text as written (to change it); empty for a voice message, a place, a meet-up, an arrival, a live
-  share marker, an event, and once deleted.
+  share marker, a route group session marker (since v130.0.0), an event, and once deleted.
   """
   text: String!
   """
@@ -877,6 +879,19 @@ type Message {
   """
   discussionCard: UniverseDiscussion
   """
+  The route card of the first route URL of its text (since v131.0.0, D-413, routes.feature, contracts/text.md § Route
+  card; the card of a route in a message since v101.0.0, D-300), built for the caller when read: the route as the
+  caller may read it (mapRoute), its line without the parts its privacy zones hide; null when the text carries none, when the caller may not read the route (the card "not
+  available"), with images or a clip, and once deleted. A route URL shows no link preview (link null).
+  """
+  routeCard: MapRoute
+  """
+  The experience card of the first URL of an experience, an experience reuse or an experience instance in its text
+  (since v136.2.0, contracts/text.md § Experience card), built for the caller when read, with images or a clip too;
+  null when the text carries none, and while experiences.open is off.
+  """
+  experienceCard: ExperienceCard
+  """
   The vote card the system account posts in "&general" (since v101.0.0, D-300, proposals.feature): the proposal
   and the moment; its action ("Support", "Vote") opens the ballot, never a message; null otherwise.
   """
@@ -904,6 +919,11 @@ type Message {
   """
   liveShare: LiveShareMarker
   """
+  Since v130.0.0 (D-412, route-group-sessions.feature): the marker of a route group session started from a group chat:
+  no text; null otherwise, and once deleted.
+  """
+  routeSession: RouteSessionMarker
+  """
   The event of the timeline of a group chat, for kind event; null otherwise.
   """
   event: GroupEvent
@@ -925,7 +945,11 @@ type Message {
   """
   mentionsChannel: Boolean!
   """
-  When the platform received it: the order of the messages, and of the read receipts (ReadMark.upToAt).
+  When the platform received it: the order of the messages, and of the read receipts (ReadMark.upToAt). Since
+  v136.0.0 (D-422, direct-messages.feature, contracts/messages.md § Messages published once their media processing
+  is done): for a message sent PROCESSING, its publication once PUBLISHED (it then takes its place after the
+  messages published before it); while PROCESSING or FAILED, when the platform received it (its author's apps show
+  it after the published messages).
   """
   createdAt: AWSDateTime!
   """
@@ -952,12 +976,15 @@ type Message {
   """
   threadRoot: ID
   """
-  When its text was last changed; null when never.
+  When its text was last changed; null when never. Since v136.0.0 (D-422): a change made before its publication
+  is not one (null, the message published with its text then).
   """
   changedAt: AWSDateTime
   """
   When it disappears: 1 year after it was sent, the ephemeral duration in force when it was sent, or the
-  channel message retention (a channel).
+  channel message retention (a channel). Since v136.0.0 (D-422): counted from its publication (createdAt) for a
+  message published once its media processing is done, the ephemeral duration being the one in force when it was
+  sent; while PROCESSING or FAILED, 1 year after it was sent at most, as the conversation.
   """
   expiresAt: AWSDateTime!
   """
@@ -994,6 +1021,35 @@ type Message {
   discussion.
   """
   stance: DebateStance
+  """
+  Since v136.0.0 (D-422, direct-messages.feature): its publication to the other participants. PUBLISHED for a
+  message without media to process and for every message another account reads; PROCESSING (the media processing of
+  its images, its clip or its voice message not done) and FAILED only to its author (and to the delegated agent that
+  wrote it and its operator), the message seen by no other account until PUBLISHED; never served PROCESSING nor
+  FAILED to an app older than the minimum version of messages.publishWhenReady (contracts/client-config.md).
+  """
+  publication: MessagePublication!
+  """
+  Since v136.0.0 (D-422): the code of contracts/errors.md its publication failed with (§ The media processing of a
+  message): a media processing that failed (IMAGE_INVALID, CLIP_INVALID, VIDEO_DECLARATION_MISMATCH,
+  VOICE_INVALID, VOICE_DECLARATION_MISMATCH, MEDIA_PROCESSING_FAILED, MEDIA_PROCESSING_TIMEOUT) or a right lost before
+  its publication (INTERACTION_BLOCKED, UNBLOCK_FIRST, NOT_CONNECTED, PLATFORM_SUSPENDED (a conservatory freeze
+  included), DELEGATED_AGENT_NOT_ALLOWED, GROUP_NOT_MEMBER, GROUP_NOT_FOUND, GROUP_ANNOUNCEMENT_ONLY, NOT_A_MEMBER,
+  CHANNEL_WRITING_BAN, POSTING_BANNED, CHANNEL_ARCHIVED, CHANNEL_NOT_FOUND, CHANNEL_AGENTS_FORBIDDEN, RESIDENTS_ONLY,
+  UNIVERSE_DISCUSSION_NOT_OPEN…), translated by the apps from the code; null unless publication is FAILED.
+  """
+  publicationFailure: String
+}
+
+"""
+The publication of a message (since v136.0.0, D-422): PROCESSING (sent, the media processing of its images, its
+clip or its voice message not done, seen by its author only), PUBLISHED (published to the other participants),
+FAILED (seen by its author only, with Message.publicationFailure, until its author deletes it).
+"""
+enum MessagePublication {
+  FAILED
+  PROCESSING
+  PUBLISHED
 }
 
 """

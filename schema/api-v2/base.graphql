@@ -277,7 +277,8 @@ type Query {
   The translation of a content into "language" (one of the 20 languages of the apps: LANGUAGE_NOT_SUPPORTED);
   null when it has no language or is already in it. "id": the post, the message, the proposal, the account
   (BIO), the universe address (CHARTER, UNIVERSE_DESCRIPTION), the image (IMAGE_ALT, since v78.0.0), the
-  post of the clip (CLIP_SUBTITLES, since v78.0.0); "container": what holds a message (DIRECT_MESSAGE: the
+  post of the clip (CLIP_SUBTITLES, since v78.0.0), the universe event (UNIVERSE_EVENT, since D-409; EVENT_NOT_FOUND),
+the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": what holds a message (DIRECT_MESSAGE: the
   other account's id; GROUP_MESSAGE: the group chat's id; CHANNEL_MESSAGE: the channel or debate address), the
   post of the image (IMAGE_ALT). The content of a universe is translated once per version and language and
   kept with it; a direct or group message is served and kept nowhere, once the reader agreed
@@ -512,7 +513,7 @@ type Query {
   The routes that cross the map cells of resolution 6 of the area shown (4 at most), in a light form, without their
   line (since D-374, routes.feature): the same routes as mapRoutes (the public routes of the accounts and the
   universe routes of the public universes, or, with universe, the universe routes of that universe only; never an
-  unlisted nor a private route), each with its identifier, its name, its mode, its length (of the whole route, since
+  unlisted nor a private route), each with its identifier, its name (since D-418, its route title too), its mode, its length (of the whole route, since
   D-375), its start point, its end point (null for a loop) and, since D-375, its free tags, which the map filter
   counts; these two points being, for a route whose start or end a privacy zone of its author hides, the points where
   its line leaves and enters that privacy zone, except for its author, who receives its start and its end (since
@@ -1085,9 +1086,12 @@ type Query {
   Since D-393 (contracts/map.md § One map marker per place): the post of a published experience feat is never answered
   as POSTS nor VIDEOS; its place answers as FEATS. Since D-395: never a place-folded post (MapPost.foldedPlaceId);
   with FEATS among kinds, its place answers as FEATS; with FEATS not among kinds, the post is not place-folded and is
-  answered as any placed post or placed video.
+  answered as any placed post or placed video. Since D-419 (map/map-universe-filter.feature), linked true: the
+  universe filter of the map of Explore, the nearest activity linked to the universe given exactly (a sub-universe
+  for a sub-universe, never its universe of the first level): what the universe filter keeps; false or not given, as
+  before. A signed-in caller only (SIGN_IN_REQUIRED for a visitor not signed in, unchanged).
   """
-  nearestActivity(center: PointInput!, kinds: [MapKind!]!, universe: String): NearestActivity
+  nearestActivity(center: PointInput!, kinds: [MapKind!]!, universe: String, linked: Boolean): NearestActivity
 
   """
   Since D-358 (item 2), D-360 and D-361 (map-markers.feature): the place card of a place without a place feat, by the id of
@@ -1178,6 +1182,18 @@ type Query {
   myMapRoutes(after: String, limit: Int): MapRoutePage
 
   """
+  Since D-415 (map/route-findability.feature): the suggested tags of a route of the caller (the route of its universe for
+  its leadership), as its findability sheet offers them, 8 at most, each in its canonical form without "#": for a
+  universe route its tag conventions first, then the deduced suggestions in language (the language of the app of the
+  caller: family, dog and pram, from routeId and access, the route accessibility boxes ticked in the sheet and not saved
+  yet, null: those of the route), then the free tags most carried by the public routes and the universe routes of the
+  public universes whose start is within 5 kilometres of its start (contracts/map.md § The route context); never one the
+  route already carries. "#night" is deduced by the app on the phone from its route recording, never sent. ROUTE_NOT_FOUND
+  for a route that is not the caller's (nor of its universe, for its leadership), whatever its visibility.
+  """
+  routeTagSuggestions(routeId: ID!, language: String!, access: [RouteAccess!]): [String!]
+
+  """
   Since v129.1.0 (D-411, map/my-places.feature; contracts/map.md § My places): the saved items of My places of the
   caller, the latest saved first; never the position of the device. tagId: the saved items that carry that My places
   tag (MY_PLACES_TAG_NOT_FOUND), none for "All". mapCells: the H3 cells of one resolution (0 to 9) that cover the area
@@ -1218,9 +1234,41 @@ type Query {
   mapRouteGpx(id: ID!): String
 
   """
+  Since D-420 (map/route-versions.feature): the route versions of a route of the caller (of its universe, for its
+  leadership), its 20 latest at most (since D-421, but those deleted), the latest first, whole (the parts its privacy zones hide included). Read by its
+  owner only: ROUTE_OWNER_ONLY for another account that may read the route, LEADERSHIP_ONLY for a universe route read
+  by another account than its leadership, ROUTE_NOT_FOUND when the caller may not read the route;
+  DELEGATED_AGENT_NOT_ALLOWED.
+  """
+  mapRouteVersions(id: ID!): [MapRouteVersion!]
+
+  """
   Since v92.1.0: the privacy zones of the caller, 3 at most.
   """
   myRoutePrivacyZones: [RoutePrivacyZone!]
+
+  """
+  Since v130.0.0 (D-412, route-guidance.feature): the route log of the caller, the latest route guidance first; read by
+  its account only. after: the next of the page before. limit: from 1 to 50 (20 by default).
+  """
+  myRouteLog(after: String, limit: Int): RouteLogPage
+
+  """
+  Since v130.0.0 (D-412, route-group-sessions.feature): a route group session in progress, as the caller reads it: a
+  member of its group chat, an attendee or the event organizer of its universe event (members empty for a caller who
+  did not join it: its card). ROUTE_SESSION_NOT_FOUND (also once it ended, for a caller who may not read it, and for a
+  caller in a block with who started it).
+  """
+  routeGroupSession(id: ID!): RouteGroupSession
+
+  """
+  Since v130.0.0 (D-412): the route group sessions in progress of a group chat the caller is a member of (discussion; 1
+  at most) or of a universe event the caller attends or is the event organizer of (eventId; on its day only, empty
+  otherwise), the latest started first, 100 at most, without those started by an account in a block with the caller;
+  exactly one of discussion and eventId (INVALID_REQUEST otherwise). GROUP_NOT_MEMBER, EVENT_NOT_FOUND,
+  EVENT_NOT_ATTENDED (neither an attendee nor its event organizer).
+  """
+  routeGroupSessions(discussion: DiscussionRefInput, eventId: ID): [RouteGroupSession!]
 
 
   """
@@ -1276,7 +1324,9 @@ type Query {
 
   """
   The route through 2 to 100 points (at most 500 km), on foot or by bicycle, snapped to the streets and paths
-  on request.
+  on request. Since v131.0.0 (D-413, routes.feature): 2 to 2,000 points, at most 1,000 km; snap true for the modes on
+  foot and by bicycle only (ROUTE_SNAP_NOT_OFFERED for another travel mode); not snapped, the estimated duration at the
+  speed of mode (map.routeSpeeds) and the elevation from the ground (contracts/map.md § Route recordings).
   """
   route(mode: RouteMode!, points: [PointInput!]!, snap: Boolean): Route
 
@@ -1418,6 +1468,62 @@ type Query {
   randomHighlight(filter: ExploreFilterInput!, exceptId: ID): RandomHighlight
 
   """
+  Since D-414 (posts/explore-search.feature; contracts/map.md § The map steps back, the layers, the actions at a point
+  and the area summary): the counts of the area summary, computed by the platform per map cell (every resolution
+  ExploreAreaInput.mapCells may carry, 0 to 9, so that any area sums its own cells) and the same for every reader,
+  whoever they blocked: the public content only, never a content of a private universe, never a person, a map presence
+  nor an account. Of the explore filter (filter), it reads the area (required: INVALID_REQUEST without it), the time
+  window (when, days), the map kinds (kinds; PEOPLE ignored), the event families (families, ignored without EVENTS
+  among kinds, as exploreSearch) and the universe of mapFilter (its universe filter); it ignores the words (query), the
+  tags of mapFilter, scope and order. The universe events of the time window (the selection of D-382), the placed posts
+  with a photo, the placed videos and the experience feats published in the last 24 hours, and the routes that cross
+  the area, each counted once; a part whose content comes from fewer than 3 distinct accounts is left out, so that the
+  summary never tells the activity of one account. Computed again within 5 minutes of a change, with the files; cached
+  60 seconds by its arguments. A signed-in caller only: SIGN_IN_REQUIRED for a visitor not signed in, as
+  nearestActivity. Rate limited as any read, and by its own limit: 30 reads a minute per account; beyond, RATE_LIMITED
+  with errorInfo { limit, retryAt }.
+  INVALID_REQUEST for an invalid filter, and for an area other than Explore sends for the area shown: 1 to 7 cells of
+  one resolution of the zoom band (COUNTRY 0 to 2, CITY 3 and 4, NEIGHBOURHOOD 5 and 6, STREET 7 to 9) forming one
+  group of neighbours. When no part is left, AreaSummary.parts is empty and the apps
+  read nearestActivity (with nothing within 500 kilometres, they say that nothing is nearby).
+  """
+  areaSummary(filter: ExploreFilterInput!): AreaSummary
+
+  """
+  Since D-419 (map/map-universe-filter.feature; contracts/map.md § The explore filter, the universe filter apart from
+  where): in one read, what the choice of the universe filter shows (the menu universe of the apps): for the universe
+  of filter.mapFilter (the universe filter, an address as the link carries it; its tags ignored) and for the favorite
+  universes of the caller that are public universes, 20 at most in the order of the account, their linked places (the
+  distinct points of what is linked to the universe: its universe territory once, a point of interest once whatever
+  it holds, a placed post rounded to its map cell at that map cell, a zone or a route once; its universe events, those
+  it relays included, within the time window only), those in the area shown, their residents and, for the universe
+  chosen, the bounds of its linked places, which "See its places" fits the map to. Of the explore filter, it reads the
+  area (required: INVALID_REQUEST without it), the time window (when, days) and the universe of mapFilter; it ignores
+  the words, the map kinds, the event families, the tags, scope, order and access. Read when the choice opens, when a
+  universe found by its name is chosen, and, from 1,100 pixels wide where the choice stays open beside the map, again
+  when the map stops after leaving the map cells of the last read, at most once every 2 seconds; never per frame of a
+  move. The counts of one universe are the same for every reader: cached 60 seconds per universe, time window and set
+  of map cells. Read by a visitor not signed in too: then mine is empty (the favorite universes are those of a
+  signed-in account), chosen still answered for a public universe. chosen is null without a universe in mapFilter, or
+  for a universe that is unknown, private or the root universe (as the link of the map opens without a universe
+  filter). INVALID_REQUEST for an invalid filter, and for an area other than the area shown, as areaSummary.
+  """
+  universeFilterChoices(filter: ExploreFilterInput!): UniverseFilterChoices
+
+  """
+  Since D-414 (map-display.feature, the actions at a point): the postal address of a point of the map the reader
+  chose by a long press or a secondary click (never the position of the device), read once for that point from the places service of
+  the cartography, as PlaceCard.address, never kept by the social platform; cached 24 hours by the point rounded to 4
+  decimals, the same for every caller. Read by a visitor not signed in too ("Copy the address"). Rate limited: 30 reads
+  a minute and 300 an hour per account, per IP address for a visitor not signed in; beyond, RATE_LIMITED with
+  errorInfo { limit, retryAt }; also RATE_LIMITED (limit MINUTE) beyond 1,200 calls a minute to the places service for
+  every caller together. SIGN_IN_REQUIRED for a visitor not signed in whose request carries no IP address the API can
+  read. Null when the cartography gives neither a postal address nor a street there, or does
+  not cover the point. INVALID_REQUEST for a point off the world.
+  """
+  pointAddress(point: PointInput!): PointAddress
+
+  """
   Since v128.0.0 (D-408, universes/explore.feature): the highlight of the day of a country (country, ISO 3166-1
   alpha-2; the apps send the country of the account): the map highlight with the highest highlight score among the
   placed posts and the placed videos of the public universes of the last 24 hours in that country, a tie to the most
@@ -1488,7 +1594,8 @@ type Query {
 
   """
   The caller's usage (a human, an agent operator, a delegated agent: its own). Counts in the minute limit
-  only.
+  only. Since v135.0.0 (D-422): the usage counted so far, at most 30 seconds late (countedAt); "used" may exceed
+  "limit" by the bound of the usage not counted yet (contracts/payments.md § Usage limits).
   """
   myUsage: Usage
 
@@ -1650,6 +1757,51 @@ type Query {
   LAYER_NOT_SERVED while the platform does not serve the layer (client-config experiences.placeFeats off).
   """
   mapPlaceFeats(parentMapCells: [String!]!, universe: String): [MapPlaceFeats!]
+
+  """
+  Since v136.2.0 (experiences group: experience-addresses.feature, contracts/experiences.md): an experience of route/1 or
+  challenge/1 by its identifier, as the caller may read it (its visibility). EXPERIENCE_NOT_FOUND (also a deleted or
+  removed one), EXPERIENCES_NOT_OPEN. Its address is resolved by resolveAddress.
+  """
+  experience(id: ID!): Experience
+
+  """
+  Since v136.2.0: the experiences of an owner ("@alice", "%paris", "%root") the caller may read, the most recently
+  changed first: its own experiences and, for a universe, those it adopted; for anyone but the owner, the PUBLIC ones only.
+  after: the next of the page before. limit: from 1 to 50 (20 by default). EXPERIENCES_NOT_OPEN.
+  """
+  experiences(owner: String!, after: String, limit: Int): ExperiencePage
+
+  """
+  Since v136.2.0 (P-15): checks an experience template (breakrocks.experience/4) for the caller, writing nothing: every
+  problem at once, one per path (DocumentProblem; empty: none), as createExperience and updateExperience would refuse
+  it. EXPERIENCES_NOT_OPEN.
+  """
+  checkExperience(document: AWSJSON!): [DocumentProblem!]
+
+  """
+  Since v136.2.0 (experience-instances.feature): an experience instance of route/1 or challenge/1, as the caller may read
+  it (a solo one, its experience participant; a group one, who reads its place); EXPERIENCE_RUN_NOT_FOUND otherwise,
+  whether or not it exists. EXPERIENCES_NOT_OPEN.
+  """
+  experienceRun(id: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: the experience instances of route/1 and challenge/1 the caller takes or took part in (shown in My feats
+  beside myFeats): those whose experience result is not ended first, then the others, the most recently ended first.
+  after: the next of the page before. limit: from 1 to 50 (20 by default). EXPERIENCES_NOT_OPEN.
+  """
+  myExperienceRuns(after: String, limit: Int): ExperienceRunPage
+
+  """
+  Since v136.2.0 (experience-rankings.feature): the ranking of one group experience instance of a simple challenge that
+  declares one, as the caller may read the experience instance: its experience participants who chose to appear, by
+  their experience result SUCCESS and PEOPLE_VALIDATED, in the order of the experience, the earlier final measure first
+  between equal values; 50 at most (its experience participants), computed from the experience instance; an account the
+  caller blocked or that blocked the caller left out. No ranking across experience instances. EXPERIENCE_RUN_NOT_FOUND,
+  EXPERIENCE_NO_RANKING (the experience declares none, or a solo experience instance), EXPERIENCES_NOT_OPEN.
+  """
+  experienceRunRanking(runId: ID!): [ExperienceRankingEntry!]
 }
 
 """
@@ -1900,7 +2052,14 @@ type Mutation {
   DOCUMENT_RIGHTS_REQUIRED, DOCUMENT_MALICIOUS (the malware scan already found the file malicious); a post with a
   document shows no link preview (link ignored). The post is posted at once; its document is shown to the other
   readers once its malware scan and its media review are done (REFUSED: never shown, the author notified,
-  DOCUMENT_REFUSED). Its bytes count in the consumption of the account of its author. Returns the post.
+  DOCUMENT_REFUSED). Its bytes count in the consumption of the account of its author. Since v135.0.0 (D-422,
+  contracts/errors.md § The media processing of a post), behind the switch posts.publishWhenReady for an app of its
+  minimum version (contracts/client-config.md): the post is created at once, without waiting for the media
+  processing of its images, its clip or its long video (no longer IMAGE_NOT_READY nor CLIP_NOT_READY): publication
+  PROCESSING, seen by its author only, then PUBLISHED to the others (publishedAt), or FAILED (publicationFailure, the
+  notification POST_PUBLICATION_FAILED); every refusal knowable when it is posted stays in the answer (the declared
+  length and orientation of a video, VIDEO_QUOTA_EXCEEDED with its minutes reserved); its rights are checked again
+  when it is published; the same for replyTo, quote, publishPostDraft and a scheduled post. Returns the post.
   """
   createPost(announcement: Boolean, clip: ID, document: PostDocumentInput, images: [ImageAttachmentInput!], link: String, longVideo: ID, place: PostPlaceInput, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
@@ -1952,27 +2111,31 @@ type Mutation {
   is "<cell>-<requestId>" (Post.id); sources as createPost (since v81.8.0); UNIVERSE_AGENTS_FORBIDDEN for a
   delegated agent where its universe forbids agents for posts. document (since v87.6.0, D-269): its own post
   document, as createPost (POST_DOCUMENT_WITH_VIDEO with a clip); the post quoted keeps its own document card.
-  Returns the quote.
+  Since v135.0.0 (D-422): created at once, its media processing as createPost; a post quoted that is not PUBLISHED:
+  POST_NOT_PUBLISHED. Returns the quote.
   """
   quote(clip: ID, document: PostDocumentInput, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   Replies to a post or a reply (postId) with a text and media; requestId is the idempotency key, and the reply
   is "<cell>-<requestId>" (Post.id); sources as createPost (since v81.8.0); UNIVERSE_AGENTS_FORBIDDEN for a
-  delegated agent where the universe of the thread forbids agents for posts. Returns the reply.
+  delegated agent where the universe of the thread forbids agents for posts. Since v135.0.0 (D-422): created at once,
+  its media processing as createPost; counted in the replies of its post once PUBLISHED; a post replied to that is
+  not PUBLISHED: POST_NOT_PUBLISHED. Returns the reply.
   """
   replyTo(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
 
   """
   Reposts a post (postId), in its universe or in another one the caller may post in; UNIVERSE_AGENTS_FORBIDDEN
-  for a delegated agent where the universe of the repost forbids agents for posts (since v81.8.0). Returns the
-  repost.
+  for a delegated agent where the universe of the repost forbids agents for posts (since v81.8.0). Since v135.0.0
+  (D-422): a post that is not PUBLISHED: POST_NOT_PUBLISHED. Returns the repost.
   """
   repost(postId: ID!, universe: String, requestId: ID!): Post
 
   """
   A member asks to repost a post (postId) of its private universe into targetUniverse (a posting address),
-  with text for a quote (its own text). Returns the request.
+  with text for a quote (its own text). Since v135.0.0 (D-422): a post that is not PUBLISHED: POST_NOT_PUBLISHED.
+  Returns the request.
   """
   requestRepost(postId: ID!, targetUniverse: String, text: String, requestId: ID!): RepostRequest
 
@@ -2044,8 +2207,8 @@ type Mutation {
   admins, a post of the universe or of a sub-universe. A public universe: its leadership from the governance
   level "village", a post or a quote of the universe or of its public sub-universes (a sub-universe: its
   governance with the power PINNED_POSTS). ALREADY_PINNED, PIN_LIMIT, NOT_PINNABLE, PIN_NOT_IN_UNIVERSE,
-  ONLY_OWNER_OR_ADMINS_PIN, LEADERSHIP_ONLY, PINNED_POSTS_FROM_VILLAGE, SUB_UNIVERSE_POWER_MISSING. Returns
-  the universe with its pinned posts.
+  ONLY_OWNER_OR_ADMINS_PIN, LEADERSHIP_ONLY, PINNED_POSTS_FROM_VILLAGE, SUB_UNIVERSE_POWER_MISSING; since v135.0.0
+  (D-422), a post that is not PUBLISHED: POST_NOT_PUBLISHED. Returns the universe with its pinned posts.
   """
   setPinnedPost(postId: ID!, universe: String!, pinned: Boolean!, requestId: ID!): Universe
 
@@ -2243,23 +2406,33 @@ type Mutation {
   link, a voice message alone, a place, a meet-up (a human, in a conversation or a group chat) or an arrival
   notice. requestId is the idempotency key and the identifier of the message: a UUIDv7 dated less than 24
   hours ago and at most 1 minute ahead (MESSAGE_ID_INVALID; MESSAGE_ID_TAKEN for another message). The
-  refusals of each discussion and content stay (contracts/errors.md § Messages, Channels, The map).
-  Returns the message.
+  refusals of each discussion and content stay (contracts/errors.md § Messages, Channels, The map). Since v136.0.0
+  (D-422, direct-messages.feature, contracts/errors.md § The media processing of a message), behind the switch
+  messages.publishWhenReady for an app of its minimum version (contracts/client-config.md): the message is created at
+  once, without waiting for the media processing of its images, its clip or its voice message (no longer
+  IMAGE_NOT_READY, CLIP_NOT_READY nor VOICE_NOT_READY): publication PROCESSING, seen by its author only, then
+  PUBLISHED to the other participants (createdAt its publication, its place in the discussion), or FAILED
+  (publicationFailure, the notification MESSAGE_PUBLICATION_FAILED); every refusal knowable when it is sent stays in
+  the answer (CLIP_TOO_LONG and VOICE_TOO_LONG from the length declared at the upload); its rights are checked again
+  when it is published; respondsTo a message not PUBLISHED: MESSAGE_NOT_PUBLISHED. Returns the message.
   """
   sendMessage(input: SendMessageInput!, requestId: ID!): Message
 
   """
   Changes the text of a message of the caller (C-3), within 15 minutes of sending it
   (MESSAGE_CHANGE_WINDOW_PASSED); not a voice message (VOICE_NOT_CHANGEABLE), a meet-up (changeMeetUp), a
-  place or an arrival (MESSAGE_NOT_CHANGEABLE). MESSAGE_NOT_AUTHOR, MESSAGE_NOT_FOUND, MESSAGE_DELETED.
-  Returns the message.
+  place or an arrival (MESSAGE_NOT_CHANGEABLE). MESSAGE_NOT_AUTHOR, MESSAGE_NOT_FOUND, MESSAGE_DELETED. Since
+  v136.0.0 (D-422): the 15 minutes count from its publication; a message PROCESSING is changed at any time before
+  it, published with its text then, not marked as changed (changedAt null). Returns the message.
   """
   changeMessage(discussion: DiscussionRefInput!, messageId: ID!, text: String!, requestId: ID!): Message
 
   """
   Deletes a message (C-3): for everyone (its author; a group chat admin; a channel moderator), or for the
   caller only (forMe true: either participant of a conversation, any of its messages; a member of a group
-  chat, any message since it joined; again: nothing changes). Returns the message as the caller sees it now.
+  chat, any message since it joined; again: nothing changes). Since v136.0.0 (D-422): a message PROCESSING or
+  FAILED, by its author only, forMe or not, is removed for good, never published, nobody else told (no "message
+  deleted"). Returns the message as the caller sees it now.
   """
   deleteMessage(discussion: DiscussionRefInput!, messageId: ID!, forMe: Boolean, requestId: ID!): Message
 
@@ -2754,7 +2927,8 @@ type Mutation {
   (since v81.1.0, D-223, D-224): in a group chat its group chat admins (GROUP_ADMINS_ONLY otherwise), in a
   universe discussion of a public universe its moderators (MODERATOR_ONLY otherwise), of a private universe its
   channel moderators, owner and admins (CHANNEL_MANAGERS_ONLY otherwise); at most 3 pinned messages (PINNED_MESSAGES_FULL); never in a
-  conversation (DISCUSSION_TARGET_INVALID). Returns the pinned messages, the most recently pinned first.
+  conversation (DISCUSSION_TARGET_INVALID); since v136.0.0 (D-422), a message not PUBLISHED: MESSAGE_NOT_PUBLISHED.
+  Returns the pinned messages, the most recently pinned first.
   """
   setPinnedMessage(discussion: DiscussionRefInput!, messageId: ID!, pinned: Boolean!, requestId: ID!): [Message!]
 
@@ -2829,7 +3003,7 @@ type Mutation {
   Adds the caller's reaction to a message of a universe discussion (since v83.0.0, D-245; a free emoji since
   v83.1.0): reaction is exactly one emoji grapheme (REACTION_INVALID otherwise); one reaction per emoji and per
   account (adding it again changes nothing), several emoji per account; at most 20 distinct emoji per message
-  (REACTION_EMOJI_LIMIT for a 21st). Who may read and write the discussion (the access codes of sendMessage); MESSAGE_NOT_FOUND (a deleted message too). Returns the message
+  (REACTION_EMOJI_LIMIT for a 21st). Who may read and write the discussion (the access codes of sendMessage); MESSAGE_NOT_FOUND (a deleted message too); since v136.0.0 (D-422), a message not PUBLISHED: MESSAGE_NOT_PUBLISHED. Returns the message
   (reactions, myReactions).
   """
   reactToMessage(messageId: ID!, reaction: String!, requestId: ID!): Message
@@ -2865,7 +3039,8 @@ type Mutation {
   discussion (UniverseDiscussion.messageTtlSeconds, from its own sending); a thread has one level: a reply to a
   thread reply goes to the thread of its root message. The rules of sendMessage apply (slow mode, writing ban,
   delegated agents, MESSAGE_TOO_LONG at 2,000 visible characters); MESSAGE_NOT_FOUND; THREAD_NOT_ALLOWED outside a
-  universe discussion. Returns the reply (threadRoot set).
+  universe discussion; since v136.0.0 (D-422), a message not PUBLISHED: MESSAGE_NOT_PUBLISHED. Returns the reply
+  (threadRoot set).
   """
   replyInThread(messageId: ID!, text: String!, requestId: ID!): Message
 
@@ -3043,8 +3218,8 @@ type Mutation {
   askLeadership(text: String!, universe: String!, requestId: ID!): LeadershipQuestion
 
   """
-  The author of a proposal refused when filed asks the platform team to review the refusal (since v50.1.0,
-  D-23), once.
+  The author of a proposal refused when filed (since v135.0.0, D-422: refused by its proposal check) asks the
+  platform team to review the refusal (since v50.1.0, D-23), once.
   """
   askProposalRefusalReview(proposalId: ID!, requestId: ID!): ProposalRefusal
 
@@ -3170,7 +3345,8 @@ type Mutation {
   withdrawFromJury(sanctionId: ID!, requestId: ID!): JuryDuty
 
   """
-  Its author withdraws a proposal before its vote opens (proposalId). Returns the proposal.
+  Its author withdraws a proposal before its vote opens (proposalId), since v135.0.0 (D-422) also while it is
+  CHECKING. Returns the proposal.
   """
   withdrawProposal(proposalId: ID!, requestId: ID!): Proposal
 
@@ -3188,7 +3364,13 @@ type Mutation {
 
   """
   Files a proposal in a public universe (G-12): by the leadership (open at once) or a resident (waiting for
-  support); withdrawn by its author before its vote opens; never amended. Returns the proposal.
+  support); withdrawn by its author before its vote opens; never amended. Since v135.0.0 (D-422,
+  contracts/living-universes.md § The proposal check), behind the switch governance.proposalCheckAfterFiling for an
+  app of its minimum version (contracts/client-config.md): filed at once with the status CHECKING, seen by its author
+  only, then checked by a platform AI agent after the answer: passed, its support or its vote opens (WAITING_SUPPORT
+  or OPEN, its vote for its whole length from then); contrary to the platform rules or the law, or a refusal, a block
+  or an error of the model on its text, REFUSED (refusal, the notification PROPOSAL_REFUSED); no answer within 10
+  minutes, it goes on flagged to review (reviewPending); no longer PROPOSAL_REFUSED here. Returns the proposal.
   """
   fileProposal(input: FileProposalInput!, requestId: ID!): Proposal
 
@@ -3916,7 +4098,7 @@ type Mutation {
   INVALID_REQUEST for a stage another item is already tied to, and while the caller may no longer read the route of the
   playlist; position is not used with a stageIndex, the item taking the place of its stage in the order of the
   stages. To untie an item: removeFromPlaylist, then addToPlaylist without stageIndex (the item was already there:
-  the client sends revealMembership true).
+  the client sends revealMembership true). Since v135.0.0 (D-422): a post that is not PUBLISHED: POST_NOT_PUBLISHED.
   """
   addToPlaylist(playlistId: ID!, postId: ID!, position: Int, sectionId: ID, revealMembership: Boolean, passageStartMs: Int, passageEndMs: Int, stageIndex: Int, requestId: ID!): Playlist
 
@@ -3929,29 +4111,154 @@ type Mutation {
 
   """
   Since v92.1.0 (routes.feature): creates or changes a route (input.id). The rules of a route of a universe event
-  (ROUTE_INVALID: 2 to 100 points placed point by point, or 1,000 points drawn by hand, 500 kilometres at most); ROUTE_NAME_TAKEN for a name the owner already uses;
-  ROUTE_NOT_FOUND; a universe route by its leadership only (LEADERSHIP_ONLY). Returns the route.
+  (ROUTE_INVALID: 2 to 100 points placed point by point, or 1,000 points drawn by hand, 500 kilometres at most; since
+  v131.0.0, D-413, 2 to 2,000 points either way, drawn by hand, recorded or placed point by point, 1,000 kilometres at
+  most, 1 to 100 segments; ROUTE_SNAP_NOT_OFFERED for snap with a segment that is not on foot nor by bicycle); ROUTE_NAME_TAKEN for a name the owner already uses;
+  since D-415 (map/route-findability.feature), a new route without a name takes its prefilled name, never
+  ROUTE_NAME_TAKEN, and ROUTE_DESCRIPTION_TOO_LONG for a route description of more than 500 visible characters
+  (since D-418, ROUTE_TITLE_TOO_LONG for a route title of more than 80 visible characters, and a new route without a
+  name nor a title takes its prefilled route title beside its prefilled name); the
+  route context is computed before it answers (null in the answer when the geo services did not answer in time,
+  computed within 1 hour then; contracts/map.md § The route context);
+  ROUTE_NOT_FOUND; a universe route by its leadership only (LEADERSHIP_ONLY). Since D-421
+  (map/route-versions.feature), a change of the line of an existing route (route.points, route.segments, route.loop)
+  makes a new latest route version, as updateMapRouteFromRecording does (the oldest beyond 20 erased, the route context
+  computed again, the attendees of an upcoming universe event that carries it notified that its route changed, never
+  with a route version); any other change changes its latest route version in place. Since D-420, input.after, with a
+  new route recorded from a follow and record, saves it "after" the route followed (MapRouteInput.after), and
+  input.removeAfter removes that link; since D-421, a new universe route (universe) may be recorded (route.recorded
+  true) with after, by the leadership after a universe route of that universe, the backend cutting out the parts within
+  the privacy zones of the caller at its start and at its end. Returns the route.
   """
   saveMapRoute(input: MapRouteInput!, requestId: ID!): MapRoute
 
   """
   Since v92.1.0: deletes a route of the caller (or of its universe, by its leadership); the universe events that
-  carry it keep a copy of its line. ROUTE_NOT_FOUND. Returns true.
+  carry it keep a copy of its line (since D-420, of its latest route version). ROUTE_NOT_FOUND. Since D-420, every
+  route version of it is erased with it.
+  Returns true.
   """
   deleteMapRoute(id: ID!, requestId: ID!): Boolean
 
   """
   Since v92.1.0: "Do this route": copies a route the caller reads into its own routes, PRIVATE, crediting the original
   (copiedFrom). ROUTE_NOT_FOUND, ROUTE_NAME_TAKEN (name: the name of the copy, the original's when not given).
-  Returns the copy.
+  Since D-418, the copy has no route title (title null). Since D-420, the copy is of the latest route version only, at
+  its route version 1, without a history nor after. Returns the copy.
   """
   copyMapRoute(id: ID!, name: String, requestId: ID!): MapRoute
 
   """
+  Since D-420 (map/follow-and-record.feature): "Update the route": makes the route recording of a follow and record the
+  new latest route version of a route of the caller (of its universe, by its leadership): its line, its route segments,
+  its stages, its attached posts and its figures (MapRouteUpdateInput); the name, the route title, the free tags, the
+  route description, the route accessibility boxes, the visibility and the URL stay; the route context is computed
+  again, as by saveMapRoute; beyond 20 route versions, the oldest is erased (but one held by a report not settled).
+  The universe events that carry the route, upcoming or in progress, follow it; the attendees of an upcoming one are
+  notified that its route changed, never with a route version. For a universe route, the backend cuts out the parts
+  within the privacy zones of the caller at the start and at the end (MapRouteUpdateInput). The deviation is not
+  checked again: the app measured it. ROUTE_NOT_FOUND, ROUTE_OWNER_ONLY (a route of another account), LEADERSHIP_ONLY
+  (a universe route), ROUTE_VERSION_STALE (the route has a later route version than the one followed), ROUTE_INVALID,
+  ROUTE_SNAP_NOT_OFFERED, POST_NOT_FOUND, INVALID_REQUEST, DELEGATED_AGENT_NOT_ALLOWED. Returns the route, at its new
+  route version.
+  """
+  updateMapRouteFromRecording(input: MapRouteUpdateInput!, requestId: ID!): MapRoute
+
+  """
+  Since D-420 (map/route-versions.feature): restores a route version of the history of a route of the caller (of its
+  universe, by its leadership), other than the latest: makes a new latest route version with its line, its route
+  segments, its stages, its attached posts still readable and its figures (MapRouteVersion.restoredFrom), the route
+  context computed again, the universe events that carry the route following it as after
+  updateMapRouteFromRecording (the attendees of an upcoming one notified that its route changed); a route group
+  session or a route guidance in progress keeps its own. ROUTE_NOT_FOUND,
+  ROUTE_OWNER_ONLY, LEADERSHIP_ONLY, ROUTE_VERSION_INVALID (not in the history, or the latest),
+  DELEGATED_AGENT_NOT_ALLOWED. Returns the route, at its new route version.
+  """
+  restoreMapRouteVersion(id: ID!, version: Int!, requestId: ID!): MapRoute
+
+  """
+  Since D-421 (map/route-versions.feature): deletes a route version of the history of a route of the caller (of its
+  universe, by its leadership), other than the latest; the numbers of the others stay; gone from mapRouteVersions and
+  the data copy at once, kept for the moderation only while a report not settled holds it. ROUTE_NOT_FOUND, ROUTE_OWNER_ONLY, LEADERSHIP_ONLY, ROUTE_VERSION_INVALID (not in the history, or the
+  latest), DELEGATED_AGENT_NOT_ALLOWED. Returns true.
+  """
+  deleteMapRouteVersion(id: ID!, version: Int!, requestId: ID!): Boolean
+
+  """
+  Since v130.0.0 (D-412, route-guidance.feature): records a stage check-in, or a stage skipped (input.skipped), of the
+  caller. In its route log: creates the entry input.guidanceId at the first one (the route read then, ROUTE_NOT_FOUND
+  when the caller may not read it; its name and its mode taken from it), counts a stage skipped, and sets done with
+  input.done once the entry has received 1 stage check-in that was not skipped (skipping every stage never makes it
+  done); no stage nor time is kept there. With input.sessionId, while that route group session is in progress and the
+  caller is a member of it, a stage check-in (never a stage skipped) is the stage the caller reached, its stage a stage
+  of the copy of the route of the route group session that the caller sees (for a route without a stage the caller
+  sees, the first or the last point of its line the caller sees), its name taken from that copy; after its end, the
+  route log only, without an error. The app checks the 50 metres and the order of the stages; no position is sent.
+  requestId: made at the touch, sent again unchanged once the network is back (recorded once). ROUTE_CHECK_IN_INVALID
+  (at more than 1 minute ahead; startedAt more than 24 hours before the first stage check-in of the entry, or after
+  at; a stage not of the route group session or hidden from the caller); ROUTE_CHECK_IN_RATE_LIMITED (120 an hour per
+  account); DELEGATED_AGENT_NOT_ALLOWED. Since v136.2.0 (route-experiences.feature): input.runId, the experience
+  instance of a route experience this route guidance belongs to: done ends the experience result of the caller SUCCESS
+  (DEVICE_CHECKED), keeping the stages skipped and the day only; EXPERIENCE_RUN_NOT_FOUND. Returns the route log entry.
+  """
+  checkInRouteStage(input: RouteCheckInInput!, requestId: ID!): RouteLogEntry
+
+  """
+  Since v130.0.0 (D-412): deletes an entry of the route log of the caller. ROUTE_LOG_ENTRY_NOT_FOUND. Returns true.
+  """
+  deleteRouteLogEntry(id: ID!, requestId: ID!): Boolean
+
+  """
+  Since v130.0.0 (D-412, route-group-sessions.feature): starts a route group session, the caller its first member: from
+  a group chat (input.discussion, on input.routeId: a route of the caller, whatever its visibility, or a route every
+  member of the group chat may read, ROUTE_SESSION_ROUTE_NOT_SHARED otherwise) or from a universe event on its day in
+  the time zone of its place, or of the start of its route (input.eventId, on its route). The line and the stages of
+  the route are kept as they are now until the route group session ends. A group chat receives the message of its marker
+  (Message.routeSession), its members notified as of a message. A member of another route group session leaves it.
+  INVALID_REQUEST, ROUTE_NOT_FOUND, ROUTE_SESSION_ROUTE_NOT_SHARED, GROUP_NOT_MEMBER, GROUP_ANNOUNCEMENT_ONLY, ROUTE_SESSION_IN_PROGRESS (a group chat
+  has one at a time), EVENT_NOT_FOUND, EVENT_NOT_ATTENDED, ROUTE_SESSION_NOT_EVENT_DAY, EVENT_ROUTE_MISSING,
+  DELEGATED_AGENT_NOT_ALLOWED. Returns the route group session.
+  """
+  startRouteGroupSession(input: RouteGroupSessionInput!, requestId: ID!): RouteGroupSession
+
+  """
+  Since v130.0.0 (D-412): the caller joins (member true) or leaves (member false) a route group session (C-13). Joining
+  leaves the route group session the caller was a member of; the leave of its last member ends it. ROUTE_SESSION_NOT_FOUND
+  (also for a caller in a block with who started it),
+  ROUTE_SESSION_FULL (50 members), GROUP_NOT_MEMBER, EVENT_NOT_ATTENDED, DELEGATED_AGENT_NOT_ALLOWED. Returns member as set.
+  """
+  setRouteGroupSessionMember(id: ID!, member: Boolean!, requestId: ID!): Boolean
+
+  """
+  Since v130.0.0 (D-412): ends a route group session for every member, by who started it or the event organizer of its
+  universe event, attending it or not (ROUTE_SESSION_END_NOT_ALLOWED otherwise); its members' devices told by
+  route.session and a silent push; everything of it is erased (contracts/map.md § Route guidance).
+  ROUTE_SESSION_NOT_FOUND. Returns true.
+  """
+  endRouteGroupSession(id: ID!, requestId: ID!): Boolean
+
+  """
   Since v92.1.0: imports a GPX file (its text, 2 MB at most) as a PRIVATE route of the caller: its track simplified,
   keeping its shape, to at most 1,000 points, its waypoints as stages (60 at most). ROUTE_GPX_INVALID, ROUTE_NAME_TAKEN. Returns the route.
+  Since v131.0.0 (D-413): to at most 2,000 points, in the travel mode mode chosen, one segment; a free line, its
+  elevation from the ground; a track longer than 1,000 kilometres is ROUTE_GPX_INVALID. Since D-418, no route title
+  (title null).
   """
   importGpxRoute(gpx: String!, name: String!, mode: RouteMode!, requestId: ID!): MapRoute
+
+  """
+  Since v131.0.0 (D-413, routes.feature): joins 2 to 30 routes of the caller (ids, in that order) into a new PRIVATE
+  route of the caller named name: each end joined to the next start in a straight line, their segments, stages,
+  attached posts and tags kept (the first 5 tags), the start of each route after the first a stage named after that
+  route; simplified again, keeping its shape within the tolerance of a route (5 metres by default). ROUTE_JOIN_INVALID
+  (errorInfo { max }) when the route joined would hold more than 60 stages, 60 attached posts, 100 segments or 2,000
+  points, or measure more than 1,000 kilometres, or for fewer than 2 or more than 30 routes; a loop when the end of the
+  last is within 50 metres of the start of the first; the routes joined are kept; no figures of a route recording
+  (MapRoute.recording null). A universe route is not joined (ROUTE_NOT_FOUND for a route that is not the caller's).
+  ROUTE_NAME_TAKEN. Since D-418, the new route has no route title (title null), and each stage made of a route
+  joined is named after its name, as before. Returns the new route.
+  """
+  joinMapRoutes(ids: [ID!]!, name: String!, requestId: ID!): MapRoute
 
   """
   Since v129.1.0 (D-411, map/my-places.feature): "Save": saves a thing the caller may read to My places, with its My
@@ -3963,6 +4270,16 @@ type Mutation {
   whole of My places shared): DELEGATED_AGENT_NOT_ALLOWED. Returns the saved item.
   """
   saveToMyPlaces(input: SaveToMyPlacesInput!, requestId: ID!): SavedItem
+
+  """
+  Since D-414 (posts/explore-search.feature, "Useful?"): the answer of the caller to "Useful?" under the area summary:
+  adds 1 to the counter of the day (UTC) of that answer (useful true: "useful", false: "not useful"), and keeps nothing
+  else: not the account, not the installation, not the time within the day, not the area nor the sentence; not a growth
+  event (contracts/measures.md § Anonymous counters). A signed-in caller only (SIGN_IN_REQUIRED otherwise), as
+  areaSummary; the apps ask once per sentence. Rate limited as any write, and by its own limit: 10 answers a minute
+  and 60 an hour per account; beyond, RATE_LIMITED with errorInfo { limit, retryAt }. Returns true.
+  """
+  rateAreaSummary(useful: Boolean!, requestId: ID!): Boolean
 
   """
   Since v129.1.0 (D-411): changes the My places tags and the My places note of a saved item of the caller.
@@ -4227,4 +4544,178 @@ type Mutation {
   feat.
   """
   setPlaceFeatAdoption(universe: String!, placeFeatId: ID!, adopt: Boolean!, requestId: ID!): PlaceFeat
+
+  """
+  Since v136.2.0 (experiences group: experience-addresses.feature, simple-challenges.feature, route-experiences.feature,
+  contracts/experiences.md): creates an experience from its experience template (breakrocks.experience/4, without id,
+  version nor copiedFrom), PRIVATE, at the version 1.0: for its owner, the caller ("@<handle>"; a delegated agent, for its
+  operator, the Automated mark), or a public universe whose leadership the caller (or the operator of the delegated
+  agent) is a member of. EXPERIENCE_DOCUMENT_INVALID (errorInfo { problems }: the DocumentProblem list of
+  checkExperience), EXPERIENCE_NAME_TAKEN, EXPERIENCE_OWNER_NOT_ALLOWED, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS,
+  EXPERIENCE_RATE_LIMITED (20 created or copied a day), EXPERIENCES_NOT_OPEN. Returns the experience.
+  """
+  createExperience(document: AWSJSON!, requestId: ID!): Experience
+
+  """
+  Since v136.2.0: changes an experience of the caller (the leadership for a universe experience) with a whole experience
+  template, its owner, its name and its engine unchanged: a new minor version (texts, warnings) or major version (the
+  engine block, the parameters, the ranking); every new version of a public experience is checked again, the version
+  published staying the previous one until it passes (only its owner starts the new version meanwhile, in a group
+  chat); the experience instances already started keep theirs. EXPERIENCE_RATE_LIMITED (50 changes or publications a
+  day). EXPERIENCE_DOCUMENT_INVALID,
+  EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience.
+  """
+  updateExperience(experienceId: ID!, document: AWSJSON!, requestId: ID!): Experience
+
+  """
+  Since v136.2.0: sets the visibility of an experience of the caller (the leadership for a universe experience):
+  PRIVATE and UNLISTED at once; PUBLIC after its experience check (check.status CHECKING, the experience keeping its
+  former visibility until the check passes; without an answer within 10 minutes, it is not published, flagged to the
+  platform team). EXPERIENCE_RATE_LIMITED (50 changes or publications a day). A route experience never more visible than its route, and PUBLIC by a
+  delegated agent: EXPERIENCE_VISIBILITY_NOT_ALLOWED. EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN.
+  Returns the experience.
+  """
+  publishExperience(experienceId: ID!, visibility: ExperienceVisibility!, requestId: ID!): Experience
+
+  """
+  Since v136.2.0: copies a PUBLIC simple challenge into a new experience of the caller, named "name", PRIVATE, its
+  copiedFrom set, then changed freely. A route experience, or an experience that is not PUBLIC: EXPERIENCE_NOT_COPYABLE
+  ("Do this route" copies a route). EXPERIENCE_NAME_TAKEN, EXPERIENCE_RATE_LIMITED, EXPERIENCE_NOT_FOUND,
+  EXPERIENCES_NOT_OPEN. Returns the new experience.
+  """
+  copyExperience(experienceId: ID!, name: String!, requestId: ID!): Experience
+
+  """
+  Since v136.2.0: deletes an experience of the caller (the leadership for a universe experience): its address answers
+  "not found" and its name is free again; its experience instances in progress end free; the experience results stay
+  with their experience participants, without its texts. EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND (also played again),
+  EXPERIENCES_NOT_OPEN. True once done.
+  """
+  deleteExperience(experienceId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v136.2.0: the leadership of a public universe adopts a PUBLIC experience of an account (adopt true) or stops
+  adopting it (false), without a limit: it is then listed among the experiences of that universe, marked adopted.
+  LEADERSHIP_ONLY, EXPERIENCE_NOT_FOUND, EXPERIENCE_NOT_COPYABLE (not PUBLIC), EXPERIENCES_NOT_OPEN. Returns the
+  experience.
+  """
+  setExperienceAdoption(universe: String!, experienceId: ID!, adopt: Boolean!, requestId: ID!): Experience
+
+  """
+  Since v136.2.0 (experience-instances.feature): starts an experience instance of an experience the caller may read
+  (StartExperienceRunInput), a human only, the caller its experience organizer and its first experience participant:
+  solo, or in a group chat, a universe discussion (challenge/1) or a universe event; IN_PROGRESS at once, or STARTED until
+  startsAt. A universe discussion or a universe event takes a PUBLIC experience only; a PRIVATE or UNLISTED one is
+  started in a group chat by its owner only (EXPERIENCE_RUN_PLACE_INVALID). A place is busy (EXPERIENCE_RUN_PLACE_BUSY)
+  only with an experience instance IN_PROGRESS or STARTED at most 7 days ahead. EXPERIENCE_RATE_LIMITED (20 a day,
+  /challenge included). A route experience: solo, its route guidance (guidanceId); in a group chat or a universe event, its route
+  group session (the refusals of startRouteGroupSession). EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_IN_PROGRESS
+  (errorInfo { runId }), EXPERIENCE_RUN_PLACE_INVALID, EXPERIENCE_RUN_PLACE_BUSY, EXPERIENCE_START_INVALID,
+  EXPERIENCE_PARAMETERS_INVALID (errorInfo { key }), EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience
+  instance.
+  """
+  startExperienceRun(input: StartExperienceRunInput!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: the caller joins a group experience instance STARTED or IN_PROGRESS of a place they belong to (the
+  members of its group chat, who may write in its universe discussion, the attendees of its universe event); their
+  experience result begins at once, or at its start. EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_IN_PROGRESS,
+  EXPERIENCE_RUN_FULL (50, errorInfo { max }), EXPERIENCE_RUN_REJOIN_NOT_ALLOWED (the caller left it or their result in
+  it ended: never again), EXPERIENCE_RATE_LIMITED (60 joins and leaves an hour), EXPERIENCE_RUN_ENDED, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN.
+  Returns the experience instance.
+  """
+  joinExperienceRun(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: the caller leaves an experience instance: their experience result IN_PROGRESS ends FREE (a route
+  experience: their route guidance ends); one VALIDATING keeps waiting for its decision (leaving never escapes it); they
+  never join it again. EXPERIENCE_RATE_LIMITED (60 joins and leaves an hour). Played again: the same answer. EXPERIENCE_RUN_HUMANS_ONLY,
+  EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience instance.
+  """
+  leaveExperienceRun(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: the experience organizer ends a group experience instance for everyone (a STARTED one is cancelled);
+  so may, in a universe discussion or from a universe event, the leadership and the moderators of the universe, and, in
+  a group chat, its admins. The experience results still IN_PROGRESS end FREE, those VALIDATING keep their validation
+  window. EXPERIENCE_RUN_NOT_ORGANIZER,
+  EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Played again: the same answer. Returns the
+  experience instance.
+  """
+  endExperienceRun(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0 (simple-challenges.feature): records a measure of the caller in an experience instance of a simple
+  challenge (ExperienceMeasureInput): a progress measure, or the final measure with its proof, judged by the evaluator of
+  challenge/1 (contracts/experiences.md § The evaluators); a progress is pushed to the other experience participants
+  (experience.progress). requestId: made at the measure, sent again unchanged once the network is back (recorded once);
+  a measure received after the end of the experience result of the caller is refused (TOO_LATE), never re-opening it.
+  EXPERIENCE_RATE_LIMITED (a progress at most every 5 seconds per experience result, enforced by the platform),
+  EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: a reason of the evaluator), EXPERIENCE_NOT_A_PARTICIPANT,
+  EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. A route experience takes its stage
+  check-ins by checkInRouteStage (runId). Returns the experience instance.
+  """
+  submitExperienceMeasure(input: ExperienceMeasureInput!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: a validator decides on the proof of an experience participant (accountId), certifying that the photo
+  or the clip shows the measure claimed: the experience organizer, or, under a proof vote with 3 voters or more, each
+  voter once (the other experience participants when the final measure arrived); within 48 hours of the receipt of the
+  final measure; a proof vote decides by a majority of all its voters with at least 3 votes cast. In a universe
+  discussion, the experience organizer validates only as a member of the leadership or a moderator of it.
+  EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: NOT_VALIDATING, VALIDATION_CLOSED, OWN_PROOF, NOT_A_VALIDATOR,
+  ALREADY_VOTED), EXPERIENCE_RATE_LIMITED (120 an hour), EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience
+  instance.
+  """
+  validateExperienceProof(runId: ID!, accountId: ID!, accept: Boolean!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0 (experience-rankings.feature): the caller chooses to appear (true) or not (false) in the ranking of
+  that group experience instance; false removes them at once.
+  EXPERIENCE_NOT_A_PARTICIPANT, EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the
+  experience instance.
+  """
+  setExperienceRankingChoice(runId: ID!, appear: Boolean!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.2.0: deletes the experience result of the caller in an experience instance: it leaves the experience
+  instance (FREE first when IN_PROGRESS) and its ranking, its proof deleted. EXPERIENCE_RUN_NOT_FOUND (also
+  played again), EXPERIENCES_NOT_OPEN. True once done.
+  """
+  deleteExperienceParticipation(runId: ID!, requestId: ID!): Boolean
+
+  """
+  Since v136.2.0 (simple-challenges.feature): the author of a proof refused (by the experience organizer or a proof
+  vote) contests it, once, within 48 hours of the refusal: the experience result becomes a success, self-reported,
+  instead of a failure; no appeal body in this slice. EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: NOT_REFUSED,
+  CONTEST_CLOSED), EXPERIENCE_NOT_A_PARTICIPANT, EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RATE_LIMITED (120 an hour),
+  EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience instance.
+  """
+  contestExperienceProof(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since v136.3.0 (D-433, experience-opinions.feature, contracts/experiences.md § Experience opinions): the caller gives
+  its experience opinion of an experience of route/1 or challenge/1 it reads, LIKE or DISLIKE, one per account and
+  experience: the other one replaces it, the same one again changes nothing (the same answer). Refusals, checked in this
+  order so that none tells what the caller may not know: SIGN_IN_REQUIRED; EXPERIENCE_OPINION_HUMANS_ONLY (a delegated
+  agent), AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS; EXPERIENCES_NOT_OPEN; EXPERIENCE_NOT_FOUND (none the caller reads,
+  deleted, removed or no longer read included); EXPERIENCE_OPINION_OWN_EXPERIENCE (the caller is its experience owner:
+  the account it belongs to, or a member of the leadership of the universe it belongs to);
+  EXPERIENCE_OPINION_NO_ENDED_RESULT (no experience result of the caller of that experience ended SUCCESS or FAILURE, at
+  any version, a reuse included; FREE, IN_PROGRESS and VALIDATING do not count; a change needs one as well, which the
+  caller has as long as its experience opinion exists); EXPERIENCE_RATE_LIMITED (60 changes of experience opinions a day
+  per account, giving and withdrawing together; one that changes nothing is not counted). A block changes nothing.
+  Notifies nobody, pushes nothing. Returns the experience opinion of the caller.
+  """
+  giveExperienceOpinion(experienceId: ID!, opinion: ExperienceOpinion!, requestId: ID!): ExperienceOpinionState
+
+  """
+  Since v136.3.0: withdraws the experience opinion of the caller of an experience, also one the caller no longer reads
+  (made PRIVATE or UNLISTED since). The same answer for any identifier, whether the experience exists, is read by the
+  caller, was deleted or removed, or holds no experience opinion of the caller: myOpinion null; idempotent on requestId
+  and when none was given. Refusals, in this order: SIGN_IN_REQUIRED; EXPERIENCE_OPINION_HUMANS_ONLY,
+  AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS; EXPERIENCES_NOT_OPEN; EXPERIENCE_RATE_LIMITED (counted only when an
+  experience opinion is withdrawn). Returns the experience opinion of the caller, now null.
+  """
+  withdrawExperienceOpinion(experienceId: ID!, requestId: ID!): ExperienceOpinionState
 }

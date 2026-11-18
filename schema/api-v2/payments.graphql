@@ -696,12 +696,17 @@ The caller's usage against each limit; "quota" null for an agent operator (none)
 for an agent operator. "byCategory": always the six categories, in the order of the enum, 0
 when unused; their "hour" add up to hour.used, their "quota" to quota.used (the minute: no split).
 "extraCredit" (since v55.6.0): a delegated agent's extra usage credit, null without credit.
+Since v135.0.0 (D-422): the usage counted so far, by aggregation, at most 30 seconds late ("countedAt").
 """
 type Usage {
   """
   The usage of each category.
   """
   byCategory: [UsageByCategory!]!
+  """
+  Since v135.0.0 (D-422): when the usage shown was counted; at most 30 seconds before the request.
+  """
+  countedAt: AWSDateTime!
   """
   The paid extra usage left; null when none.
   """
@@ -778,7 +783,8 @@ type UsageWindow {
   """
   resetAt: AWSDateTime!
   """
-  The units used.
+  The units used, counted so far; since v135.0.0 (D-422), may exceed "limit" by the bound of the usage not counted
+  yet (1 % of the limit, never less than the weight of one request, contracts/payments.md § Usage limits).
   """
   used: Int!
 }

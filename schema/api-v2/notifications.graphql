@@ -290,6 +290,12 @@ type Notification {
   """
   post: NotificationSnippet
   """
+  MESSAGE_PUBLICATION_FAILED (since v136.0.0, D-422): the code its message failed with (Message.publicationFailure),
+  carried here since its author may no longer read the discussion (a member removed from a group chat); null
+  otherwise.
+  """
+  publicationFailure: String
+  """
   UNIVERSE_ANNOUNCEMENT: the announcement (its start is "subject", its author the actor).
   """
   postId: ID
@@ -463,6 +469,22 @@ its ad campaign ("subject" the campaign id, "message" the ad rule and the correc
 Since D-394 (decided on 2026-11-16): DATA_REQUEST_CONFIRMATION_ASKED, the platform team recorded a data copy or a bulk
 erasure of the account from a contact message, waiting for its confirmation ("dataRequest": its id, kind, scope;
 category account security, mandatory; with an e-mail to the address of the account).
+Since v135.0.0 (D-422): POST_PUBLICATION_FAILED, the publication of a post of the reader failed, its media processing
+or a right lost before its publication ("postId", the post staying its author's, Post.publicationFailure; category
+drafts, mandatory); PROPOSAL_REFUSED, a proposal of the reader
+refused by its proposal check or by the platform team ("proposalId", "note" the explanation; category governance,
+mandatory); UNIVERSE_PROPOSAL_REFUSED, a proposal flagged to review refused by the platform team, to its supporters,
+the accounts that voted on it and the accounts whose favorite universe it is ("proposalId", "note" the explanation;
+category governance).
+Since v136.0.0 (D-422 extended to the messages): MESSAGE_PUBLICATION_FAILED, the publication of a message of the
+reader failed, its media processing or a right lost before its publication ("conversationWith", "group" or "channel"
+its discussion, "message" its start, "publicationFailure" its code, the message staying its author's; the category of
+its discussion, mandatory).
+Since v136.2.0 (D-423, D-424, contracts/notifications.md § Experiences): EXPERIENCE_PROOFS_TO_VALIDATE, proofs of a
+group experience instance of a simple challenge wait for the caller's validation, as its experience organizer or a
+voter, one notification per validator and experience instance, "count" the proofs waiting ("subject" the title of the
+experience, "link" the URL of the experience instance; the category of its place, not mandatory); EXPERIENCE_REFUSED, the experience check refused an experience the
+caller made public ("subject" its title, "note" the explanation, "link" its URL; category moderation, mandatory).
 """
 enum NotificationKind {
   AD_CORRECTION_REQUESTED
@@ -481,6 +503,8 @@ enum NotificationKind {
   DOCUMENT_REFUSED
   EVENT_CANCELLED
   EVENT_CHANGED
+  EXPERIENCE_PROOFS_TO_VALIDATE
+  EXPERIENCE_REFUSED
   EVENT_PLACE_REVEALED
   EVENT_REMINDER
   FOLLOW
@@ -493,6 +517,7 @@ enum NotificationKind {
   MAP_STALKING_ALERT
   MASK_REQUESTED
   MEET_UP_SOON
+  MESSAGE_PUBLICATION_FAILED
   MENTION
   MODERATOR_DESIGNATED
   PASSWORD_RESET
@@ -500,9 +525,11 @@ enum NotificationKind {
   PLATFORM_APPEAL_OVERDUE
   PLATFORM_MEASURE
   POST_DRAFT_EXPIRES_SOON
+  POST_PUBLICATION_FAILED
   PRIVATE_POST_REPOSTED
   PROJECT_NOTE
   PROJECT_REPORTED_DONE
+  PROPOSAL_REFUSED
   QUOTE
   REPLY
   REPORT_DECIDED
@@ -534,6 +561,7 @@ enum NotificationKind {
   UNIVERSE_LEVEL_CHANGED
   UNIVERSE_PROJECT_DONE
   UNIVERSE_PROPOSAL_ANNULLED
+  UNIVERSE_PROPOSAL_REFUSED
   UNIVERSE_SECOND_ROUND
   UNIVERSE_SUBSCRIPTION_OPENED
   UNIVERSE_SUCCESSOR

@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://break.rocks/specs/contracts/experiences/definition.schema.json",
+  "title": "The experience template, breakrocks.experience/4",
+  "description": "The definition document of an experience of the engines route/1 and challenge/1 (contracts/experiences.md § The experience template, breakrocks.experience/4). Closed: an unknown field is refused; 16 KB at most in UTF-8 (DOCUMENT_TOO_LARGE). The platform checks the rest (checkExperience): the visible characters, the name rules beyond this pattern, a name free in its owner, the route readable, the ranking measure supported by the engine, the parameters within the bounds of their field. The place feats keep breakrocks.experience/3 (engine presence/3), never this format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "engine", "owner", "name", "title", "instruction"],
+  "properties": {
+    "format": { "const": "breakrocks.experience/4" },
+    "id": {
+      "description": "Set by the platform at creation (<cell>-<UUIDv7>), kept across versions; given in createExperience, refused.",
+      "$ref": "#/$defs/id"
+    },
+    "version": {
+      "description": "<major>.<minor>, set by the platform (absent in createExperience and updateExperience): 1.0 at creation; a change of the engine, of its block (unit, target, proof rules, hours), of the parameters or of the ranking is a new major; a change of the title, the instruction or the warnings a minor. A run keeps the version it started with.",
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,3}\\.(0|[1-9][0-9]{0,3})$"
+    },
+    "engine": {
+      "description": "The engine and its version, from the registry of experience engines (engines.json).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "enum": ["route", "challenge"] },
+        "version": { "const": 1 }
+      }
+    },
+    "owner": {
+      "description": "The owner of the experience, the first part of its address: an account (@<handle>), a universe (%<path>) or the root universe (%root, the experiences of the social platform, written *<name>).",
+      "type": "string",
+      "pattern": "^(@[^\\s@%*!:;&#~$>/]{1,30}|%[^\\s@%*!:;&#~$>]{1,200})$"
+    },
+    "name": {
+      "description": "Its name, by the rules of a channel name (2 to 50 visible characters, or 1 letter that stays non-ASCII, lowercase, beginning with a letter), unique among the experiences, the place feats and the routes of its owner; never the name of an experience kind.",
+      "type": "string",
+      "pattern": "^[\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{M}\\p{Nd}-]{0,49}$",
+      "not": { "enum": ["event", "route"] }
+    },
+    "title": { "$ref": "#/$defs/text100" },
+    "instruction": { "$ref": "#/$defs/text500" },
+    "warnings": {
+      "description": "The experience warnings the creator declares, shown before a run starts.",
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 2,
+      "items": { "enum": ["PHYSICAL_EFFORT", "RISKY_PLACE"] }
+    },
+    "ranking": {
+      "description": "challenge/1 only, declared by the creator: the experience participants of one group experience instance are ranked on this measure (the measure of the challenge), in this order. Absent: no ranking.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measure", "order"],
+      "properties": {
+        "measure": { "enum": ["COUNT", "TIME"] },
+        "order": { "enum": ["HIGHER_FIRST", "LOWER_FIRST"] }
+      }
+    },
+    "parameters": {
+      "description": "challenge/1 only: the experience parameters a reuse (the sign \":\") may change, each bound to one field of the engine block, one per field, keys unique, min <= default <= max (checked by the platform: PARAMETER_KEY_TWICE, PARAMETER_FIELD_TWICE, PARAMETER_BOUNDS_INVALID, PARAMETER_OUT_OF_BOUNDS); absent: none.",
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/parameter" }
+    },
+    "copiedFrom": {
+      "description": "Set by the platform on a copy: the experience copied and its version; given by a caller, refused.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["experienceId", "version"],
+      "properties": {
+        "experienceId": { "$ref": "#/$defs/id" },
+        "version": { "type": "string", "pattern": "^[1-9][0-9]{0,3}\\.(0|[1-9][0-9]{0,3})$" }
+      }
+    },
+    "route": {
+      "description": "The engine route/1: the route the experience is, by its identifier.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routeId"],
+      "properties": {
+        "routeId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "challenge": { "$ref": "#/$defs/challenge" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "route" } } } } },
+      "then": {
+        "required": ["route"],
+        "properties": { "challenge": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "challenge" } } } } },
+      "then": { "required": ["challenge"], "properties": { "route": false } }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]{2,8}-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "language": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2})?$" },
+    "text30": {
+      "description": "1 to 30 visible characters per language (TEXT_TOO_LONG, counted by the platform and the checker); the maxLength below is a cap in code points (4 per visible character), not the rule.",
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/language" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "text100": {
+      "description": "1 to 100 visible characters per language (TEXT_TOO_LONG); maxLength is a cap in code points, not the rule.",
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/language" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 400 }
+    },
+    "text500": {
+      "description": "1 to 500 visible characters per language (TEXT_TOO_LONG); maxLength is a cap in code points, not the rule.",
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/language" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 2000 }
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "field", "min", "max", "default"],
+      "properties": {
+        "key": {
+          "description": "The key of the experience parameter in a reuse (\":count=50\"); never \"id\".",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,19}$",
+          "not": { "const": "id" }
+        },
+        "field": {
+          "description": "The field of the engine block it sets (challenge/1: target, the value of target.atLeast or target.atMost; endsWithinHours).",
+          "enum": ["target", "endsWithinHours"]
+        },
+        "min": { "type": "integer", "minimum": 1 },
+        "max": { "type": "integer", "minimum": 1 },
+        "default": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "challenge": {
+      "description": "The engine challenge/1.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measure", "proof", "endsWithinHours"],
+      "properties": {
+        "measure": {
+          "description": "COUNT: a counter (repetitions, in its unit); TIME: a timer (seconds); NONE: nothing to measure, the proof alone.",
+          "enum": ["COUNT", "TIME", "NONE"]
+        },
+        "unit": { "description": "COUNT only: what is counted (\"squats\").", "$ref": "#/$defs/text30" },
+        "target": {
+          "description": "Optional: COUNT, atLeast (1 to 100,000); TIME, atLeast (hold for) or atMost (done within), in seconds (1 to 86,400); NONE, none. Without a target, any final measure meets it.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 1,
+          "properties": {
+            "atLeast": { "type": "integer", "minimum": 1, "maximum": 100000 },
+            "atMost": { "type": "integer", "minimum": 1, "maximum": 86400 }
+          }
+        },
+        "proof": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["media", "validation"],
+          "properties": {
+            "media": {
+              "description": "The media kinds a proof may be: IMAGE (a photo), VIDEO (a clip, 3 minutes at most).",
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "enum": ["IMAGE", "VIDEO"] }
+            },
+            "validation": {
+              "description": "Who validates a proof: ORGANIZER (the organizer of a group run), PARTICIPANT_VOTE (the other participants of a group run), SELF_REPORTED (nobody; the proof is optional and the result marked self-reported).",
+              "enum": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]
+            }
+          }
+        },
+        "endsWithinHours": {
+          "description": "A run ends at the latest this many hours after it went in progress (1 to 168).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "measure": { "const": "COUNT" } } },
+          "then": {
+            "required": ["unit"],
+            "properties": { "target": { "type": "object", "required": ["atLeast"] } }
+          }
+        },
+        {
+          "if": { "properties": { "measure": { "const": "TIME" } } },
+          "then": {
+            "properties": { "unit": false, "target": { "type": "object", "properties": { "atLeast": { "type": "integer", "maximum": 86400 } } } }
+          }
+        },
+        {
+          "if": { "properties": { "measure": { "const": "NONE" } } },
+          "then": { "properties": { "unit": false, "target": false } }
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,49 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-18
+
+Specs v136.3.0 (`specs/common` pinned on that tag; D-423, D-424, the experiences of route/1 and challenge/1; D-433, the
+experience opinions; D-412 to D-422 between v129.1.0 and v136.3.0). `schema/api-v2` regenerated (242 reads, 389
+writes). New: `schema/experiences/`, the registry of experience engines and the JSON Schema of the experience template
+`breakrocks.experience/4` copied from the specs by `npm run update:schema`, with `index.json` (the version, an example
+per engine from the test vectors).
+
+### Added
+
+- The group `experiences` (domain `events`): `list` (`--owner`, `--mine`, `--all`), `show` (`--document`), `export`
+  (`--out`, `--force`), `check` (`--offline`, `--contract`), `import` (`--owner`, `--name`, `--visibility`, `--update`,
+  `--dry-run`, `--request-id`, `--dir`, `--rate`, `--contract`) and `prompt` (`--engine`, `--theme`, `--area`,
+  `--language`, `--stages`, `--places-file`, `--owner`, `--out`, `--contract`).
+- `experiences export` writes the portable document: the template without `id`, `version` and `copiedFrom`, the keys in the
+  order of the JSON Schema, so that export, import and export again give the same bytes.
+- `experiences check` checks offline by the JSON Schema and the registry of the specs (the problem codes of
+  `checkExperience`, each with its JSON pointer), then by `checkExperience` when signed in; exit 1 on a problem.
+- `experiences import` checks, then creates (or updates with `--update`) PRIVATE; `--visibility public` goes through
+  `publishExperience` and its experience check, and the command says the experience is being checked. `--dir` imports a
+  folder with a table and stops cleanly at the daily limit (20 creations a day per account) with its `retryAt`.
+- A delegated agent never makes an experience public: refused before anything is sent (`EXPERIENCE_VISIBILITY_NOT_ALLOWED`,
+  source `cli`, exit 1); what it creates prints the Automated mark.
+- `experiences prompt` writes a self-contained prompt for an external LLM from the contract the CLI carries (the schema
+  narrowed to the engine at run time, the rules, an example of the test vectors, the candidate places of
+  `--places-file`); offline, it calls no LLM and sends nothing. `--area` is text in the prompt.
+- `EXPERIENCES_NOT_OPEN` has a sentence of its own when the platform sends none; a backend before v136.2.0 answers
+  `OPERATION_NOT_SERVED`.
+- The JSON Schema checker of the CLI (`src/theme/json-schema.ts`) reads `allOf`, `not`, `uniqueItems`, `propertyNames`,
+  `minProperties` and `maxProperties`, and gives JSON pointers on demand.
+
+### Changed
+
+- `npm run update:schema` also copies `contracts/experiences` of a checkout of the specs into `schema/experiences/`.
+- The domain `events` lists `events, experiences`.
+
+### Notes
+
+- Specs v135.0.0 and v136.0.0 (D-422) stop refusing a post or a message whose media is not ready, and require the length
+  of a video before its upload, for an app of `posts.publishWhenReadyMinAppVersion` (0.135.0) and
+  `messages.publishWhenReadyMinAppVersion` (0.136.0) or later; the CLI (0.36.0) is below both and keeps the former
+  behaviour (it waits on `IMAGE_NOT_READY` and `CLIP_NOT_READY`), which the contract keeps for it: nothing to change here.
+
 ## [0.35.0] - 2026-11-17
 
 Specs v129.1.0 (`specs/common` pinned on that tag; D-411, My places). `schema/api-v2` regenerated: `myPlaces`,

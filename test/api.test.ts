@@ -51,10 +51,10 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect({ ...parseSdl(readContract(source)), version: readFileSync(join(source, 'VERSION'), 'utf8').trim() }).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    expect(GENERATED.version).toBe('v129.1.0');
-    // The descriptions ("""…""") are not fields: Query holds the 228 reads of API v2, Mutation its 362 writes.
-    expect(Object.keys(GENERATED.query).length).toBe(228);
-    expect(Object.keys(GENERATED.mutation).length).toBe(362);
+    expect(GENERATED.version).toBe('v136.3.0');
+    // The descriptions ("""…""") are not fields: Query holds the 242 reads of API v2, Mutation its 389 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(242);
+    expect(Object.keys(GENERATED.mutation).length).toBe(389);
     expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(15);
   });
   it('takes a requestId on every mutation but the four ephemeral signals', () => {
@@ -164,7 +164,7 @@ describe('every command', () => {
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
     // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
-    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password']);
+    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);
