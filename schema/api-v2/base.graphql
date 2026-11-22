@@ -2154,8 +2154,9 @@ type Mutation {
   deleteDelegatedAgent(agentId: ID!, requestId: ID!): DelegatedAgent
 
   """
-  HELP_GETTING_STARTED_OPENED (the article "getting-started" opened) completes DISCOVER_THE_PLATFORM;
-  ADDRESS_VISITED changes nothing since v41.0.0.
+  HELP_GETTING_STARTED_OPENED (the article "getting-started" opened) and, since D-514, TOUR_FINISHED (the app
+  tour finished, as setSettings tour FINISHED; TOUR_STATE_INVALID) complete DISCOVER_THE_PLATFORM; ADDRESS_VISITED changes
+  nothing since v41.0.0.
   """
   recordOnboardingActivity(address: String, kind: OnboardingActivity!, requestId: ID!): Onboarding
 

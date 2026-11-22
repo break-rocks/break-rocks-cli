@@ -375,43 +375,7 @@ enum ReportTarget {
 }
 
 """
-What is reported, as an argument (report, dismissReports): its kind and the fields of that kind; a field
-of that kind missing, or a field of another kind given: INVALID_REQUEST.
-- POST: postId (a post or a reply). ROUTE (since v92.1.0): routeId.
-- Since v101.11.0 (D-313, moderation/reports.feature): ACCOUNT: accountId (the account reported, to the platform team:
-  IMPERSONATION, HARASSMENT, SPAM_OR_SCAM, UNDER_MINIMUM_AGE or PLATFORM_RULES; goodFaith true required,
-  REPORT_GOOD_FAITH_REQUIRED; the caller itself, the system account or a platform AI agent: REPORT_TARGET_INVALID; one report per reporter
-  and account, whatever the reason: reporting again returns the first report; an unknown or deleted account:
-  ACCOUNT_NOT_FOUND).
-- DIRECT_MESSAGE: discussion { accountId } and messageId. GROUP_MESSAGE: discussion { groupChatId } and
-  messageId.
-CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { groupChatId }.
-- THEME: universe, name (the theme), themePart (THEME by default). LAYOUT: universe, name.
-- UNIVERSE_BANNER, UNIVERSE_TERRITORY: universe. UNIVERSE_PAGE: universe, name (the custom page), block
-(one of its free blocks, or none for the whole page).
-- LOCATABLE: universe, accountId (the locatable resident).
-- Since v84.0.0 (D-248): MAP_PRESENCE: accountId (the map cell or point shown to the reporter is kept with
-  the report). POST_PLACE: postId (the place of a placed post). PLACE_MESSAGE: discussion and messageId (a
-  place sent).
-- UNIVERSE_SEARCH_WORDS: universe. PLATFORM_SEARCH_WORD: universe, word (contracts/reports.md).
-- PLATFORM_AGENT_TEXT (since v77.1.0, D-213, platform-ai-agents.feature): agentText and proposalId (the
-  proposal summary or the vote minutes of the proposal), or, since v78.0.0 (D-214), agentText, postId and
-  imageId (AUTOMATIC_ALT); reported as a post of its universe. A conversation starter is a POST; the subtitles
-  of a clip are reported with their POST, which copies them, and the alternative texts of its images, with the
-  report as they are.
-- Since v87.5.0 (D-268, playlists.feature, contracts/reports.md § Playlists): PLAYLIST: playlistId (never
-  WATCH_LATER: REPORT_TARGET_NOT_ALLOWED). PLAYLIST_ITEM: playlistId and itemId (a course link, a course document:
-  PlaylistCourseItem.id) or postId (a video or a post of the playlist, reported as its post: the same report as
-  POST, the playlist kept as its context, UNDECLARED_COMMERCIAL admitted too).
-- Since v136.2.0 (experience-moderation.feature, contracts/experiences.md § Moderation): EXPERIENCE: experienceId (an
-  experience of route/1 or challenge/1 the reporter may read, with its experience instances), reported as a route: to the
-  moderation of its universe and the platform team for a universe experience, to the platform team otherwise; its owner
-  reporting it: REPORT_OWN_CONTENT. Since D-432 (decided by the user on 2026-11-18): experienceVersion, the version of
-  the experience the reporter read (contracts/reports.md § Experiences).
-- Since D-461 (experience-moderation.feature, contracts/experiences.md § Moderation): EXPERIENCE_RESULT: runId and
-  accountId (a success of another experience participant in an experience instance the reporter reads; the reporter's
-  own: REPORT_OWN_CONTENT; anything else, or an experience instance the reporter may not read: EXPERIENCE_RUN_NOT_FOUND,
-  the same answer for all), reported as its experience is.
+ReportTargetInput: contracts/reports.md § API v2 descriptions.
 """
 input ReportTargetInput {
   kind: ReportTarget!

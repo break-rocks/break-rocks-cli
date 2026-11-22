@@ -136,3 +136,53 @@ describe('the settings of v156', () => {
     expect(h.lines.at(-1)).toBe('Share my activity with my close ones: on');
   });
 });
+
+describe('the app tour of v157 (D-514, D-515)', () => {
+  const TOUR = { state: 'IN_PROGRESS', step: 4, mode: 'LISTEN', voiceLanguage: 'fr', autoAdvance: false, resumeCardClosed: false, newNavigationCardDismissed: false, gestures: [{ gesture: 'DOUBLE_TAP_PLACE', outcome: 'TRIED' }] };
+
+  it('reads the state of the app tour', async () => {
+    const { h, calls } = fake({ mySettings: { tour: TOUR } });
+    expect(await h.run('me', 'tour')).toBe(0);
+    expect(calls[0].query).toContain('tour { state step mode voiceLanguage');
+    expect(h.lines.at(-1)).toBe([
+      'App tour: in progress, left at step 4 of 9', 'Tour mode: Listen', 'Voice language: fr', 'Move on alone after a successful gesture: off', 'Hidden gestures: double tap place (tried)',
+    ].join('\n'));
+  });
+
+  it('skips the tour, writing the state alone', async () => {
+    const { h, calls } = fake({ setSettings: (v: { input: { tour: object } }) => ({ tour: { ...TOUR, ...v.input.tour, step: null } }) });
+    expect(await h.run('me', 'tour', 'skip')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ input: { tour: { state: 'SKIPPED' } } });
+    expect(Object.keys((calls[0].variables as { input: object }).input)).toEqual(['tour']);
+    expect(h.lines.at(-1)).toMatch(/^App tour: skipped/);
+    expect(await h.run('me', 'tour', 'skip', '--dry-run', '--json')).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('changes the preferences, never the state, and asks for at least one', async () => {
+    const { h, calls } = fake({ setSettings: (v: { input: { tour: object } }) => ({ tour: { ...TOUR, ...v.input.tour } }) });
+    expect(await h.run('me', 'tour', 'set', '--mode', 'BOTH', '--auto-advance', '--voice-language', 'de')).toBe(0);
+    expect(calls[0].variables).toMatchObject({ input: { tour: { mode: 'BOTH', autoAdvance: true, voiceLanguage: 'de' } } });
+    expect(Object.keys((calls[0].variables as { input: object }).input)).toEqual(['tour']);
+    expect(await h.run('me', 'tour', 'set', '--json')).toBe(2);
+    expect(await h.run('me', 'tour', 'set', '--mode', 'whisper', '--json')).toBe(2);
+    expect(await h.run('me', 'tour', 'set', '--state', 'FINISHED', '--json')).toBe(2);
+    expect(await h.run('me', 'tour', 'set', '--step', '3', '--json')).toBe(2);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('shows the refusal of the platform for a finished tour', async () => {
+    const { h } = fake({}, { setSettings: { errorType: 'TOUR_STATE_INVALID', message: 'the app tour is finished' } });
+    expect(await h.run('me', 'tour', 'skip', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'TOUR_STATE_INVALID' } });
+  });
+
+  it('says an agent operator has no app tour, without calling the API', async () => {
+    const { h, calls } = fake({});
+    saveSession(new Context(h.io, NO_FLAGS), { kind: 'operator', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op' });
+    expect(await h.run('me', 'tour', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NO_APP_TOUR_FOR_AGENT_OPERATOR' } });
+    expect(await h.run('me', 'tour', 'skip', '--json')).toBe(1);
+    expect(calls).toHaveLength(0);
+  });
+});

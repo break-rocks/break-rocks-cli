@@ -280,37 +280,7 @@ enum MediaKind {
 }
 
 """
-What to upload (requestMediaUpload, since v78.0.0 in one input, P-5): kind, contentType and size (in bytes),
-as before; destination, its media destination (MediaDestination); address, for POST only, the universe where
-the post, the reply or the quote goes (a posting address; none: the personal space; a reply: the universe of
-its thread). An address for another media destination, or a kind the media destination does not take (VOICE
-for POST, VIDEO for UNIVERSE_IMAGE, UNIVERSE_BANNER and THEME): MEDIA_DESTINATION_INVALID. Since v101.8.0 (D-309,
-media-licenses.feature): license, the media license of a video (VIDEO or LONG_VIDEO) of POST, kept with the media and
-read with it (Clip.license, LongVideo.license), never changed afterwards; for any other kind or media destination,
-MEDIA_LICENSE_NOT_ALLOWED; required from a delegated agent (MEDIA_LICENSE_REQUIRED), optional for a human;
-attribution, the author and the source of the work, 1 to 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG; blank:
-none), required for CC_BY and CC_BY_SA (MEDIA_ATTRIBUTION_REQUIRED), optional for the other licenses, refused without
-a license (MEDIA_LICENSE_NOT_ALLOWED). Both are checked here, before the upload. Since v101.16.0 (D-317,
-camera-filters.feature): filters, the camera filters the app camera baked into an image (IMAGE) or a video (VIDEO),
-each an id of the camera filter catalog and its intensity (0 to 100, null for an AR effect), at most 10
-(CAMERA_FILTERS_TOO_MANY), kept with the media as its camera filter mark (Image.filters, Clip.filters), never changed
-afterwards; an id the catalog never held: CAMERA_FILTER_UNKNOWN (a camera filter withdrawn since stays accepted);
-another kind: CAMERA_FILTERS_NOT_ALLOWED. Since v101.16.0 (D-318, media-editing.feature): subtitles, the subtitle cues
-the author wrote in the media editor for a video (VIDEO) of POST, sent apart from the clip, never drawn into it (the
-checks of correctSubtitles: SUBTITLE_CUES_INVALID, SUBTITLE_TOO_LONG, SUBTITLES_TOO_MANY, SUBTITLES_TOO_LONG); they
-are the subtitles of the clip, each cue marked as corrected (the text of the author), and no automatic subtitles are
-written for it; another kind or media destination: SUBTITLES_NOT_ALLOWED. Since v135.0.0 (D-422, posting.feature):
-durationSeconds, width and height, the length and the dimensions of a video (VIDEO, LONG_VIDEO) as the device reads
-them, declared before the upload; required for a video of POST from an app of the minimum version of
-posts.publishWhenReady (VIDEO_DECLARATION_REQUIRED; ignored for another kind): the refusals of a length or an
-orientation (CLIP_TOO_LONG, LONG_VIDEO_TOO_LONG, VIDEO_NOT_HORIZONTAL) and the minutes reserved against the video quota
-(VIDEO_QUOTA_EXCEEDED) are decided from them when the post is posted; the media processing verifies them, a gap of
-more than 1 second or a different orientation failing the post (VIDEO_DECLARATION_MISMATCH). Since v136.0.0 (D-422,
-direct-messages.feature): durationSeconds also for a video (VIDEO) of DIRECT_MESSAGE, GROUP_MESSAGE or CHANNEL_MESSAGE
-and for a voice message (VOICE), required from an app of the minimum version of messages.publishWhenReady
-(VIDEO_DECLARATION_REQUIRED, VOICE_DECLARATION_REQUIRED; width and height ignored for them): CLIP_TOO_LONG and
-VOICE_TOO_LONG are decided from it when the message is sent; the media processing verifies it, a gap of more than 1
-second failing the message (VIDEO_DECLARATION_MISMATCH, VOICE_DECLARATION_MISMATCH).
+MediaUploadInput: contracts/media.md § API v2 descriptions.
 """
 input MediaUploadInput {
   address: String

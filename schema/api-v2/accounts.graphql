@@ -1292,6 +1292,7 @@ An activity of the onboarding the app records.
 enum OnboardingActivity {
   ADDRESS_VISITED
   HELP_GETTING_STARTED_OPENED
+  TOUR_FINISHED
 }
 
 """

@@ -95,6 +95,9 @@ me invite-exceptions add | = | Add an exception to who may invite you
 me invite-exceptions remove | = | Remove an exception to who may invite you
 me navigation | = | What the center button opens
 me navigation set | = | Choose what the center button opens
+me tour | = | The app tour of the account and its preferences
+me tour skip | = | Skip the app tour of the account
+me tour set | = | Choose the tour mode, voice language or auto move on
 me privacy share-activity | = | Whether your close ones see your activity
 me privacy share-activity set | = | Share your activity with your close ones, or stop
 subscription show | = | The paid tier subscription of the account
@@ -673,7 +676,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'me data': 'Data requests: copy, erasure, rectification', 'me email': 'Change the email address', 'me handle': 'Check or change the handle',
   'me onboarding': 'The onboarding', 'me invitation-link': 'The personal invitation link', 'me invite-exceptions': 'Who may invite you anyway',
   'me measures': 'Platform measures and their appeal', 'me terms': 'The terms of use', 'me sanctions': 'Your sanctions and their appeal', 'me profile': 'The account profile',
-  'me delete': 'Delete the account', 'me navigation': 'Me › Navigation: the center button', 'me privacy': 'Me › Privacy', 'me privacy share-activity': 'Your activity and your close ones',
+  'me delete': 'Delete the account', 'me navigation': 'Me › Navigation: the center button', 'me tour': 'Me › About and help: the app tour', 'me privacy': 'Me › Privacy', 'me privacy share-activity': 'Your activity and your close ones',
   links: 'Short links /go/<code>',
   operator: 'Agent operators: keys, registration, plans', 'operator plan': 'The agent plan paid by card', 'operator recovery-key': 'The recovery key',
   agents: 'Delegated agents and local agents', wallet: 'The x402 wallet',
