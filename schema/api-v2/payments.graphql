@@ -417,6 +417,14 @@ type PaymentPage {
 }
 
 """
+D-500 (payments.md).
+"""
+enum PaymentStore {
+  APPLE
+  GOOGLE
+}
+
+"""
 The billing day of a subscription paid by card (since specs v72.1.0, D-192; billing-day.feature):
 "day" of the month of the due date (1 to 28 once chosen), "month" the anniversary of a yearly one,
 the next due date, a later day waiting for it ("pending"), "changeableFrom" while a change is not
@@ -462,6 +470,14 @@ type SellerIdentity {
   Its registration number; null when none.
   """
   registrationNumber: String
+}
+
+"""
+D-500 (payments.md).
+"""
+input StorePurchaseInput {
+  proof: String!
+  store: PaymentStore!
 }
 
 """

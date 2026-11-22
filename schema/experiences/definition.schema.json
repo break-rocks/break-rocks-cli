@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://break.rocks/specs/contracts/experiences/definition.schema.json",
   "title": "The experience template, breakrocks.experience/4",
-  "description": "The definition document of an experience of the engines route/1 and challenge/1 (contracts/experiences.md § The experience template, breakrocks.experience/4). Closed: an unknown field is refused; 16 KB at most in UTF-8 (DOCUMENT_TOO_LARGE). The platform checks the rest (checkExperience): the visible characters, the name rules beyond this pattern, a name free in its owner, the route readable, the ranking measure supported by the engine, the parameters within the bounds of their field. The place feats keep breakrocks.experience/3 (engine presence/3), never this format.",
+  "description": "The definition document of an experience of the engines route/1, challenge/1 and, since v136.5.0, visit/1; since D-461, challenge/2 (the simple challenge measured by the device) and meetup/1 (the attendance meetup); since D-467, multiday/1 (the multi-day challenge), rounds/1 (the multi-round challenge) and tournament/1 (the simple tournament); since D-481, tournament/2 (the tournament, contracts/experiences.md § Tournaments); since D-498, contest/1 (the judged contest, contracts/experiences.md § Judged contests (contest/1)) (contracts/experiences.md § The experience template, breakrocks.experience/4). Closed: an unknown field is refused; 16 KB at most in UTF-8 (DOCUMENT_TOO_LARGE). The platform checks the rest (checkExperience): the visible characters, the name rules beyond this pattern, a name free in its owner, the route readable, the ranking measure supported by the engine, the parameters within the bounds of their field; for visit/1, the stage keys unique and the keys of order.first and order.last among them, completion.atLeast and the bounds of its parameter at most the number of stages, each placeId a public point of interest (its point then set by the platform), the names and the notes in visible characters. The place experiences keep breakrocks.experience/3 (engine presence/3), never this format.",
   "type": "object",
   "additionalProperties": false,
   "required": ["format", "engine", "owner", "name", "title", "instruction"],
@@ -13,7 +13,7 @@
       "$ref": "#/$defs/id"
     },
     "version": {
-      "description": "<major>.<minor>, set by the platform (absent in createExperience and updateExperience): 1.0 at creation; a change of the engine, of its block (unit, target, proof rules, hours), of the parameters or of the ranking is a new major; a change of the title, the instruction or the warnings a minor. A run keeps the version it started with.",
+      "description": "<major>.<minor>, set by the platform (absent in createExperience and updateExperience): 1.0 at creation; a change of the engine, of its block (unit, target, proof rules, hours; for visit/1, its stages, their points, radii, proofs and optional flags, the order, the completion, the days and the route linked, but the names and the notes of its stages), of the parameters or of the ranking is a new major; a change of the title, the instruction, the warnings, or the name or the note of a visit stage, a minor. A run keeps the version it started with.",
       "type": "string",
       "pattern": "^[1-9][0-9]{0,3}\\.(0|[1-9][0-9]{0,3})$"
     },
@@ -23,8 +23,8 @@
       "additionalProperties": false,
       "required": ["name", "version"],
       "properties": {
-        "name": { "enum": ["route", "challenge"] },
-        "version": { "const": 1 }
+        "name": { "enum": ["route", "challenge", "visit", "meetup", "multiday", "rounds", "tournament", "contest"] },
+        "version": { "description": "1; since D-461, also 2 for challenge (challenge/2, the simple challenge measured by the device); since D-481, also 2 for tournament (tournament/2, the tournament); every other engine has its version 1 only.", "enum": [1, 2] }
       }
     },
     "owner": {
@@ -33,7 +33,7 @@
       "pattern": "^(@[^\\s@%*!:;&#~$>/]{1,30}|%[^\\s@%*!:;&#~$>]{1,200})$"
     },
     "name": {
-      "description": "Its name, by the rules of a channel name (2 to 50 visible characters, or 1 letter that stays non-ASCII, lowercase, beginning with a letter), unique among the experiences, the place feats and the routes of its owner; never the name of an experience kind.",
+      "description": "Its name, by the rules of a channel name (2 to 50 visible characters, or 1 letter that stays non-ASCII, lowercase, beginning with a letter), unique among the experiences, the place experiences and the routes of its owner; never the name of an experience kind.",
       "type": "string",
       "pattern": "^[\\p{Ll}\\p{Lo}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{M}\\p{Nd}-]{0,49}$",
       "not": { "enum": ["event", "route"] }
@@ -48,7 +48,7 @@
       "items": { "enum": ["PHYSICAL_EFFORT", "RISKY_PLACE"] }
     },
     "ranking": {
-      "description": "challenge/1 only, declared by the creator: the experience participants of one group experience instance are ranked on this measure (the measure of the challenge), in this order. Absent: no ranking.",
+      "description": "challenge/1 and, since D-461, challenge/2 only, declared by the creator: the experience participants of one group experience instance are ranked on this measure (the measure of the challenge; COUNT only for challenge/2), in this order. Absent: no ranking. route/1, visit/1, meetup/1 and, since D-467, multiday/1, rounds/1 and tournament/1 have none.",
       "type": "object",
       "additionalProperties": false,
       "required": ["measure", "order"],
@@ -58,9 +58,8 @@
       }
     },
     "parameters": {
-      "description": "challenge/1 only: the experience parameters a reuse (the sign \":\") may change, each bound to one field of the engine block, one per field, keys unique, min <= default <= max (checked by the platform: PARAMETER_KEY_TWICE, PARAMETER_FIELD_TWICE, PARAMETER_BOUNDS_INVALID, PARAMETER_OUT_OF_BOUNDS); absent: none.",
+      "description": "challenge/1, since v136.5.0 visit/1 and, since D-467, multiday/1 (target, days): the experience parameters a reuse (the sign \":\") may change, each bound to one field of the engine block, one per field, keys unique, min <= default <= max (checked by the platform: PARAMETER_KEY_TWICE, PARAMETER_FIELD_TWICE, PARAMETER_BOUNDS_INVALID, PARAMETER_OUT_OF_BOUNDS); absent: none. Since D-510, no number is set (3 at most until then): one per field of the engine block bounds them, and a reuse is 2,000 characters at most.",
       "type": "array",
-      "maxItems": 3,
       "items": { "$ref": "#/$defs/parameter" }
     },
     "copiedFrom": {
@@ -82,22 +81,195 @@
         "routeId": { "$ref": "#/$defs/id" }
       }
     },
-    "challenge": { "$ref": "#/$defs/challenge" }
+    "challenge": { "$ref": "#/$defs/challenge" },
+    "visit": { "$ref": "#/$defs/visit" },
+    "meetup": { "description": "meetup/1 (since D-461): the attendance meetup.", "$ref": "#/$defs/meetup" },
+    "multiday": { "description": "multiday/1 (since D-467): the multi-day challenge.", "$ref": "#/$defs/multiday" },
+    "rounds": { "description": "rounds/1 (since D-467): the multi-round challenge.", "$ref": "#/$defs/rounds" },
+    "tournament": { "description": "tournament/1 (since D-467): the simple tournament; since D-481, tournament/2: the tournament (the fields each version takes: $defs/tournament).", "$ref": "#/$defs/tournament" },
+    "contest": { "description": "contest/1 (since D-498): the judged contest.", "$ref": "#/$defs/contest" }
   },
   "allOf": [
     {
       "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "route" } } } } },
       "then": {
         "required": ["route"],
-        "properties": { "challenge": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+        "properties": { "challenge": false, "visit": false, "meetup": false, "multiday": false, "rounds": false, "tournament": false, "contest": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
       }
     },
     {
       "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "challenge" } } } } },
-      "then": { "required": ["challenge"], "properties": { "route": false } }
+      "then": {
+        "required": ["challenge"],
+        "properties": {
+          "route": false,
+          "visit": false,
+          "meetup": false,
+          "multiday": false,
+          "rounds": false,
+          "tournament": false,
+          "contest": false,
+          "parameters": { "type": "array", "items": { "type": "object", "properties": { "field": { "enum": ["target", "endsWithinHours"] } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "visit" } } } } },
+      "then": {
+        "required": ["visit"],
+        "properties": {
+          "route": false,
+          "challenge": false,
+          "meetup": false,
+          "multiday": false,
+          "rounds": false,
+          "tournament": false,
+          "contest": false,
+          "ranking": false,
+          "parameters": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "field": { "enum": ["atLeast", "spanDays"] } }, "if": { "properties": { "field": { "const": "spanDays" } } }, "then": { "properties": { "min": { "type": "integer", "maximum": 30 }, "max": { "type": "integer", "maximum": 30 }, "default": { "type": "integer", "maximum": 30 } } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "meetup" } } } } },
+      "then": {
+        "required": ["meetup"],
+        "properties": { "route": false, "challenge": false, "visit": false, "multiday": false, "rounds": false, "tournament": false, "contest": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "multiday" } } } } },
+      "then": {
+        "required": ["multiday"],
+        "properties": {
+          "route": false, "challenge": false, "visit": false, "meetup": false, "rounds": false, "tournament": false, "contest": false, "ranking": false,
+          "parameters": { "type": "array", "maxItems": 2, "items": { "type": "object", "properties": { "field": { "enum": ["target", "days"] } }, "if": { "properties": { "field": { "const": "days" } } }, "then": { "properties": { "min": { "type": "integer", "maximum": 30 }, "max": { "type": "integer", "maximum": 30 }, "default": { "type": "integer", "maximum": 30 } } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "rounds" } } } } },
+      "then": {
+        "required": ["rounds"],
+        "properties": { "route": false, "challenge": false, "visit": false, "meetup": false, "multiday": false, "tournament": false, "contest": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "tournament" } } } } },
+      "then": {
+        "required": ["tournament"],
+        "properties": { "route": false, "challenge": false, "visit": false, "meetup": false, "multiday": false, "rounds": false, "contest": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "const": "contest" } } } } },
+      "then": {
+        "required": ["contest"],
+        "properties": { "route": false, "challenge": false, "visit": false, "meetup": false, "multiday": false, "rounds": false, "tournament": false, "ranking": false, "parameters": { "type": "array", "maxItems": 0 } }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "properties": { "name": { "not": { "enum": ["challenge", "tournament"] } } } } } },
+      "then": { "properties": { "engine": { "type": "object", "properties": { "version": { "const": 1 } } } } }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "required": ["name", "version"], "properties": { "name": { "const": "challenge" }, "version": { "const": 1 } } } } },
+      "then": {
+        "properties": {
+          "challenge": { "type": "object", "properties": { "measuredBy": false, "proof": { "type": "object", "required": ["media"], "properties": { "validation": { "enum": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"] } } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "required": ["name", "version"], "properties": { "name": { "const": "challenge" }, "version": { "const": 2 } } } } },
+      "then": {
+        "properties": {
+          "challenge": { "type": "object", "required": ["measuredBy"], "properties": { "measure": { "const": "COUNT" }, "proof": { "type": "object", "properties": { "media": false, "dated": false, "validation": { "const": "DEVICE_MEASURED" } } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "required": ["name", "version"], "properties": { "name": { "const": "tournament" }, "version": { "const": 1 } } } } },
+      "then": { "properties": { "tournament": { "type": "object", "propertyNames": { "const": "endsWithinHours" }, "properties": { "endsWithinHours": { "type": "integer", "maximum": 168 } } } } }
+    },
+    {
+      "if": { "properties": { "engine": { "type": "object", "required": ["name", "version"], "properties": { "name": { "const": "tournament" }, "version": { "const": 2 } } } } },
+      "then": {
+        "properties": {
+          "tournament": {
+            "type": "object",
+            "required": ["profile", "format", "entrants", "seeding", "validation", "datedProof", "endsWithinHours"],
+            "allOf": [
+              { "if": { "required": ["format"], "properties": { "format": { "const": "POOLS_THEN_ELIMINATION" } } }, "then": { "required": ["pools"] }, "else": { "properties": { "pools": false, "bracketSeeding": false } } },
+              { "if": { "required": ["format"], "properties": { "format": { "const": "SCORE_RACE" } } }, "then": { "required": ["race"], "properties": { "match": false, "thirdPlace": false, "consolation": false, "validation": { "type": "object", "properties": { "level": { "enum": ["WITNESSES", "REFEREED"] } } } } }, "else": { "properties": { "race": false } } },
+              { "if": { "required": ["format"], "properties": { "format": { "enum": ["SINGLE_ELIMINATION", "POOLS_THEN_ELIMINATION"] } } }, "then": { "required": ["match"] } },
+              { "if": { "required": ["format"], "properties": { "format": { "const": "HOME_AND_AWAY" } } }, "then": { "properties": { "match": false } } },
+              { "if": { "required": ["profile"], "properties": { "profile": { "const": "CUSTOM" } } }, "then": { "required": ["custom"] }, "else": { "properties": { "custom": false } } },
+              { "if": { "required": ["validation"], "properties": { "validation": { "type": "object", "required": ["remote"], "properties": { "remote": { "const": true } } } } }, "then": { "properties": { "datedProof": { "const": "REQUIRED" } } } }
+            ]
+          }
+        }
+      }
     }
   ],
   "$defs": {
+    "contestKey": { "description": "contest/1: the key of a contest category or of a criterion, unique in its list (CATEGORY_KEY_TWICE, CRITERION_KEY_TWICE).", "type": "string", "pattern": "^[a-z][a-z0-9-]{0,29}$" },
+    "text60": {
+      "description": "1 to 60 visible characters per language (TEXT_TOO_LONG); maxLength is a cap in code points, not the rule.",
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/language" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 240 }
+    },
+    "contest": {
+      "description": "The engine contest/1 (since D-498, the judged contest; contracts/experiences.md § Judged contests (contest/1)). What the schema cannot say (checkExperience): the keys of the contest categories and of the criteria unique (CATEGORY_KEY_TWICE, CRITERION_KEY_TWICE), submissionHours fewer than endsWithinHours (SUBMISSIONS_BEYOND_DURATION), the names in visible characters (TEXT_TOO_LONG), the jury mode a universe imposes (JURY_MODE_IMPOSED); the fields of a mode the winners do not take, the schema refuses them (SCHEMA), answered CONTEST_FIELD_NOT_OF_MODE by the platform.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["forms", "categories", "entries", "winners", "entriesShown", "datedProof", "submissionHours", "endsWithinHours"],
+      "properties": {
+        "forms": { "description": "The contest entry forms accepted: IMAGE (a photo), VIDEO (a video, 3 minutes at most), TEXT (1 to 5,000 visible characters), AUDIO (an audio, 5 minutes at most).", "type": "array", "minItems": 1, "maxItems": 4, "uniqueItems": true, "items": { "enum": ["IMAGE", "VIDEO", "TEXT", "AUDIO"] } },
+        "categories": {
+          "description": "1 to 5 contest categories, in their order: a key and a name.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": { "type": "object", "additionalProperties": false, "required": ["key", "name"], "properties": { "key": { "$ref": "#/$defs/contestKey" }, "name": { "$ref": "#/$defs/text60" } } }
+        },
+        "entries": { "description": "max: the contest entries at most of an edition, every contest category together, 2 to 1,000.", "type": "object", "additionalProperties": false, "required": ["max"], "properties": { "max": { "type": "integer", "minimum": 2, "maximum": 1000 } } },
+        "winners": { "description": "Who decides the places: JURY (a contest jury), PUBLIC (a public vote), JURY_AND_PUBLIC (both, weighted by juryWeight).", "enum": ["JURY", "PUBLIC", "JURY_AND_PUBLIC"] },
+        "jury": {
+          "description": "JURY and JURY_AND_PUBLIC only, required there: mode, CRITERIA_GRID (the contest jurors score each contest entry on 1 to 5 criteria, 1 to 10 each; the average), FREE_RANKING (each contest juror ranks 1 to 10 contest entries of a contest category; the sum of the ranks, lower first) or DELIBERATION (the experience organizer enters the places 1 to 3); criteria, CRITERIA_GRID only and required there; anonymous, the names of the authors hidden from the contest jury until the results (false when absent).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["CRITERIA_GRID", "FREE_RANKING", "DELIBERATION"] },
+            "criteria": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "type": "object", "additionalProperties": false, "required": ["key", "name"], "properties": { "key": { "$ref": "#/$defs/contestKey" }, "name": { "$ref": "#/$defs/text60" } } } },
+            "anonymous": { "type": "boolean" }
+          },
+          "if": { "required": ["mode"], "properties": { "mode": { "const": "CRITERIA_GRID" } } },
+          "then": { "required": ["criteria"] },
+          "else": { "properties": { "criteria": false } }
+        },
+        "public": {
+          "description": "PUBLIC and JURY_AND_PUBLIC only, required there: votePer, CONTEST (one vote per voter in the edition) or CATEGORY (one per voter and contest category).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["votePer"],
+          "properties": { "votePer": { "enum": ["CONTEST", "CATEGORY"] } }
+        },
+        "juryWeight": { "description": "JURY_AND_PUBLIC only, required there: the share of the contest jury in percent, 10 to 90 by tens; the public vote holds the rest.", "type": "integer", "minimum": 10, "maximum": 90, "multipleOf": 10 },
+        "entriesShown": { "description": "FROM_SUBMISSION (every reader of the edition sees a contest entry once submitted) or AFTER_SUBMISSIONS (only its author and the experience organizer until the submissions close).", "enum": ["FROM_SUBMISSION", "AFTER_SUBMISSIONS"] },
+        "datedProof": { "description": "The dated proof of a photo or a video: NONE, OPTIONAL, REQUIRED.", "enum": ["NONE", "OPTIONAL", "REQUIRED"] },
+        "submissionHours": { "description": "The hours of the submissions from the start of an edition, fewer than endsWithinHours.", "type": "integer", "minimum": 1, "maximum": 2159 },
+        "endsWithinHours": { "description": "The hours of an edition, 90 days at most; the judging lasts from the end of the submissions to it.", "type": "integer", "minimum": 2, "maximum": 2160 }
+      },
+      "allOf": [
+        { "if": { "required": ["winners"], "properties": { "winners": { "const": "PUBLIC" } } }, "then": { "properties": { "jury": false } }, "else": { "required": ["jury"] } },
+        { "if": { "required": ["winners"], "properties": { "winners": { "const": "JURY" } } }, "then": { "properties": { "public": false } }, "else": { "required": ["public"] } },
+        { "if": { "required": ["winners"], "properties": { "winners": { "const": "JURY_AND_PUBLIC" } } }, "then": { "required": ["juryWeight"] }, "else": { "properties": { "juryWeight": false } } }
+      ]
+    },
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]{2,8}-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
@@ -124,6 +296,23 @@
       "propertyNames": { "$ref": "#/$defs/language" },
       "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 2000 }
     },
+    "text200": {
+      "description": "1 to 200 visible characters per language (TEXT_TOO_LONG); maxLength is a cap in code points, not the rule.",
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/language" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 800 }
+    },
+    "point": {
+      "description": "A point (WGS 84): a latitude of -90 to 90, a longitude of -180 to 180.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 }
+      }
+    },
     "parameter": {
       "type": "object",
       "additionalProperties": false,
@@ -136,16 +325,173 @@
           "not": { "const": "id" }
         },
         "field": {
-          "description": "The field of the engine block it sets (challenge/1: target, the value of target.atLeast or target.atMost; endsWithinHours).",
-          "enum": ["target", "endsWithinHours"]
+          "description": "The field of the engine block it sets (challenge/1: target, the value of target.atLeast or target.atMost; endsWithinHours. visit/1: atLeast, the value of completion.atLeast; since D-449, spanDays, the number of days, from 1 to 30. Since D-467, multiday/1: target, the value of target.atLeast, the target of the day; days, the number of challenge days, from 1 to 30).",
+          "enum": ["target", "endsWithinHours", "atLeast", "spanDays", "days"]
         },
         "min": { "type": "integer", "minimum": 1 },
         "max": { "type": "integer", "minimum": 1 },
         "default": { "type": "integer", "minimum": 1 }
       }
     },
+    "measuringMeans": {
+      "description": "Since D-467, for a count of multiday/1 or of a challenge round of rounds/1: a measuring means of the device, as challenge.measuredBy of challenge/2 (each behind its own switch); absent: by hand.",
+      "enum": ["HEALTH_STEPS", "VOICE_COUNT", "SOUND_COUNT", "CAMERA_COUNT"]
+    },
+    "multiday": {
+      "description": "The engine multiday/1 (since D-467, the multi-day challenge): a count with a target of the day, or nothing to measure (NONE: the challenge day is done by saying so), every challenge day for days challenge days; no proof media, no validation by people.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["days", "measure"],
+      "properties": {
+        "days": { "description": "The number of challenge days, 1 to 30.", "type": "integer", "minimum": 1, "maximum": 30 },
+        "measure": { "description": "COUNT: a count in its unit, with the target of the day; NONE: nothing to measure.", "enum": ["COUNT", "NONE"] },
+        "unit": { "description": "COUNT only: what is counted (\"push-ups\").", "$ref": "#/$defs/text30" },
+        "target": {
+          "description": "COUNT only, required: the target of the day, atLeast 1 to 100,000.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["atLeast"],
+          "properties": { "atLeast": { "type": "integer", "minimum": 1, "maximum": 100000 } }
+        },
+        "measuredBy": { "$ref": "#/$defs/measuringMeans" }
+      },
+      "if": { "properties": { "measure": { "const": "COUNT" } } },
+      "then": { "required": ["unit", "target"] },
+      "else": { "properties": { "unit": false, "target": false, "measuredBy": false } }
+    },
+    "challengeRound": {
+      "description": "A challenge round of rounds/1 (since D-467): its key (unique in the challenge rounds, ROUND_KEY_TWICE; what the events name), its name, and what it measures, as a simple challenge.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "measure"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,29}$" },
+        "name": { "description": "1 to 100 visible characters per language, English required (TEXT_TOO_LONG).", "$ref": "#/$defs/text100" },
+        "measure": { "description": "COUNT, TIME (seconds) or NONE, as challenge.measure.", "enum": ["COUNT", "TIME", "NONE"] },
+        "unit": { "description": "COUNT only.", "$ref": "#/$defs/text30" },
+        "target": {
+          "description": "Optional: COUNT, atLeast (1 to 100,000); TIME, atLeast (hold for) or atMost (done within), in seconds (1 to 86,400, within endsWithinHours: TARGET_BEYOND_DURATION); NONE, none.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "maxProperties": 1,
+          "properties": {
+            "atLeast": { "type": "integer", "minimum": 1, "maximum": 100000 },
+            "atMost": { "type": "integer", "minimum": 1, "maximum": 86400 }
+          }
+        },
+        "measuredBy": { "$ref": "#/$defs/measuringMeans" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "measure": { "const": "COUNT" } } },
+          "then": { "required": ["unit"], "properties": { "target": { "type": "object", "required": ["atLeast"] } } }
+        },
+        {
+          "if": { "properties": { "measure": { "const": "TIME" } } },
+          "then": { "properties": { "unit": false, "measuredBy": false, "target": { "type": "object", "properties": { "atLeast": { "type": "integer", "maximum": 86400 } } } } }
+        },
+        {
+          "if": { "properties": { "measure": { "const": "NONE" } } },
+          "then": { "properties": { "unit": false, "target": false, "measuredBy": false } }
+        }
+      ]
+    },
+    "rounds": {
+      "description": "The engine rounds/1 (since D-467, the multi-round challenge): 2 to 10 challenge rounds done in their order, all required, within endsWithinHours; no proof media, no validation by people.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rounds", "endsWithinHours"],
+      "properties": {
+        "rounds": { "type": "array", "minItems": 2, "maxItems": 10, "items": { "$ref": "#/$defs/challengeRound" } },
+        "endsWithinHours": { "description": "An experience instance ends at the latest this many hours after it went in progress (1 to 168).", "type": "integer", "minimum": 1, "maximum": 168 }
+      }
+    },
+    "matchKey": { "description": "Since D-481: the key of a match challenge or of a measure of a tournament, unique in its list.", "type": "string", "pattern": "^[a-z][a-z0-9-]{0,29}$" },
+    "tournament": {
+      "description": "The engine tournament/1 (since D-467, the simple tournament): a single elimination of 4 to 32 tournament entrants, each tournament match decided by the experience organizer; what is played is said by the instruction; endsWithinHours only, 1 to 168. Since D-481, also the engine tournament/2 (the tournament): every field below, the version of the engine choosing which (allOf of the document; contracts/experiences.md § Tournaments). What the schema cannot say (checkExperience): the profile and the format of one kind (PROFILE_FORMAT_MISMATCH), the keys of the challenges and of the measures unique and known (MATCH_KEY_TWICE, MATCH_KEY_UNKNOWN), qualifiers fewer than the size of a tournament pool (POOL_QUALIFIERS_INVALID), discards for RACES_AND_PLACE_POINTS only and fewer than its rounds, a threshold measure for CUSTOM only (TOURNAMENT_FIELD_NOT_OF_PROFILE).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": { "description": "tournament/2: the discipline profile (discipline-profiles.json): its columns, its scoring and its ranking order.", "enum": ["WIN_DRAW_LOSS", "SETS_AND_GAMES", "TIME_AND_GAP", "RACES_AND_PLACE_POINTS", "SCORES", "CUMULATED_EVENTS", "SIMPLE_SCORE", "CUSTOM", "QUIZ", "VIDEO_GAMES", "CHESS_AND_BOARD_GAMES", "CARD_AND_LETTER_GAMES"] },
+        "activity": { "description": "tournament/2: an activity of activities.json, the discipline shown (its name, its icon, the word for its playing area); absent: the instruction says what is played.", "type": "string", "pattern": "^[a-z][a-z0-9-]{1,39}$" },
+        "format": { "description": "tournament/2: SINGLE_ELIMINATION; HOME_AND_AWAY (a single elimination whose tournament matches are two legs, on aggregate); POOLS_THEN_ELIMINATION; SCORE_RACE (every tournament entrant does the same thing, one general ranking; Witnesses or Refereed only, since a race has no other side to agree). The first three take a discipline profile of tournament matches, SCORE_RACE a discipline profile of races.", "enum": ["SINGLE_ELIMINATION", "HOME_AND_AWAY", "POOLS_THEN_ELIMINATION", "SCORE_RACE"] },
+        "entrants": { "description": "tournament/2: max, the tournament entrants at most, 2 to 64.", "type": "object", "additionalProperties": false, "required": ["max"], "properties": { "max": { "type": "integer", "minimum": 2, "maximum": 64 } } },
+        "pools": { "description": "tournament/2, POOLS_THEN_ELIMINATION only: size, the size aimed at of a tournament pool, 3 to 8; qualifiers, the first of each tournament pool who go on, 1 to 4, fewer than size.", "type": "object", "additionalProperties": false, "required": ["size", "qualifiers"], "properties": { "size": { "type": "integer", "minimum": 3, "maximum": 8 }, "qualifiers": { "type": "integer", "minimum": 1, "maximum": 4 } } },
+        "bracketSeeding": { "description": "tournament/2, POOLS_THEN_ELIMINATION only: how the qualifiers are seeded in the bracket: POOL_STANDING (by their places in the tournament pools; absent: this one), DRAW (at random by the platform) or ORGANIZER (the order of the experience organizer).", "enum": ["POOL_STANDING", "DRAW", "ORGANIZER"] },
+        "match": {
+          "description": "tournament/2, SINGLE_ELIMINATION and POOLS_THEN_ELIMINATION: a tournament match is one game (SINGLE) or a series of games (BEST_OF, 3 or 5).",
+          "oneOf": [
+            { "type": "object", "additionalProperties": false, "required": ["kind"], "properties": { "kind": { "const": "SINGLE" } } },
+            { "type": "object", "additionalProperties": false, "required": ["kind", "bestOf"], "properties": { "kind": { "const": "BEST_OF" }, "bestOf": { "enum": [3, 5] } } }
+          ]
+        },
+        "challenges": {
+          "description": "tournament/2: the match challenges. choice: NONE (the discipline itself is played; the list holds the tiebreak and bonus challenges only), FIXED (the first of the list for every game), ALTERNATE (the first game by the experience organizer, then the loser of the game before chooses), IMPOSED (the experience organizer chooses for each game), DRAWN (the platform draws each game at random in the list); tiebreak and bonus: keys of the list, absent: the discipline itself.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["choice", "list"],
+          "properties": {
+            "choice": { "enum": ["NONE", "FIXED", "ALTERNATE", "IMPOSED", "DRAWN"] },
+            "list": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "object", "additionalProperties": false, "required": ["key", "name", "order"], "properties": { "key": { "$ref": "#/$defs/matchKey" }, "name": { "$ref": "#/$defs/text100" }, "order": { "description": "Which result wins a game of this challenge.", "enum": ["HIGHER_FIRST", "LOWER_FIRST"] } } } },
+            "tiebreak": { "$ref": "#/$defs/matchKey" },
+            "bonus": { "$ref": "#/$defs/matchKey" }
+          }
+        },
+        "thirdPlace": { "description": "tournament/2, but SCORE_RACE: a third-place match between the losers of the semi-finals.", "type": "boolean" },
+        "consolation": { "description": "tournament/2, but SCORE_RACE: a consolation bracket of the losers of the first tournament round, from a bracket of 8.", "type": "boolean" },
+        "race": {
+          "description": "tournament/2, SCORE_RACE only: rounds, 1 to 10 (races, runs, events, quiz rounds, deals); discards, 0 to 2, the worst rounds left out (RACES_AND_PLACE_POINTS); threshold, the least result of a round (atLeast) or the most (atMost), of the measure named for CUSTOM; lives, 1 to 3, the rounds under the threshold a tournament entrant may have before being out (1 when absent).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rounds"],
+          "properties": {
+            "rounds": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "discards": { "type": "integer", "minimum": 0, "maximum": 2 },
+            "threshold": { "type": "object", "additionalProperties": false, "properties": { "measure": { "$ref": "#/$defs/matchKey" }, "atLeast": { "type": "integer", "minimum": -100000, "maximum": 100000000 }, "atMost": { "type": "integer", "minimum": 0, "maximum": 100000000 } }, "oneOf": [{ "required": ["atLeast"], "properties": { "atMost": false } }, { "required": ["atMost"], "properties": { "atLeast": false } }] },
+            "lives": { "type": "integer", "minimum": 1, "maximum": 3 }
+          }
+        },
+        "custom": {
+          "description": "tournament/2, the profile CUSTOM only: 1 to 6 measures, each named, of a kind (POINTS, BONUS, PENALTY, TIME in milliseconds, COUNT); the ranking order, 1 to 6 of these measures with their direction, the first deciding first.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measures", "order"],
+          "properties": {
+            "measures": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "additionalProperties": false, "required": ["key", "name", "kind"], "properties": { "key": { "$ref": "#/$defs/matchKey" }, "name": { "$ref": "#/$defs/text30" }, "kind": { "enum": ["POINTS", "BONUS", "PENALTY", "TIME", "COUNT"] } } } },
+            "order": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "object", "additionalProperties": false, "required": ["measure", "direction"], "properties": { "measure": { "$ref": "#/$defs/matchKey" }, "direction": { "enum": ["HIGHER_FIRST", "LOWER_FIRST"] } } } }
+          }
+        },
+        "seeding": { "description": "tournament/2: the order of the tournament draw: DRAW (at random by the platform) or ORGANIZER (the order the experience organizer gives).", "enum": ["DRAW", "ORGANIZER"] },
+        "validation": {
+          "description": "tournament/2: the validation level, for the whole tournament: TRUST (both sides declare, their agreement validates, tacit acceptance after 24 hours); WITNESSES (1 to 3 match witnesses, a majority validates; remote: the mode Remote witnesses, every declaration with a dated proof); REFEREED (the experience organizer, and with referees the match referees designated, enter the results; the experience organizer does not play).",
+          "oneOf": [
+            { "type": "object", "additionalProperties": false, "required": ["level"], "properties": { "level": { "const": "TRUST" } } },
+            { "type": "object", "additionalProperties": false, "required": ["level", "witnesses", "remote"], "properties": { "level": { "const": "WITNESSES" }, "witnesses": { "type": "integer", "minimum": 1, "maximum": 3 }, "remote": { "type": "boolean" } } },
+            { "type": "object", "additionalProperties": false, "required": ["level", "referees"], "properties": { "level": { "const": "REFEREED" }, "referees": { "type": "boolean" } } }
+          ]
+        },
+        "contestHours": { "description": "tournament/2 (since D-490 (1)): the hours a validated result may be contested, 1 to 24 (24 when absent: the default D-490 guarantees); the experience organizer lowers it at the creation for a tournament of one day; a result is final only once they passed, and the bracket after the tournament pools waits for that.", "type": "integer", "minimum": 1, "maximum": 24 },
+        "datedProof": { "description": "tournament/2: NONE, OPTIONAL (a declaration may carry a dated proof) or REQUIRED (every declaration carries one; the mode Remote witnesses requires it).", "enum": ["NONE", "OPTIONAL", "REQUIRED"] },
+        "endsWithinHours": { "description": "An experience instance ends at the latest this many hours after it went in progress: 1 to 168 for tournament/1; since D-481, 1 to 2,880 (120 days) for tournament/2.", "type": "integer", "minimum": 1, "maximum": 2880 }
+      }
+    },
+    "meetup": {
+      "description": "The engine meetup/1 (since D-461, the attendance meetup): no measure, no target, no proof media; its experience participants prove their presence by the organizer code.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["endsWithinHours"],
+      "properties": {
+        "endsWithinHours": {
+          "description": "A run ends at the latest this many hours after it went in progress (1 to 168), as for challenge/1.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 168
+        }
+      }
+    },
     "challenge": {
-      "description": "The engine challenge/1.",
+      "description": "The engines challenge/1 and, since D-461, challenge/2 (the simple challenge measured by the device: measuredBy required, COUNT only, proof.validation DEVICE_MEASURED without media).",
       "type": "object",
       "additionalProperties": false,
       "required": ["measure", "proof", "endsWithinHours"],
@@ -153,6 +499,10 @@
         "measure": {
           "description": "COUNT: a counter (repetitions, in its unit); TIME: a timer (seconds); NONE: nothing to measure, the proof alone.",
           "enum": ["COUNT", "TIME", "NONE"]
+        },
+        "measuredBy": {
+          "description": "challenge/2 only (since D-461): the measuring means of the device: HEALTH_STEPS (the steps the device and a watch connected to it recorded, read from the health data of the device with the health consent of the person, for that experience instance only or for always), VOICE_COUNT (the numbers the person says aloud), SOUND_COUNT (the repetitions of a sound), CAMERA_COUNT (the repetitions of a movement in front of the camera). Absent in challenge/1 (measured by hand).",
+          "enum": ["HEALTH_STEPS", "VOICE_COUNT", "SOUND_COUNT", "CAMERA_COUNT"]
         },
         "unit": { "description": "COUNT only: what is counted (\"squats\").", "$ref": "#/$defs/text30" },
         "target": {
@@ -169,18 +519,22 @@
         "proof": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["media", "validation"],
+          "required": ["validation"],
           "properties": {
             "media": {
-              "description": "The media kinds a proof may be: IMAGE (a photo), VIDEO (a clip, 3 minutes at most).",
+              "description": "The media kinds a proof may be: IMAGE (a photo), VIDEO (a clip, 3 minutes at most). Required in challenge/1; absent in challenge/2 (measured by the device: nothing but the count leaves it).",
               "type": "array",
               "minItems": 1,
               "uniqueItems": true,
               "items": { "enum": ["IMAGE", "VIDEO"] }
             },
             "validation": {
-              "description": "Who validates a proof: ORGANIZER (the organizer of a group run), PARTICIPANT_VOTE (the other participants of a group run), SELF_REPORTED (nobody; the proof is optional and the result marked self-reported).",
-              "enum": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]
+              "description": "Who validates a proof: ORGANIZER (the organizer of a group run), PARTICIPANT_VOTE (the other participants of a group run), SELF_REPORTED (nobody; the proof is optional and the result marked self-reported); since D-461, DEVICE_MEASURED (challenge/2 only: nobody, the count is measured by the device; a count entered or changed by hand is self-reported).",
+              "enum": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED", "DEVICE_MEASURED"]
+            },
+            "dated": {
+              "description": "Since D-489 (challenge/1 only): true, the proof is a dated proof, its media carrying the proof code the platform gave within 30 minutes (contracts/experiences.md § Dated proofs); absent: false. The evaluator is unchanged: the platform checks the proof code before it.",
+              "const": true
             }
           }
         },
@@ -210,6 +564,106 @@
           "then": { "properties": { "unit": false, "target": false } }
         }
       ]
+    },
+    "stageKey": {
+      "description": "The key of a visit stage in its visit: unique in the visit (STAGE_KEY_TWICE), lowercase ASCII; what the events of the evaluator and the stage order function name; never shown.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,29}$"
+    },
+    "visitStage": {
+      "description": "A visit stage (D-436 (V-2)): a point of interest (placeId, preferred, its place card shown) or a free named point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "point"],
+      "properties": {
+        "key": { "$ref": "#/$defs/stageKey" },
+        "name": {
+          "description": "Its name, 1 to 60 visible characters (TEXT_TOO_LONG), never translated, as the name of a stage of a route: for a point of interest, filled by the app from its place card, then changed freely by the creator.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "placeId": {
+          "description": "A point of interest of the cartography (as the place of a place experience), public (PLACE_NOT_PUBLIC otherwise); its point is then set by the platform from the point of interest, in place of the one given. Absent: a free named point.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "point": {
+          "description": "Where the visit stage is: the point of its point of interest, or the free point the creator chose.",
+          "$ref": "#/$defs/point"
+        },
+        "radiusMetres": {
+          "description": "Within this distance of its point (haversine, on a sphere of radius 6,371,008.8 metres), a stage check-in made with the position of the device is checked on the device; 20 to 300 metres, 50 when absent.",
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 300
+        },
+        "optional": {
+          "description": "An optional visit stage: not needed by the default completion threshold (every visit stage that is not optional); every visit stage counts towards completion.atLeast. False when absent.",
+          "type": "boolean"
+        },
+        "note": {
+          "description": "A short note of the creator for this visit stage (D-436 (V-13)), translated as the title and the instruction. Absent: none.",
+          "$ref": "#/$defs/text200"
+        },
+        "proof": {
+          "description": "A photo or a clip required at this visit stage, of one of the media kinds given (IMAGE, VIDEO: a clip, 3 minutes at most); it stays on the phone unless the person publishes it. Absent: none required.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["media"],
+          "properties": {
+            "media": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["IMAGE", "VIDEO"] } }
+          }
+        }
+      }
+    },
+    "visit": {
+      "description": "The engine visit/1 (since v136.5.0, D-436): a set of visit stages done within a number of days, in the order mode its creator sets.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stages", "order", "spanDays"],
+      "properties": {
+        "stages": {
+          "description": "1 to 30 visit stages in the order of the creator: the suggested order of SUGGESTED, the only order of STRICT, the list of FREE.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": { "$ref": "#/$defs/visitStage" }
+        },
+        "order": {
+          "description": "mode: FREE (any order; the apps suggest one with the stage order function), SUGGESTED (any order; the order of the stages suggested first) or STRICT (the order of the stages only, STAGE_OUT_OF_ORDER otherwise; never reordered). first, last (FREE and SUGGESTED only): a visit stage kept first, or last, whenever the remaining visit stages are reordered; a key of the stages (STAGE_KEY_UNKNOWN), never both the same (STAGE_KEY_TWICE).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "enum": ["FREE", "SUGGESTED", "STRICT"] },
+            "first": { "$ref": "#/$defs/stageKey" },
+            "last": { "$ref": "#/$defs/stageKey" }
+          },
+          "if": { "properties": { "mode": { "const": "STRICT" } } },
+          "then": { "properties": { "first": false, "last": false } }
+        },
+        "completion": {
+          "description": "The completion threshold: atLeast, at least this many visit stages done, an experience parameter a reuse may change (D-436 (V-4)); absent, every visit stage that is not optional (V-4). Set while writing: optional visit stages count towards atLeast, from 1 to the number of stages (THRESHOLD_BEYOND_STAGES), and at least 1 visit stage done in every case.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["atLeast"],
+          "properties": {
+            "atLeast": { "type": "integer", "minimum": 1, "maximum": 30 }
+          }
+        },
+        "spanDays": {
+          "description": "The duration the creator sets, 1 to 30 days, by the clock, its pauses included (D-436 (V-10)); set while writing: days of 24 hours from the moment the experience instance went in progress. Since D-449, an experience parameter bound to spanDays lets a reuse change it within its bounds (its default this value).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "routeId": {
+          "description": "A route linked only to draw its line (D-436 (V-3)); set while writing: a route of the owner (a universe route of its universe for a visit experience of a universe), as route.routeId of route/1, the visit experience never more visible than it (EXPERIENCE_VISIBILITY_NOT_ALLOWED); since D-449, also a PUBLIC route of another account, which never lowers the visit experience, refused when a block stands between its author and the owner, and never for an experience of the social platform; ROUTE_NOT_AVAILABLE otherwise; its latest route version is drawn, only while it is PUBLIC; it judges nothing.",
+          "$ref": "#/$defs/id"
+        }
+      }
     }
   }
 }

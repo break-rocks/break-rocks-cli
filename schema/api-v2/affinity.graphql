@@ -1,0 +1,234 @@
+"""
+An expressed affinity of the caller (D-476, contracts/affinity.md), read by its author only.
+"""
+type Affinity {
+  """
+  What it bears on.
+  """
+  target: AffinityTargetRef!
+  """
+  MORE or LESS.
+  """
+  direction: AffinityDirection!
+  """
+  When it was expressed or last changed.
+  """
+  expressedAt: AWSDateTime!
+}
+
+"""
+MORE, "more of this" (a positive affinity); LESS, "less of this" (a negative affinity).
+"""
+enum AffinityDirection {
+  LESS
+  MORE
+}
+
+"""
+A page of My affinities, the most recent first.
+"""
+type AffinityPage {
+  """
+  The expressed affinities of this page.
+  """
+  items: [Affinity!]!
+  """
+  The cursor of the next page; null on the last page.
+  """
+  next: String
+}
+
+"""
+The place of an item in a page read with the affinity mode (posts/affinity-mode.feature).
+"""
+type AffinityPlacement {
+  """
+  Behind the affinity fold: shown after "See" only, at the end of its page.
+  """
+  folded: Boolean!
+  """
+  A discovery item; never folded.
+  """
+  discovery: Boolean!
+  """
+  An affinity proposal (D-480).
+  """
+  proposed: Boolean!
+  """
+  "Why I see this", the strongest first; empty when nothing moved it.
+  """
+  reasons: [AffinityReason!]!
+}
+
+"""
+One thing that moved an item: EXPRESSED (an expressed affinity of the reader with the item, its author, its universe
+or a tag: target), SIGNAL (target and signal), RESEMBLANCE (a target the reader likes that resembles the item),
+TASTE_NEIGHBORHOOD and DISCOVERY (no target). Never another person's affinity nor a target the reader may not read.
+"""
+type AffinityReason {
+  """
+  What moved it.
+  """
+  kind: AffinityReasonKind!
+  """
+  MORE raised it, LESS lowered it.
+  """
+  direction: AffinityDirection!
+  """
+  The target named; null for TASTE_NEIGHBORHOOD and DISCOVERY.
+  """
+  target: AffinityTargetRef
+  """
+  The affinity signal of SIGNAL; null otherwise.
+  """
+  signal: AffinitySignal
+}
+
+"""
+The kinds of AffinityReason.
+"""
+enum AffinityReasonKind {
+  DISCOVERY
+  EXPRESSED
+  RESEMBLANCE
+  SIGNAL
+  TASTE_NEIGHBORHOOD
+}
+
+"""
+The affinity settings of the caller, answered whatever the switches (offerDue false while affinity.mode is off); the
+affinity mode itself is kept by the app on each device (D-476 (6)).
+"""
+type AffinitySettings {
+  """
+  When the affinity consent was given; null while not given.
+  """
+  consentGivenAt: AWSDateTime
+  """
+  The affinity mode offer is to be made now (offerAfterDays reached, never made).
+  """
+  offerDue: Boolean!
+  """
+  When the affinity mode offer was made; null before.
+  """
+  offeredAt: AWSDateTime
+  """
+  The discovery share, in whole percents.
+  """
+  discoveryShare: Int!
+  """
+  The lowest discovery share, never 0.
+  """
+  discoveryShareMin: Int!
+  """
+  The highest discovery share.
+  """
+  discoveryShareMax: Int!
+  """
+  The step of widen and narrow.
+  """
+  discoveryShareStep: Int!
+  """
+  The affinities the caller may still express today (UTC).
+  """
+  dailyLeft: Int!
+}
+
+"""
+An affinity signal (contracts/affinity.md § Signals and weights).
+"""
+enum AffinitySignal {
+  ATTENDING
+  EVENT_INTEREST
+  EXPERIENCE_DISLIKE
+  EXPERIENCE_LIKE
+  FAVORITE_UNIVERSE
+  FOLLOW
+  LIKE
+  MEMBERSHIP
+  NOT_INTERESTED
+  RESIDENCE
+}
+
+"""
+An affinity target: its kind and the fields of that kind, else INVALID_REQUEST. ACCOUNT: accountId. POST: postId.
+UNIVERSE: universe. TAG: tag. EXPERIENCE: experienceId. UNIVERSE_EVENT: eventId. FEAT: runId and accountId.
+PLAYLIST: playlistId. ROUTE: routeId.
+"""
+input AffinityTargetInput {
+  kind: AffinityTargetKind!
+  accountId: ID
+  postId: ID
+  universe: String
+  tag: String
+  experienceId: ID
+  eventId: ID
+  runId: ID
+  playlistId: ID
+  routeId: ID
+}
+
+"""
+The kinds of affinity target (contracts/affinity.md § Affinity targets).
+"""
+enum AffinityTargetKind {
+  ACCOUNT
+  EXPERIENCE
+  FEAT
+  PLAYLIST
+  POST
+  ROUTE
+  TAG
+  UNIVERSE
+  UNIVERSE_EVENT
+}
+
+"""
+An affinity target as the API names it: the fields of AffinityTargetInput of its kind, and its title.
+"""
+type AffinityTargetRef {
+  """
+  Its kind.
+  """
+  kind: AffinityTargetKind!
+  """
+  ACCOUNT, FEAT: the account; null otherwise.
+  """
+  account: AccountRef
+  """
+  POST: the post; null otherwise.
+  """
+  post: PostRef
+  """
+  UNIVERSE: its address; null otherwise.
+  """
+  universe: String
+  """
+  TAG: the tag; null otherwise.
+  """
+  tag: String
+  """
+  EXPERIENCE: the experience; null otherwise.
+  """
+  experienceId: ID
+  """
+  UNIVERSE_EVENT: the universe event; null otherwise.
+  """
+  eventId: ID
+  """
+  FEAT: the experience instance; null otherwise.
+  """
+  runId: ID
+  """
+  PLAYLIST: the playlist; null otherwise.
+  """
+  playlistId: ID
+  """
+  ROUTE: the route; null otherwise.
+  """
+  routeId: ID
+  """
+  The title of an experience, a universe event, a playlist or a route, as now; null otherwise.
+  """
+  title: String
+}

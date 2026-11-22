@@ -1,6 +1,6 @@
 {
   "$comment": "Written by scripts/update-schema.mjs from contracts/experiences of the specs: do not edit. The version of the specs, and per engine the first definition of its test vectors (the example of experiences prompt).",
-  "version": "v136.3.0",
+  "version": "v156.1.0",
   "examples": {
     "presence/3": {
       "file": "vectors/presence-3.json",
@@ -94,6 +94,412 @@
             "validation": "ORGANIZER"
           },
           "endsWithinHours": 24
+        }
+      }
+    },
+    "challenge/2": {
+      "file": "vectors/challenge-2.json",
+      "key": "squats-cam",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "challenge",
+          "version": 2
+        },
+        "owner": "@alice",
+        "name": "squats-cam",
+        "title": {
+          "en": "100 squats, counted by the camera"
+        },
+        "instruction": {
+          "en": "Do 100 squats in front of the camera of your device."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "ranking": {
+          "measure": "COUNT",
+          "order": "HIGHER_FIRST"
+        },
+        "parameters": [
+          {
+            "key": "count",
+            "field": "target",
+            "min": 10,
+            "max": 1000,
+            "default": 100
+          }
+        ],
+        "challenge": {
+          "measure": "COUNT",
+          "measuredBy": "CAMERA_COUNT",
+          "unit": {
+            "en": "squats"
+          },
+          "target": {
+            "atLeast": 100
+          },
+          "proof": {
+            "validation": "DEVICE_MEASURED"
+          },
+          "endsWithinHours": 24
+        }
+      }
+    },
+    "meetup/1": {
+      "file": "vectors/meetup-1.json",
+      "key": "sunday-run",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "meetup",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "sunday-run",
+        "title": {
+          "en": "The Sunday run"
+        },
+        "instruction": {
+          "en": "Meet at the gate of the park and run together."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "meetup": {
+          "endsWithinHours": 3
+        }
+      }
+    },
+    "multiday/1": {
+      "file": "vectors/multiday-1.json",
+      "key": "pushups-3-days",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "multiday",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "pushups-3-days",
+        "title": {
+          "en": "50 push-ups a day for 3 days"
+        },
+        "instruction": {
+          "en": "Do at least 50 push-ups every day for 3 days."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "multiday": {
+          "days": 3,
+          "measure": "COUNT",
+          "unit": {
+            "en": "push-ups"
+          },
+          "target": {
+            "atLeast": 50
+          }
+        }
+      }
+    },
+    "rounds/1": {
+      "file": "vectors/rounds-1.json",
+      "key": "home-triathlon",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "rounds",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "home-triathlon",
+        "title": {
+          "en": "The home triathlon"
+        },
+        "instruction": {
+          "en": "50 squats, then hold a plank 60 seconds, then stretch."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "rounds": {
+          "rounds": [
+            {
+              "key": "squats",
+              "name": {
+                "en": "50 squats"
+              },
+              "measure": "COUNT",
+              "unit": {
+                "en": "squats"
+              },
+              "target": {
+                "atLeast": 50
+              }
+            },
+            {
+              "key": "plank",
+              "name": {
+                "en": "Hold a plank 60 seconds"
+              },
+              "measure": "TIME",
+              "target": {
+                "atLeast": 60
+              }
+            },
+            {
+              "key": "stretch",
+              "name": {
+                "en": "Stretch"
+              },
+              "measure": "NONE"
+            }
+          ],
+          "endsWithinHours": 2
+        }
+      }
+    },
+    "tournament/1": {
+      "file": "vectors/tournament-1.json",
+      "key": "chess-night",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "tournament",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "chess-night",
+        "title": {
+          "en": "Chess night"
+        },
+        "instruction": {
+          "en": "Rapid games of 10 minutes; the experience organizer names each winner."
+        },
+        "warnings": [],
+        "tournament": {
+          "endsWithinHours": 4
+        }
+      }
+    },
+    "tournament/2": {
+      "file": "vectors/tournament-2.json",
+      "key": "duel-best-of-3",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "tournament",
+          "version": 2
+        },
+        "owner": "@karim",
+        "name": "duel-best-of-3",
+        "title": {
+          "en": "Friday duel"
+        },
+        "instruction": {
+          "en": "Best of 3 games; the loser of a game chooses the next challenge."
+        },
+        "warnings": [],
+        "tournament": {
+          "profile": "VIDEO_GAMES",
+          "format": "SINGLE_ELIMINATION",
+          "entrants": {
+            "max": 2
+          },
+          "match": {
+            "kind": "BEST_OF",
+            "bestOf": 3
+          },
+          "challenges": {
+            "choice": "ALTERNATE",
+            "list": [
+              {
+                "key": "race-track",
+                "name": {
+                  "en": "Race track"
+                },
+                "order": "HIGHER_FIRST"
+              },
+              {
+                "key": "fastest-lap",
+                "name": {
+                  "en": "Fastest lap, in milliseconds"
+                },
+                "order": "LOWER_FIRST"
+              },
+              {
+                "key": "penalties",
+                "name": {
+                  "en": "Penalty shoot-out"
+                },
+                "order": "HIGHER_FIRST"
+              }
+            ]
+          },
+          "thirdPlace": false,
+          "consolation": false,
+          "seeding": "DRAW",
+          "validation": {
+            "level": "TRUST"
+          },
+          "datedProof": "NONE",
+          "endsWithinHours": 4
+        }
+      }
+    },
+    "visit/1": {
+      "file": "vectors/visit-1.json",
+      "key": "alfama",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "visit",
+          "version": 1
+        },
+        "owner": "@alice",
+        "name": "alfama",
+        "title": {
+          "en": "Alfama in a weekend"
+        },
+        "instruction": {
+          "en": "Visit the castle, the viewpoint and the cathedral; the museum and the pantheon if you have time."
+        },
+        "warnings": [
+          "PHYSICAL_EFFORT"
+        ],
+        "visit": {
+          "stages": [
+            {
+              "key": "castle",
+              "name": "Castelo de São Jorge",
+              "placeId": "overture:example-castle",
+              "point": {
+                "lat": 38.7139,
+                "lon": -9.1335
+              }
+            },
+            {
+              "key": "santa-luzia",
+              "name": "Miradouro de Santa Luzia",
+              "radiusMetres": 30,
+              "point": {
+                "lat": 38.7118,
+                "lon": -9.1301
+              }
+            },
+            {
+              "key": "cathedral",
+              "name": "Sé de Lisboa",
+              "placeId": "overture:example-cathedral",
+              "note": {
+                "en": "Take a photo of the rose window.",
+                "fr": "Prenez la rosace en photo."
+              },
+              "proof": {
+                "media": [
+                  "IMAGE"
+                ]
+              },
+              "point": {
+                "lat": 38.7097,
+                "lon": -9.1335
+              }
+            },
+            {
+              "key": "fado-museum",
+              "name": "Museu do Fado",
+              "optional": true,
+              "point": {
+                "lat": 38.711,
+                "lon": -9.1265
+              }
+            },
+            {
+              "key": "pantheon",
+              "name": "Panteão Nacional",
+              "optional": true,
+              "point": {
+                "lat": 38.7149,
+                "lon": -9.125
+              }
+            }
+          ],
+          "order": {
+            "mode": "SUGGESTED"
+          },
+          "spanDays": 2
+        }
+      }
+    },
+    "contest/1": {
+      "file": "vectors/contest-1.json",
+      "key": "photo-grid",
+      "document": {
+        "format": "breakrocks.experience/4",
+        "version": "1.0",
+        "engine": {
+          "name": "contest",
+          "version": 1
+        },
+        "owner": "@nadia",
+        "name": "photo-grid",
+        "title": {
+          "en": "Spring photo contest"
+        },
+        "instruction": {
+          "en": "One photo per category, judged on composition and light."
+        },
+        "contest": {
+          "forms": [
+            "IMAGE"
+          ],
+          "categories": [
+            {
+              "key": "landscape",
+              "name": {
+                "en": "Landscape"
+              }
+            },
+            {
+              "key": "portrait",
+              "name": {
+                "en": "Portrait"
+              }
+            }
+          ],
+          "entries": {
+            "max": 50
+          },
+          "winners": "JURY",
+          "jury": {
+            "mode": "CRITERIA_GRID",
+            "criteria": [
+              {
+                "key": "composition",
+                "name": {
+                  "en": "Composition"
+                }
+              },
+              {
+                "key": "light",
+                "name": {
+                  "en": "Light"
+                }
+              }
+            ]
+          },
+          "entriesShown": "FROM_SUBMISSION",
+          "datedProof": "NONE",
+          "submissionHours": 168,
+          "endsWithinHours": 240
         }
       }
     }

@@ -1,15 +1,15 @@
-# The place feats, the first slice of the experiences (since v104.2.0, decided on 2026-11-11): additions only.
+# The place experiences, the first slice of the experiences (since v104.2.0, decided on 2026-11-11): additions only.
 # features/experiences/experience-feats.feature; contracts/experiences.md (the template format breakrocks.experience/3,
-# the states, the counts, the map layer); contracts/urls.md § Place feats. The operations are in base.graphql (Query and
+# the states, the counts, the map layer); contracts/urls.md § Place experiences. The operations are in base.graphql (Query and
 # Mutation, group "experiences"). Words: the glossary says "experience instance" and "experience feat"; the operations
 # keep the word "run" of the experiences drafts (startPlaceFeatRun, endPlaceFeatRun), the types the glossary words.
-# Cost at rest (expand only): a place feat is one item (its template in S3 when large); an experience instance one item
-# holding its experience feat; a published experience feat one item in the gallery of its place feat (by date) plus its
-# post; the place feat counts are sharded counters per place feat (people, today) and one marker per place feat and
+# Cost at rest (expand only): a place experience is one item (its template in S3 when large); an experience instance one item
+# holding its experience feat; a published experience feat one item in the gallery of its place experience (by date) plus its
+# post; the place experience counts are sharded counters per place experience (people, today) and one marker per place experience and
 # person (counted once); nothing is polled, nothing is pushed in real time in this slice.
 
 """
-A place feat (glossary: place feat): an experience template of the template kind "place-feat", bound to one point of
+A place experience (glossary: place experience): an experience template of the template kind "place-feat", bound to one point of
 interest, done by many people the same way (contracts/experiences.md § The template).
 """
 type PlaceFeat {
@@ -77,7 +77,7 @@ type PlaceFeat {
   """
   placeWarnings: [String!]!
   """
-  Its place feat count.
+  Its place experience count.
   """
   counts: PlaceFeatCounts!
   """
@@ -86,13 +86,13 @@ type PlaceFeat {
   """
   withdrawn: Boolean!
   """
-  The experience instance of the caller in progress for this place feat; null when none.
+  The experience instance of the caller in progress for this place experience; null when none.
   """
   myInstanceInProgress: ExperienceInstance
 }
 
 """
-The point of interest of a place feat.
+The point of interest of a place experience.
 """
 type PlaceFeatPlace {
   """
@@ -104,7 +104,7 @@ type PlaceFeatPlace {
   """
   name: String!
   """
-  Its point (WGS 84): where every experience feat of the place feat is shown, never the position of a person.
+  Its point (WGS 84): where every experience feat of the place experience is shown, never the position of a person.
   """
   point: Point!
   """
@@ -114,12 +114,12 @@ type PlaceFeatPlace {
 }
 
 """
-The place feat count (glossary: place feat count): people counted once, whatever the visibility of their experience
+The place experience count (glossary: place experience count): people counted once, whatever the visibility of their experience
 feats, never named; a count under 3 people is null (k-anonymity, as a map presence group).
 """
 type PlaceFeatCounts {
   """
-  The people who hold an experience feat of the place feat, whatever its visibility, minors included (the decision
+  The people who hold an experience feat of the place experience, whatever its visibility, minors included (the decision
   D-332 stays open); a person whose experience feats of it are all deleted is no longer counted; null under 3.
   """
   people: Int
@@ -135,7 +135,7 @@ type PlaceFeatCounts {
 }
 
 """
-How lively a place is, from the distinct people who completed an experience instance of one of its place feats today
+How lively a place is, from the distinct people who completed an experience instance of one of its place experiences today
 (one marker per place, person and local day; only humans whose account is at least 30 days old, never a minor): NONE
 under 3 people, LIVELY from 3, VERY_LIVELY from 20 (settings of the platform team, experiences.md § Counts).
 """
@@ -167,7 +167,7 @@ enum ExperienceInstanceState {
 }
 
 """
-An experience instance of a place feat (glossary: experience instance; "run" in the operations), read by its human; by
+An experience instance of a place experience (glossary: experience instance; "run" in the operations), read by its human; by
 a feat invitee or a reader of the post of its published experience feat, the same without the fields kept for its
 human (each description says). Whether its human is a minor is read at every reading, from their current status.
 """
@@ -177,7 +177,7 @@ type ExperienceInstance {
   """
   id: ID!
   """
-  Its place feat; null for every reader but its human when its human is a minor (neither the place nor the date of a
+  Its place experience; null for every reader but its human when its human is a minor (neither the place nor the date of a
   minor's experience feat is ever shown to another reader).
   """
   placeFeat: PlaceFeat
@@ -277,7 +277,7 @@ A published experience feat in a feat gallery.
 """
 type PublishedFeat {
   """
-  Its experience instance (its id, its human, its place feat, its experience feat).
+  Its experience instance (its id, its human, its place experience, its experience feat).
   """
   instance: ExperienceInstance!
   """
@@ -325,7 +325,7 @@ enum FeatGalleryOrder {
 
 """
 Where the post of a published experience feat is placed (experience-feats.feature): POINT_OF_INTEREST (an adult only,
-the default for an adult: the point of interest of the place feat, in the feat gallery and the pin cluster; until D-393,
+the default for an adult: the point of interest of the place experience, in the feat gallery and the pin cluster; until D-393,
 a clip also a placed video there; since D-393, never drawn as a placed post nor a placed video, its experience feat
 showing by its place only), NONE ("not on the map": not placed, neither in the feat gallery nor the pin cluster, still
 counted; the default for a minor) or CITY (a minor only: the city of the point of interest, never closer, never in the
@@ -338,7 +338,7 @@ enum FeatPlacement {
 }
 
 """
-A place of the experiences layer: a point of interest with a place feat, its pin cluster and how lively it is.
+A place of the experiences layer: a point of interest with a place experience, its pin cluster and how lively it is.
 """
 type MapPlaceFeats {
   """
@@ -346,20 +346,20 @@ type MapPlaceFeats {
   """
   place: PlaceFeatPlace!
   """
-  The identifiers of its place feats the layer shows (with a universe filter, those that universe hosts or adopted),
+  The identifiers of its place experiences the layer shows (with a universe filter, those that universe hosts or adopted),
   5 at most.
   """
   placeFeatIds: [ID!]!
   """
-  The number of the experience feats of its place feats published in public universes at the point of interest (a
+  The number of the experience feats of its place experiences published in public universes at the point of interest (a
   minor's and one "not on the map" left out): the number of its pin cluster.
   """
   publishedCount: Int!
   """
-  Since D-414 (map-markers.feature): the number its round carries: the largest place feat count among its place feats
+  Since D-414 (map-markers.feature): the number its round carries: the largest place experience count among its place experiences
   (placeFeatIds), never a sum, as its place card shows them (the people who hold an experience feat of one, whatever its
   visibility); in the files of the map highlights too. The apps show it from 3 people, the display threshold of the
-  place feat count, and no number below. 0 when none.
+  place experience count, and no number below. 0 when none.
   """
   placeFeatCount: Int!
   """
@@ -374,7 +374,7 @@ type MapPlaceFeats {
   liveliness: PlaceLiveliness!
   """
   Since v114.3.0 (map-markers.feature, D-349; contracts/map.md § "Since v114.3.0"): the photo of the last published
-  experience feat of the place, drawn in its round with the feat flag and shown on its place card. That experience feat
+  experience feat of the place, drawn in its round with the place experience flag and shown on its place card. That experience feat
   is chosen among those publishedCount counts (published in public universes and placed at the point of interest),
   never one it does not count; read with universe, the last published experience feat of that universe at the place,
   as publishedCount; without universe, of the whole place. The photo is the first image of
@@ -468,13 +468,14 @@ input PublishFeatInput {
 # features/experiences/experience-addresses.feature, experience-instances.feature, simple-challenges.feature,
 # route-experiences.feature, experience-rankings.feature, experience-moderation.feature; contracts/experiences.md (the
 # envelope, the registry of experience engines, the experience template breakrocks.experience/4 and its JSON Schema, the
-# evaluators and the test vectors). The place feats keep their types above (ExperienceInstance, presence/3). The
+# evaluators and the test vectors). The place experiences keep their types above (ExperienceInstance, presence/3). The
 # operations take typed arguments; JSON only carries the experience template (P-15), never an operation. Cost at rest
 # (expand only): contracts/experiences.md § At rest.
 
 """
 Since v136.2.0: an experience engine of the registry of experience engines (contracts/experiences/engines.json) and its
-version: presence 3 (the place feats), route 1, challenge 1. An app runs only the engine versions it implements.
+version: presence 3 (the place experiences), route 1, challenge 1, and since v136.5.0 visit 1. An app runs only the engine
+versions it implements.
 """
 type ExperienceEngine {
   """
@@ -488,13 +489,23 @@ type ExperienceEngine {
 }
 
 """
-Since v136.2.0: the names of the experience engines: PRESENCE (the place feats), ROUTE (the route experience),
-CHALLENGE (the simple challenge).
+Since v136.2.0: the names of the experience engines: PRESENCE (the place experiences), ROUTE (the route experience),
+CHALLENGE (the simple challenge; since D-461, at the version 2 also the simple challenge measured by the device); since
+v136.5.0, VISIT (the visit experience); since D-461, MEETUP (the attendance meetup, contracts/experiences.md
+§ Attendance meetups and the organizer code); since D-467, MULTIDAY (the multi-day challenge), ROUNDS (the multi-round
+challenge), TOURNAMENT (the simple tournament) (contracts/experiences.md § Multi-day challenges, § Multi-round
+challenges, § Simple tournaments). Since D-498, CONTEST (the judged contest, § Judged contests (contest/1)).
 """
 enum ExperienceEngineName {
   CHALLENGE
+  CONTEST
+  MEETUP
+  MULTIDAY
   PRESENCE
+  ROUNDS
   ROUTE
+  TOURNAMENT
+  VISIT
 }
 
 """
@@ -540,9 +551,12 @@ enum ExperienceRankingOrder {
 """
 Since v136.2.0: who validates an experience proof of a simple challenge: ORGANIZER (the experience organizer of a group
 experience instance), PARTICIPANT_VOTE (the other experience participants, a proof vote), SELF_REPORTED (nobody; the
-proof is optional). Nobody validates their own proof: without another validator, a success is self-reported.
+proof is optional). Nobody validates their own proof: without another validator, a success is self-reported. Since
+D-461, DEVICE_MEASURED (challenge/2 only: nobody, the count is measured by the device; a count entered or changed by
+hand is self-reported).
 """
 enum ProofValidation {
+  DEVICE_MEASURED
   ORGANIZER
   PARTICIPANT_VOTE
   SELF_REPORTED
@@ -592,7 +606,9 @@ type ExperienceParameter {
   """
   key: String!
   """
-  The field of the engine block it sets: "target" or "endsWithinHours" (challenge/1).
+  The field of the engine block it sets: "target" or "endsWithinHours" (challenge/1); since v136.5.0, "atLeast"
+  (visit/1: the completion threshold); since D-449, "spanDays" (visit/1: the number of days, 1 to 30); since D-467,
+  "target" (the target of the day) or "days" (the number of challenge days, 1 to 30) of a multi-day challenge.
   """
   field: String!
   """
@@ -600,7 +616,8 @@ type ExperienceParameter {
   """
   min: Int!
   """
-  Its highest value.
+  Its highest value. Since v136.5.0, for the parameter bound to atLeast of a visit experience, capped to the number of
+  visit stages the caller sees (a value of a reuse above it is read as it, never refused).
   """
   max: Int!
   """
@@ -641,9 +658,14 @@ template.
 """
 type ChallengeSetup {
   """
-  What it measures: COUNT, TIME or NONE.
+  What it measures: COUNT, TIME or NONE (since D-461, COUNT only when measuredBy is not PERSON).
   """
   measure: ExperienceMeasure!
+  """
+  Since D-461 (contracts/experiences.md § Device measures): how it is measured: PERSON (by hand, challenge/1), or a
+  measuring means of the device (challenge/2).
+  """
+  measuredBy: ExperienceMeasuringMeans!
   """
   What is counted ("squats"), in the language of the caller, else in English; null unless COUNT.
   """
@@ -657,7 +679,8 @@ type ChallengeSetup {
   """
   targetAtMost: Int
   """
-  The media kinds a proof may be: IMAGE, VIDEO (a clip, 3 minutes at most).
+  The media kinds a proof may be: IMAGE, VIDEO (a clip, 3 minutes at most); since D-461, empty for a simple challenge
+  measured by the device (it takes none).
   """
   proofMedia: [MediaKind!]!
   """
@@ -671,9 +694,267 @@ type ChallengeSetup {
 }
 
 """
-Since v136.2.0 (D-423, D-424): an experience of the engines route/1 and challenge/1, as the caller may read it (its
+Since D-461 (device-measures.feature, contracts/experiences.md § Device measures): how a simple challenge is measured:
+PERSON (by hand: the counter, the timer or nothing, challenge/1), HEALTH_STEPS (the steps the device and a watch
+connected to it recorded, read from its health data with the health consent of the person, for that experience instance only or for always),
+VOICE_COUNT (the numbers the person says aloud), SOUND_COUNT (the repetitions of a sound), CAMERA_COUNT (the repetitions
+of a movement in front of the camera). Everything is measured on the device; only the count leaves it.
+"""
+enum ExperienceMeasuringMeans {
+  CAMERA_COUNT
+  HEALTH_STEPS
+  PERSON
+  SOUND_COUNT
+  VOICE_COUNT
+}
+
+"""
+Since D-461 (device-measures.feature): the source of a measure sent for a simple challenge measured by the device
+(ExperienceMeasureInput.measuredBy): DEVICE (the count as the measuring means of the device measured it, sent as it
+is), PERSON (a count entered or changed by hand, or the device could not count).
+"""
+enum MeasureSource {
+  DEVICE
+  PERSON
+}
+
+"""
+Since D-467 (multi-day-challenges.feature, contracts/experiences.md § Multi-day challenges): the engine block of a
+multi-day challenge (multiday/1).
+"""
+type MultiDaySetup {
+  """
+  The number of challenge days, 1 to 30 (the value of the reuse is in ExperienceRun.parameters).
+  """
+  days: Int!
+  """
+  What each challenge day measures: COUNT or NONE (done by saying so).
+  """
+  measure: ExperienceMeasure!
+  """
+  How a count is measured: PERSON (by hand), or a measuring means of the device.
+  """
+  measuredBy: ExperienceMeasuringMeans!
+  """
+  What is counted ("push-ups"), in the language of the caller, else in English; null unless COUNT.
+  """
+  unit: String
+  """
+  The target of the day, at least this count; null unless COUNT.
+  """
+  targetAtLeast: Int
+}
+
+"""
+Since D-467 (multi-round-challenges.feature, contracts/experiences.md § Multi-round challenges): one challenge round of
+a multi-round challenge.
+"""
+type ChallengeRound {
+  """
+  Its key in the multi-round challenge, named by a measure of it (ExperienceMeasureInput.round).
+  """
+  key: String!
+  """
+  Its name, in the language of the caller, else in English.
+  """
+  name: String!
+  """
+  What it measures: COUNT, TIME or NONE.
+  """
+  measure: ExperienceMeasure!
+  """
+  How a count is measured: PERSON (by hand: always for TIME and NONE), or a measuring means of the device.
+  """
+  measuredBy: ExperienceMeasuringMeans!
+  """
+  What is counted, in the language of the caller, else in English; null unless COUNT.
+  """
+  unit: String
+  """
+  The target "at least" (a count, or seconds to hold); null when none.
+  """
+  targetAtLeast: Int
+  """
+  The target "at most" (seconds within which to do it, TIME only); null when none.
+  """
+  targetAtMost: Int
+}
+
+"""
+Since D-467: the engine block of a multi-round challenge (rounds/1).
+"""
+type RoundsSetup {
+  """
+  Its 2 to 10 challenge rounds, in their order.
+  """
+  rounds: [ChallengeRound!]!
+  """
+  An experience instance ends at the latest this many hours after it went in progress (1 to 168).
+  """
+  endsWithinHours: Int!
+}
+
+"""
+Since D-467 (simple-tournaments.feature, contracts/experiences.md § Simple tournaments): the engine block of a simple
+tournament (tournament/1).
+"""
+type TournamentSetup {
+  """
+  An experience instance ends at the latest this many hours after it went in progress (1 to 168).
+  """
+  endsWithinHours: Int!
+}
+
+"""
+Since D-467 (health-measures.feature, contracts/experiences.md § Device measures), revised on 2026-11-19: a health
+consent of the caller, a standing health consent (scope ALWAYS, one per account) or a one-time health consent (scope
+ONCE, for the experience instance runId) (myHealthConsent, Experience.healthConsent, setHealthConsent).
+"""
+type HealthConsentState {
+  """
+  True while the caller allows their steps to be read and their number sent: in every experience instance measured by
+  the steps of the health data, whatever the experience and its version, for ALWAYS; in the experience instance runId,
+  for ONCE; false when never given, refused or withdrawn.
+  """
+  allowed: Boolean!
+  """
+  When it was last given or withdrawn; null when never.
+  """
+  at: AWSDateTime
+  """
+  Since the revision of 2026-11-19: ALWAYS (a standing health consent) or ONCE (a one-time health consent); null when no
+  health consent was ever given.
+  """
+  scope: HealthConsentScope
+  """
+  Since the revision of 2026-11-19: for ONCE, the experience instance it covers; null for ALWAYS or when none.
+  """
+  runId: ID
+}
+
+"""
+Since the revision of the health consent on 2026-11-19 (health-measures.feature, contracts/experiences.md § Device
+measures): the choice of the person. ONCE: "this time only", a one-time health consent for one experience instance,
+asked again at the next begin. ALWAYS: "always", a standing health consent for every experience instance measured by
+the steps of the health data, never asked again until it is withdrawn.
+"""
+enum HealthConsentScope {
+  ONCE
+  ALWAYS
+}
+
+"""
+Since D-461 (attendance-meetups.feature): the engine block of an attendance meetup (meetup/1).
+"""
+type MeetupSetup {
+  """
+  An experience instance ends at the latest this many hours after it went in progress (1 to 168).
+  """
+  endsWithinHours: Int!
+}
+
+"""
+Since v136.5.0 (D-436, visit-experiences.feature): the order mode of a visit experience: FREE (any order; the apps
+suggest one with the stage order function), SUGGESTED (any order; the order of its visit stages suggested first),
+STRICT (the order of its visit stages only; never reordered).
+"""
+enum VisitOrderMode {
+  FREE
+  STRICT
+  SUGGESTED
+}
+
+"""
+Since v136.5.0 (D-436): a visit stage of a visit experience, as the caller may read it (contracts/experiences.md
+§ Visit experiences): a point of interest or a free named point. A visit stage that the privacy zones of the author of
+a visit experience of an account hide is left out for every reader but its author.
+"""
+type VisitStage {
+  """
+  Its key in the visit experience ("castle"), what the evaluator and the stage order function name; never shown.
+  """
+  key: String!
+  """
+  Its name (1 to 60 visible characters), never translated.
+  """
+  name: String!
+  """
+  Its note, in the language of the caller, else in English; null when none.
+  """
+  note: String
+  """
+  Its point of interest (its place card: placeCard); null for a free named point.
+  """
+  placeId: String
+  """
+  Its point.
+  """
+  point: Point!
+  """
+  The radius within which a visit stage check-in with the position of the device is checked on the device (20 to
+  300 metres; 50 when its creator set none).
+  """
+  radiusMetres: Int!
+  """
+  True for an optional visit stage: not needed by the default completion threshold.
+  """
+  optional: Boolean!
+  """
+  The media kinds of the photo or the clip required at this visit stage (IMAGE, VIDEO); empty when none is required.
+  """
+  proofMedia: [MediaKind!]!
+}
+
+"""
+Since v136.5.0 (D-436): the engine block of a visit experience (visit/1), contracts/experiences.md § The experience
+template.
+"""
+type VisitSetup {
+  """
+  Its visit stages the caller may read, 30 at most, in the order of its creator.
+  """
+  stages: [VisitStage!]!
+  """
+  Its order mode.
+  """
+  orderMode: VisitOrderMode!
+  """
+  The key of the visit stage kept first when the remaining visit stages are reordered; null when none, or when the
+  caller may not read that visit stage.
+  """
+  firstStage: String
+  """
+  The key of the visit stage kept last when the remaining visit stages are reordered; null when none, or when the
+  caller may not read that visit stage.
+  """
+  lastStage: String
+  """
+  The completion threshold "at least" this many visit stages done (before a reuse; in ExperienceRun.visit, after it),
+  capped to the number of visit stages the caller sees, so that it never reveals a hidden one; null: every visit stage
+  that is not optional, and at least 1 done.
+  """
+  atLeast: Int
+  """
+  An experience instance lasts this many days of 24 hours from the moment it went in progress (1 to 30), its end
+  rounded up to the next quarter of an hour; since D-449, before a reuse (an experience parameter bound to "spanDays"
+  may change it), and in ExperienceRun.visit after it.
+  """
+  spanDays: Int!
+  """
+  The route linked only to draw its line, read with mapRoute (its latest route version; its author MapRoute.owner): a
+  route of the owner of the visit experience (which is never more visible than it), or, since D-449, a public route of
+  another account, shown with the name of its author; null when none, and since D-449 null to every caller while a
+  linked route of another account is not PUBLIC (made unlisted or private, deleted) or a block stands between its
+  author and the owner of the visit experience, and since D-451 while its author detached it (detachRouteLink): the apps then draw no line (contracts/experiences.md § Visit
+  experiences).
+  """
+  routeId: ID
+}
+
+"""
+Since v136.2.0 (D-423, D-424): an experience of the engines route/1 and challenge/1 (since v136.5.0, visit/1 too), as the caller may read it (its
 visibility; EXPERIENCE_NOT_FOUND otherwise). Its experience template is the document breakrocks.experience/4
-(contracts/experiences/definition.schema.json). A place feat is served as PlaceFeat, not as Experience.
+(contracts/experiences/definition.schema.json). A place experience is served as PlaceFeat, not as Experience.
 """
 type Experience {
   """
@@ -747,6 +1028,35 @@ type Experience {
   """
   challenge: ChallengeSetup
   """
+  Since v136.5.0 (D-436): the engine block of a visit experience; null for another engine.
+  """
+  visit: VisitSetup
+  """
+  Since D-461: the engine block of an attendance meetup; null for another engine.
+  """
+  meetup: MeetupSetup
+  """
+  Since D-467: the engine block of a multi-day challenge; null for another engine.
+  """
+  multiDay: MultiDaySetup
+  """
+  Since D-467: the engine block of a multi-round challenge; null for another engine.
+  """
+  rounds: RoundsSetup
+  """
+  Since D-467: the engine block of a simple tournament; null for another engine.
+  """
+  tournament: TournamentSetup
+  """
+  Since D-467 (health-measures.feature): the standing health consent of the caller, one per account (the same as
+  myHealthConsent without runId, not tied to this experience), served by the detail reads (experience,
+  resolveAddress) of an experience measured by the steps of the health data (a simple challenge, a multi-day challenge
+  or a challenge round), so that the app knows at the begin whether to ask it: allowed true, not asked; otherwise asked
+  (since the revision of 2026-11-19, a one-time health consent of an earlier experience instance never counts here);
+  null = not served here: another measuring means, another read, a delegated agent.
+  """
+  healthConsent: HealthConsentState
+  """
   The route of a route experience, as the caller may read it (the privacy zones of its author applied); null for
   another engine, or when the caller may not read the route.
   """
@@ -773,6 +1083,24 @@ type Experience {
   """
   via: String
   """
+  Since v137.1.0 (D-439, platform-experiences.feature, contracts/experiences.md § The Proposed mark): true for a seeded
+  visit experience, imported by the area seeding of the platform team (made outside the social platform by a language
+  model): the apps show the Proposed mark. Kept by every version, the publication and an adoption, never set nor
+  cleared by a caller; false for every other experience (since v139.1.0, D-449: a visit experience an account saved from
+  a generated visit draft included, which is modelAssisted). Not automated (a delegated agent wrote it). An attribute of
+  the experience item, served wherever an Experience is served, at no read more (P-8: never null; P-11).
+  """
+  generated: Boolean!
+  """
+  Since v139.1.0 (D-449, visit-generator.feature, contracts/experiences.md § The model-assisted mark): true for a visit
+  experience an account saved from a generated visit draft of the visit generator (createExperience with generationId):
+  the apps show the model-assisted mark ("Written with the help of a language model"), never the Proposed mark. Kept by
+  every version, even after every text was rewritten, and by the publication; never set nor cleared by a caller; false
+  for every other experience; never true with generated. An attribute of the experience item, served wherever an
+  Experience is served, at no read more (P-8: never null; P-11).
+  """
+  modelAssisted: Boolean!
+  """
   The experience instance of the caller whose experience result is not ended yet; null when none.
   """
   myRunInProgress: ExperienceRun
@@ -797,9 +1125,11 @@ type ExperienceOpinions {
   likeCount: Int!
   """
   The number of accounts whose experience opinion of it is DISLIKE, read by its experience owner only: the account it
-  belongs to, or a member of the leadership of the universe it belongs to; null for anyone else: another account, a
-  delegated agent (even of the account it belongs to), the leadership of a universe that adopted it, and every caller
-  for an experience of the social platform (its platform team reads it in the back office: open in v136.3.0).
+  belongs to, or a member of the leadership of the universe it belongs to, and, since v137.0.0 (D-435), only once the
+  experience has at least 5 experience opinions (likes and dislikes together). Null means "not served to this caller
+  now" (P-8): another account, a delegated agent (even of the account it belongs to), the leadership of a universe that
+  adopted it, every caller for an experience of the social platform (its platform team reads it in the back office:
+  open in v136.3.0), and the experience owner while the experience has fewer than 5 experience opinions.
   """
   dislikeCount: Int
   """
@@ -840,6 +1170,43 @@ enum ExperienceOpinion {
 }
 
 """
+Since D-451 (visit-experiences.feature): a visit experience of another owner that links a route of the caller, as the
+author of the route reads it (routeLinks).
+"""
+type RouteLink {
+  """
+  When its author detached the route from it (detachRouteLink); null while the line may be drawn.
+  """
+  detachedAt: AWSDateTime
+  """
+  The visit experience, UNLISTED or PUBLIC, with its owner.
+  """
+  experience: Experience!
+  """
+  When the visit experience was first read by others than its owner with the link (when ROUTE_LINKED was sent).
+  """
+  linkedAt: AWSDateTime!
+  """
+  The route of the caller it links.
+  """
+  routeId: ID!
+}
+
+"""
+Since D-451: a page of the links of a route (routeLinks).
+"""
+type RouteLinkPage {
+  """
+  The links of the page.
+  """
+  items: [RouteLink!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
 Since v136.2.0: a page of experiences.
 """
 type ExperiencePage {
@@ -863,8 +1230,8 @@ enum ExperienceRunState {
 }
 
 """
-Since v136.2.0: where an experience instance is done: SOLO, GROUP_CHAT, UNIVERSE_DISCUSSION (challenge/1),
-UNIVERSE_EVENT.
+Since v136.2.0: where an experience instance is done: SOLO, GROUP_CHAT, UNIVERSE_DISCUSSION (challenge/1; since D-461
+challenge/2, since D-467 rounds/1), UNIVERSE_EVENT.
 """
 enum ExperienceRunPlace {
   GROUP_CHAT
@@ -897,11 +1264,15 @@ enum ExperienceOutcome {
 Since v136.2.0: the experience proof of an experience result: DEVICE_CHECKED (checked on the device: the stage check-ins
 of a route experience), PEOPLE_VALIDATED (by the experience organizer or a proof vote), SELF_REPORTED (marked so; never
 in an experience ranking), PENDING (waiting for its validation), REFUSED (a failure), NOT_NEEDED (a failure on the
-measure, nothing to validate).
+measure, nothing to validate). Since D-461 (contracts/experiences.md § Device measures, § Attendance meetups and the
+organizer code): DEVICE_MEASURED (a count a measuring means of the device measured, sent as it is: challenge/2; enters
+an experience ranking, shown "measured by the device"), ORGANIZER_CODE (present by the organizer code: meetup/1).
 """
 enum ExperienceProofStatus {
   DEVICE_CHECKED
+  DEVICE_MEASURED
   NOT_NEEDED
+  ORGANIZER_CODE
   PENDING
   PEOPLE_VALIDATED
   REFUSED
@@ -913,13 +1284,27 @@ Since v136.2.0: the photo or the clip of an experience proof, read by who may re
 """
 type ExperienceProofMedia {
   """
-  IMAGE or VIDEO.
+  IMAGE or VIDEO; since D-498, VOICE for the audio of a contest entry.
   """
   mediaKind: MediaKind!
   """
   Its URL on the media CDN, signed for 1 hour.
   """
   mediaUrl: AWSURL!
+}
+
+"""
+Since D-489: a proof code.
+"""
+type ProofCode {
+  """
+  The code.
+  """
+  code: String!
+  """
+  30 minutes after it was given.
+  """
+  expiresAt: AWSDateTime!
 }
 
 """
@@ -940,8 +1325,8 @@ type ExperienceParticipation {
   """
   outcome: ExperienceOutcome
   """
-  The value of the final measure (a count, or seconds); null before it, for NONE and for a route experience (route/1
-  has no measure).
+  The value of the final measure (a count, or seconds); null before it, for NONE, for a route experience (route/1
+  has no measure) and for a visit experience (visit/1 has none).
   """
   measure: Int
   """
@@ -949,7 +1334,7 @@ type ExperienceParticipation {
   """
   progress: Int
   """
-  Its experience proof; null before the final measure (a route experience: until done).
+  Its experience proof; null before the final measure (a route experience, a visit experience: until done).
   """
   proof: ExperienceProofStatus
   """
@@ -961,25 +1346,92 @@ type ExperienceParticipation {
   """
   feat: Boolean!
   """
-  The stages skipped of a route experience; null for another engine.
+  The stages skipped of a route experience, the visit stages skipped of a visit experience (since v136.5.0); null for
+  another engine.
   """
   stagesSkipped: Int
+  """
+  Since v136.5.0 (D-436): the visit stages done of a visit experience, from its last visit progress; null for another
+  engine.
+  """
+  stagesDone: Int
+  """
+  Since v136.5.0 (D-436): the visit stages of a visit experience the experience participant sees (those the privacy
+  zones of its author hide left out), set at the start ("3 of 5"); null for another engine.
+  """
+  stagesTotal: Int
   """
   True when the experience participant chose to appear in the experience rankings (false by default).
   """
   appearsInRanking: Boolean!
   """
-  When the experience participant joined (began); null for a route experience, which keeps no time (endedOn).
+  When the experience participant joined (began); null for a route experience and a visit experience, which keep no
+  time (endedOn).
   """
   joinedAt: AWSDateTime
   """
-  When the experience result ended; null until ENDED, and for a route experience.
+  When the experience result ended; null until ENDED, and for a route experience and a visit experience.
   """
   endedAt: AWSDateTime
   """
-  The day the experience result ended (a route experience keeps the day only, as the route log); null until ENDED.
+  The day the experience result ended (a route experience and a visit experience keep their days only, as the route
+  log); null until ENDED.
   """
   endedOn: AWSDate
+  """
+  Since D-461 (feat-collection.feature): for an event Feat (a success of a group experience instance started from a
+  universe event), the title and the day of that universe event when the success was obtained, kept as they were;
+  null otherwise.
+  """
+  featEvent: FeatEvent
+  """
+  Since D-467 (multi-day-challenges.feature): the challenge days done of a multi-day challenge; null for another engine.
+  """
+  daysDone: Int
+  """
+  Since D-467: the number of challenge days of a multi-day challenge (after the reuse); null for another engine.
+  """
+  daysTotal: Int
+  """
+  Since D-467 (multi-round-challenges.feature): the challenge rounds done of a multi-round challenge; null for another
+  engine.
+  """
+  roundsDone: Int
+  """
+  Since D-467: the key of the current challenge round of a multi-round challenge; null for another engine and once
+  the experience result ended.
+  """
+  currentRound: String
+  """
+  Since D-467 (simple-tournaments.feature): the tournament matches won by a tournament entrant of a simple tournament,
+  by a decision or a walkover; null for another engine and for its experience organizer.
+  """
+  matchesWon: Int
+  """
+  Since D-498: the awards of a contest entrant once the results are out (a place 1 to 3, the Public's favorite); empty
+  otherwise.
+  """
+  contestAwards: [ContestAward!]!
+}
+
+"""
+Since D-461 (feat-collection.feature, contracts/experiences.md § The Feat collection and the event Feats): the
+universe event of an event Feat, as it was when the Feat was obtained (its title dropped once the universe event was
+removed by the moderation).
+"""
+type FeatEvent {
+  """
+  The identifier of the universe event (it may no longer exist).
+  """
+  eventId: ID!
+  """
+  Its title when the Feat was obtained; null once a moderator or the platform team removed that universe event.
+  """
+  title: String
+  """
+  Its day (in the time zone of its place) when the Feat was obtained.
+  """
+  day: AWSDate!
 }
 
 """
@@ -1037,15 +1489,21 @@ type ExperienceRun {
   """
   state: ExperienceRunState!
   """
-  When it went or goes in progress; null for a route experience once started (it keeps its day only).
+  When it went or goes in progress; null for a route experience and a visit experience once started (they keep their
+  day only).
   """
   startsAt: AWSDateTime
   """
-  When it ends at the latest; when it ended, once ENDED; null for a route experience once started.
+  When it ends at the latest; when it ended, once ENDED; null for a route experience once started; for a visit
+  experience, the end of its days while IN_PROGRESS (read by its experience participant), rounded up to the next
+  quarter of an hour (since D-444 (4)), and still the end of its days during the grace period of 24 hours that follows
+  when the completion threshold is not met (D-444 (9)): the experience result then ends at endsAt plus 24 hours at the
+  latest; null once ENDED.
   """
   endsAt: AWSDateTime
   """
-  Its day (in the time zone of its place, else of its experience organizer): the only date a route experience keeps.
+  Its day (in the time zone of its place, else of its experience organizer): the only date a route experience keeps;
+  for a visit experience, the day it went in progress (with ExperienceParticipation.endedOn, its days).
   """
   day: AWSDate!
   """
@@ -1064,6 +1522,131 @@ type ExperienceRun {
   A group route experience: its route group session (routeGroupSession), while it is in progress; null otherwise.
   """
   routeSessionId: ID
+  """
+  Since v136.5.0 (D-436, contracts/experiences.md § Visit experiences): a visit experience, the engine block of the
+  version it started with (experienceVersion), as its experience participant saw it at the start, frozen: the visit
+  stages the privacy zones then hid left out (their keys never served), atLeast after the reuse; what the evaluator on
+  the device and the stagesTotal of the platform count, so that a reinstall or a second device goes on. Served by
+  experienceRun(id) to its experience participant only; null, meaning "not served here", for another engine, in
+  myExperienceRuns, in ExperienceCard.run and to anyone else (P-8, P-11).
+  """
+  visit: VisitSetup
+  """
+  Since D-461 (attendance-meetups.feature, contracts/experiences.md § Attendance meetups and the organizer code): an
+  attendance meetup, the secret key of its organizer code (20 bytes in base 32; RFC 6238, HMAC-SHA-1, a step of 30
+  seconds, 6 digits), from which the app of its experience organizer shows the organizer code, without network too.
+  Served to its experience organizer only, in the answer of the startExperienceRun that started it and by
+  experienceRun(id); null for another engine, in myExperienceRuns, in an experience card and to anyone else.
+  """
+  organizerCodeKey: String
+  """
+  Since D-467: a multi-day challenge, the IANA time zone of its experience organizer at its start
+  (StartExperienceRunInput.timeZone; "UTC" without it), the time zone of its challenge days (the calendar days from
+  the day it went in progress, or the next day when that was after 18:00, to the day of endsAt); null for another
+  engine.
+  """
+  timeZone: String
+  """
+  Since D-467 (simple-tournaments.feature, contracts/experiences.md § Simple tournaments): the bracket of a simple
+  tournament once its tournament draw is made, as the caller may read it; null for another engine and before the
+  tournament draw.
+  """
+  bracket: TournamentBracket
+  """
+  Since D-481: tournament-state.schema.json; null but for tournament/2.
+  """
+  tournament: AWSJSON
+  """
+  Since D-483: a tournament edition; since D-498, also a contest edition.
+  """
+  edition: String
+  """
+  Since D-498: the state of a contest edition as the caller may read it; null but for contest/1.
+  """
+  contest: ContestState
+}
+
+"""
+Since D-467 (simple-tournaments.feature): the bracket of a simple tournament, built for each reader.
+"""
+type TournamentBracket {
+  """
+  The number of tournament entrants of the tournament draw, 4 to 32.
+  """
+  entrants: Int!
+  """
+  The size of the bracket: the smallest power of two at least entrants (4, 8, 16 or 32). The first size - entrants
+  tournament entrants of the tournament draw get a tournament bye.
+  """
+  size: Int!
+  """
+  Every tournament match, by tournament round then position, the tournament byes left out (a tournament entrant with
+  a tournament bye is a side of the second tournament round).
+  """
+  matches: [TournamentMatch!]!
+}
+
+"""
+Since D-467: one tournament match of a simple tournament.
+"""
+type TournamentMatch {
+  """
+  Its tournament round, from 1 (the last one is the last tournament match).
+  """
+  round: Int!
+  """
+  Its position in its tournament round, from 1.
+  """
+  position: Int!
+  """
+  Its first side.
+  """
+  sideA: TournamentSide!
+  """
+  Its second side.
+  """
+  sideB: TournamentSide!
+  """
+  How it was won; null until then.
+  """
+  outcome: TournamentMatchOutcome
+}
+
+"""
+Since D-467: one side of a tournament match.
+"""
+type TournamentSide {
+  """
+  WAITING (the winner of a tournament match not decided yet), ENTRANT (a tournament entrant still in, or who lost),
+  LEFT (a tournament entrant who left the experience instance), HIDDEN (a tournament entrant the reader blocked, or
+  who blocked the reader).
+  """
+  state: TournamentSideState!
+  """
+  The tournament entrant when ENTRANT or LEFT; null otherwise.
+  """
+  account: AccountRef
+}
+
+"""
+Since D-467: the state of a side of a tournament match: ENTRANT, HIDDEN, LEFT, WAITING (TournamentSide.state).
+"""
+enum TournamentSideState {
+  ENTRANT
+  HIDDEN
+  LEFT
+  WAITING
+}
+
+"""
+Since D-467: how a tournament match was won: SIDE_A_DECIDED, SIDE_B_DECIDED (named the winner by the experience
+organizer), SIDE_A_WALKOVER, SIDE_B_WALKOVER (a walkover: the other tournament entrant left).
+"""
+enum TournamentMatchOutcome {
+  SIDE_A_DECIDED
+  SIDE_A_WALKOVER
+  SIDE_B_DECIDED
+  SIDE_B_WALKOVER
 }
 
 """
@@ -1094,9 +1677,14 @@ type ExperienceRankingEntry {
   """
   account: AccountRef!
   """
-  The measure ranked (a count, or seconds), validated by people.
+  The measure ranked (a count, or seconds), validated by people, or, since D-461, measured by the device (proof).
   """
   value: Int!
+  """
+  Since D-461: its experience proof, PEOPLE_VALIDATED or DEVICE_MEASURED; the apps mark a DEVICE_MEASURED one
+  "measured by the device".
+  """
+  proof: ExperienceProofStatus!
   """
   When it was measured, on the device.
   """
@@ -1111,7 +1699,10 @@ type ExperienceRankingEntry {
 Since v136.2.0 (P-15): one problem of a document (checkExperience; errorInfo.problems of EXPERIENCE_DOCUMENT_INVALID):
 its code (contracts/experiences.md § The experience template: SCHEMA, TEXT_TOO_LONG, NAME_INVALID, NAME_TAKEN,
 OWNER_NOT_ALLOWED, ENGINE_NOT_AVAILABLE, RANKING_MEASURE_NOT_SUPPORTED, PARAMETER_OUT_OF_BOUNDS, ROUTE_NOT_AVAILABLE,
-ROUTE_NAME_MISMATCH, FIELD_SET_BY_PLATFORM), one per path.
+ROUTE_NAME_MISMATCH, FIELD_SET_BY_PLATFORM; since v136.5.0 STAGE_KEY_TWICE, STAGE_KEY_UNKNOWN, THRESHOLD_BEYOND_STAGES,
+PARAMETER_WITHOUT_THRESHOLD, PLACE_NOT_PUBLIC; since D-461 MEASURING_MEANS_NOT_OPEN; since D-467 ENGINE_NOT_OPEN,
+ROUND_KEY_TWICE; since D-473 TEMPLATE_NONE, TEMPLATE_FIXED_MISMATCH, TEMPLATE_CHOICE_INVALID, TEMPLATE_FIELD_NOT_ALLOWED,
+TEMPLATE_PARAMETER_INVALID; since D-484 TEMPLATE_CATALOGUE_UNREADABLE), one per path.
 """
 type DocumentProblem {
   """
@@ -1140,9 +1731,12 @@ input ExperienceParameterValueInput {
 """
 Since v136.2.0: what starts an experience instance (startExperienceRun): experienceId; parameters, the values of a reuse
 (none: the defaults); startsAt, a scheduled start from 5 minutes to 30 days ahead (none: at once); the place, at most one
-of discussion (a group chat by groupChatId, or a universe discussion by channel, challenge/1 only) and eventId (a
-universe event the caller attends, on its day); none: solo; appearInRanking, the choice of the caller (false by
-default).
+of discussion (a group chat by groupChatId, or a universe discussion by channel, challenge/1 only, since D-461 challenge/2 too, since D-467 rounds/1 too) and eventId (a
+universe event the caller attends, on its day); none: solo (a visit experience: solo only, since v136.5.0); appearInRanking, the choice of the caller (false by
+default). Since D-467: timeZone, the IANA time zone of the device of the caller ("Europe/Paris"; none: "UTC"), kept with
+their experience result (the day of a Feat in a Feat streak) and with the experience instance (the challenge days of a
+multi-day challenge); a value that is not an IANA time zone: INVALID_REQUEST. Since D-483: edition, tournament. Since
+D-498: contest (a judged contest; its edition required, as a tournament's).
 """
 input StartExperienceRunInput {
   experienceId: ID!
@@ -1151,14 +1745,447 @@ input StartExperienceRunInput {
   discussion: DiscussionRefInput
   eventId: ID
   appearInRanking: Boolean
+  timeZone: String
+  edition: String
+  tournament: TournamentStartInput
+  contest: ContestStartInput
 }
 
 """
-Since v136.2.0: a measure of the caller in an experience instance of a simple challenge (submitExperienceMeasure):
-runId; value, a count or seconds (null for NONE); final, false for a progress measure (sent at most every 5 seconds),
-true for the final measure (once); proofMediaId, the photo or the clip of its proof (requestMediaUpload, destination
-EXPERIENCE_PROOF), with the final measure; measuredAt, when it was measured on the device (made without network, sent
-with that time once the network is back).
+Since D-483: how a tournament edition starts (§ The tournament command).
+"""
+input TournamentStartInput {
+  signUp: TournamentSignUp
+  visibility: ExperienceVisibility
+  organizerPlays: Boolean
+}
+
+"""
+Since D-483: a tournament sign-up.
+"""
+enum TournamentSignUp {
+  CODE
+  INVITATION
+  OPEN
+  PLACE
+}
+
+"""
+Since D-483: tournament settings of a universe. Since D-492, sponsorsAllowed (absent: unchanged; true by default). Since
+D-498, contestJuryMode (absent: unchanged; ANY by default).
+"""
+input UniverseTournamentSettingsInput {
+  tournamentCreators: [ID!]!
+  themeChangeAllowed: Boolean!
+  sponsorsAllowed: Boolean
+  contestJuryMode: ContestJuryModeSetting
+}
+
+"""
+Since D-492: a sponsorship offer (contracts/experiences.md § Tournament sponsors).
+"""
+type SponsorshipOffer {
+  """
+  Its id.
+  """
+  id: ID!
+  """
+  The tournament edition.
+  """
+  runId: ID!
+  """
+  The tournament sponsor.
+  """
+  sponsor: AccountRef!
+  """
+  The level.
+  """
+  level: SponsorLevel!
+  """
+  The sponsor sector.
+  """
+  sector: SponsorSector!
+  """
+  The sponsor call to action; null: none.
+  """
+  callToAction: SponsorCallToAction
+  """
+  The state.
+  """
+  state: SponsorshipState!
+  """
+  Why it ended; null before.
+  """
+  endReason: SponsorshipEndReason
+  """
+  The price without the VAT, in cents, as shown.
+  """
+  price: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The share of the experience organizer, in cents.
+  """
+  organizerShare: Int!
+  """
+  The amount refunded, in cents.
+  """
+  refunded: Int!
+  """
+  The end of the wait of its state; null without one.
+  """
+  dueAt: AWSDateTime
+  """
+  A held payment waiting for the platform team.
+  """
+  held: Boolean!
+  """
+  The payout of the share: made, or at the latest; null before it is due.
+  """
+  payoutAt: AWSDateTime
+  """
+  The counts per day once paid, to the tournament sponsor and the experience organizer; else empty.
+  """
+  measures: [SponsorshipDayCounts!]!
+}
+
+"""
+Since D-492: the counts of one day of a sponsorship; null: fewer than 20.
+"""
+type SponsorshipDayCounts {
+  """
+  The day (UTC).
+  """
+  day: AWSDate!
+  """
+  Views of the tournament card.
+  """
+  cardViews: Int
+  """
+  Views of the tournament page.
+  """
+  pageViews: Int
+  """
+  Openings of the sponsor call to action.
+  """
+  callToActionOpenings: Int
+}
+
+"""
+Since D-492: a sponsor call to action; url null: the profile of the tournament sponsor.
+"""
+type SponsorCallToAction {
+  """
+  Its label.
+  """
+  label: SponsorCallToActionLabel!
+  """
+  A page of the verified domain.
+  """
+  url: String
+}
+
+"""
+Since D-492: a sponsor call to action.
+"""
+input SponsorCallToActionInput {
+  label: SponsorCallToActionLabel!
+  url: String
+}
+
+"""
+Since D-492: a sponsorship offer proposed, at the price shown.
+"""
+input SponsorshipProposalInput {
+  runId: ID!
+  level: SponsorLevel!
+  sector: SponsorSector!
+  price: Int!
+  currency: String!
+  callToAction: SponsorCallToActionInput
+}
+
+"""
+Since D-492: the price of a level, shown before any offer.
+"""
+type SponsorshipQuote {
+  """
+  The level.
+  """
+  level: SponsorLevel!
+  """
+  The price without the VAT, in cents.
+  """
+  price: Int!
+  """
+  The currency (ISO 4217).
+  """
+  currency: String!
+  """
+  The share of the experience organizer, in cents.
+  """
+  organizerShare: Int!
+  """
+  Whether the price is the sponsorship price floor.
+  """
+  floor: Boolean!
+  """
+  The sponsor sectors already taken in the edition.
+  """
+  sectorsTaken: [SponsorSector!]!
+}
+
+"""
+Since D-492: a page of sponsorship offers.
+"""
+type SponsorshipOfferPage {
+  """
+  The sponsorship offers of the page.
+  """
+  items: [SponsorshipOffer!]!
+  """
+  The cursor of the next page; null on the last.
+  """
+  next: String
+}
+
+"""
+Since D-492: MAIN, the main sponsor; PARTNER, a tournament partner.
+"""
+enum SponsorLevel {
+  MAIN
+  PARTNER
+}
+
+"""
+Since D-492: the sponsor sectors (contracts/experiences.md § Tournament sponsors).
+"""
+enum SponsorSector {
+  AUTOMOTIVE
+  BEAUTY
+  EDUCATION
+  ENERGY
+  FASHION
+  FOOD_AND_DRINK
+  HOME_AND_GARDEN
+  LOCAL_SERVICES
+  MEDIA_AND_ENTERTAINMENT
+  OTHER
+  REAL_ESTATE
+  RESTAURANTS
+  RETAIL
+  SPORTS_AND_FITNESS
+  TECHNOLOGY
+  TRAVEL
+}
+
+"""
+Since D-492: the states of a sponsorship offer (contracts/experiences.md § Tournament sponsors).
+"""
+enum SponsorshipState {
+  ACCEPTED
+  CONSENT_ASKED
+  ENDED
+  IN_REVIEW
+  PAID
+  PROPOSED
+}
+
+"""
+Since D-492: why a sponsorship offer ended (contracts/experiences.md § Tournament sponsors).
+"""
+enum SponsorshipEndReason {
+  CONSENT_DECLINED
+  EDITION_CANCELLED
+  EDITION_ENDED
+  EXPIRED
+  FORBIDDEN_BY_UNIVERSE
+  NOT_PAID
+  REFUSED
+  REFUSED_AT_REVIEW
+  REMOVED
+  SECTOR_TAKEN
+  WITHDRAWN_BY_ORGANIZER
+  WITHDRAWN_BY_SPONSOR
+}
+
+"""
+Since D-492: ACCEPT and REFUSE by the experience organizer; CONSENT and DECLINE by the main sponsor.
+"""
+enum SponsorshipAnswer {
+  ACCEPT
+  CONSENT
+  DECLINE
+  REFUSE
+}
+
+"""
+Since D-492: the label of a sponsor call to action.
+"""
+enum SponsorCallToActionLabel {
+  DISCOVER
+  LEARN_MORE
+  VISIT
+}
+
+"""
+Since D-481: exactly one act (§ Tournaments (tournament/2), The acts).
+"""
+input TournamentActInput {
+  declare: TournamentResultInput
+  confirm: TournamentGameInput
+  vote: TournamentVoteInput
+  decide: TournamentDecisionInput
+  contest: TournamentMatchInput
+  settle: TournamentSettleInput
+  choose: TournamentChoiceInput
+  schedule: TournamentScheduleInput
+  seed: [ID!]
+  assignWitnesses: TournamentWitnessesInput
+  volunteer: TournamentMatchInput
+  refuseWitness: TournamentMatchInput
+  designateReferees: [ID!]
+  warn: TournamentSanctionInput
+  disqualify: TournamentSanctionInput
+  replace: TournamentReplaceInput
+  invite: [ID!]
+  setSignUp: TournamentSignUp
+  follow: Boolean
+}
+
+"""
+Since D-481: a tournament match.
+"""
+input TournamentMatchInput {
+  match: String!
+  entrant: ID
+}
+
+"""
+Since D-481: a game.
+"""
+input TournamentGameInput {
+  match: String!
+  game: Int!
+}
+
+"""
+Since D-481: a result (§ Tournaments (tournament/2)).
+"""
+input TournamentResultInput {
+  match: String!
+  game: Int
+  entrant: ID
+  a: [Int!]
+  b: [Int!]
+  value: Int
+  time: Int
+  values: [String!]
+  proof: TournamentProofInput
+}
+
+"""
+Since D-481: a proof.
+"""
+input TournamentProofInput {
+  mediaId: ID!
+  proofCode: String
+  capture: ProofCapture
+  precheck: ProofPrecheck
+}
+
+"""
+Since D-489: how a proof was taken, as declared.
+"""
+enum ProofCapture {
+  APP_CAMERA
+  PHONE_PHOTOS
+}
+
+"""
+Since D-489: the pre-check, as declared.
+"""
+enum ProofPrecheck {
+  CODE_FOUND
+  CODE_NOT_FOUND
+  NOT_CHECKED
+}
+
+"""
+Since D-481: a vote.
+"""
+input TournamentVoteInput {
+  match: String!
+  game: Int
+  entrant: ID
+  accept: Boolean!
+}
+
+"""
+Since D-481: a decision.
+"""
+input TournamentDecisionInput {
+  match: String
+  result: TournamentResultInput
+  winner: ID
+  pool: String
+  order: [ID!]
+}
+
+"""
+Since D-481: a settlement.
+"""
+input TournamentSettleInput {
+  match: String!
+  entrant: ID
+  winner: ID
+  result: TournamentResultInput
+}
+
+"""
+Since D-481: a match challenge.
+"""
+input TournamentChoiceInput {
+  match: String!
+  game: Int!
+  challenge: String!
+}
+
+"""
+Since D-481: a deadline.
+"""
+input TournamentScheduleInput {
+  round: String!
+  deadline: AWSDateTime!
+}
+
+"""
+Since D-481: match witnesses.
+"""
+input TournamentWitnessesInput {
+  match: String!
+  witnesses: [ID!]!
+}
+
+"""
+Since D-481: a sanction.
+"""
+input TournamentSanctionInput {
+  entrant: ID!
+  reason: String!
+}
+
+"""
+Since D-481: a replacement.
+"""
+input TournamentReplaceInput {
+  entrant: ID!
+}
+
+"""
+Contract: contracts/experiences.md § API v2 descriptions, ExperienceMeasureInput (moved there by D-498, unchanged).
 """
 input ExperienceMeasureInput {
   runId: ID!
@@ -1166,6 +2193,128 @@ input ExperienceMeasureInput {
   final: Boolean!
   proofMediaId: ID
   measuredAt: AWSDateTime!
+  visit: VisitProgressInput
+  measuredBy: MeasureSource
+  round: String
+  proofCode: String
+}
+
+"""
+Since D-461 (feat-collection.feature, contracts/experiences.md § The Feat collection and the event Feats): the Feat
+collection of the caller (myFeatCollection, setFeatCollection).
+"""
+type FeatCollection {
+  """
+  True when the caller hid it: nobody else reads it; its entries are kept.
+  """
+  hidden: Boolean!
+  """
+  Its Feats, 12 at most, in the order the caller chose; empty until the caller adds one.
+  """
+  entries: [FeatCollectionEntry!]!
+}
+
+"""
+Since D-461: one Feat of a Feat collection, built for each reader, never stored as such: never its photo, its clip, a
+position, its visit stages nor the other experience participants.
+"""
+type FeatCollectionEntry {
+  """
+  The experience instance of route/1, challenge/1, challenge/2, visit/1 or meetup/1 (since D-467, multiday/1, rounds/1
+  or tournament/1) of the Feat; null for a place experience.
+  """
+  runId: ID
+  """
+  The experience instance of the place experience of the Feat (presence/3, a published experience feat); null for another
+  engine.
+  """
+  instanceId: ID
+  """
+  The engine of its experience.
+  """
+  engine: ExperienceEngine!
+  """
+  The title of its experience, in the language of the reader, else in English; null when the reader may not read the
+  experience, or once it is removed.
+  """
+  experienceTitle: String
+  """
+  The address of its experience; null when the reader may not read it, or once it is deleted or removed.
+  """
+  experienceAddress: String
+  """
+  The day of the Feat; null for a Feat of a place experience, a route experience or a visit experience (location data:
+  the collection never tells where the person was on which day).
+  """
+  day: AWSDate
+  """
+  Its measure (a count, or seconds); null when its engine has none.
+  """
+  measure: Int
+  """
+  The unit of a count, in the language of the reader, else in English; null otherwise.
+  """
+  unit: String
+  """
+  Its experience proof: PEOPLE_VALIDATED, DEVICE_MEASURED, ORGANIZER_CODE, DEVICE_CHECKED (a place experience near the
+  place included) or SELF_REPORTED.
+  """
+  proof: ExperienceProofStatus!
+  """
+  For an event Feat, its universe event as it was when the Feat was obtained; null otherwise.
+  """
+  event: FeatEvent
+  """
+  Since D-467 (feat-collection.feature): the Feat streak of its experience, in days, from 2 while it lasts (its last
+  day today or yesterday in the time zone of the person); null otherwise: fewer than 2 days, broken, a Feat of a place
+  experience, a route experience, a visit experience (location data) or an attendance meetup, experiences.featStreaks
+  off, or, for another reader than the human of the collection, showStreak off.
+  """
+  streakDays: Int
+  """
+  Since D-467: true when the human of the collection turned the Feat streak of this Feat on for the others (off by
+  default); the human always reads their own streakDays.
+  """
+  showStreak: Boolean!
+}
+
+"""
+Since D-461: one Feat to put in a Feat collection: exactly one of runId (an experience instance of route/1, challenge/1,
+challenge/2, visit/1 or meetup/1 whose experience result of the caller is a success, not removed by the moderation) and
+instanceId (an experience instance of a place experience of the caller whose experience feat is published, its post not
+removed); INVALID_REQUEST otherwise. Since D-467: showStreak, true to show the Feat streak of this Feat to the
+others (none: false, never by default).
+"""
+input FeatCollectionEntryInput {
+  runId: ID
+  instanceId: ID
+  showStreak: Boolean
+}
+
+"""
+Since D-461: the whole Feat collection wanted (setFeatCollection): entries, 0 to 12 Feats of the caller, each once, in
+their order; hidden, true to hide it.
+"""
+input FeatCollectionInput {
+  entries: [FeatCollectionEntryInput!]!
+  hidden: Boolean!
+}
+
+"""
+Since v136.5.0 (D-436, contracts/experiences.md § Visit experiences): a visit progress, as the evaluator of visit/1 on
+the device counts it: stagesDone and stagesSkipped, the visit stages done and skipped so far, cumulative (the events
+made within 5 seconds, or without network, go in the next one; since D-444 (11), a visit stage skipped then checked
+in moves from stagesSkipped to stagesDone); thresholdMet, the completion threshold met;
+selfReported, at least one visit stage done was self-reported. The platform refuses counts the frozen visit stages of
+the start cannot hold (MEASURE_INVALID), a thresholdMet they cannot justify (THRESHOLD_INCONSISTENT) and a selfReported
+going back to false (PROOF_INCONSISTENT); one identical to the last is accepted and changes nothing. Never which visit
+stage, its position, its photo nor its clip; a pause sends nothing.
+"""
+input VisitProgressInput {
+  stagesDone: Int!
+  stagesSkipped: Int!
+  thresholdMet: Boolean!
+  selfReported: Boolean!
 }
 
 """
@@ -1195,4 +2344,877 @@ type ExperienceCard {
   author takes no part in it, in a message, or once the author deleted their experience result.
   """
   authorResult: ExperienceParticipation
+}
+
+"""
+Since v139.1.0 (D-439, contracts/experiences.md § The visit generator): a visit request (generateVisitDraft). request:
+the visit request, 1 to 500 visible characters, in the language of the person. language: the language of the app (ISO
+639-1), used when the language of request cannot be detected. Exactly one of bounds (the area of the map shown) and
+placeId (a place match of places: a point of interest, the area within 2 km of its point; an administrative boundary,
+its box); the area at most 50 km across (AREA_MISSING, AREA_TOO_LARGE, PLACE_UNKNOWN). Optional constraints, which
+win over the same constraint read in request: spanDays 1 to 30 (1), minutesPerDay 30 to 720 (240), travelMode FOOT or
+BICYCLE (FOOT; another: TRAVEL_MODE_NOT_OFFERED), theme 1 to 60 visible characters, stagesAtMost 2 to 30 (10); out of
+bounds: CONSTRAINT_OUT_OF_BOUNDS (the reasons of VISIT_REQUEST_INVALID, with REQUEST_LENGTH).
+"""
+input GenerateVisitInput {
+  request: String!
+  language: String!
+  bounds: BoundsInput
+  placeId: String
+  spanDays: Int
+  minutesPerDay: Int
+  travelMode: RouteMode
+  theme: String
+  stagesAtMost: Int
+}
+
+"""
+Since v139.1.0 (D-439 (1), the third step): a visit draft correction (correctVisitDraft). generationId: the visit
+generation of the caller the draft comes from, within 7 days (VISIT_GENERATION_NOT_FOUND otherwise). constraints: the
+VisitConstraints the draft was served with, sent back as received (the platform keeps neither the area nor the
+structured constraints). document: the current draft, an experience template of visit/1 owned by the caller, as the app
+holds it, changed by the person or not. instruction: 1 to 500 visible characters, checked as a visit request
+(REQUEST_LENGTH). language: the language of the app, as in GenerateVisitInput.
+"""
+input CorrectVisitDraftInput {
+  generationId: ID!
+  constraints: VisitConstraintsInput!
+  document: AWSJSON!
+  instruction: String!
+  language: String!
+}
+
+"""
+Since v139.1.0 (D-439, contracts/experiences.md § The visit generator): a visit generation, accepted at once and run
+after it, as the proposal check of D-422; read by visitGeneration, told by the real-time event visit.generation.
+"""
+type VisitGeneration {
+  """
+  Its identifier, given to createExperience to save its draft, or to correctVisitDraft.
+  """
+  generationId: ID!
+  """
+  Its outcome so far.
+  """
+  status: VisitGenerationStatus!
+  """
+  Why a REFUSED visit request was refused; null otherwise.
+  """
+  ground: VisitRefusalGround
+  """
+  The generated visit draft, READY and for 1 hour after it is ready; null otherwise.
+  """
+  draft: GeneratedVisitDraft
+  """
+  The visit generations of the day of the caller, this one counted when it counts.
+  """
+  allowance: VisitGenerationAllowance!
+}
+
+"""
+Since v139.1.0: the outcomes of a visit generation: GENERATING; READY (a generated visit draft, counted); REFUSED (the
+visit request or the instruction contrary to the platform rules or the law, counted; only a count of it is kept);
+NOTHING_FOUND (fewer than 2 candidate places, not counted); FAILED (the model, the places service, the check of the
+output or the 2 minutes, not counted).
+"""
+enum VisitGenerationStatus {
+  GENERATING
+  READY
+  REFUSED
+  NOTHING_FOUND
+  FAILED
+}
+
+"""
+Since v139.1.0 (D-449): the ground of a refused visit request: PLATFORM_RULES (contrary to the platform rules), LAW
+(contrary to the law).
+"""
+enum VisitRefusalGround {
+  PLATFORM_RULES
+  LAW
+}
+
+"""
+Since v139.1.0 (D-439, visit-generator.feature): a generated visit draft, private to the human who asked for it,
+readable by visitGeneration for 1 hour after it is ready (the app holds it on the device): saved only by
+createExperience with its generationId, within 7 days, once.
+"""
+type GeneratedVisitDraft {
+  """
+  The identifier of its visit generation, given to createExperience to save it, or to correctVisitDraft.
+  """
+  generationId: ID!
+  """
+  The experience template (breakrocks.experience/4) of a visit experience of 2 to 30 visit stages owned by the caller:
+  its title, instruction and notes in language and in English, the English made by the automatic translation of the
+  platform when language is not English (as the experience template requires); its visit stages with keys s1 to sN,
+  named as the map names their place, each with its placeId (a candidate place); order.mode SUGGESTED, in the order of
+  the stage order function; radiusMetres 50; spanDays as asked; no routeId and no parameters; the experience warnings
+  its visit stages and constraints call for. It passes checkExperience for the caller at the answer.
+  """
+  document: AWSJSON!
+  """
+  The language of the visit request (ISO 639-1), else the language given: the language its texts were written in,
+  besides their English.
+  """
+  language: String!
+  """
+  Why each visit stage was chosen, in the order of the visit stages of document.
+  """
+  stages: [GeneratedVisitStage!]!
+  """
+  What a visit draft correction changed from the draft it corrected; empty for a generation.
+  """
+  changes: [VisitDraftChange!]!
+  """
+  The area and the structured constraints it was made from, to send back with a visit draft correction.
+  """
+  constraints: VisitConstraints!
+}
+
+"""
+Since v139.1.0 (D-439): a visit stage of a generated visit draft and its visit stage reason, from the visit decision
+model.
+"""
+type GeneratedVisitStage {
+  """
+  The key of the visit stage in the document.
+  """
+  key: String!
+  """
+  Why the visit decision model chose it.
+  """
+  reason: VisitStageReason!
+}
+
+"""
+Since v139.1.0 (D-439): why the visit decision model chose a visit stage: THEME_MATCH (its category matches the theme or
+the categories asked), NAMED_IN_REQUEST (named in the visit request or the instruction), POPULAR_PLACE (among the most
+active public places of the area), ON_THE_WAY (it fills the time between two visit stages), KEPT_FROM_DRAFT (a visit
+draft correction kept it).
+"""
+enum VisitStageReason {
+  THEME_MATCH
+  NAMED_IN_REQUEST
+  POPULAR_PLACE
+  ON_THE_WAY
+  KEPT_FROM_DRAFT
+}
+
+"""
+Since v139.1.0 (D-439): one change a visit draft correction made.
+"""
+type VisitDraftChange {
+  """
+  What changed.
+  """
+  kind: VisitDraftChangeKind!
+  """
+  The key of the visit stage added or removed (a removed one: its key in the draft corrected); null for ORDER_CHANGED,
+  TEXTS_CHANGED and CONSTRAINTS_CHANGED.
+  """
+  stageKey: String
+}
+
+"""
+Since v139.1.0 (D-439): the kinds of a change of a visit draft correction: STAGE_ADDED, STAGE_REMOVED (one per visit
+stage), ORDER_CHANGED, TEXTS_CHANGED, CONSTRAINTS_CHANGED (the days, the minutes a day, the travel mode, the theme or the
+number of visit stages).
+"""
+enum VisitDraftChangeKind {
+  STAGE_ADDED
+  STAGE_REMOVED
+  ORDER_CHANGED
+  TEXTS_CHANGED
+  CONSTRAINTS_CHANGED
+}
+
+"""
+Since v139.1.0 (D-439 (6)): the visit generations of the day (00:00 to 24:00 UTC) of the caller.
+"""
+type VisitGenerationAllowance {
+  """
+  The visit generations free a day: 3.
+  """
+  limit: Int!
+  """
+  The visit generations counted today, from 0 to limit.
+  """
+  used: Int!
+  """
+  The visit requests and visit draft corrections that may be accepted a day, whatever their outcome: 10.
+  """
+  acceptedLimit: Int!
+  """
+  The visit requests and visit draft corrections accepted today, from 0 to acceptedLimit.
+  """
+  accepted: Int!
+  """
+  When the next day starts (00:00 UTC).
+  """
+  resetsAt: AWSDateTime!
+}
+
+"""
+Since v139.1.0 (D-439): the area and the structured constraints of a generated visit draft, as the language model read
+them and the constraints given apart set them; never kept by the platform, sent back by a visit draft correction.
+"""
+type VisitConstraints {
+  """
+  The south of the area (WGS 84).
+  """
+  south: Float!
+  """
+  The west of the area.
+  """
+  west: Float!
+  """
+  The north of the area.
+  """
+  north: Float!
+  """
+  The east of the area.
+  """
+  east: Float!
+  """
+  The days.
+  """
+  spanDays: Int!
+  """
+  The minutes a day.
+  """
+  minutesPerDay: Int!
+  """
+  FOOT or BICYCLE.
+  """
+  travelMode: RouteMode!
+  """
+  The theme; null when none.
+  """
+  theme: String
+  """
+  The number of visit stages at most.
+  """
+  stagesAtMost: Int!
+  """
+  The categories of places asked, among the closed list of the version of the visit decision model, 10 at most; empty
+  when none.
+  """
+  categories: [String!]!
+  """
+  The placeId of the places named to include, 5 at most; empty when none.
+  """
+  includePlaceIds: [String!]!
+  """
+  The placeId of the places named to avoid, 10 at most; empty when none.
+  """
+  avoidPlaceIds: [String!]!
+  """
+  The placeId of the first visit stage of the draft, kept by a correction unless its instruction removes it.
+  """
+  startPlaceId: String!
+  """
+  The seal of the platform over the other fields and the generationId (HMAC-SHA-256, base64url): a correction sends the
+  constraints back unchanged (VISIT_REQUEST_INVALID CONSTRAINTS_ALTERED otherwise).
+  """
+  seal: String!
+}
+
+"""
+Since v139.1.0 (D-439): VisitConstraints sent back by a visit draft correction, unchanged: their seal is checked
+(VISIT_REQUEST_INVALID CONSTRAINTS_ALTERED otherwise), so that every value is one the platform made and checked.
+"""
+input VisitConstraintsInput {
+  south: Float!
+  west: Float!
+  north: Float!
+  east: Float!
+  spanDays: Int!
+  minutesPerDay: Int!
+  travelMode: RouteMode!
+  theme: String
+  stagesAtMost: Int!
+  categories: [String!]!
+  includePlaceIds: [String!]!
+  avoidPlaceIds: [String!]!
+  startPlaceId: String!
+  seal: String!
+}
+
+"""
+Since D-437 (posts/explore-things-to-do.feature; contracts/map.md § The things to do in Explore): an experience on the map
+of Explore and on its result card, in a light form (no experience template, no experience opinion but its likes): a
+public route experience at its route start, a public simple challenge (everywhere only, without a point), or a group
+experience instance of a universe event (run set).
+"""
+type MapExperience {
+  """
+  The identifier of the experience.
+  """
+  id: ID!
+  """
+  Its address ("@alice*canal-banks").
+  """
+  address: String!
+  """
+  Its title in the language of the caller, else in English.
+  """
+  title: String!
+  """
+  Its engine and its version (route/1 or challenge/1).
+  """
+  engine: ExperienceEngine!
+  """
+  Its experience owner as an address: "@alice" for an account, "%paris" for a universe, "*" for the social platform.
+  """
+  owner: String!
+  """
+  Its experience owner as the result card names it (the canvas: "by Alice"): the display name of an account; the name of
+  a universe without its sign ("paris"), which the apps draw after the icon of the sign (the reserved-sign icon rule:
+  the icon, never the sign typed); "break.rocks" for the social platform (set while writing).
+  """
+  ownerName: String!
+  """
+  The number of accounts whose experience opinion of it is LIKE (ExperienceOpinions.likeCount), the counter of the
+  experience item; the apps show it with a heart from 1, never order by it. Never the number of dislikes, never who.
+  """
+  likeCount: Int!
+  """
+  Its point: the route start of a route experience as the readers other than its author see it (the privacy zones of
+  its author applied, D-415; the same for its author, set while writing), the point of the universe event of a group
+  experience instance; null for a simple challenge, which has no place.
+  """
+  point: Point
+  """
+  A route experience (or a group experience instance of one): its route in its light form, as mapRouteMarkers answers
+  it to a reader other than its author (the length, the mode); null otherwise. The apps never show a duration nor a time
+  for it. The experience warnings and the likes of the sheet a touch on its experience marker opens are read with
+  experience(id), the detail read, at that touch.
+  """
+  route: MapRouteMarker
+  """
+  A route experience: the number of the stages of its route the caller sees (the privacy zones of its author applied);
+  null otherwise.
+  """
+  stages: Int
+  """
+  A simple challenge (or a group experience instance of one): its engine block (what it measures, its unit, its target,
+  its hours); null otherwise.
+  """
+  challenge: ChallengeSetup
+  """
+  A group experience instance of a universe event (EXPERIENCE_RUN); null for an experience.
+  """
+  run: MapExperienceRun
+}
+
+"""
+Since D-437 (posts/explore-things-to-do.feature; D-442 (Q6, Q15)): a group experience instance planned at a universe event,
+as Explore shows it to whoever reads the universe event: when it starts, its universe event and whether the caller may
+join it now; its number of experience participants to whoever reads it; never its experience participants, their
+experience results nor their proofs, which the experience instance shows to the attendees of its universe event only
+(contracts/experiences.md § Visibility).
+"""
+type MapExperienceRun {
+  """
+  The identifier of the experience instance.
+  """
+  id: ID!
+  """
+  STARTED (waiting for its scheduled start): D-442 (Q6) counts the group experience instances planned at a universe
+  event; one in progress is not answered (decided by the user on 2026-11-18, D-449 (2)), but IN_PROGRESS to
+  mapExperiences(inProgress: true), the universe marker card (D-473 (3)).
+  """
+  state: ExperienceRunState!
+  """
+  When it starts, which the time window reads (shown when it lies within the time window).
+  """
+  startsAt: AWSDateTime!
+  """
+  The identifier of its universe event; the apps take its title, its place and its time from the universe events they
+  already read for the map.
+  """
+  eventId: ID!
+  """
+  The number of its experience participants (50 at most), served to every caller who reads it, never their names
+  (decided by the user on 2026-11-18; from v137.2.0 to v139.1.0, to an attendee of its universe event only, D-449 (1)).
+  Kept nullable for the apps built on those versions; null, with the single meaning "not served to this caller" (P-8),
+  is no longer answered.
+  """
+  participants: Int
+  """
+  True when the caller attends its universe event, takes no part in it, has no experience instance of that experience
+  in progress, and it holds fewer than 50 experience participants: the result card offers "Join" (joinExperienceRun after
+  its experience warnings); false otherwise: no direct action, the result card opens the event sheet.
+  """
+  canJoin: Boolean!
+}
+
+"""
+Since D-498 (judged-contests.feature, contracts/experiences.md § Judged contests (contest/1)): the state of a contest
+edition, built for each reader.
+"""
+type ContestState {
+  """
+  The contest phase.
+  """
+  phase: ContestPhase!
+  """
+  The end of the submissions.
+  """
+  submissionsEndAt: AWSDateTime!
+  """
+  The end of the judging, when the results come.
+  """
+  judgingEndAt: AWSDateTime!
+  """
+  The contest sign-up.
+  """
+  signUp: TournamentSignUp!
+  """
+  The edition visibility.
+  """
+  visibility: ExperienceVisibility!
+  """
+  The contest jurors, named to every reader (20 at most).
+  """
+  jurors: [AccountRef!]!
+  """
+  The contest categories, in their order (1 to 5).
+  """
+  categories: [ContestCategoryState!]!
+  """
+  The progress of each contest juror, to the experience organizer only (20 at most); empty for anyone else.
+  """
+  juryProgress: [ContestJurorProgress!]!
+  """
+  The relatives the caller declared as a contest juror (20 at most); empty otherwise.
+  """
+  myRelatives: [AccountRef!]!
+  """
+  Whether the caller follows the edition.
+  """
+  followed: Boolean!
+}
+
+"""
+Since D-498: one contest category of a contest edition.
+"""
+type ContestCategoryState {
+  """
+  Its key.
+  """
+  key: String!
+  """
+  Its name in the language of the reader.
+  """
+  name: String!
+  """
+  Its contest entries in the judged contest.
+  """
+  entryCount: Int!
+  """
+  Whether the public vote has a result here (the threshold of voters reached); false before the results.
+  """
+  publicShown: Boolean!
+  """
+  The voters counted in the scope of the vote, once the results are out and at or above the threshold; null otherwise.
+  """
+  voterCount: Int
+  """
+  The contest entries of the places 1 to 3, in their order, once the results are out; empty before.
+  """
+  podium: [ContestEntry!]!
+  """
+  The contest entries of the Public's favorite once the results are out; empty otherwise.
+  """
+  favorite: [ContestEntry!]!
+}
+
+"""
+Since D-498: a contest entry as the caller may read it (contracts/experiences.md § Visibility before the results).
+"""
+type ContestEntry {
+  """
+  Its id.
+  """
+  id: ID!
+  """
+  Its contest category.
+  """
+  category: String!
+  """
+  Its author; null while the names are hidden from the caller.
+  """
+  author: AccountRef
+  """
+  Its form.
+  """
+  form: ContestEntryForm!
+  """
+  Its title; null: none.
+  """
+  title: String
+  """
+  The text of a TEXT contest entry; null otherwise.
+  """
+  text: String
+  """
+  The media of a photo, a video or an audio; null for a text, and once withdrawn or removed.
+  """
+  media: ExperienceProofMedia
+  """
+  It carries a dated proof.
+  """
+  dated: Boolean!
+  """
+  When it was submitted.
+  """
+  submittedAt: AWSDateTime!
+  """
+  Its state.
+  """
+  state: ContestEntryState!
+  """
+  The reason of its exclusion, to its author and the experience organizer; null otherwise.
+  """
+  exclusionReason: String
+  """
+  Its author disputed its entry exclusion.
+  """
+  exclusionDisputed: Boolean!
+  """
+  The text of the exclusion dispute, to its author and the experience organizer; null otherwise.
+  """
+  disputeText: String
+  """
+  Its place once the results are out; null before.
+  """
+  place: Int
+  """
+  Its jury score (criteria grid) or rank score (free ranking), once the results are out; null otherwise.
+  """
+  juryScore: Float
+  """
+  Its votes once the results are out, at or above the threshold; null otherwise.
+  """
+  votes: Int
+  """
+  Its votes set aside by kind, once the results are out, where its votes are shown; empty otherwise.
+  """
+  setAside: [ContestSetAside!]!
+  """
+  It obtained the Public's favorite.
+  """
+  favorite: Boolean!
+  """
+  Its author allowed its highlight.
+  """
+  highlighted: Boolean!
+  """
+  The scores the caller gave it as a contest juror, one per criterion; empty: none.
+  """
+  myScores: [Int!]!
+  """
+  The rank the caller gave it as a contest juror; null: none.
+  """
+  myRank: Int
+  """
+  The caller's vote is on it.
+  """
+  myVote: Boolean!
+}
+
+"""
+Since D-498: a page of contest entries.
+"""
+type ContestEntryPage {
+  """
+  The contest entries.
+  """
+  items: [ContestEntry!]!
+  """
+  The next page; null: the last.
+  """
+  next: String
+}
+
+"""
+Since D-498: the progress of a contest juror, to the experience organizer (contracts/experiences.md § Visibility
+before the results).
+"""
+type ContestJurorProgress {
+  """
+  The contest juror.
+  """
+  juror: AccountRef!
+  """
+  The contest entries they scored, or the contest categories they ranked.
+  """
+  entered: Int!
+  """
+  Their declared relatives (20 at most).
+  """
+  relatives: [AccountRef!]!
+}
+
+"""
+Since D-498: votes set aside of a contest entry.
+"""
+type ContestSetAside {
+  """
+  The kind of their signal.
+  """
+  kind: ContestSignalKind!
+  """
+  The votes set aside.
+  """
+  votes: Int!
+}
+
+"""
+Since D-498: a page of vote signals.
+"""
+type ContestVoteSignalPage {
+  """
+  The vote signals.
+  """
+  items: [ContestVoteSignal!]!
+  """
+  The next page; null: the last.
+  """
+  next: String
+}
+
+"""
+Since D-498: a vote signal, counts only (contracts/experiences.md § Vote signals).
+"""
+type ContestVoteSignal {
+  """
+  Its id.
+  """
+  id: ID!
+  """
+  Its kind.
+  """
+  kind: ContestSignalKind!
+  """
+  The contest entry voted for.
+  """
+  entryId: ID!
+  """
+  The start of its window.
+  """
+  from: AWSDateTime!
+  """
+  The end of its window.
+  """
+  to: AWSDateTime!
+  """
+  The votes for the contest entry in the window.
+  """
+  votes: Int!
+  """
+  The votes among them from recent accounts.
+  """
+  flagged: Int!
+  """
+  Its votes are set aside.
+  """
+  voided: Boolean!
+}
+
+"""
+Since D-498: an award of a contest entrant.
+"""
+type ContestAward {
+  """
+  The contest category.
+  """
+  category: String!
+  """
+  PLACE or PUBLIC_FAVORITE.
+  """
+  kind: ContestAwardKind!
+  """
+  The place, 1 to 3, for PLACE; null otherwise.
+  """
+  place: Int
+}
+
+"""
+Since D-498: SUBMISSIONS, JUDGING, RESULTS.
+"""
+enum ContestPhase {
+  JUDGING
+  RESULTS
+  SUBMISSIONS
+}
+
+"""
+Since D-498: the forms of a contest entry.
+"""
+enum ContestEntryForm {
+  AUDIO
+  IMAGE
+  TEXT
+  VIDEO
+}
+
+"""
+Since D-498: IN_CONTEST, EXCLUDED (by the experience organizer), WITHDRAWN (by its author), REMOVED (by the moderation).
+"""
+enum ContestEntryState {
+  EXCLUDED
+  IN_CONTEST
+  REMOVED
+  WITHDRAWN
+}
+
+"""
+Since D-498: the kinds of an award.
+"""
+enum ContestAwardKind {
+  PLACE
+  PUBLIC_FAVORITE
+}
+
+"""
+Since D-498: the kinds of a vote signal: RECENT_ACCOUNTS.
+"""
+enum ContestSignalKind {
+  RECENT_ACCOUNTS
+}
+
+"""
+Since D-498: the jury mode a universe imposes on its judged contests; ANY: none imposed.
+"""
+enum ContestJuryModeSetting {
+  ANY
+  CRITERIA_GRID
+  DELIBERATION
+  FREE_RANKING
+}
+
+"""
+Since D-498: how a contest edition starts (§ The contest command).
+"""
+input ContestStartInput {
+  signUp: TournamentSignUp
+  visibility: ExperienceVisibility
+}
+
+"""
+Since D-498: exactly one act (contracts/experiences.md § Judged contests (contest/1), The acts).
+"""
+input ContestActInput {
+  submit: ContestEntryInput
+  withdraw: ID
+  score: ContestScoreInput
+  rank: ContestRankInput
+  decide: ContestRankInput
+  vote: ContestVoteInput
+  voidSignal: ContestSignalInput
+  exclude: ContestExclusionInput
+  disputeExclusion: ContestDisputeInput
+  settleExclusion: ContestSettleInput
+  designateJurors: [ID!]
+  declareRelatives: [ID!]
+  consentHighlight: ContestHighlightInput
+  invite: [ID!]
+  setSignUp: TournamentSignUp
+  follow: Boolean
+}
+
+"""
+Since D-498: a contest entry; authorship true, the declaration of authorship.
+"""
+input ContestEntryInput {
+  category: String!
+  form: ContestEntryForm!
+  mediaId: ID
+  text: String
+  title: String
+  authorship: Boolean!
+  proofCode: String
+  capture: ProofCapture
+  precheck: ProofPrecheck
+}
+
+"""
+Since D-498: the scores of a contest entry, one per criterion.
+"""
+input ContestScoreInput {
+  entryId: ID!
+  scores: [Int!]!
+}
+
+"""
+Since D-498: a ranking (rank) or the places 1 to 3 (decide) of a contest category.
+"""
+input ContestRankInput {
+  category: String!
+  entries: [ID!]!
+}
+
+"""
+Since D-498: a vote; cast false withdraws it.
+"""
+input ContestVoteInput {
+  entryId: ID!
+  cast: Boolean!
+}
+
+"""
+Since D-498: a vote signal set aside or restored.
+"""
+input ContestSignalInput {
+  signalId: ID!
+  voided: Boolean!
+}
+
+"""
+Since D-498: an entry exclusion; reason, 1 to 300 characters.
+"""
+input ContestExclusionInput {
+  entryId: ID!
+  reason: String!
+}
+
+"""
+Since D-498: an exclusion dispute; text, optional, 1 to 300 characters.
+"""
+input ContestDisputeInput {
+  entryId: ID!
+  text: String
+}
+
+"""
+Since D-498: the settlement of an exclusion dispute; lift true brings the contest entry back.
+"""
+input ContestSettleInput {
+  entryId: ID!
+  lift: Boolean!
+}
+
+"""
+Since D-498: the consent to the highlight of a winning work.
+"""
+input ContestHighlightInput {
+  entryId: ID!
+  allowed: Boolean!
+}
+
+"""
+Since D-510 (contracts/urls.md § Pre-filled links): a short link, /go/<code>, a record of the platform kept for ever.
+"""
+type ShortLink {
+  """
+  The 10 letters and digits after /go/.
+  """
+  code: String!
+  """
+  The path and query of the URL it stands for.
+  """
+  url: String!
 }

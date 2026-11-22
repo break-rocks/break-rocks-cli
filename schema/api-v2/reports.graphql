@@ -20,7 +20,7 @@ type ContentMedia {
   """
   liveShare: Boolean!
   """
-  Whether it is a meet-up.
+  Whether it is a message meet-up.
   """
   meetUp: Boolean!
   """
@@ -97,6 +97,65 @@ type Report {
   decision and for a report to the moderation of a universe.
   """
   automatedDecision: Boolean!
+  """
+  Since D-463 (8): until when the reporter may file a reporter's platform appeal against a decision NO_ACTION of the
+  platform team (6 months after the decision, the same day); null when none can be filed (another status, a decision
+  of the moderation of a universe, or once filed).
+  """
+  appealableUntil: AWSDateTime
+  """
+  Since D-463 (8): the reporter's platform appeal against the decision; null when none was filed.
+  """
+  appeal: ReporterAppeal
+}
+
+"""
+A reporter's platform appeal (since D-463 (8), contracts/reports.md § The reporter's platform appeal): the reporter
+contests once a decision NO_ACTION of the platform team on its report; reviewed in the queue of platform appeals.
+"""
+type ReporterAppeal {
+  """
+  When it was filed.
+  """
+  openedAt: AWSDateTime!
+  """
+  OPEN until decided, then DECIDED.
+  """
+  status: PlatformAppealStatus!
+  """
+  The text of the reporter (at most 2,000 characters); null without one.
+  """
+  text: String
+  """
+  The outcome; null while open.
+  """
+  outcome: ReporterAppealOutcome
+  """
+  The reasons of the decision (10 to 5,000 characters); null while open. Never the measure taken against the author.
+  """
+  reasons: String
+  """
+  When it was decided; null while open.
+  """
+  decidedAt: AWSDateTime
+  """
+  Whether the member who decided the report decided the appeal alone, after the two reviews of the platform AI
+  agents, no other member holding the right; false while open.
+  """
+  decidedByAuthor: Boolean!
+  """
+  When it became overdue, 14 days after it was filed without a decision; null otherwise.
+  """
+  overdueSince: AWSDateTime
+}
+
+"""
+The outcome of a reporter's platform appeal (since D-463 (8)): CONFIRMED (no action kept) or CANCELLED (the report
+decided again: the content removed).
+"""
+enum ReporterAppealOutcome {
+  CANCELLED
+  CONFIRMED
 }
 
 """
@@ -231,6 +290,10 @@ Since v101.11.0 (D-313, moderation/reports.feature), for the target ACCOUNT only
 IMPERSONATION (impersonation of a person or an organization), HARASSMENT (harassment or stalking), SPAM_OR_SCAM (a spam
 or scam account), UNDER_MINIMUM_AGE (an account of a person under the minimum age); PLATFORM_RULES also admitted for
 ACCOUNT. Any other reason for ACCOUNT, or one of these four for another target: REPORT_REASON_NOT_ALLOWED.
+Since D-467 (experience-moderation.feature, contracts/experiences.md § Moderation): RESULT_NOT_GENUINE, "result not
+genuine", for the target EXPERIENCE_RESULT only (a contested experience result), to whom its experience is reported;
+PLATFORM_RULES stays admitted for it; RESULT_NOT_GENUINE for another target: REPORT_REASON_NOT_ALLOWED.
+Since D-498: COUNTERFEIT_DOCUMENT also for CONTEST_ENTRY (someone else's work), to the platform team.
 """
 enum ReportReason {
   CHARTER_ARTICLE
@@ -242,6 +305,7 @@ enum ReportReason {
   MISLEADING_LINK
   OFF_TOPIC
   PLATFORM_RULES
+  RESULT_NOT_GENUINE
   SHOWS_ME
   SPAM_OR_FLOOD
   SPAM_OR_SCAM
@@ -279,13 +343,17 @@ enum ReportStatus {
 """
 What a report is about (contracts/reports.md). Since v87.5.0 (D-268): PLAYLIST, a playlist; PLAYLIST_ITEM, an item of
 a playlist. Since v92.1.0: ROUTE, a public or unlisted route (routeId). Since v101.11.0 (D-313): ACCOUNT, an account
-(accountId), to the platform team.
+(accountId), to the platform team. Since D-461: EXPERIENCE_RESULT, a success of another experience participant
+(runId, accountId), reported as its experience. Since D-498: CONTEST_ENTRY, a contest entry (runId, entryId), reported as
+a post.
 """
 enum ReportTarget {
   ACCOUNT
   CHANNEL_MESSAGE
+  CONTEST_ENTRY
   DIRECT_MESSAGE
   EXPERIENCE
+  EXPERIENCE_RESULT
   GROUP_CHAT
   GROUP_MESSAGE
   LAYOUT
@@ -338,7 +406,12 @@ CHANNEL_MESSAGE: discussion { channel } and messageId. GROUP_CHAT: discussion { 
 - Since v136.2.0 (experience-moderation.feature, contracts/experiences.md § Moderation): EXPERIENCE: experienceId (an
   experience of route/1 or challenge/1 the reporter may read, with its experience instances), reported as a route: to the
   moderation of its universe and the platform team for a universe experience, to the platform team otherwise; its owner
-  reporting it: REPORT_OWN_CONTENT.
+  reporting it: REPORT_OWN_CONTENT. Since D-432 (decided by the user on 2026-11-18): experienceVersion, the version of
+  the experience the reporter read (contracts/reports.md § Experiences).
+- Since D-461 (experience-moderation.feature, contracts/experiences.md § Moderation): EXPERIENCE_RESULT: runId and
+  accountId (a success of another experience participant in an experience instance the reporter reads; the reporter's
+  own: REPORT_OWN_CONTENT; anything else, or an experience instance the reporter may not read: EXPERIENCE_RUN_NOT_FOUND,
+  the same answer for all), reported as its experience is.
 """
 input ReportTargetInput {
   kind: ReportTarget!
@@ -358,6 +431,22 @@ input ReportTargetInput {
   playlistId: ID
   routeId: ID
   experienceId: ID
+  """
+  Since D-432: EXPERIENCE, the version of the experience the reporter read ("1.0"): any published version of that
+  experience, or the version of an experience instance the reporter takes or took part in; a version never published,
+  refused by the experience check or that does not exist: INVALID_REQUEST, the same answer for all; not given (an app
+  built before D-432), the version served to the reporter when the report is made.
+  """
+  experienceVersion: String
+  """
+  Since D-461: EXPERIENCE_RESULT, the experience instance of the experience result reported (with accountId, its
+  experience participant); since D-498, CONTEST_ENTRY, the contest edition (with entryId).
+  """
+  runId: ID
+  """
+  Since D-498: CONTEST_ENTRY, the contest entry reported.
+  """
+  entryId: ID
 }
 
 """
@@ -432,6 +521,15 @@ type ReportTargetRef {
   Since v136.2.0: EXPERIENCE, the experience reported; null otherwise.
   """
   experienceId: ID
+  """
+  Since D-432: EXPERIENCE, the version of the experience the report records, the one its reporter read; null otherwise.
+  """
+  experienceVersion: String
+  """
+  Since D-461: EXPERIENCE_RESULT, the experience instance of the experience result reported (accountId, its experience
+  participant); null otherwise.
+  """
+  runId: ID
 }
 
 """
@@ -566,6 +664,24 @@ type PlatformMeasure {
   universe theme, its universe banner or a universe page); null for any other measure.
   """
   universe: String
+  """
+  Since D-463 (2): the ground the statement of reasons names when it changes what follows the measure: PAYMENT_FRAUD
+  for a platform ban for payment fraud (the fraudulent payments are not refunded); null otherwise.
+  """
+  ground: PlatformMeasureGround
+  """
+  Since D-463 (2): the reference of the evidence of the ground (the payment concerned, as the invoices or the
+  payment provider name it); null without a ground.
+  """
+  groundEvidence: String
+}
+
+"""
+A ground of a platform measure that changes what follows it (since D-463 (2), contracts/platform-measures.md
+§ Consequences of a platform ban): PAYMENT_FRAUD.
+"""
+enum PlatformMeasureGround {
+  PAYMENT_FRAUD
 }
 
 """
@@ -650,7 +766,7 @@ UNIVERSE_SEARCH_WORD, one universe search word removed alone (usw#<universe key>
 SEARCH_WORDS for both. POST is a post (a clip too: a post with a vertical video), REPLY a reply,
 CONNECTION_REQUEST_MESSAGE the message of a waiting connection request, AGENT_TEXT a text of a platform AI agent,
 ACCOUNT a measure on an account (a platform posting ban, a platform suspension, a platform ban, the suspension of a
-delegated agent). A content mask (CONTENT_MASK) carries the kind of the content masked. Values may be added in a minor
+delegated agent). Since D-461, EXPERIENCE_RESULT an experience result removed as contested (er#<runId>#<accountId>). Since D-498, CONTEST_ENTRY a contest entry removed (ce#<runId>#<entryId>). A content mask (CONTENT_MASK) carries the kind of the content masked. Values may be added in a minor
 version; a client shows a value it does not know as a content without its kind.
 """
 enum PlatformMeasureTargetKind {
@@ -658,7 +774,9 @@ enum PlatformMeasureTargetKind {
   AGENT_TEXT
   CHANNEL_MESSAGE
   CONNECTION_REQUEST_MESSAGE
+  CONTEST_ENTRY
   DIRECT_MESSAGE
+  EXPERIENCE_RESULT
   GROUP_CHAT
   GROUP_MESSAGE
   MAP_PRESENCE

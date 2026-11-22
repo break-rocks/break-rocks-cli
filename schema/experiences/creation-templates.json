@@ -1,0 +1,204 @@
+{
+  "$schema": "https://break.rocks/specs/contracts/experiences/creation-templates.schema.json",
+  "catalogueVersion": 3,
+  "templates": [
+    {
+      "key": "challenge-count",
+      "version": 2,
+      "engine": { "name": "challenge", "version": 1 },
+      "fixed": {"/challenge/measure": "COUNT"},
+      "choices": {
+        "/challenge/unit": {"kind": "TEXT"},
+        "/challenge/target/atLeast": {"kind": "INTEGER", "min": 1, "max": 100000},
+        "/challenge/proof/media": {"kind": "SET", "values": ["IMAGE", "VIDEO"], "minItems": 1},
+        "/challenge/proof/validation": {"kind": "ENUM", "values": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]},
+        "/challenge/proof/dated": {"kind": "ENUM", "values": [true], "optional": true},
+        "/challenge/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/ranking": {"kind": "ENUM", "values": [{"measure": "COUNT", "order": "HIGHER_FIRST"}, {"measure": "COUNT", "order": "LOWER_FIRST"}], "optional": true},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": ["target"]
+    },
+    {
+      "key": "challenge-hold",
+      "version": 2,
+      "engine": { "name": "challenge", "version": 1 },
+      "fixed": {"/challenge/measure": "TIME"},
+      "choices": {
+        "/challenge/target/atLeast": {"kind": "INTEGER", "min": 1, "max": 86400},
+        "/challenge/proof/media": {"kind": "SET", "values": ["IMAGE", "VIDEO"], "minItems": 1},
+        "/challenge/proof/validation": {"kind": "ENUM", "values": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]},
+        "/challenge/proof/dated": {"kind": "ENUM", "values": [true], "optional": true},
+        "/challenge/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/ranking": {"kind": "ENUM", "values": [{"measure": "TIME", "order": "HIGHER_FIRST"}, {"measure": "TIME", "order": "LOWER_FIRST"}], "optional": true},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": ["target"]
+    },
+    {
+      "key": "challenge-within",
+      "version": 2,
+      "engine": { "name": "challenge", "version": 1 },
+      "fixed": {"/challenge/measure": "TIME"},
+      "choices": {
+        "/challenge/target/atMost": {"kind": "INTEGER", "min": 1, "max": 86400},
+        "/challenge/proof/media": {"kind": "SET", "values": ["IMAGE", "VIDEO"], "minItems": 1},
+        "/challenge/proof/validation": {"kind": "ENUM", "values": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]},
+        "/challenge/proof/dated": {"kind": "ENUM", "values": [true], "optional": true},
+        "/challenge/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/ranking": {"kind": "ENUM", "values": [{"measure": "TIME", "order": "HIGHER_FIRST"}, {"measure": "TIME", "order": "LOWER_FIRST"}], "optional": true},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": ["target"]
+    },
+    {
+      "key": "challenge-photo",
+      "version": 2,
+      "engine": { "name": "challenge", "version": 1 },
+      "fixed": {"/challenge/measure": "NONE"},
+      "choices": {
+        "/challenge/proof/media": {"kind": "SET", "values": ["IMAGE", "VIDEO"], "minItems": 1},
+        "/challenge/proof/validation": {"kind": "ENUM", "values": ["ORGANIZER", "PARTICIPANT_VOTE", "SELF_REPORTED"]},
+        "/challenge/proof/dated": {"kind": "ENUM", "values": [true], "optional": true},
+        "/challenge/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": []
+    },
+    {
+      "key": "challenge-device",
+      "version": 1,
+      "engine": { "name": "challenge", "version": 2 },
+      "fixed": {"/challenge/measure": "COUNT", "/challenge/proof": {"validation": "DEVICE_MEASURED"}},
+      "choices": {
+        "/challenge/measuredBy": {"kind": "ENUM", "values": ["HEALTH_STEPS", "VOICE_COUNT", "SOUND_COUNT", "CAMERA_COUNT"]},
+        "/challenge/unit": {"kind": "TEXT"},
+        "/challenge/target/atLeast": {"kind": "INTEGER", "min": 1, "max": 100000},
+        "/challenge/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/ranking": {"kind": "ENUM", "values": [{"measure": "COUNT", "order": "HIGHER_FIRST"}, {"measure": "COUNT", "order": "LOWER_FIRST"}], "optional": true},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": ["target"]
+    },
+    {
+      "key": "attendance-meetup",
+      "version": 1,
+      "engine": { "name": "meetup", "version": 1 },
+      "fixed": {},
+      "choices": {
+        "/meetup/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": []
+    },
+    {
+      "key": "multi-day",
+      "version": 1,
+      "engine": { "name": "multiday", "version": 1 },
+      "fixed": {},
+      "choices": {
+        "/multiday/days": {"kind": "INTEGER", "min": 1, "max": 30},
+        "/multiday/measure": {"kind": "ENUM", "values": ["COUNT", "NONE"]},
+        "/multiday/unit": {"kind": "TEXT", "optional": true},
+        "/multiday/target/atLeast": {"kind": "INTEGER", "min": 1, "max": 100000, "optional": true},
+        "/multiday/measuredBy": {"kind": "ENUM", "values": ["HEALTH_STEPS", "VOICE_COUNT", "SOUND_COUNT", "CAMERA_COUNT"], "optional": true},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": ["target"]
+    },
+    {
+      "key": "multi-round",
+      "version": 1,
+      "engine": { "name": "rounds", "version": 1 },
+      "fixed": {},
+      "choices": {},
+      "free": ["/rounds/rounds", "/rounds/endsWithinHours", "/warnings"],
+      "parameters": []
+    },
+    {
+      "key": "simple-tournament",
+      "version": 1,
+      "engine": { "name": "tournament", "version": 1 },
+      "fixed": {},
+      "choices": {
+        "/tournament/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 168},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": [],
+      "parameters": []
+    },
+    {
+      "key": "tournament",
+      "version": 1,
+      "engine": { "name": "tournament", "version": 2 },
+      "fixed": {},
+      "choices": {
+        "/tournament/profile": {"kind": "ENUM", "values": ["WIN_DRAW_LOSS", "SETS_AND_GAMES", "TIME_AND_GAP", "RACES_AND_PLACE_POINTS", "SCORES", "CUMULATED_EVENTS", "SIMPLE_SCORE", "CUSTOM", "QUIZ", "VIDEO_GAMES", "CHESS_AND_BOARD_GAMES", "CARD_AND_LETTER_GAMES"]},
+        "/tournament/activity": {"kind": "TEXT", "optional": true},
+        "/tournament/format": {"kind": "ENUM", "values": ["SINGLE_ELIMINATION", "HOME_AND_AWAY", "POOLS_THEN_ELIMINATION", "SCORE_RACE"]},
+        "/tournament/entrants/max": {"kind": "INTEGER", "min": 2, "max": 64},
+        "/tournament/pools/size": {"kind": "INTEGER", "min": 3, "max": 8, "optional": true},
+        "/tournament/pools/qualifiers": {"kind": "INTEGER", "min": 1, "max": 4, "optional": true},
+        "/tournament/bracketSeeding": {"kind": "ENUM", "values": ["POOL_STANDING", "DRAW", "ORGANIZER"], "optional": true},
+        "/tournament/match": {"kind": "ENUM", "values": [{"kind": "SINGLE"}, {"kind": "BEST_OF", "bestOf": 3}, {"kind": "BEST_OF", "bestOf": 5}], "optional": true},
+        "/tournament/thirdPlace": {"kind": "ENUM", "values": [true, false], "optional": true},
+        "/tournament/consolation": {"kind": "ENUM", "values": [true, false], "optional": true},
+        "/tournament/seeding": {"kind": "ENUM", "values": ["DRAW", "ORGANIZER"]},
+        "/tournament/validation": {"kind": "ENUM", "values": [{"level": "TRUST"}, {"level": "WITNESSES", "witnesses": 1, "remote": false}, {"level": "WITNESSES", "witnesses": 2, "remote": false}, {"level": "WITNESSES", "witnesses": 3, "remote": false}, {"level": "WITNESSES", "witnesses": 1, "remote": true}, {"level": "WITNESSES", "witnesses": 2, "remote": true}, {"level": "WITNESSES", "witnesses": 3, "remote": true}, {"level": "REFEREED", "referees": false}, {"level": "REFEREED", "referees": true}]},
+        "/tournament/datedProof": {"kind": "ENUM", "values": ["NONE", "OPTIONAL", "REQUIRED"]},
+        "/tournament/contestHours": {"kind": "INTEGER", "min": 1, "max": 24, "optional": true},
+        "/tournament/endsWithinHours": {"kind": "INTEGER", "min": 1, "max": 2880},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": ["/tournament/challenges", "/tournament/race", "/tournament/custom"],
+      "parameters": []
+    },
+    {
+      "key": "contest",
+      "version": 1,
+      "engine": { "name": "contest", "version": 1 },
+      "fixed": {},
+      "choices": {
+        "/contest/forms": {"kind": "SET", "values": ["IMAGE", "VIDEO", "TEXT", "AUDIO"], "minItems": 1},
+        "/contest/entries/max": {"kind": "INTEGER", "min": 2, "max": 1000},
+        "/contest/winners": {"kind": "ENUM", "values": ["JURY", "PUBLIC", "JURY_AND_PUBLIC"]},
+        "/contest/jury/mode": {"kind": "ENUM", "values": ["CRITERIA_GRID", "FREE_RANKING", "DELIBERATION"], "optional": true},
+        "/contest/jury/anonymous": {"kind": "ENUM", "values": [true, false], "optional": true},
+        "/contest/public/votePer": {"kind": "ENUM", "values": ["CONTEST", "CATEGORY"], "optional": true},
+        "/contest/juryWeight": {"kind": "ENUM", "values": [10, 20, 30, 40, 50, 60, 70, 80, 90], "optional": true},
+        "/contest/entriesShown": {"kind": "ENUM", "values": ["FROM_SUBMISSION", "AFTER_SUBMISSIONS"]},
+        "/contest/datedProof": {"kind": "ENUM", "values": ["NONE", "OPTIONAL", "REQUIRED"]},
+        "/contest/submissionHours": {"kind": "INTEGER", "min": 1, "max": 2159},
+        "/contest/endsWithinHours": {"kind": "INTEGER", "min": 2, "max": 2160},
+        "/warnings": {"kind": "SET", "values": ["PHYSICAL_EFFORT", "RISKY_PLACE"], "optional": true}
+      },
+      "free": ["/contest/categories", "/contest/jury/criteria"],
+      "parameters": []
+    },
+    {
+      "key": "route-experience",
+      "version": 1,
+      "engine": { "name": "route", "version": 1 },
+      "fixed": {},
+      "choices": {},
+      "free": ["/route/routeId", "/warnings"],
+      "parameters": []
+    },
+    {
+      "key": "visit-experience",
+      "version": 1,
+      "engine": { "name": "visit", "version": 1 },
+      "fixed": {},
+      "choices": {},
+      "free": ["/visit/stages", "/visit/order", "/visit/completion", "/visit/spanDays", "/visit/routeId", "/warnings"],
+      "parameters": ["atLeast", "spanDays"]
+    }
+  ]
+}
