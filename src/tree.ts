@@ -93,6 +93,10 @@ me posts | = | The posts the account liked or reposted
 me reports | = | The reports the account sent
 me invite-exceptions add | = | Add an exception to who may invite you
 me invite-exceptions remove | = | Remove an exception to who may invite you
+me navigation | = | What the center button opens
+me navigation set | = | Choose what the center button opens
+me privacy share-activity | = | Whether your close ones see your activity
+me privacy share-activity set | = | Share your activity with your close ones, or stop
 subscription show | = | The paid tier subscription of the account
 subscription offer | = | The prices of the paid tiers
 subscription start | = | Subscribe to a paid tier
@@ -261,7 +265,7 @@ explore unmute | = | Unmute a universe from discovery
 explore reset | = | Reset the recommendations
 resolve | explore resolve | Resolve an address
 search | = | Search posts, accounts, universes and more
-explore search | = | Search Explore with words, in an area and everywhere
+explore search | = | Search Explore (the Map view) with words
 explore random | = | Jump to a lively map highlight at random
 explore today | = | The highlight of the day of a country
 clips feed | posts clips | The clip feed
@@ -277,7 +281,6 @@ explore area | = | The universes of an area of the map
 places search | map places search | Search a place in an area
 map boundary | = | The shape of a boundary
 map routes | = | The route markers of an area
-map channels | = | The placed channels of an area
 map posts | = | The placed posts of an area
 map places | = | The places with a recent placed post
 map place-feats | = | The places with a place feat of an area
@@ -332,6 +335,11 @@ experiences export | = | Export an experience as a JSON document
 experiences check | = | Check an experience document
 experiences import | = | Import experience documents, private by default
 experiences prompt | = | The prompt that asks an AI for an experience
+experiences prefill keys | = | The keys of a pre-filled link, per creation template
+experiences prefill build | = | Build a pre-filled link from key=value pairs
+experiences prefill open | = | What a pre-filled link fills; creates nothing
+links shorten | = | Make the short link /go/<code> of a URL
+links resolve | = | The URL a short link stands for
 routes list | = | Your routes
 routes show | = | Show a route
 routes nearby | = | The nearby routes of a route
@@ -656,7 +664,7 @@ export const DOMAINS: { name: string; groups: string[]; line: string }[] = [
   { name: 'look', groups: ['look'], line: 'look (themes, personal, appearance, layouts, studio)' },
   { name: 'explore', groups: ['explore', 'search', 'accounts', 'connections', 'interests'], line: 'explore, search, accounts, connections, interests' },
   { name: 'money', groups: ['subscription', 'ads', 'gift-codes'], line: 'subscription, ads, gift-codes' },
-  { name: 'tools', groups: ['doctor', 'usage', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, schema, batch, mcp, completion, update, config' },
+  { name: 'tools', groups: ['doctor', 'usage', 'links', 'schema', 'batch', 'mcp', 'completion', 'update', 'config', 'help', 'version'], line: 'doctor, usage, links, schema, batch, mcp, completion, update, config' },
 ];
 
 /** The summary of a group or a subgroup in the lists (breakrocks help <group>, the completion). */
@@ -665,7 +673,8 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'me data': 'Data requests: copy, erasure, rectification', 'me email': 'Change the email address', 'me handle': 'Check or change the handle',
   'me onboarding': 'The onboarding', 'me invitation-link': 'The personal invitation link', 'me invite-exceptions': 'Who may invite you anyway',
   'me measures': 'Platform measures and their appeal', 'me terms': 'The terms of use', 'me sanctions': 'Your sanctions and their appeal', 'me profile': 'The account profile',
-  'me delete': 'Delete the account',
+  'me delete': 'Delete the account', 'me navigation': 'Me › Navigation: the center button', 'me privacy': 'Me › Privacy', 'me privacy share-activity': 'Your activity and your close ones',
+  links: 'Short links /go/<code>',
   operator: 'Agent operators: keys, registration, plans', 'operator plan': 'The agent plan paid by card', 'operator recovery-key': 'The recovery key',
   agents: 'Delegated agents and local agents', wallet: 'The x402 wallet',
   universes: 'Universes: pages, residence, favorites, private ones', 'universes favorite': 'Favorite universes',
@@ -687,11 +696,11 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'map nearby': 'Nearby connections', 'map locatable': 'Being locatable', 'map places': 'Places of the map',
   'my-places': 'My places: saved items, tags, sharing', 'my-places tags': 'My places tags',
   routes: 'Routes: saved, GPX, privacy zones, planning', 'routes gpx': 'GPX files', 'routes privacy-zones': 'Privacy zones',
-  events: 'Universe events and relays', experiences: 'Experiences: export, check, import, AI prompt', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
+  events: 'Universe events and relays', experiences: 'Experiences: documents, AI prompt, pre-filled links', 'experiences prefill': 'Pre-filled links of the creation templates', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
   look: 'Themes, appearance, layouts and the studio', 'look themes': 'Themes: catalog, offline tools, publish', 'look personal': 'Your personal theme',
   'look appearance': 'The appearance of a universe: what is applied, the editor', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',
-  explore: 'Discovery, the explore filter and recommendations', search: 'The platform search', accounts: 'Accounts: read, follow, block, mute', connections: 'Connections between accounts', interests: 'Your interest profile',
+  explore: 'Explore (the Map view of Experiences), discovery', search: 'The platform search', accounts: 'Accounts: read, follow, block, mute', connections: 'Connections between accounts', interests: 'Your interest profile',
   subscription: 'The paid tiers of the account', 'subscription renewal': 'The automatic renewal', 'subscription billing-day': 'The billing day',
   ads: 'Advertising', 'ads interests': 'Your ad interests', 'gift-codes': 'Gift codes of the paid tiers',
   doctor: 'Check the CLI', usage: 'Usage and limits', schema: 'JSON Schemas of the commands', batch: 'Actions of a file', mcp: 'The MCP server',

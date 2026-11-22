@@ -63,14 +63,14 @@ export function universeAndTag(value: string, tag?: string): { universe: string;
 
 /**
  * `--explore-map shown|kept|by-type` of the universe events (exploreMapChoice, specs v122.0.0, D-383): SHOWN beyond its universe on
- * the map of Explore, KEPT in its universe only, BY_TYPE as its event type says. A command spreads [exploreMapFlag] and calls [exploreMapPrepare].
+ * the Map view of Experiences (Explore), KEPT in its universe only, BY_TYPE as its event type says. A command spreads [exploreMapFlag] and calls [exploreMapPrepare].
  * The refusals are the platform's: EVENT_EXPLORE_MAP_NOT_ALLOWED (no place, zone nor route, the format "online", an access other than "public"),
  * EVENT_EXPLORE_MAP_LIMIT (3 upcoming universe events shown beyond their universe at once).
  */
 export const EXPLORE_MAP_CHOICES = ['shown', 'kept', 'by-type'] as const;
 export const exploreMapFlag = {
   hide: ['input.exploreMapChoice'],
-  extra: { exploreMap: { type: 'string', enum: [...EXPLORE_MAP_CHOICES], description: 'The map of Explore: shown (beyond its universe, 3 upcoming at most per universe), kept (in its universe only), by-type (as its event type says; the default)' } as JsonSchema },
+  extra: { exploreMap: { type: 'string', enum: [...EXPLORE_MAP_CHOICES], description: 'The Map view of Experiences (Explore): shown (beyond its universe, 3 upcoming at most per universe), kept (in its universe only), by-type (as its event type says; the default)' } as JsonSchema },
 };
 export function exploreMapPrepare(input: Record<string, unknown>): Record<string, unknown> {
   const { exploreMap, ...rest } = input;

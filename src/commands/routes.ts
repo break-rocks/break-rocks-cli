@@ -2,7 +2,7 @@
 // ("Do this route"), exported to and imported from GPX, the privacy zones that hide their parts near home; the
 // routing of the cartography (route: snapped to the streets and paths on request; ROUTE_NO_WAY, ROUTE_TOO_LONG
 // since v101.4.0); and the layers of the map of an area (map cells of resolution 6, 4 at most): the routes,
-// the placed channels, the placed posts and the places with a recent post. The writes offer --dry-run.
+// the placed posts (the placed channels left the map with D-469: mapChannels deprecated, map channels withdrawn), and the places with a recent post. The writes offer --dry-run.
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { apiCommand } from '../api/command.js';
@@ -161,12 +161,6 @@ export const mapRoutes = apiCommand({
   name: 'map routes', summary: 'The route markers of an area of the map: public routes and universe routes of public universes, 100 at most (mapRouteMarkers)', kind: 'query', op: 'mapRouteMarkers', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
   description: 'Since specs v118 (D-374) the map reads the markers of the routes (their start and end, no line): routes show <id> reads the line of one (mapRoute). mapRoutes is deprecated.',
   text: listText((r: Marker) => routeMarkerLine(r)), examples: ['breakrocks map routes --cells 861fb4677ffffff', 'breakrocks map routes --cells 861fb4677ffffff --universe %paris --json'],
-});
-type Channel = { address: string; presentCount?: number; place?: { name?: string } | null; lastMessage?: { text?: string | null } | null };
-export const mapChannels = apiCommand({
-  name: 'map channels', summary: 'The placed channels of an area of the map, with their place, who is there and their last message (mapChannels)', kind: 'query', op: 'mapChannels', rename: cells, descriptions: { ...universeFilter, cells: cellsProperty.description! },
-  text: listText((c: Channel) => `${c.address}  ${c.place?.name ?? ''}  present ${c.presentCount ?? 0}${c.lastMessage?.text ? `  "${c.lastMessage.text.replace(/\s+/g, ' ').slice(0, 40)}"` : ''}`),
-  examples: ['breakrocks map channels --cells 861fb4677ffffff --universe %paris'],
 });
 type MapPost = { postId: string; authorId?: string; universe?: string; createdAt?: string; foldedPlaceId?: string | null; place?: { name?: string | null; mapCell?: string | null } | null };
 const mapPostLine = (p: MapPost) => `${p.postId}  ${p.createdAt ?? ''}  ${p.universe ?? ''}  ${p.place?.name ?? p.place?.mapCell ?? ''}  by ${p.authorId ?? '-'}${p.foldedPlaceId ? `  folded in ${p.foldedPlaceId}` : ''}`;

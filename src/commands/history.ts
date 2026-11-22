@@ -6,6 +6,7 @@
 import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
 import { doneText } from './shared.js';
+import { settingsBut } from './navigation.js';
 
 type Entry = { universe: string; parent?: string | null; private?: boolean; visitedAt: string };
 
@@ -37,7 +38,7 @@ export const universesVisit = apiCommand({
   examples: ['breakrocks universes history visit %paris', 'breakrocks universes history visit %paris --dry-run'],
 });
 
-const OTHER_SETTINGS = ['notifications', 'translation', 'recommendations', 'nearbyLabel', 'subtitles', 'tips', 'universeFrame', 'commandLanguage', 'clear', 'messaging', 'privateAnalysisConsent', 'camera', 'autoplay', 'map'].map((f) => `input.${f}`);
+const OTHER_SETTINGS = settingsBut('universeHistoryPaused', 'videoHistoryPaused');
 export const settingsHistoryPause = apiCommand({
   name: 'settings history-pause', summary: 'Pause (on) or resume (off) the universe visit history: nothing new is recorded while paused, the entries stay (setSettings)',
   kind: 'mutation', op: 'setSettings', positionals: ['state'], dry: true,
