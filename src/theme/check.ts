@@ -14,8 +14,8 @@
 // of the document ignored (left out at publication) rather than refused. The report is JSON for hooks.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { AA_LARGE, AA_TEXT, PALETTE_KEYS, dimOf, raiseFamilies, raisePalette, type Correction, type Family, type Palette, type Resolved, type Variant } from './contrast.js';
-import { MASK, THEME_SCHEMA, maskOpacity, readTheme } from './design.js';
+import { AA_LARGE, AA_TEXT, PALETTE_KEYS, contrast, dimOf, raiseFamilies, raisePalette, raisedOn, type Correction, type Family, type Palette, type Resolved, type Variant } from './contrast.js';
+import { MASK, SOCLE, THEME_SCHEMA, maskOpacity, readTheme } from './design.js';
 import { imageInfo } from './images.js';
 import { validateJsonSchema } from './json-schema.js';
 import { approvedTypeface } from './typefaces.js';
@@ -343,6 +343,18 @@ export function checkTheme(file: string, text: string, given: readonly string[] 
       if (kind === 'palette') { warn('THEME_CONTRAST', `variants.${variant}.palette.${key}`, contrastMessage(c), contrastExtra(c)); continue; }
       const from = read.variants[variant as Variant].readFrom[key as Family];
       if (from && (read.variants[variant as Variant].families[key as Family] as Record<string, string> | undefined)?.[part]) warn('THEME_CONTRAST', `variants.${variant}.surfaces.${from}.${part}`, contrastMessage(c), contrastExtra(c));
+    }
+    // 7b. The mark of Experiences (specs v156.0.0, D-506, apps/app-navigation.feature): at the center of the bar of the
+    // places, a bar of the platform (the surface of Socle, never a theme surface), it takes the primary of the universe theme
+    // while a page of the universe is shown; a control, 3:1 on that bar in each display mode, or the apps raise it.
+    for (const variant of ['night', 'day'] as const) {
+      const primary = raisePalette(palettes[variant]!, variant).palette.primary;
+      const bars = variant === 'night' ? [SOCLE.night.surface, SOCLE.dim.surface] : [SOCLE.day.surface];
+      const ratio = Math.min(...bars.map((bar) => contrast(primary, bar)));
+      if (ratio < AA_LARGE) {
+        const suggested = raisedOn(primary, bars, AA_LARGE);
+        warn('THEME_MARK_CONTRAST', `variants.${variant}.palette.primary`, `${primary} reaches ${Math.round(ratio * 100) / 100}:1 on the bar of the places (${bars.join(', ')}) where the mark of Experiences takes it; 3:1 is required: the apps would draw it ${suggested}`, { suggested, ratio: Math.round(ratio * 100) / 100, required: AA_LARGE });
+      }
     }
     // 8. The readability mask over the image of the page (scrims.mask), as the platform would compute it: the image read
     // as black and white offline (its tones are unknown), never under the floor of the design tokens.
