@@ -246,6 +246,10 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me reports` | The reports the account sent | `breakrocks me reports` |
 | `me invite-exceptions add` | Add an exception to who may invite you | `breakrocks me invite-exceptions add @alice` |
 | `me invite-exceptions remove` | Remove an exception to who may invite you | `breakrocks me invite-exceptions remove @alice` |
+| `me navigation` | What the center button opens | `breakrocks me navigation` |
+| `me navigation set` | Choose what the center button opens | `breakrocks me navigation set now` |
+| `me privacy share-activity` | Whether your close ones see your activity | `breakrocks me privacy share-activity` |
+| `me privacy share-activity set` | Share your activity with your close ones, or stop | `breakrocks me privacy share-activity set on` |
 | `me notifications` | Your notifications | `breakrocks me notifications --unread` |
 | `me sanctions` | Your sanctions in universes | `breakrocks me sanctions` |
 | `me sanctions appeal` | Appeal a sanction to a jury (confirmation: `--yes`) | `breakrocks me sanctions appeal <id> --no-publish-name --yes` |
@@ -586,7 +590,6 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `map places search` | Search a place in an area | `breakrocks map places search Paris --bounds 48.81,2.22,48.90,2.47` |
 | `map boundary` | The shape of a boundary | `breakrocks map boundary R7444` |
 | `map routes` | The route markers of an area | `breakrocks map routes --cells 861fb4677ffffff` |
-| `map channels` | The placed channels of an area | `breakrocks map channels --cells 861fb4677ffffff --universe %paris` |
 | `map posts` | The placed posts of an area | `breakrocks map posts --cells 861fb4677ffffff` |
 | `map places` | The places with a recent placed post | `breakrocks map places --cells 861fb4677ffffff` |
 | `map place-feats` | The places with a place feat of an area | `breakrocks map place-feats --cells 861fb4677ffffff` |
@@ -669,6 +672,9 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `experiences check` | Check an experience document | `breakrocks experiences check squats-100.json` |
 | `experiences import` | Import experience documents, private by default | `breakrocks experiences import squats-100.json` |
 | `experiences prompt` | The prompt that asks an AI for an experience (offline) | `breakrocks experiences prompt --engine challenge/1 --theme "a morning workout in a park" --language fr` |
+| `experiences prefill keys` | The keys of a pre-filled link, per creation template (offline) | `breakrocks experiences prefill keys tournament` |
+| `experiences prefill build` | Build a pre-filled link from key=value pairs | `breakrocks experiences prefill build tournament entrants.max=24 format=POOLS_THEN_ELIMINATION` |
+| `experiences prefill open` | What a pre-filled link fills; creates nothing | `breakrocks experiences prefill open "https://break.rocks/new/tournament/v/entrants.max=24"` |
 
 #### Governance
 
@@ -828,7 +834,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `interests forget` | Forget interests (confirmation: `--yes`) | `breakrocks interests forget --tags football --yes` |
 | `interests tags` | The tags you engaged with | `breakrocks interests tags` |
 | `interests not-interested` | What you said you are not interested in | `breakrocks interests not-interested` |
-| `explore search` | Search Explore with words, in an area and everywhere | `breakrocks explore search jazz --near "Vieux-Port, Marseille" --when tonight` |
+| `explore search` | Search Explore (the Map view) with words | `breakrocks explore search jazz --near "Vieux-Port, Marseille" --when tonight` |
 | `explore random` | Jump to a lively map highlight at random | `breakrocks explore random` |
 | `explore today` | The highlight of the day of a country | `breakrocks explore today` |
 | `explore area` | The universes of an area of the map | `breakrocks explore area --boundary R7444` |
@@ -904,6 +910,38 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `doctor` | Check what keeps the CLI from working | `breakrocks doctor` |
 | `batch` | Run the actions of a JSON lines file | `breakrocks batch --file actions.jsonl` |
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
+| `links shorten` | Make the short link /go/<code> of a URL | `breakrocks links shorten "/new/tournament/v/entrants.max=24"` |
+| `links resolve` | The URL a short link stands for | `breakrocks links resolve 7Hk2pQa9xT` |
+
+### Navigation, pre-filled links and short links (0.37.0, specs v156.1.0)
+
+D-506, D-510, D-512 (`features/apps/app-navigation.feature`, `features/apps/experiences-place.feature`,
+`features/experiences/experience-sharing.feature`, `contracts/urls.md` § Places and § Pre-filled links,
+`contracts/experiences.md` § Pre-filled link keys).
+
+- **Experiences replaces Explore as a place of the apps**; Explore is its Map view (`/explore…` redirected (301) to
+  `/experiences/map…`). The CLI writes no web URL of Explore; the commands `explore …` keep their names (Explore is still
+  the name of the Map view, and the API operations keep theirs), their help names the Map view of Experiences.
+- **Settings**: `me navigation [set map|now|my-experiences|last-view]` ("The center button opens", `Settings.navigation`,
+  an account setting, the same on every device) and `me privacy share-activity [set on|off]` ("Share my activity with my
+  close ones", `Settings.shareActivityWithCloseOnes`, off by default; the position only while shared elsewhere).
+  `--dry-run` on the writes.
+- **Pre-filled links** (offline, from `schema/experiences/creation-templates.json`, copied from the specs by
+  `npm run update:schema`): `experiences prefill keys [<template>]` lists the keys of each creation template (the pointer
+  of a choice without its engine block, kebab-case, joined by `.`), their values and their default; `experiences prefill
+  build <template> key=value… [--after <address>] [--short]` writes `/new/<template>/v/<key>=<value>;…?after=…`, the keys
+  sorted in byte order, an absent optional choice not written, the values checked (`PREFILLED_VALUES_INVALID`), 2,000
+  characters at most (`PREFILLED_LINK_TOO_LONG`), beyond 300 a short link for a poster (`--short`); `experiences prefill
+  open <link>` tells what opening it fills, what is asked again (a value out of bounds), what is ignored (an unknown key),
+  what is asked (the required keys, the owner, the place of discussion, the name), or that the link is no longer valid
+  (exit 1). **Nothing is created**: the apps create at the confirmation of their guided sheet; from the CLI, an experience
+  is created from its document (`experiences prompt`, `check`, `import`).
+- **Short links**: `links shorten <url>` (`createShortLink`, the same code for the same URL, kept for ever; 100 per account
+  and UTC day, `SHORT_LINK_RATE_LIMITED` told with the moment it is possible again) and `links resolve <code>`
+  (`shortLink`, `SHORT_LINK_NOT_FOUND`; a pre-filled link is also told as `prefill open` tells it).
+- **Withdrawn**: `map channels` (D-469: a placed channel is drawn on no map; `mapChannels` deprecated).
+- Not in the CLI: the AI action "generate an experience" (`AiActionKind.EXPERIENCE`) has no operation of its own in API v2
+  and the CLI has no AI action commands; the prices carrying AI inference (no multiple of cost) are not written in the CLI.
 
 ### Experience definitions (0.36.0, specs v136.3.0)
 
