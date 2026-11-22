@@ -235,7 +235,7 @@ export const connectionsState: Command<{ account: string }, unknown> = {
 export const messagingShow = apiCommand({ name: 'messaging settings show', summary: 'The settings of the messages (mySettings.messaging)', kind: 'query', op: 'mySettings', select: `{ messaging ${selection('MessagingSettings', 1)} }`, map: (d) => (d as { messaging?: unknown } | null)?.messaging ?? null, examples: ['breakrocks messages settings'] });
 export const messagingSet = apiCommand({
   name: 'messaging settings set', summary: 'Change the settings of the messages (read receipts, who may write or invite, agent requests…; setSettings)', kind: 'mutation', op: 'setSettings', flatten: ['input', 'input.messaging'],
-  hide: ['input.notifications', 'input.translation', 'input.recommendations', 'input.nearbyLabel', 'input.subtitles', 'input.tips', 'input.universeFrame', 'input.universeHistoryPaused', 'input.videoHistoryPaused', 'input.commandLanguage', 'input.privateAnalysisConsent', 'input.clear'],
+  hide: ['input.notifications', 'input.translation', 'input.recommendations', 'input.nearbyLabel', 'input.subtitles', 'input.tips', 'input.universeFrame', 'input.universeHistoryPaused', 'input.videoHistoryPaused', 'input.commandLanguage', 'input.privateAnalysisConsent', 'input.clear', 'input.navigation', 'input.shareActivityWithCloseOnes'],
   select: `{ messaging ${selection('MessagingSettings', 1)} }`, map: (d) => (d as { messaging?: unknown } | null)?.messaging ?? null,
   examples: ['breakrocks messages settings set --read-receipts false', 'breakrocks messages settings set --agent-requests decline'],
 });

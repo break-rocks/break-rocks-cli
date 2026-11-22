@@ -227,10 +227,266 @@ type AccountRef {
 }
 
 """
-What a bulk erasure erases (contracts/accounts.md § My data); LOCATION since v84.3.0.
+Since D-474 (contracts/agents-acting-for-their-human.md): what a delegated agent of a human asked for an act confirmed
+at each act, sent to the trusted devices of its human. The act is shown in the words of the social platform (summary,
+details), made from the operation kept, never a text of the agent. One request is one act.
+"""
+type ActConfirmationRequest {
+  """
+  The identifier of the delegated agent that asked.
+  """
+  agentId: ID!
+  """
+  The name of that delegated agent when it asked.
+  """
+  agentName: String!
+  """
+  Whether that delegated agent was the personal agent of the human when it asked, shown on the trusted device.
+  """
+  agentPersonal: Boolean!
+  """
+  When it was answered or expired; null while it waits.
+  """
+  answeredAt: AWSDateTime
+  """
+  What the trusted device signs to confirm it, made for this request only, committing to the request, its operation
+  and contentHash; null to the delegated agent, and once answered.
+  """
+  challenge: String
+  """
+  The hash of summary and details as shown (contracts/agents-acting-for-their-human.md § Act confirmation requests):
+  at run time they are built again, and a difference fails the act (ACT_CONFIRMATION_STALE); null to the delegated
+  agent.
+  """
+  contentHash: String
+  """
+  When it was made.
+  """
+  createdAt: AWSDateTime!
+  """
+  The details of the act in the words of the social platform, in the language of the human, in full (the choice, the
+  amount and its currency, the text of a consent, every element of a text to publish, the new handle…); once a request
+  of the kind VOTE is answered or expired, never the choice.
+  """
+  details: [String!]!
+  """
+  The trusted device that confirmed it; null otherwise, and to the delegated agent.
+  """
+  deviceId: ID
+  """
+  When it expires, 10 minutes after it was made.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The code the act answered when it was run (ACT_CONFIRMATION_STALE when what would be done is no longer what was
+  shown; a right lost meanwhile, a vote closed…), with status FAILED; null otherwise.
+  """
+  failure: String
+  """
+  The identifier of the act confirmation request.
+  """
+  id: ID!
+  """
+  The kind of the act.
+  """
+  kind: ConfirmedActKind!
+  """
+  The identifier of what the act made or changed (a vote, a payment, a post…), with status DONE; null otherwise.
+  """
+  resultId: ID
+  """
+  Where it stands.
+  """
+  status: ActConfirmationStatus!
+  """
+  The act in one sentence, in the words of the social platform, in the language of the human.
+  """
+  summary: String!
+}
+
+"""
+The waiting ones first, then the newest; "next": the cursor of the next page, null at the end.
+"""
+type ActConfirmationRequestPage {
+  """
+  The act confirmation requests of this page.
+  """
+  items: [ActConfirmationRequest!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Where an act confirmation request stands: WAITING its answer; REFUSED by the human; EXPIRED after 10 minutes without an
+answer; WITHDRAWN (agents.actForHuman turned off while it waited, or the requests of its agent paused); DONE (confirmed and run); FAILED (confirmed, the act
+refused when run: failure).
+"""
+enum ActConfirmationStatus {
+  DONE
+  EXPIRED
+  FAILED
+  REFUSED
+  WAITING
+  WITHDRAWN
+}
+
+"""
+Since D-474: the agent act class of an act of the record of agent acts: under an agent mandate (MANDATE), or confirmed
+at each act (CONFIRMED_EACH_ACT). The free acts are in the activity of a delegated agent.
+"""
+enum AgentActClass {
+  CONFIRMED_EACH_ACT
+  MANDATE
+}
+
+"""
+Since D-474: one act of the record of agent acts. mandateKind for an act under an agent mandate, confirmedKind and
+confirmationId for an act confirmed at each act.
+"""
+type AgentActRecordEntry {
+  """
+  The agent act class ("class" is a reserved word of Dart, Swift and Kotlin).
+  """
+  actClass: AgentActClass!
+  """
+  The identifier of the delegated agent that did it.
+  """
+  agentId: ID!
+  """
+  The name of that delegated agent then.
+  """
+  agentName: String!
+  """
+  When it was done.
+  """
+  at: AWSDateTime!
+  """
+  The act confirmation request, for an act confirmed at each act; null otherwise.
+  """
+  confirmationId: ID
+  """
+  The kind of an act confirmed at each act; null otherwise.
+  """
+  confirmedKind: ConfirmedActKind
+  """
+  The trusted device that confirmed it; null for an act under an agent mandate.
+  """
+  deviceId: ID
+  """
+  The identifier of the record of agent acts entry.
+  """
+  id: ID!
+  """
+  The kind of agent act of an act under an agent mandate; null otherwise.
+  """
+  mandateKind: AgentMandateKind
+  """
+  The act in one sentence, in the words of the social platform.
+  """
+  summary: String!
+}
+
+"""
+The newest first; "next": the cursor of the next page, null at the end.
+"""
+type AgentActRecordPage {
+  """
+  The record of agent acts entries of this page.
+  """
+  items: [AgentActRecordEntry!]!
+  """
+  The cursor of the next page (the argument after); null on the last page.
+  """
+  next: String
+}
+
+"""
+Since D-474: how the personal agent of a human says it publishes or changes a text (createPost, replyTo, quote, repost,
+changePost, publishPostDraft, schedulePostDraft, SendMessageInput.authorship, changeMessage; a personal agent only,
+INVALID_REQUEST for another caller, required from a personal agent: PERSONAL_AGENT_AUTHORSHIP_REQUIRED). Only a hint.
+DICTATED: published at once, with the Automated mark, under the bans on agents as any delegated agent.
+DICTATED_CONFIRMED and COMPOSED: an act confirmation request of the kind PUBLICATION (ACT_CONFIRMATION_REQUIRED); the
+trusted device, not the agent, asks the human "dictated by me" or "written by the agent": dictated, published without
+the Automated mark; written by the agent, with it; either way exempt from the bans on agents. A change of a text so
+confirmed needs a new confirmation, or it is published with the Automated mark, under the bans.
+"""
+enum AgentAuthorship {
+  COMPOSED
+  DICTATED
+  DICTATED_CONFIRMED
+}
+
+"""
+Since D-474: an agent mandate in force: the kind of agent act it covers, when and from which trusted device it was
+given.
+"""
+type AgentMandate {
+  """
+  The trusted device it was given from.
+  """
+  deviceId: ID!
+  """
+  When it was given.
+  """
+  givenAt: AWSDateTime!
+  """
+  The kind of agent act.
+  """
+  kind: AgentMandateKind!
+  """
+  Whether it is suspended (its delegated agent suspended, deactivated, no longer the personal agent, or its credentials
+  regenerated) until the human gives it again on a trusted device.
+  """
+  suspended: Boolean!
+}
+
+"""
+Since D-474: what setAgentMandate changes. given true gives the agent mandate of kind to the delegated agent agentId
+(or gives a suspended one again), with proof (an active trusted device's signature over a challenge of
+startTrustedDeviceChallenge of purpose GIVE_MANDATE naming that agent and that kind: TRUSTED_DEVICE_CHALLENGE_MISMATCH
+otherwise); false withdraws it, proof not needed.
+"""
+input AgentMandateInput {
+  agentId: ID!
+  kind: AgentMandateKind!
+  given: Boolean!
+  proof: TrustedDeviceProofInput
+}
+
+"""
+Since D-474: the kinds of agent act an agent mandate covers (contracts/agents-acting-for-their-human.md § The kinds of
+agent act): ACCOUNT_SECURITY (signing out everywhere, without resetAgentPowers), APPEALS, CONSENTS (the private analysis
+consent, translation.privateByPlatform), DATA_REQUESTS (My data, but a bulk erasure and downloading a data copy),
+DELEGATED_AGENTS (reading, suspending, narrowing the delegated agents of its human), EXPERIENCES (taking part, making
+public, the experience feats), JOINING_UNIVERSES (joining; leaving is confirmed at each act), MEET_UPS (the message
+meet-ups), NEARBY (answering, the nearby label, leaving), SHARING_MY_PLACES, SHARING_POSITION (starting and stopping a
+live share, the map presence, a route group session; the positions from the human's own device only).
+"""
+enum AgentMandateKind {
+  ACCOUNT_SECURITY
+  APPEALS
+  CONSENTS
+  DATA_REQUESTS
+  DELEGATED_AGENTS
+  EXPERIENCES
+  JOINING_UNIVERSES
+  MEET_UPS
+  NEARBY
+  SHARING_MY_PLACES
+  SHARING_POSITION
+}
+
+"""
+What a bulk erasure erases (contracts/accounts.md § My data); LOCATION since v84.3.0; HEALTH_MEASURES since D-461 (the
+experience results measured by the steps of the health data); AFFINITIES since D-476 (the expressed affinities, the
+affinity scores and the affinity consent, contracts/affinity.md § Erasure).
 """
 enum BulkErasureScope {
+  AFFINITIES
   CLIP_PLAYS
+  HEALTH_MEASURES
   INTEREST_PROFILE
   LIKES_AND_REPOSTS
   LOCATION
@@ -258,6 +514,26 @@ type CliSignInCode {
   identity provider kept in the contract, on purpose (P-12).
   """
   username: String!
+}
+
+"""
+Since D-474: the kind of an act confirmed at each act: VOTE (every act that counts in a governance or moderation count:
+a vote, leaving a universe, a proposal, an appeal jury duty, a sanction, a contribution vote, a poll, a feed removal review, an
+experience opinion, a proof, a tournament match), LEADERSHIP (the acts of the leadership and of the owner of a
+universe), MONEY (any spending or commitment of money: buying AI credits, the daily AI credit cap, a scheduled AI task,
+a subscription, a campaign, an x402 payment of a delegated agent other than the personal agent), HEALTH (the health
+consent), HANDLE (a change of handle), ACCOUNT_DELETION, DELETION (a bulk erasure, a route version, the whole of My
+places, any irreversible deletion), PUBLICATION (a text of the personal agent to publish or change).
+"""
+enum ConfirmedActKind {
+  ACCOUNT_DELETION
+  DELETION
+  HANDLE
+  HEALTH
+  LEADERSHIP
+  MONEY
+  PUBLICATION
+  VOTE
 }
 
 """
@@ -495,6 +771,10 @@ A delegated agent as its operator sees it; interactions or universes null: no re
 """
 type DelegatedAgent {
   """
+  Since D-474: whether its human paused its act confirmation requests (setAgentConfirmationsPaused).
+  """
+  confirmationsPaused: Boolean!
+  """
   When it was created.
   """
   createdAt: AWSDateTime!
@@ -503,7 +783,9 @@ type DelegatedAgent {
   """
   credentialsUpdatedAt: AWSDateTime!
   """
-  When it was deactivated (beyond the allowance); null otherwise.
+  When it was deactivated (beyond the allowance; since D-454, once the offer of the default limits of a delegated agent
+  of a human is on sale, a delegated agent of a human without a paid period in progress: its creation until its first
+  paid period, or the end of its paid period, never deleted for it); null otherwise.
   """
   deactivatedAt: AWSDateTime
   """
@@ -515,9 +797,26 @@ type DelegatedAgent {
   """
   interactions: [DelegatedAgentInteraction!]
   """
+  Since D-474: the agent mandates its human gave it, suspended ones included; empty without one, and while
+  agents.actForHuman is off.
+  """
+  mandates: [AgentMandate!]!
+  """
   The name of the delegated agent.
   """
   name: String!
+  """
+  Since D-454: the end of the paid period in progress of a delegated agent of a human (its default limits or a paid
+  tier); null without one (before the offer of its default limits is on sale, during its year of grace, or unpaid:
+  then deactivated) and for a delegated agent of an agent operator, whose plan pays it (payments.md § Delegated agents
+  of humans).
+  """
+  paidUntil: AWSDateTime
+  """
+  Since D-474: whether it is the personal agent of its human (free, within the limits of its human); false while
+  agents.actForHuman is off, and for a delegated agent of an agent operator.
+  """
+  personal: Boolean!
   """
   The state of the delegated agent.
   """
@@ -709,6 +1008,11 @@ agent attestations (agent-attestations.feature, to come: false until they exist)
 """
 type DelegatedAgentSelf {
   """
+  Since D-472: whether it acts for its human by agent act class (agents.actForHuman on and its operator a human); false
+  otherwise: the refusals to a delegated agent of the other contracts apply.
+  """
+  actsForHuman: Boolean!
+  """
   Whether it may make agent attestations.
   """
   attestationPermission: Boolean!
@@ -721,9 +1025,17 @@ type DelegatedAgentSelf {
   """
   interactions: [DelegatedAgentInteraction!]
   """
+  Since D-474: the kinds of agent act its human gave it an agent mandate for, in force (not suspended); empty without one.
+  """
+  mandates: [AgentMandateKind!]!
+  """
   The name of the delegated agent self.
   """
   name: String!
+  """
+  Since D-474: whether it is the personal agent of its human.
+  """
+  personal: Boolean!
   """
   The addresses of the universes, with their sign.
   """
@@ -731,7 +1043,8 @@ type DelegatedAgentSelf {
 }
 
 """
-The state of a delegated agent: active, suspended by its operator, deactivated (beyond the allowance). The
+The state of a delegated agent: active, suspended by its operator, deactivated (beyond the allowance; since D-454, once
+the offer of its default limits is on sale, a delegated agent of a human without a paid period in progress). The
 values stay in lowercase, as stored.
 """
 enum DelegatedAgentStatus {
@@ -1167,4 +1480,155 @@ enum RectificationField {
   DISPLAY_NAME
   EMAIL
   OTHER
+}
+
+"""
+D-502 (accounts.md).
+"""
+type PriorityInvitation {
+  """
+  Or null.
+  """
+  email: String
+  """
+  Its end.
+  """
+  expiresAt: AWSDateTime!
+  """
+  Left in 7 days.
+  """
+  remaining: Int!
+  """
+  Or null.
+  """
+  url: String
+}
+
+"""
+Since D-474: a trusted device of a human: a device it registered from that device, whose own means of access signs its
+confirmations and the agent mandates it gives.
+"""
+type TrustedDevice {
+  """
+  When it confirms: at once for the first trusted device or one approved by an active one; 24 hours after its
+  registration otherwise.
+  """
+  activeAt: AWSDateTime!
+  """
+  The identifier of the trusted device.
+  """
+  id: ID!
+  """
+  The kind of device.
+  """
+  kind: TrustedDeviceKind!
+  """
+  When it last confirmed an act or gave an agent mandate; null never.
+  """
+  lastUsedAt: AWSDateTime
+  """
+  The name the human gave it, 1 to 64 visible characters.
+  """
+  name: String!
+  """
+  When it was registered.
+  """
+  registeredAt: AWSDateTime!
+  """
+  ACTIVE, or PENDING until activeAt (it confirms nothing, gives no agent mandate, approves no device).
+  """
+  status: TrustedDeviceStatus!
+}
+
+"""
+Since D-474: a challenge a trusted device signs, valid 2 minutes, used once, bound to its purpose and to what it names.
+"""
+type TrustedDeviceChallenge {
+  """
+  The delegated agent it names (GIVE_MANDATE); null otherwise.
+  """
+  agentId: ID
+  """
+  The challenge, to sign.
+  """
+  challenge: String!
+  """
+  The pending trusted device it names (APPROVE_DEVICE); null otherwise.
+  """
+  deviceId: ID
+  """
+  When it expires.
+  """
+  expiresAt: AWSDateTime!
+  """
+  The kind of agent act it names (GIVE_MANDATE); null otherwise.
+  """
+  kind: AgentMandateKind
+  """
+  What it is for.
+  """
+  purpose: TrustedDeviceChallengePurpose!
+}
+
+"""
+Since D-474: what startTrustedDeviceChallenge makes a challenge for: purpose REGISTER (registerTrustedDevice);
+APPROVE_DEVICE with deviceId, the pending trusted device an active one approves (approveTrustedDevice); GIVE_MANDATE
+with agentId and kind (setAgentMandate). The device shows what it names before its means of access.
+"""
+input TrustedDeviceChallengeInput {
+  purpose: TrustedDeviceChallengePurpose!
+  deviceId: ID
+  agentId: ID
+  kind: AgentMandateKind
+}
+
+"""
+Since D-474: the purposes of a challenge of a trusted device.
+"""
+enum TrustedDeviceChallengePurpose {
+  APPROVE_DEVICE
+  GIVE_MANDATE
+  REGISTER
+}
+
+"""
+Since D-474: what registerTrustedDevice takes: the challenge of startTrustedDeviceChallenge, a name of 1 to 64 visible
+characters, the kind of device, and credential, the public key credential the device made over the challenge with its
+own means of access, its attestation of user verification included (an attested platform authenticator only:
+TRUSTED_DEVICE_NO_MEANS_OF_ACCESS otherwise).
+"""
+input TrustedDeviceInput {
+  challenge: String!
+  name: String!
+  kind: TrustedDeviceKind!
+  credential: AWSJSON!
+}
+
+"""
+Since D-474: the kinds of trusted device.
+"""
+enum TrustedDeviceKind {
+  COMPUTER
+  GLASSES
+  OTHER
+  PHONE
+  TABLET
+  WATCH
+}
+
+"""
+Since D-474: whether a trusted device confirms (ACTIVE) or waits its 24 hours (PENDING).
+"""
+enum TrustedDeviceStatus {
+  ACTIVE
+  PENDING
+}
+
+"""
+Since D-474: the proof of a trusted device (deviceId): assertion, its signature over the challenge (of the act
+confirmation request, or of startTrustedDeviceChallenge), made after its own means of access (user verification).
+"""
+input TrustedDeviceProofInput {
+  deviceId: ID!
+  assertion: AWSJSON!
 }

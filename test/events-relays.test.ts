@@ -70,12 +70,12 @@ describe('the relay of a universe event', () => {
 });
 
 describe('the event catalog', () => {
-  it('tells the event types on the map of Explore', async () => {
+  it('tells the event types on the Map view of Experiences (Explore)', async () => {
     const { h, calls } = scripted({ eventCatalog: { updatedAt: '2026-11-15T00:00:00.000Z', families: [{ key: 'sport', name: 'Sport', iconUrl: 'https://x/i.svg', types: [{ key: 'running', name: 'Running', onExploreMap: true, sensitive: false }, { key: 'quiz', name: 'Quiz', onExploreMap: false, sensitive: false }] }] } });
     expect(await h.run('events', 'catalog', '--language', 'fr')).toBe(0);
     expect(calls[0]).toMatchObject({ field: 'eventCatalog', variables: { language: 'fr' } });
     expect(calls[0].query).toContain('onExploreMap');
-    expect(h.lines.join('\n')).toBe('sport  Sport\n  running  Running  on the map of Explore\n  quiz  Quiz  in its universe');
+    expect(h.lines.join('\n')).toBe('sport  Sport\n  running  Running  on the Map view of Experiences (Explore)\n  quiz  Quiz  in its universe');
     expect(await h.run('events', 'catalog')).toBe(0);
     expect(calls[1].variables.language).toBe('en');
   });

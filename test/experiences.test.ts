@@ -229,7 +229,7 @@ describe('experiences check', () => {
     expect(await h.run('experiences', 'check', 'bad.json', '--offline')).toBe(1);
     expect(calls).toEqual([]);
     expect(h.lines.at(-1)).toBe([
-      'bad.json: challenge/1, @alice*event: 5 problems (checked offline only (--offline); specs v136.3.0)',
+      'bad.json: challenge/1, @alice*event: 5 problems (checked offline only (--offline); specs v156.1.0)',
       '  TEXT_TOO_LONG  /title/en: 101 visible characters, 100 at most',
       '  SCHEMA  /name: must not be "event" nor "route"',
       '  SCHEMA  /warnings: must not hold the same item twice',
@@ -248,7 +248,7 @@ describe('experiences check', () => {
     write('squats.json', squats());
     expect(await h.run('experiences', 'check', 'squats.json')).toBe(1);
     expect(calls[0].variables).toEqual({ d: JSON.stringify(squats()) });
-    expect(h.lines.at(-1)).toBe('squats.json: challenge/1, @alice*squats-100: 1 problem (checked by the platform too (checkExperience); specs v136.3.0)\n  NAME_TAKEN  /name: held by a route of the owner');
+    expect(h.lines.at(-1)).toBe('squats.json: challenge/1, @alice*squats-100: 1 problem (checked by the platform too (checkExperience); specs v156.1.0)\n  NAME_TAKEN  /name: held by a route of the owner');
     open = false;
     expect(await h.run('experiences', 'check', 'squats.json')).toBe(0);
     expect(h.lines.at(-1)).toMatch(/OK \(checked offline only: the platform does not open the experiences yet \(EXPERIENCES_NOT_OPEN\)/);
@@ -291,11 +291,13 @@ describe('experiences prompt', () => {
     const h = harness();
     expect(await h.run('experiences', 'prompt', '--engine', 'challenge/1', '--theme', 'a morning workout', '--language', 'fr', '--json')).toBe(0);
     const r = last<{ prompt: string; engine: string; specs: string; example: string }>(h);
-    expect(r).toMatchObject({ engine: 'challenge/1', specs: 'v136.3.0', example: 'vectors/challenge-1.json#squats' });
+    expect(r).toMatchObject({ engine: 'challenge/1', specs: 'v156.1.0', example: 'vectors/challenge-1.json#squats' });
     const shipped = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'schema', 'experiences', 'definition.schema.json'), 'utf8'));
     const schema = JSON.parse(/# JSON Schema[^\n]*\n\n```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
     expect(schema.properties.engine.properties).toEqual({ name: { const: 'challenge' }, version: { const: 1 } });
-    expect(schema.properties.challenge).toEqual(shipped.properties.challenge);
+    // The block of the engine, narrowed to its version (challenge/2 beside it since D-461: no measuredBy for challenge/1).
+    expect(JSON.stringify(schema.properties.challenge)).toContain(JSON.stringify(shipped.properties.challenge));
+    expect(JSON.stringify(schema.properties.challenge)).toContain('"measuredBy":false');
     expect(schema.$defs.challenge).toEqual(shipped.$defs.challenge);
     expect(schema.properties.route).toBeUndefined();
     expect(schema.properties.id).toBeUndefined();
@@ -314,7 +316,7 @@ describe('experiences prompt', () => {
     expect(await h.run('experiences', 'prompt', '--engine', 'presence/3', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'ENGINE_FORMAT_NOT_SUPPORTED' } });
     expect(await h.run('experiences', 'prompt', '--engine', 'quiz/1', '--json')).toBe(2);
-    expect(last(h)).toMatchObject({ error: { code: 'ENGINE_UNKNOWN', engines: ['route/1', 'challenge/1'] } });
+    expect(last(h)).toMatchObject({ error: { code: 'ENGINE_UNKNOWN', engines: ['route/1', 'challenge/1', 'challenge/2', 'meetup/1', 'multiday/1', 'rounds/1', 'tournament/1', 'tournament/2', 'visit/1', 'contest/1'] } });
     expect(await h.run('experiences', 'prompt', '--engine', 'challenge/1', '--language', 'french', '--json')).toBe(2);
   });
 
@@ -340,35 +342,35 @@ describe('experiences prompt', () => {
     cpSync(join(import.meta.dirname, '..', 'schema', 'experiences'), copy, { recursive: true });
     const enginesFile = join(copy, 'engines.json');
     const registry = JSON.parse(readFileSync(enginesFile, 'utf8'));
-    registry.engines.push({ name: 'visit', version: 1, since: 'v999.0.0', format: 'breakrocks.experience/4', what: 'The visit: a few stages among the places of an area.', owners: ['account'], places: ['solo'], proofs: ['DEVICE_CHECKED'], rankingMeasures: [], widgets: ['MAP_PROGRESS'], parameterFields: [] });
+    registry.engines.push({ name: 'scavenger', version: 1, since: 'v999.0.0', format: 'breakrocks.experience/4', what: 'The scavenger hunt: a few stages among the places of an area.', owners: ['account'], places: ['solo'], proofs: ['DEVICE_CHECKED'], rankingMeasures: [], widgets: ['MAP_PROGRESS'], parameterFields: [] });
     writeFileSync(enginesFile, JSON.stringify(registry));
     // In the registry only: the template does not define its documents yet.
-    expect(await h.run('experiences', 'prompt', '--engine', 'visit/1', '--contract', copy, '--json')).toBe(2);
+    expect(await h.run('experiences', 'prompt', '--engine', 'scavenger/1', '--contract', copy, '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'ENGINE_NOT_IN_TEMPLATE' } });
     // And in the template: its block and its condition.
     const schemaFile = join(copy, 'definition.schema.json');
     const schema = JSON.parse(readFileSync(schemaFile, 'utf8'));
-    schema.properties.engine.properties.name.enum.push('visit');
-    schema.properties.visit = { type: 'object', additionalProperties: false, required: ['stages'], properties: { stages: { type: 'array', minItems: 2, maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['placeId', 'lat', 'lon'], properties: { placeId: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } } } } };
-    schema.allOf.push({ if: { properties: { engine: { type: 'object', properties: { name: { const: 'visit' } } } } }, then: { required: ['visit'], properties: { route: false, challenge: false, ranking: false } } });
-    for (const branch of schema.allOf.slice(0, 2)) branch.then.properties.visit = false;
+    schema.properties.engine.properties.name.enum.push('scavenger');
+    schema.properties.scavenger = { type: 'object', additionalProperties: false, required: ['stages'], properties: { stages: { type: 'array', minItems: 2, maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['placeId', 'lat', 'lon'], properties: { placeId: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } } } } };
+    schema.allOf.push({ if: { properties: { engine: { type: 'object', properties: { name: { const: 'scavenger' } } } } }, then: { required: ['scavenger'], properties: { route: false, challenge: false, ranking: false } } });
+    for (const branch of schema.allOf.slice(0, 2)) branch.then.properties.scavenger = false;
     writeFileSync(schemaFile, JSON.stringify(schema));
-    expect(await h.run('experiences', 'prompt', '--engine', 'visit/1', '--contract', copy, '--stages', '4', '--json')).toBe(0);
+    expect(await h.run('experiences', 'prompt', '--engine', 'scavenger/1', '--contract', copy, '--stages', '4', '--json')).toBe(0);
     const r = last<{ prompt: string; engine: string; example: string | null }>(h);
-    expect(r).toMatchObject({ engine: 'visit/1', example: null });
-    expect(r.prompt).toMatch(/The engine visit\/1: The visit: a few stages among the places of an area\./);
+    expect(r).toMatchObject({ engine: 'scavenger/1', example: null });
+    expect(r.prompt).toMatch(/The engine scavenger\/1: The scavenger hunt: a few stages among the places of an area\./);
     expect(r.prompt).toMatch(/About 4 stages/);
     const narrowed = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
-    expect(narrowed.properties.engine.properties.name).toEqual({ const: 'visit' });
-    expect(narrowed.properties.visit).toEqual(schema.properties.visit);
-    expect(narrowed.required).toContain('visit');
+    expect(narrowed.properties.engine.properties.name).toEqual({ const: 'scavenger' });
+    expect(narrowed.properties.scavenger).toEqual(schema.properties.scavenger);
+    expect(narrowed.required).toContain('scavenger');
     expect(narrowed.properties.challenge).toBeUndefined();
     expect(narrowed.properties.route).toBeUndefined();
-    // The CLI carries challenge/1 and route/1 only: visit/1 is unknown to it without --contract.
-    expect(await h.run('experiences', 'prompt', '--engine', 'visit/1', '--json')).toBe(2);
+    // The CLI does not carry scavenger/1: it is unknown to it without --contract.
+    expect(await h.run('experiences', 'prompt', '--engine', 'scavenger/1', '--json')).toBe(2);
     // The offline check reads the same copy.
-    writeFileSync(join(h.dir, 'visit.json'), JSON.stringify({ format: 'breakrocks.experience/4', engine: { name: 'visit', version: 1 }, owner: '@alice', name: 'old-paris', title: { en: 'Old Paris' }, instruction: { en: 'Visit the stages.' }, visit: { stages: [{ placeId: 'p1', lat: 48.85, lon: 2.35 }] } }));
+    writeFileSync(join(h.dir, 'visit.json'), JSON.stringify({ format: 'breakrocks.experience/4', engine: { name: 'scavenger', version: 1 }, owner: '@alice', name: 'old-paris', title: { en: 'Old Paris' }, instruction: { en: 'Visit the stages.' }, scavenger: { stages: [{ placeId: 'p1', lat: 48.85, lon: 2.35 }] } }));
     expect(await h.run('experiences', 'check', 'visit.json', '--offline', '--contract', copy)).toBe(1);
-    expect(h.lines.at(-1)).toMatch(/1 problem .*\n {2}SCHEMA {2}\/visit\/stages: must have at least 2 items$/);
+    expect(h.lines.at(-1)).toMatch(/1 problem .*\n {2}SCHEMA {2}\/scavenger\/stages: must have at least 2 items$/);
   });
 });

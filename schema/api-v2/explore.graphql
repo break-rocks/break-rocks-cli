@@ -4,6 +4,10 @@ follow).
 """
 type AccountToFollow {
   """
+  Since D-476: its place with the affinity mode; null otherwise.
+  """
+  affinityPlacement: AffinityPlacement
+  """
   The account, as shown.
   """
   account: AccountRef!
@@ -115,7 +119,9 @@ input ClipPlayInput {
 Which list of Explore to read (exploreUniverses, G-7): ACTIVE (the active universes), FIELD (the universes
 of a field: field required), CLOSE_TO_LEVEL (close to a governance level), AREA (the universes whose
 universe territory meets the map cells: mapCells required), LANGUAGE (language required), NEW (the new
-universes), WHERE_FOLLOWED_ACCOUNTS_POST (where the accounts the caller follows post).
+universes), WHERE_FOLLOWED_ACCOUNTS_POST (where the accounts the caller follows post). Since D-478
+(map/map-universe-filter.feature), the apps read AREA for the universes around here of the choice of the universe filter
+only (since D-479, no longer for the first view of Explore), never to draw a universe territory on the map of Explore; kept served.
 """
 enum ExploreBy {
   ACTIVE
@@ -134,6 +140,10 @@ of the accounts followed (where the accounts I follow post); "nextLevel" and "ne
 for the universes close to a level ("812 / 1,000").
 """
 type ExploreUniverse {
+  """
+  Since D-476: its place with the affinity mode; null otherwise.
+  """
+  affinityPlacement: AffinityPlacement
   """
   The accounts, as shown.
   """
@@ -484,9 +494,10 @@ type RecommendationPage {
 """
 The strongest affinity of the reader with a recommendation: the sentence the apps show. Since
 v66.0.0 (D-178): INFERRED_INTEREST (a clip, from an inferred interest or a chosen field: "universe",
-"tag" or "field"), NEW_ON_PLATFORM (an exploration clip).
+"tag" or "field"), NEW_ON_PLATFORM (an exploration clip). AFFINITY: an affinity proposal (D-480).
 """
 enum RecommendationReason {
+  AFFINITY
   FAVORITE_UNIVERSE
   FOLLOWED
   INFERRED_INTEREST
@@ -654,6 +665,10 @@ used it in the last 24 hours; the public universe of the first level where it wa
 last 24 hours with the highest interest, and for the 3 first a trend summary.
 """
 type TrendingTag {
+  """
+  Since D-476: its place with the affinity mode; null otherwise.
+  """
+  affinityPlacement: AffinityPlacement
   """
   The number of accounts that use it.
   """
@@ -825,8 +840,10 @@ takes them; null: no words, for randomHighlight only (exploreSearch answers INVA
 them the apps count what the map shows); an address alone is landed by the app (D-246), and an address of a public
 universe followed by words is sent as mapFilter and query. when: the time window, DAYS
 when not given. days: with DAYS only, 1 to 90, 7 when not given (INVALID_REQUEST otherwise; the time slider sends DAYS
-and its days). kinds: the map kinds chosen, every one when not given; PEOPLE is ignored (the app holds the people it
-shows and adds them). families: the keys of the event families chosen (EventFamily.key, as universeEvents takes them),
+and its days). kinds: the map kinds chosen, every one when not given (since D-437, every one of before D-437: EXPERIENCES is never implied, so
+that an app built before D-437 never receives EXPERIENCES, EXPERIENCE, EXPERIENCE_RUN, GROUP_RUNS nor ROUTE_EXPERIENCES;
+EXPERIENCES counts only when named in kinds, by a caller signed in, while the experiences are open); PEOPLE is ignored (the app holds the people it
+shows and adds them); since D-478, UNIVERSE results whatever kinds (AREA: the universe filter only). families: the keys of the event families chosen (EventFamily.key, as universeEvents takes them),
 every one when not given; since v129.0.0 (D-410), the apps keep the event families chosen while EVENTS is not among
 the kinds, without effect: given with kinds that leave out EVENTS, families is ignored.
 mapFilter: the map filter, an address of at most one public universe and its tags ("%paris#market", "#market"), as the
@@ -839,6 +856,14 @@ INVALID_REQUEST. access: since D-415 (map/route-findability.feature), the route 
 accessibility boxes chosen: only the routes that have every one of them ticked (MapRoute.access), the other kinds
 unchanged; null or empty: none; given with kinds that leave out ROUTES, ignored, as families without EVENTS. Since
 D-415, the words also find a route by its route context and its route description (§ The route context).
+experienceDuration and experienceCompany: since D-437 (posts/explore-things-to-do.feature), the experience duration
+filter and the experience company filter (null: "All"); given with kinds that leave out EXPERIENCES, ignored, as access
+without ROUTES. HOUR, DAY and LONGER keep the simple challenges whose experience template sets the hours of an experience
+instance (challenge.endsWithinHours, the default of an experience parameter) to at most 1, at most 24, or more than 24,
+and the group experience instances of those; a route experience stays whatever the duration (it keeps no time). SOLO
+keeps the route experiences and the simple challenges; GROUP keeps the group experience instances (EXPERIENCE_RUN) the
+caller may join now (MapExperienceRun.canJoin true, D-442 (Q19)); without experienceCompany, those it may not join are
+answered too, with canJoin false (D-442 (Q15)).
 """
 input ExploreFilterInput {
   area: ExploreAreaInput
@@ -851,6 +876,29 @@ input ExploreFilterInput {
   scope: ExploreScope
   order: ExploreOrder
   access: [RouteAccess!]
+  experienceDuration: ExperienceDuration
+  experienceCompany: ExperienceCompany
+}
+
+"""
+Since D-437 (posts/explore-things-to-do.feature): the experience duration filter (ExploreFilterInput.experienceDuration):
+HOUR "1 hour at most", DAY "1 day at most", LONGER "Longer", on the hours of an experience instance of a simple
+challenge; "All" is null.
+"""
+enum ExperienceDuration {
+  DAY
+  HOUR
+  LONGER
+}
+
+"""
+Since D-437 (posts/explore-things-to-do.feature): the experience company filter (ExploreFilterInput.experienceCompany):
+SOLO "Alone" (the route experiences and the simple challenges, started alone at once), GROUP "In a group" (the group
+experience instances the caller may join now, MapExperienceRun.canJoin, D-442 (Q19)); "All" is null.
+"""
+enum ExperienceCompany {
+  GROUP
+  SOLO
 }
 
 """
@@ -913,7 +961,8 @@ enum ExploreOrder {
 """
 Since v128.0.0 (D-408, posts/explore-search.feature): an explore reason, what a result tells of why it is there:
 IN_TIME_WINDOW (it takes place in the time window), IN_AREA (it is in the area), CROSSES_AREA (a route that crosses the
-area), TERRITORY_IN_AREA (a universe whose universe territory meets the area), WORD_IN_NAME (a word is in its name, its
+area), TERRITORY_IN_AREA (a universe whose universe territory meets the area; since D-478, only the universe of the
+universe filter, in the area), WORD_IN_NAME (a word is in its name, its
 title or its display name; since D-418, for a route, its name or its route title), WORD_IN_TEXT (a word is in the text of a post), WORD_IN_SEARCH_WORDS (a word is a universe
 search word or a platform search word of a universe), CARRIES_TAG (it carries a tag of the words or of the map filter).
 Since D-415 (map/route-findability.feature), for a route: PASSES_BY (a crossed place of its route context holds every
@@ -970,13 +1019,19 @@ type ExploreResultReason {
 
 """
 Since v128.0.0 (D-408): what a result of Explore is: a placed or unplaced post (POST), a post with a clip or a long video
-(VIDEO), a place with a place feat (PLACE), a universe event (EVENT), a route (ROUTE), a public universe (UNIVERSE), and,
-everywhere only, an account (ACCOUNT), a universe discussion (DISCUSSION), a playlist (PLAYLIST) or a tag (TAG).
+(VIDEO), a place with a place experience (PLACE), a universe event (EVENT), a route (ROUTE), a public universe (UNIVERSE; since
+D-478, in the area only the universe of the universe filter, none without one: map/map-universe-filter.feature), and,
+everywhere only, an account (ACCOUNT), a universe discussion (DISCUSSION), a playlist (PLAYLIST) or a tag (TAG). Since
+D-437 (posts/explore-things-to-do.feature): an experience (EXPERIENCE: a public route experience, in the area or
+everywhere, or a public simple challenge, everywhere only) and a group experience instance of a universe event
+(EXPERIENCE_RUN), both in ExploreResult.experience, answered only when the filter names EXPERIENCES in kinds.
 """
 enum ExploreResultKind {
   ACCOUNT
   DISCUSSION
   EVENT
+  EXPERIENCE
+  EXPERIENCE_RUN
   PLACE
   PLAYLIST
   POST
@@ -1013,7 +1068,7 @@ type ExploreResult {
   """
   mapPost: MapPost
   """
-  PLACE: the place with a place feat, as mapPlaceFeats answers it; null otherwise.
+  PLACE: the place with a place experience, as mapPlaceFeats answers it; null otherwise.
   """
   place: MapPlaceFeats
   """
@@ -1026,7 +1081,8 @@ type ExploreResult {
   route: MapRouteMarker
   """
   UNIVERSE: the public universe, with its universe territory and its primary color as the list by AREA answers them;
-  null otherwise.
+  null otherwise. Since D-478, among the results everywhere, never moving the map; since D-479, a touch applies it as
+  the universe filter, and "Go" (a signed-in caller) lands in it on its focus posts.
   """
   universe: ExploreUniverse
   """
@@ -1046,6 +1102,13 @@ type ExploreResult {
   """
   tag: String
   """
+  Since D-437: EXPERIENCE or EXPERIENCE_RUN, the experience in its light form, as mapExperiences answers it (with run for
+  EXPERIENCE_RUN); null otherwise. Its explore reasons: IN_TIME_WINDOW for a group experience instance, IN_AREA (a route
+  experience whose route start lies in the area, a group experience instance whose universe event does), WORD_IN_NAME (a
+  word in its title or its name).
+  """
+  experience: MapExperience
+  """
   Its explore reasons, 1 at least for a result of exploreSearch; empty for the result of randomHighlight and
   highlightOfTheDay.
   """
@@ -1062,7 +1125,7 @@ type ExploreDensity {
   """
   mapCell: String!
   """
-  The map kind.
+  The map kind; since D-437, EXPERIENCES only when the filter names it in kinds.
   """
   kind: MapKind!
   """
@@ -1122,8 +1185,9 @@ its sentence ("Tonight in the Marais: 3 concerts, 12 photos, 3 routes"), with th
 """
 type AreaSummary {
   """
-  The parts, at most 5, in the order the sentence shows them, the apps taking the first 3: the universe events (by event
-  type when they all have one, else one part of all), the photos, the videos, the feats, the routes; with one map kind
+  The parts, at most 6, in the order the sentence shows them, the apps taking the first 3: the universe events (by event
+  type when they all have one, else one part of all), since D-437 the experiences, the photos, the videos, the feats,
+  the routes; with EXPERIENCES alone among kinds, GROUP_RUNS and ROUTE_EXPERIENCES, the most numerous first; with one map kind
   alone among kinds, its parts are its kinds, the most numerous first (the universe events by event type, the routes by
   main travel mode). A part at 0 is never answered; empty when the area holds nothing of the filter.
   """
@@ -1137,12 +1201,20 @@ type AreaSummary {
 """
 Since D-414: what an AreaSummaryPart counts: EVENTS, the universe events of the time window (in progress at a moment of
 it); PHOTOS, the placed posts with a photo of the last 24 hours; VIDEOS, the placed videos of the last 24 hours; FEATS,
-the experience feats published in the last 24 hours; ROUTES, the routes that cross the area.
+the experience feats published in the last 24 hours; ROUTES, the routes that cross the area. Since D-437
+(posts/explore-things-to-do.feature): EXPERIENCES, the public route experiences whose route start lies in the area and
+the group experience instances planned at universe events of the area (STARTED), their start within the time window; with EXPERIENCES alone among the
+map kinds, its kinds: GROUP_RUNS, the group experience instances, and ROUTE_EXPERIENCES, the route experiences; each from
+3 distinct accounts at least in each map cell before the cells are added up (D-428 (a); the experience owners, the
+experience organizers, a universe counting as one account); answered only when the filter names EXPERIENCES in kinds.
 """
 enum AreaSummaryKind {
   EVENTS
+  EXPERIENCES
   FEATS
+  GROUP_RUNS
   PHOTOS
+  ROUTE_EXPERIENCES
   ROUTES
   VIDEOS
 }
@@ -1221,8 +1293,9 @@ its very lively map cell, and the number of very lively map cells it was drawn f
 """
 type RandomHighlight {
   """
-  The map highlight drawn: a placed post, a placed video, a place with a place feat or a universe event (POST, VIDEO,
-  PLACE or EVENT), with its point; reasons empty.
+  The map highlight drawn: a placed post, a placed video, a place with a place experience or a universe event (POST, VIDEO,
+  PLACE or EVENT), with its point; reasons empty. Since D-437, never an experience (EXPERIENCES in kinds is ignored by
+  randomHighlight).
   """
   result: ExploreResult!
   """
@@ -1241,7 +1314,8 @@ Since v128.0.0 (D-408, universes/explore.feature): the highlight of the day of a
 type HighlightOfTheDay {
   """
   The map highlight with the highest highlight score among the placed posts and the placed videos of the last 24 hours
-  in the country (POST or VIDEO), with its point and its author (mapPost.author); reasons empty.
+  in the country (POST or VIDEO), with its point and its author (mapPost.author); reasons empty; since D-437, never an
+  experience.
   """
   result: ExploreResult!
   """
@@ -1279,7 +1353,8 @@ type UniverseFilterChoice {
   universe: String!
   """
   Its linked places, "See its places · N": the distinct points of what is linked to it (universeFilterChoices); 0: "no
-  linked place", and "See its places" is not offered.
+  linked place", and "See its places" is not offered. Since D-469, the place of a placed channel is no longer one of
+  them (map.md § The map never opens a universe nor a universe discussion).
   """
   linkedPlaces: Int!
   """
@@ -1318,4 +1393,31 @@ type MapBounds {
   The eastern longitude.
   """
   east: Float!
+}
+
+"""
+Since D-437 (posts/explore-things-to-do.feature): what the resume band of Explore shows, read by exploreResume: the
+experience instances the caller has in progress and the universe events of the day the caller attends.
+"""
+type ExploreResume {
+  """
+  The experience instances in which the experience result of the caller is IN_PROGRESS, the soonest end first (a route
+  experience after those with an end), 20 at most, each with myParticipation (its progress: the counter, the timer, the
+  stages of a visit experience); the route guidance of a route experience is read on the device. Empty while the
+  experiences are not open.
+  """
+  runs: [ExperienceRun!]!
+  """
+  The number of those experience instances (the apps show 2 lines at most, then "and N others").
+  """
+  runCount: Int!
+  """
+  The universe events of the day, in the time zone of their place, that the caller attends and that have not ended, the
+  soonest first, 20 at most; the apps compute their distance on the device.
+  """
+  events: [UniverseEvent!]!
+  """
+  The number of those universe events.
+  """
+  eventCount: Int!
 }

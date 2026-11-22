@@ -1,5 +1,5 @@
 """
-The appeal of a sanction: opened by the sanctioned account, decided by a jury, the leadership or the platform.
+The appeal of a sanction: opened by the sanctioned account, decided by an appeal jury, the leadership or the platform.
 """
 type Appeal {
   """
@@ -34,7 +34,7 @@ type Appeal {
 }
 
 """
-Who decides an appeal: a jury, the leadership, the platform team.
+Who decides an appeal: an appeal jury, the leadership, the platform team.
 """
 enum AppealDecider {
   JURY
@@ -377,7 +377,7 @@ type GovernanceText {
 }
 
 """
-The state of a juror on an appeal.
+The state of an appeal juror on an appeal.
 """
 enum JurorStatus {
   ACCEPTED
@@ -390,11 +390,11 @@ enum JurorStatus {
 }
 
 """
-The vote of a juror on an appeal.
+The vote of an appeal juror on an appeal.
 """
 type JurorVote {
   """
-  Whether the juror dismissed the appeal.
+  Whether the appeal juror dismissed the appeal.
   """
   dismiss: Boolean!
   """
@@ -408,15 +408,15 @@ type JurorVote {
 }
 
 """
-The caller drawn as juror of an appeal: to accept by "answerBy"; the sanction appealed (without
-the resident); its vote; the reviews of the platform AI agents the jury asked for ("reviewStatus"
-null: none asked; "askedAt": when a juror last asked for them (askSanctionReviews), null when none
+The caller drawn as appeal juror of an appeal: to accept by "answerBy"; the sanction appealed (without
+the resident); its vote; the reviews of the platform AI agents the appeal jury asked for ("reviewStatus"
+null: none asked; "askedAt": when an appeal juror last asked for them (askSanctionReviews), null when none
 — still ASKED 15 minutes later, they may be asked again; "reviews": for then against, once both
 are written).
 """
 type JuryDuty {
   """
-  Until when the juror answers its draw.
+  Until when the appeal juror answers its draw.
   """
   answerBy: AWSDateTime!
   """
@@ -432,15 +432,15 @@ type JuryDuty {
   """
   days: Int
   """
-  When the juror was drawn.
+  When the appeal juror was drawn.
   """
   drawnAt: AWSDateTime!
   """
-  The jury of the appeal the juror sits in (a later jury when the first does not reach its decision).
+  The appeal jury of the appeal the appeal juror sits in (a later appeal jury when the first does not reach its decision).
   """
   jury: Int!
   """
-  The kind of the jury duty.
+  The kind of the appeal jury duty.
   """
   kind: SanctionKind!
   """
@@ -452,7 +452,7 @@ type JuryDuty {
   """
   reasons: [ReportReason!]!
   """
-  The state of the reviews asked by the jury; null when none was asked.
+  The state of the reviews asked by the appeal jury; null when none was asked.
   """
   reviewStatus: SanctionReviewStatus
   """
@@ -472,7 +472,7 @@ type JuryDuty {
   """
   snippet: String
   """
-  The state of the jury duty.
+  The state of the appeal jury duty.
   """
   status: JurorStatus!
   """
@@ -482,11 +482,11 @@ type JuryDuty {
 }
 
 """
-A page of jury duties, the most recent first.
+A page of appeal jury duties, the most recent first.
 """
 type JuryDutyPage {
   """
-  The jury duty items of this page.
+  The appeal jury duty items of this page.
   """
   items: [JuryDuty!]!
   """
@@ -636,7 +636,7 @@ type LevelGoal {
 """
 An entry of the public moderation log: the sanction, its articles, its moderator, never the
 sanctioned resident; the decision of its appeal, with the reasoning of the two platform AI agents
-a jury asked for ("appealReviews": for then against the sanction, empty when none was asked). Since v78.1.0:
+an appeal jury asked for ("appealReviews": for then against the sanction, empty when none was asked). Since v78.1.0:
 the removal of a text of a platform AI agent (PLATFORM_AGENT_TEXT_REMOVAL, "agentText"), never appealed.
 """
 type ModerationLogEntry {
@@ -1674,8 +1674,8 @@ type SanctionPage {
 
 """
 The reasoning of a platform AI agent on a sanction, against the charter of its universe (at most
-2,000 characters, in the language of the charter): read by the jury of its appeal, published with
-the decision. Only the jury decides.
+2,000 characters, in the language of the charter): read by the appeal jury of its appeal, published with
+the decision. Only the appeal jury decides.
 """
 type SanctionReview {
   """
@@ -1693,7 +1693,7 @@ type SanctionReview {
 }
 
 """
-The side a platform AI agent argues on a sanction, for a jury: for it, or against it
+The side a platform AI agent argues on a sanction, for an appeal jury: for it, or against it
 (universe-moderation.feature).
 """
 enum SanctionReviewSide {
@@ -1702,7 +1702,7 @@ enum SanctionReviewSide {
 }
 
 """
-The reviews a jury asked for: asked (the agents reasoning), ready (both written), unavailable (the model
+The reviews an appeal jury asked for: asked (the agents reasoning), ready (both written), unavailable (the model
 answered nothing: ask again).
 """
 enum SanctionReviewStatus {
@@ -1769,7 +1769,7 @@ enum SubUniversePower {
 
 """
 An appeal waiting in a universe, for its leadership: the sanction (without the resident), who decides it, the
-juries drawn.
+appeal juries drawn.
 """
 type UniverseAppeal {
   """
@@ -1785,7 +1785,7 @@ type UniverseAppeal {
   """
   decider: AppealDecider!
   """
-  The juries drawn.
+  The appeal juries drawn.
   """
   juries: Int!
   """
