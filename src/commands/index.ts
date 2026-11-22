@@ -33,6 +33,7 @@ import { myPlacesCommands } from './my-places.js';
 import { experiencesCommands } from './experiences.js';
 import { linkCommands } from './links.js';
 import { navigationCommands } from './navigation.js';
+import { tourCommands } from './tour.js';
 import * as appearance from './appearance.js';
 import * as measures from './measures.js';
 import * as discovery from './discovery.js';
@@ -98,7 +99,7 @@ register(
   gallery.themesGallery, gallery.universesAppearanceHistory, gallery.universesAppearanceRestore,
   appearance.appearanceShow, appearance.appearanceLooks, appearance.appearancePalette, appearance.appearanceBuild, appearance.appearanceApply,
   appearance.universesTagsConventions, appearance.universesTagsSuggestions, appearance.universesTagsView,
-  history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause, ...navigationCommands,
+  history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause, ...navigationCommands, ...tourCommands,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
   themePublish, themeApply, themePersonalSet, themePersonalClear, themePersonalSaved, themeExport, themeShots, themeDelete,
   ...layoutCommands, ...studioCommands, pages.studioMakePage,

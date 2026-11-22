@@ -5,6 +5,31 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-22
+
+Specs v158.0.0 (`specs/common` pinned on that tag; D-514, D-515 of v157.0.0, D-516 of v158.0.0). `schema/api-v2` regenerated
+(272 reads, 439 writes: no new operation; `Settings.tour`, `TourSettings`, `OnboardingActivity.TOUR_FINISHED`).
+
+### Added
+
+- `me tour`: the state of the app tour of the account (`Settings.tour`): its state, its step while in progress, the tour mode,
+  the voice language, "Move on alone after a successful gesture" and the hidden gestures reached.
+- `me tour skip`: "Skip the tour" (`setSettings` `tour: { state: SKIPPED }`), with `--dry-run`; `TOUR_STATE_INVALID` from the
+  platform when the tour is finished.
+- `me tour set --mode READ|LISTEN|BOTH --voice-language <BCP 47> --auto-advance|--no-auto-advance`: the preferences of the app
+  tour, at least one, with `--dry-run`. The state, the step and the gestures are written by the apps as the tour is played.
+- `NO_APP_TOUR_FOR_AGENT_OPERATOR` (CLI side): the three commands refuse a session of an agent operator without calling the API
+  (D-515).
+
+### Changed
+
+- `messages settings set` hides the new `tour` field of `SettingsInput`.
+
+### Notes
+
+- The permanent kind of a universe (`permanent: capital|domain`, `capitalOf`, `domainKey`) is not in API v2 as of v158.0.0
+  (contract files only), so the CLI shows nothing of it yet.
+
 ## [0.38.0] - 2026-11-22
 
 The themes and the app navigation of D-506 (specs v156.0.0; `specs/common` unchanged, the theme model needs no new

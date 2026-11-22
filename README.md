@@ -248,6 +248,9 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me invite-exceptions remove` | Remove an exception to who may invite you | `breakrocks me invite-exceptions remove @alice` |
 | `me navigation` | What the center button opens | `breakrocks me navigation` |
 | `me navigation set` | Choose what the center button opens | `breakrocks me navigation set now` |
+| `me tour` | The app tour of the account and its preferences | `breakrocks me tour` |
+| `me tour skip` | Skip the app tour of the account | `breakrocks me tour skip` |
+| `me tour set` | Choose the tour mode, voice language or auto move on | `breakrocks me tour set --mode LISTEN` |
 | `me privacy share-activity` | Whether your close ones see your activity | `breakrocks me privacy share-activity` |
 | `me privacy share-activity set` | Share your activity with your close ones, or stop | `breakrocks me privacy share-activity set on` |
 | `me notifications` | Your notifications | `breakrocks me notifications --unread` |
@@ -912,6 +915,26 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
 | `links shorten` | Make the short link /go/<code> of a URL | `breakrocks links shorten "/new/tournament/v/entrants.max=24"` |
 | `links resolve` | The URL a short link stands for | `breakrocks links resolve 7Hk2pQa9xT` |
+
+### The app tour (0.39.0, specs v158.0.0)
+
+`specs/common` pinned on **v158.0.0** (v157.0.0, the app tour, D-514 and D-515; v158.0.0, the permanent capital and domain
+universes, D-516) and `schema/api-v2` regenerated (272 queries, 439 mutations: no new operation).
+
+- **The app tour** (`contracts/onboarding.md` § The app tour, `Settings.tour`) is played by the mobile apps, in a window below
+  600 pixels; the CLI reads and writes what a terminal can do honestly. `me tour` shows the state (`NOT_STARTED`,
+  `NEW_NAVIGATION` derived for an account created before the app tour, `IN_PROGRESS` with its step, `FINISHED`, `SKIPPED`),
+  the tour mode, the voice language, "Move on alone after a successful gesture" and the hidden gestures reached. `me tour skip`
+  writes "Skip the tour" (`setSettings` `tour: { state: SKIPPED }`; the platform refuses a tour that is finished,
+  `TOUR_STATE_INVALID`). `me tour set [--mode READ|LISTEN|BOTH] [--voice-language <BCP 47>] [--auto-advance|--no-auto-advance]`
+  writes the three preferences. `--dry-run` on the writes.
+- **Not in the CLI**: starting, resuming, replaying or finishing the tour, its `step` and its `gestures` (the apps write them as
+  the tour is played; a replay writes `gestures` only), and the two cards (`resumeCardClosed`,
+  `newNavigationCardDismissed`). An agent operator has no app tour (D-515): the commands of an operator session answer
+  `NO_APP_TOUR_FOR_AGENT_OPERATOR` without calling the API.
+- **The permanent universes** (D-516): the contract of v158.0.0 adds the lists (`contracts/permanent-universes/`) but no field
+  of API v2 (`Universe` has no `permanent`, `capitalOf` nor `domainKey` yet), so no command shows the permanent kind of a
+  universe for now; it will once the API serves it. The AI prices are shown as the API gives them, with no multiplier.
 
 ### Navigation, pre-filled links and short links (0.37.0, specs v156.1.0)
 
