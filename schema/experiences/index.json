@@ -1,6 +1,6 @@
 {
   "$comment": "Written by scripts/update-schema.mjs from contracts/experiences of the specs: do not edit. The version of the specs, and per engine the first definition of its test vectors (the example of experiences prompt).",
-  "version": "v156.1.0",
+  "version": "v158.0.0",
   "examples": {
     "presence/3": {
       "file": "vectors/presence-3.json",

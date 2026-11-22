@@ -833,37 +833,7 @@ type MutedUniverse {
 }
 
 """
-Since v128.0.0 (D-408, posts/explore-search.feature; contracts/map.md § The explore filter): the explore filter, as
-exploreSearch, randomHighlight and, since D-419, universeFilterChoices read it. area: the area shown; null for randomHighlight only, the whole world (the map
-under the zoom 3); exploreSearch answers INVALID_REQUEST without it. query: the words, 2 to 200 characters, as search
-takes them; null: no words, for randomHighlight only (exploreSearch answers INVALID_REQUEST without words: without
-them the apps count what the map shows); an address alone is landed by the app (D-246), and an address of a public
-universe followed by words is sent as mapFilter and query. when: the time window, DAYS
-when not given. days: with DAYS only, 1 to 90, 7 when not given (INVALID_REQUEST otherwise; the time slider sends DAYS
-and its days). kinds: the map kinds chosen, every one when not given (since D-437, every one of before D-437: EXPERIENCES is never implied, so
-that an app built before D-437 never receives EXPERIENCES, EXPERIENCE, EXPERIENCE_RUN, GROUP_RUNS nor ROUTE_EXPERIENCES;
-EXPERIENCES counts only when named in kinds, by a caller signed in, while the experiences are open); PEOPLE is ignored (the app holds the people it
-shows and adds them); since D-478, UNIVERSE results whatever kinds (AREA: the universe filter only). families: the keys of the event families chosen (EventFamily.key, as universeEvents takes them),
-every one when not given; since v129.0.0 (D-410), the apps keep the event families chosen while EVENTS is not among
-the kinds, without effect: given with kinds that leave out EVENTS, families is ignored.
-mapFilter: the map filter, an address of at most one public universe and its tags ("%paris#market", "#market"), as the
-link carries it: its universe is the universe filter of the explore filter (the where of the explore filter until
-D-419; since D-419, apart from where, which holds places only: area), its tags are a part of what; null: none; an invalid
-part is left out; with words, a result carries one of its tags and the words. scope: AREA (the default) or EVERYWHERE
-(randomHighlight ignores it). order: in the area, HIGHLIGHTS only (the order of the map highlights among what matches,
-the default there); everywhere, RELEVANCE (the default there) or DATE, as the reader orders them; another order answers
-INVALID_REQUEST. access: since D-415 (map/route-findability.feature), the route accessibility filter, the route
-accessibility boxes chosen: only the routes that have every one of them ticked (MapRoute.access), the other kinds
-unchanged; null or empty: none; given with kinds that leave out ROUTES, ignored, as families without EVENTS. Since
-D-415, the words also find a route by its route context and its route description (§ The route context).
-experienceDuration and experienceCompany: since D-437 (posts/explore-things-to-do.feature), the experience duration
-filter and the experience company filter (null: "All"); given with kinds that leave out EXPERIENCES, ignored, as access
-without ROUTES. HOUR, DAY and LONGER keep the simple challenges whose experience template sets the hours of an experience
-instance (challenge.endsWithinHours, the default of an experience parameter) to at most 1, at most 24, or more than 24,
-and the group experience instances of those; a route experience stays whatever the duration (it keeps no time). SOLO
-keeps the route experiences and the simple challenges; GROUP keeps the group experience instances (EXPERIENCE_RUN) the
-caller may join now (MapExperienceRun.canJoin true, D-442 (Q19)); without experienceCompany, those it may not join are
-answered too, with canJoin false (D-442 (Q15)).
+ExploreFilterInput: contracts/explore.md § API v2 descriptions.
 """
 input ExploreFilterInput {
   area: ExploreAreaInput

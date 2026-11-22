@@ -229,7 +229,7 @@ describe('experiences check', () => {
     expect(await h.run('experiences', 'check', 'bad.json', '--offline')).toBe(1);
     expect(calls).toEqual([]);
     expect(h.lines.at(-1)).toBe([
-      'bad.json: challenge/1, @alice*event: 5 problems (checked offline only (--offline); specs v156.1.0)',
+      'bad.json: challenge/1, @alice*event: 5 problems (checked offline only (--offline); specs v158.0.0)',
       '  TEXT_TOO_LONG  /title/en: 101 visible characters, 100 at most',
       '  SCHEMA  /name: must not be "event" nor "route"',
       '  SCHEMA  /warnings: must not hold the same item twice',
@@ -248,7 +248,7 @@ describe('experiences check', () => {
     write('squats.json', squats());
     expect(await h.run('experiences', 'check', 'squats.json')).toBe(1);
     expect(calls[0].variables).toEqual({ d: JSON.stringify(squats()) });
-    expect(h.lines.at(-1)).toBe('squats.json: challenge/1, @alice*squats-100: 1 problem (checked by the platform too (checkExperience); specs v156.1.0)\n  NAME_TAKEN  /name: held by a route of the owner');
+    expect(h.lines.at(-1)).toBe('squats.json: challenge/1, @alice*squats-100: 1 problem (checked by the platform too (checkExperience); specs v158.0.0)\n  NAME_TAKEN  /name: held by a route of the owner');
     open = false;
     expect(await h.run('experiences', 'check', 'squats.json')).toBe(0);
     expect(h.lines.at(-1)).toMatch(/OK \(checked offline only: the platform does not open the experiences yet \(EXPERIENCES_NOT_OPEN\)/);
@@ -291,7 +291,7 @@ describe('experiences prompt', () => {
     const h = harness();
     expect(await h.run('experiences', 'prompt', '--engine', 'challenge/1', '--theme', 'a morning workout', '--language', 'fr', '--json')).toBe(0);
     const r = last<{ prompt: string; engine: string; specs: string; example: string }>(h);
-    expect(r).toMatchObject({ engine: 'challenge/1', specs: 'v156.1.0', example: 'vectors/challenge-1.json#squats' });
+    expect(r).toMatchObject({ engine: 'challenge/1', specs: 'v158.0.0', example: 'vectors/challenge-1.json#squats' });
     const shipped = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'schema', 'experiences', 'definition.schema.json'), 'utf8'));
     const schema = JSON.parse(/# JSON Schema[^\n]*\n\n```json\n([\s\S]*?)\n```/.exec(r.prompt)![1]);
     expect(schema.properties.engine.properties).toEqual({ name: { const: 'challenge' }, version: { const: 1 } });

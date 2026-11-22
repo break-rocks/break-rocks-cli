@@ -1019,6 +1019,10 @@ type Settings {
   """
   tips: TipSettings!
   """
+  The app tour (since D-514, contracts/onboarding.md § The app tour).
+  """
+  tour: TourSettings!
+  """
   The screen mode of the universe screen and the immersive offer (contracts/layouts.md § The screen modes,
   since v80.0.0).
   """
@@ -1090,6 +1094,10 @@ input SettingsInput {
   """
   tips: TipSettingsInput
   """
+  The app tour (since D-514): a field not given stays.
+  """
+  tour: TourSettingsInput
+  """
   The screen mode of the account or of one device, and the immersive offer made (since v80.0.0); the frame
   document of the custom mode (since v80.4.0).
   """
@@ -1128,11 +1136,7 @@ input SettingsInput {
 }
 
 """
-A personal setting to remove (setSettings clear): the nearby label (back to the handle), the
-do-not-disturb hours, the screen mode of a device (DEVICE_FRAME_MODE, since v80.0.0: the device named by
-universeFrame.device, else the calling device, the header x-device-id, as DEVICE_DISPLAY_MODE of
-PersonalThemePart; that device goes back to the screen mode of the account), the frame document (FRAME, since
-v80.5.0: the account, and every device whose screen mode is CUSTOM, go back to STANDARD, chosen staying true).
+A personal setting to remove (setSettings clear): contracts/layouts.md § API v2 descriptions.
 """
 enum SettingsPart {
   NEARBY_LABEL
@@ -1143,10 +1147,7 @@ enum SettingsPart {
 }
 
 """
-The gesture tips already shown to the account (contracts/layouts.md § Gesture tips; home-modes.feature,
-universe-layouts.feature, swipe-to-the-author.feature; since v78.2.0): each false by default, set to true by the
-app once its tip is shown, whether or not it is closed, so that another device of the account does not show it
-again. Kept with the account, and on the device by the apps.
+The gesture tips already shown to the account, each false until shown (contracts/layouts.md § Gesture tips).
 """
 type TipSettings {
   """
@@ -1161,6 +1162,122 @@ type TipSettings {
   Whether the gesture tip of the clips and posts was shown (the standard key tips.authorSwipe).
   """
   authorSwipe: Boolean!
+}
+
+"""
+The app tour of the account (contracts/onboarding.md § The app tour).
+"""
+type TourSettings {
+  """
+  The state of the app tour.
+  """
+  state: TourState!
+  """
+  The app tour step where it was left, 1 to 8, while IN_PROGRESS; else null.
+  """
+  step: Int
+  """
+  The outcome of each hidden gesture reached.
+  """
+  gestures: [TourGestureOutcome!]!
+  """
+  The default tour mode; null: never chosen.
+  """
+  mode: TourMode
+  """
+  The voice language (BCP 47, one of the 20 languages of the apps); null: the language of the app.
+  """
+  voiceLanguage: String
+  """
+  "Move on alone after a successful gesture"; false by default.
+  """
+  autoAdvance: Boolean!
+  """
+  Whether the tour resume card was closed.
+  """
+  resumeCardClosed: Boolean!
+  """
+  Whether the new navigation card was opened or closed.
+  """
+  newNavigationCardDismissed: Boolean!
+}
+
+"""
+The app tour to record (setSettings; TOUR_STATE_INVALID: contracts/onboarding.md § The transitions of state).
+"""
+input TourSettingsInput {
+  state: TourState
+  step: Int
+  gestures: [TourGestureOutcomeInput!]
+  mode: TourMode
+  voiceLanguage: String
+  autoAdvance: Boolean
+  resumeCardClosed: Boolean
+  newNavigationCardDismissed: Boolean
+}
+
+"""
+NOT_STARTED, NEW_NAVIGATION (derived when read: an account created before the app tour), IN_PROGRESS, FINISHED, SKIPPED.
+"""
+enum TourState {
+  NOT_STARTED
+  NEW_NAVIGATION
+  IN_PROGRESS
+  FINISHED
+  SKIPPED
+}
+
+"""
+READ, LISTEN or BOTH.
+"""
+enum TourMode {
+  READ
+  LISTEN
+  BOTH
+}
+
+"""
+The six hidden gestures, in the order of the app tour steps 3 to 8.
+"""
+enum TourGesture {
+  DOUBLE_TAP_PLACE
+  LONG_PRESS_UNIVERSES
+  SWIPE_VIEWS
+  CLEAR_SCROLL_UP
+  LONG_PRESS_POST_BUTTON
+  UNIVERSE_NAME_MENU
+}
+
+"""
+TRIED, DONE_FOR_ME, SEEN ("Next" without trying) or SKIPPED.
+"""
+enum TourOutcome {
+  TRIED
+  DONE_FOR_ME
+  SEEN
+  SKIPPED
+}
+
+"""
+The outcome of one hidden gesture.
+"""
+type TourGestureOutcome {
+  """
+  The hidden gesture.
+  """
+  gesture: TourGesture!
+  """
+  Its last outcome.
+  """
+  outcome: TourOutcome!
+}
+
+"""
+The outcome of one hidden gesture to record.
+"""
+input TourGestureOutcomeInput {
+  gesture: TourGesture!
+  outcome: TourOutcome!
 }
 
 """
@@ -1270,20 +1387,7 @@ enum HomeDoubleTap {
 }
 
 """
-The screen mode to change (setSettings, since v80.0.0); a field not given stays. frameMode sets the frame
-mode of the account; deviceFrameMode sets the one of a device; device names that device for deviceFrameMode
-and for clear DEVICE_FRAME_MODE (its identifier; absent, the header x-device-id); frameMode or
-deviceFrameMode, whatever their value, marks the account as having chosen (chosen true). A choice in the
-identity bar menu or the immersive offer accepted sends frameMode with clear DEVICE_FRAME_MODE.
-immersiveOffered: only true is written (an offer made stays made). oneHandLeft (since v80.2.0) sets the option
-"left hand" of the one-hand mode for the account; it does not mark the account as having chosen. frame (since
-v80.4.0) saves the frame document of the account, checked (FRAME_FORMAT_INVALID, FRAME_TOO_LARGE,
-FRAME_POSTS_REQUIRED, FRAME_LIVE_LINE_FOLDED, FRAME_RAILS_INVALID, FRAME_BUTTONS_INVALID); it does not mark the
-account as having chosen; frame given as null (since v80.5.0) removes the frame document, as clear FRAME. The
-checks come in this order: the size, the schema, the rules outside it (contracts/layouts.md § The custom mode).
-CUSTOM in frameMode or deviceFrameMode while the account has no frame document and none is given:
-FRAME_DOCUMENT_MISSING. Since v96.0.0 (D-289) the apps send neither frame nor CUSTOM (the custom mode is
-withdrawn); the backend keeps accepting them until the minimum version of the apps no longer sends them.
+The screen mode to change (setSettings): contracts/layouts.md § API v2 descriptions.
 """
 input UniverseFrameSettingsInput {
   frameMode: FrameMode
