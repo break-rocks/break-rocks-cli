@@ -175,9 +175,18 @@ type Notification {
   """
   actors: [AccountRef!]!
   """
+  Since D-460 (contracts/notifications.md § AI for the people of the social platform): the scheduled AI task or model
+  agent copy of AI_TASK_RESULT, AI_AGENT_DRAFT and AI_TASKS_PAUSED; null for the other kinds.
+  """
+  aiTask: NotificationAiTask
+  """
   The category.
   """
   category: NotificationCategory!
+  """
+  Since D-474: the act confirmation request (ACT_CONFIRMATION_REQUEST); null otherwise.
+  """
+  confirmationId: ID
   """
   CHANNEL_MESSAGE, CHANNEL_MENTION: the channel, its address as shown ("%team-fra./tech&dev").
   """
@@ -273,8 +282,8 @@ type Notification {
   """
   measure: NotificationMeasure
   """
-  Since v49.16.0: MEET_UP_SOON, the meet-up (its title, or its place, is "message"); a
-  DIRECT_MESSAGE or GROUP_MESSAGE of a meet-up sent, changed or cancelled, the same.
+  Since v49.16.0: MEET_UP_SOON, the message meet-up (its title, or its place, is "message"); a
+  DIRECT_MESSAGE or GROUP_MESSAGE of a message meet-up sent, changed or cancelled, the same.
   """
   meetUp: NotificationMeetUp
   """
@@ -313,7 +322,7 @@ type Notification {
   read: Boolean!
   """
   REPORT_DECIDED (since v99.1.0, M-09): the decision of the platform team on a report of the reader ("subject"
-  the content as reported); null otherwise.
+  the content as reported); since D-463 (8), also REPORTER_APPEAL_OVERDUE; null otherwise.
   """
   report: NotificationReport
   """
@@ -330,6 +339,11 @@ type Notification {
   project, "proposalId" its proposal).
   """
   status: ProjectStatus
+  """
+  ROUTE_LINKED, LINKED_ROUTE_CHANGED and LINKED_ROUTE_DETACHED (since D-451): the route (mapRoute reads it); null
+  otherwise.
+  """
+  routeId: ID
   """
   The subject.
   """
@@ -355,10 +369,61 @@ type Notification {
 }
 
 """
-Notifications (features/notifications/notifications.feature; docs/architecture.md § Notifications).
+Since D-460: the scheduled AI task or model agent copy a notification is about.
+"""
+type NotificationAiTask {
+  """
+  The scheduled AI task (myAiTasks).
+  """
+  id: ID!
+  """
+  Its name, as its human set it.
+  """
+  name: String!
+  """
+  The AI action of the run (AI_TASK_RESULT); null otherwise.
+  """
+  actionId: ID
+  """
+  Why it is paused (AI_TASKS_PAUSED); null otherwise.
+  """
+  pausedReason: AiTaskPauseReason
+  """
+  The price of the run that did not happen, in AI credits (AI_TASKS_PAUSED for CREDITS); null otherwise.
+  """
+  price: Int
+  """
+  AI_TASK_RESULT: why a run was not made (nothing taken); null for a run READY and the other kinds.
+  """
+  skipped: AiTaskSkipReason
+  """
+  AI_AGENT_DRAFT: the post drafts of the human are full, nothing deposited, nothing taken; false otherwise.
+  """
+  draftsFull: Boolean!
+}
+
+"""
+Since D-460 (contracts/ai.md § Package 3): why a run of a scheduled AI task or a model agent copy was not made, nothing
+taken: DAILY_BUDGET (its daily AI credit budget), FAILED (the run failed), NOTHING_NEW (fewer than 3 items to read),
+NOT_OPEN (a switch closed).
+"""
+enum AiTaskSkipReason {
+  DAILY_BUDGET
+  FAILED
+  NOTHING_NEW
+  NOT_OPEN
+}
+
+"""
+Notifications (features/notifications/notifications.feature; docs/architecture.md § Notifications). Since D-460
+(contracts/notifications.md § AI for the people of the social platform): AI, the results of the scheduled AI tasks and
+the model agent copies and their pauses (AI_TASKS_PAUSED mandatory), on by default; REMINDERS, the personal reminders,
+outside the AI, on by default. An app that does not know a category shows its notifications in the list, offers no
+setting for it, and keeps it on.
 """
 enum NotificationCategory {
   ACCOUNT_SECURITY
+  AI
   BILLING
   CHANNELS
   CONNECTION_REQUESTS
@@ -372,6 +437,7 @@ enum NotificationCategory {
   MODERATION
   NEW_FOLLOWERS
   PLAYLISTS
+  REMINDERS
   REPLIES
   REPOSTS_AND_QUOTES
   UNIVERSES
@@ -448,46 +514,18 @@ type NotificationDataRequest {
 }
 
 """
-The kind of a notification (contracts/notifications.md). An unknown kind is shown as a generic notification,
-so that new kinds can be added. Since v84.0.0 (D-248): MAP_STALKING_ALERT, an account (actor) viewed the
-position of the reader beyond the stalking alert threshold within 24 hours, never how many times exactly.
-Since v84.4.0: TERMS_CHANGED, a version of the terms of use or of the platform rules published ("subject":
-"terms" or "rules", "message" the version and when it applies; contracts/platform-measures.md).
-Since v86.0.0: SERIES_EPISODE, a new episode of a followed series ("subject" the playlist address, "postId" the
-episode). Since v87.5.0 (D-268): DOCUMENT_REFUSED, to the uploader of a file of a course document found malicious by
-the malware scan or refused by the media review, never served ("subject" the playlist address, "message" the
-title of the course document and the reason: malicious or the rule of the media review); category PLAYLISTS.
-Since v87.6.0 (D-269): also to the author of a post document refused ("subject" the address of the post, the post
-staying without its document card).
-Since v92.0.0 (D-284): MASK_REQUESTED, a person shown in a media of the caller asks to hide an area; SANCTION_MEDIA_MASK, a moderator masked a media of the caller (category moderation).
-Since v99.1.0: PLATFORM_APPEAL_OVERDUE (M-12, M-14), a platform appeal of the reader without a decision 14 days
-after it was filed: an out-of-court dispute settlement body can be asked (category moderation, mandatory);
-REPORT_DECIDED (M-09), the platform team decided a report of the reader (category moderation); since v101.12.0 (D-296),
-only a decision of the platform team, never one of the moderators of a universe.
-Since v103.0.0 (D-327): AD_CORRECTION_REQUESTED, the platform team asked the advertiser a correction of a creative of
-its ad campaign ("subject" the campaign id, "message" the ad rule and the correction; category account, mandatory).
-Since D-394 (decided on 2026-11-16): DATA_REQUEST_CONFIRMATION_ASKED, the platform team recorded a data copy or a bulk
-erasure of the account from a contact message, waiting for its confirmation ("dataRequest": its id, kind, scope;
-category account security, mandatory; with an e-mail to the address of the account).
-Since v135.0.0 (D-422): POST_PUBLICATION_FAILED, the publication of a post of the reader failed, its media processing
-or a right lost before its publication ("postId", the post staying its author's, Post.publicationFailure; category
-drafts, mandatory); PROPOSAL_REFUSED, a proposal of the reader
-refused by its proposal check or by the platform team ("proposalId", "note" the explanation; category governance,
-mandatory); UNIVERSE_PROPOSAL_REFUSED, a proposal flagged to review refused by the platform team, to its supporters,
-the accounts that voted on it and the accounts whose favorite universe it is ("proposalId", "note" the explanation;
-category governance).
-Since v136.0.0 (D-422 extended to the messages): MESSAGE_PUBLICATION_FAILED, the publication of a message of the
-reader failed, its media processing or a right lost before its publication ("conversationWith", "group" or "channel"
-its discussion, "message" its start, "publicationFailure" its code, the message staying its author's; the category of
-its discussion, mandatory).
-Since v136.2.0 (D-423, D-424, contracts/notifications.md § Experiences): EXPERIENCE_PROOFS_TO_VALIDATE, proofs of a
-group experience instance of a simple challenge wait for the caller's validation, as its experience organizer or a
-voter, one notification per validator and experience instance, "count" the proofs waiting ("subject" the title of the
-experience, "link" the URL of the experience instance; the category of its place, not mandatory); EXPERIENCE_REFUSED, the experience check refused an experience the
-caller made public ("subject" its title, "note" the explanation, "link" its URL; category moderation, mandatory).
+The kind of a notification: its recipients, its category, whether it is mandatory, its fields and its link are written
+in contracts/notifications.md, one row per kind (MAP_STALKING_ALERT: contracts/map.md). An unknown kind is shown as a
+generic notification, so that new kinds can be added.
 """
 enum NotificationKind {
+  ACT_CONFIRMATION_REQUEST
   AD_CORRECTION_REQUESTED
+  AGENT_ACT_RECORD
+  AGENT_POSITION_SHARED
+  AI_AGENT_DRAFT
+  AI_TASK_RESULT
+  AI_TASKS_PAUSED
   APPEAL_DECIDED
   BULK_ERASURE_DONE
   CHANNEL_MENTION
@@ -505,6 +543,10 @@ enum NotificationKind {
   EVENT_CHANGED
   EXPERIENCE_PROOFS_TO_VALIDATE
   EXPERIENCE_REFUSED
+  TOURNAMENT_UPDATE
+  CONTEST_UPDATE
+  CONTEST_ENTRY_EXCLUDED
+  CONTEST_VOTE_SIGNAL
   EVENT_PLACE_REVEALED
   EVENT_REMINDER
   FOLLOW
@@ -514,6 +556,8 @@ enum NotificationKind {
   INVITATION_SIGN_UP
   JUROR_DRAWN
   LIKE
+  LINKED_ROUTE_CHANGED
+  LINKED_ROUTE_DETACHED
   MAP_STALKING_ALERT
   MASK_REQUESTED
   MEET_UP_SOON
@@ -521,6 +565,7 @@ enum NotificationKind {
   MENTION
   MODERATOR_DESIGNATED
   PASSWORD_RESET
+  PERSONAL_REMINDER
   PLATFORM_APPEAL_DECIDED
   PLATFORM_APPEAL_OVERDUE
   PLATFORM_MEASURE
@@ -532,10 +577,13 @@ enum NotificationKind {
   PROPOSAL_REFUSED
   QUOTE
   REPLY
+  REPLY_PINNED
   REPORT_DECIDED
+  REPORTER_APPEAL_OVERDUE
   REPOST
   REPOST_REQUEST
   REPOST_REQUEST_ANSWERED
+  ROUTE_LINKED
   SANCTION_CHANNEL_MESSAGE_REMOVAL
   SANCTION_MEDIA_MASK
   SANCTION_POSTING_BAN
@@ -544,11 +592,18 @@ enum NotificationKind {
   SCHEDULED_POST_FAILED
   SERIES_EPISODE
   SIGNED_OUT_EVERYWHERE
+  SPONSORSHIP_ACCEPTED
+  SPONSORSHIP_ENDED
+  SPONSORSHIP_OFFER_RECEIVED
+  SPONSORSHIP_PAID
+  STORE_PURCHASE_NOT_LINKED
+  SUBSCRIPTION_DUPLICATE_REFUNDED
   SUBSCRIPTION_ENDED
   SUBSCRIPTION_ENDS_SOON
   SUBSCRIPTION_PAYMENT_FAILED
   TERMS_CHANGED
   TIER_PRICE_CHANGE
+  TRUSTED_DEVICE_REGISTERED
   UNIVERSE_ACCESS_OPENED
   UNIVERSE_ANNOUNCEMENT
   UNIVERSE_DEBATE_OPENED
@@ -683,15 +738,38 @@ type NotificationReport {
   Whether the decision was taken by automated means.
   """
   automatedDecision: Boolean!
+  """
+  Since D-463 (8): with a decision NO_ACTION, until when the reporter may file a reporter's platform appeal; null
+  otherwise.
+  """
+  appealableUntil: AWSDateTime
+  """
+  Since D-463 (8): the outcome of the reporter's platform appeal (REPORT_DECIDED sent again at its decision); null
+  otherwise.
+  """
+  appealOutcome: ReporterAppealOutcome
+  """
+  Since D-463 (8): the reasons of the decision of the reporter's platform appeal; null otherwise.
+  """
+  appealReasons: String
+  """
+  Since D-463 (8): REPORTER_APPEAL_OVERDUE, when the reporter's platform appeal was filed; null otherwise.
+  """
+  appealedAt: AWSDateTime
+  """
+  Since D-463 (8): REPORTER_APPEAL_OVERDUE, when the reporter's platform appeal became overdue, 14 days after it was
+  filed; null otherwise.
+  """
+  overdueSince: AWSDateTime
 }
 
 """
-A meet-up where a notification tells it: its time, place and title; a change or a cancellation told as a
+A message meet-up where a notification tells it: its time, place and title; a change or a cancellation told as a
 message.
 """
 type NotificationMeetUp {
   """
-  The time of the meet-up.
+  The time of the message meet-up.
   """
   at: AWSDateTime!
   """
@@ -699,11 +777,11 @@ type NotificationMeetUp {
   """
   cancelled: Boolean!
   """
-  Whether the meet-up was changed.
+  Whether the message meet-up was changed.
   """
   changed: Boolean!
   """
-  The place of the meet-up.
+  The place of the message meet-up.
   """
   place: Place!
   """
@@ -950,6 +1028,15 @@ type Settings {
   """
   camera: CameraSettings!
   """
+  Me › Navigation (since D-512 (8), apps/experiences-place.feature): what the center button opens.
+  """
+  navigation: NavigationSettings!
+  """
+  "Share my activity with my close ones" of Me › Privacy (since D-512 (6), apps/experiences-place.feature); false by
+  default.
+  """
+  shareActivityWithCloseOnes: Boolean!
+  """
   The language of the slash commands (since v81.1.0, D-224), a language code; null: the language of the app.
   The apps turn a localized name into its English name before any call; the API knows the English names only.
   """
@@ -1011,6 +1098,14 @@ input SettingsInput {
   The settings of the app camera (since v101.16.0, D-317): a field not given stays.
   """
   camera: CameraSettingsInput
+  """
+  Me › Navigation (since D-512 (8)): a field not given stays.
+  """
+  navigation: NavigationSettingsInput
+  """
+  Turns "Share my activity with my close ones" on (true) or off (false) (since D-512 (6)).
+  """
+  shareActivityWithCloseOnes: Boolean
   """
   The language of the slash commands (since v81.1.0, D-224); clear COMMAND_LANGUAGE goes back to the language
   of the app.
@@ -1159,9 +1254,9 @@ type UniverseFrameSettings {
   """
   What a double tap on the page of the universe in the pages bar does (since v88.1.0, the setting
   "universe.homeDoubleTap", bottom-bar-option.feature): TOP_OF_POSTS by default; the same on all the devices
-  of the account.
+  of the account. Withdrawn since D-512 (1): the apps neither show nor read it.
   """
-  homeDoubleTap: HomeDoubleTap!
+  homeDoubleTap: HomeDoubleTap! @deprecated(reason: "Withdrawn since D-512 (1): the page of the universe left the pages bar (D-506).")
 }
 
 """
@@ -1198,13 +1293,42 @@ input UniverseFrameSettingsInput {
   oneHandLeft: Boolean
   frame: AWSJSON
   """
-  Since v88.1.0: the setting "universe.homeDoubleTap"; it does not mark the account as having chosen.
+  Since v88.1.0: the setting "universe.homeDoubleTap"; withdrawn since D-512 (1), the apps no longer send it.
   """
   homeDoubleTap: HomeDoubleTap
   """
   Since v96.0.0 (D-289): the setting "universe.pagesBar"; it does not mark the account as having chosen.
   """
   pagesBar: Boolean
+}
+
+"""
+Me › Navigation (since D-512 (8), apps/experiences-place.feature), an account setting, the same on all the devices of
+the account: centerButtonOpens, the place view Experiences opens on, MAP by default.
+"""
+type NavigationSettings {
+  """
+  The place view Experiences opens on; MAP by default.
+  """
+  centerButtonOpens: ExperiencesView!
+}
+
+"""
+Me › Navigation to change (since D-512 (8)); a field not given stays.
+"""
+input NavigationSettingsInput {
+  centerButtonOpens: ExperiencesView
+}
+
+"""
+Since D-512 (8): the place view Experiences opens on: MAP (the Map view, Explore), NOW, MY_EXPERIENCES, or LAST_VIEW
+(the place view of Experiences last open on the device). An app that does not know a value reads MAP.
+"""
+enum ExperiencesView {
+  MAP
+  NOW
+  MY_EXPERIENCES
+  LAST_VIEW
 }
 
 """
@@ -1241,7 +1365,7 @@ input CameraSettingsInput {
 """
 The settings of the map of the reader (since D-350, map-markers.feature; Me › Privacy › the settings of the map), kept
 with the account, the same on all its devices: densityMarkDisplay, how the density marks are drawn (GLOW_AND_KINDS by
-default); placeNameDisplay, which places with a place feat show their name (BY_ZOOM by default); mapThumbnails, which
+default); placeNameDisplay, which places with a place experience show their name (BY_ZOOM by default); mapThumbnails, which
 map markers with a photo are drawn with it (WITH_PHOTO by default since D-356). A person who is not signed in reads the map with
 these defaults.
 """
@@ -1251,7 +1375,7 @@ type MapSettings {
   """
   densityMarkDisplay: DensityMarkDisplay!
   """
-  Which places with a place feat show their name; BY_ZOOM by default.
+  Which places with a place experience show their name; BY_ZOOM by default.
   """
   placeNameDisplay: PlaceNameDisplay!
   """

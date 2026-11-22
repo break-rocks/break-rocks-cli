@@ -257,11 +257,11 @@ const whereLine = (w: WhereFrom, f: Filter) => {
 };
 
 export const exploreSearch: Command<SearchInput, SearchAnswer> = {
-  name: 'explore search', summary: 'Search Explore with words: in an area, everywhere, with the reasons of each result (exploreSearch)',
+  name: 'explore search', summary: 'Search Explore (the Map view of Experiences) with words: in an area, everywhere, with the reasons of each result (exploreSearch)',
   // Its MCP tool is breakrocks_explore_filter: breakrocks_explore_search stays the platform search it named until 0.33.0.
   tool: 'breakrocks_explore_filter',
   description: [
-    'The explore filter of the map of Explore: where (--near a place, --where a universe and its tags, --cells), when (--when) and what (--kinds, --families, the tags of --where), and the words.',
+    'The explore filter of the Map view of Experiences (Explore): where (--near a place, --where a universe and its tags, --cells), when (--when) and what (--kinds, --families, the tags of --where), and the words.',
     'In the area (by default when an area is given) the results come in the order of the map highlights; --everywhere (or no area) reads them everywhere, by relevance or by date (--order), the accounts, discussions, playlists and tags of the platform search included.',
     'Two counts: "In the area · N" and "Everywhere · M" ("500+" beyond the bound of search). Each result tells why it is there (the time window, the place, the words, the tags), never about the reader. When the area holds nothing, the nearest activity that carries the words (within 500 km).',
     'An address of a universe before the words ("%paris jazz") sets where and the words. The area is never the position of this machine: a place is looked up by the platform and turned into map cells here. A signed-in account only. A backend before specs v128.0.0: OPERATION_NOT_SERVED. The platform search of the search bar: breakrocks search.',
@@ -309,7 +309,7 @@ type RandomAnswer = { result: ExploreResult; activity: Activity; candidates: num
 
 export const exploreRandom: Command<RandomInput, RandomAnswer> = {
   name: 'explore random', summary: 'Jump to a map highlight of a very lively map cell, at random (randomHighlight)',
-  description: 'The random jump of the map of Explore, in two steps: a very lively map cell of the filter (at least 20 public contents of the last 7 days), then one of its map highlights, each with the same chance: a placed post, a placed video, a place with a place feat or a universe event, never a person, a universe nor a route, never a content of an account blocked either way. The same for every reader. The area: --near, --where or --cells; none: the whole world. --except: the map highlight just jumped to, never drawn again. Nothing when the filter holds no very lively map cell. A backend before specs v128.0.0: OPERATION_NOT_SERVED.',
+  description: 'The random jump of the Map view of Experiences (Explore), in two steps: a very lively map cell of the filter (at least 20 public contents of the last 7 days), then one of its map highlights, each with the same chance: a placed post, a placed video, a place with a place feat or a universe event, never a person, a universe nor a route, never a content of an account blocked either way. The same for every reader. The area: --near, --where or --cells; none: the whole world. --except: the map highlight just jumped to, never drawn again. Nothing when the filter holds no very lively map cell. A backend before specs v128.0.0: OPERATION_NOT_SERVED.',
   examples: ['breakrocks explore random', 'breakrocks explore random --near Marseille --kinds posts,videos', 'breakrocks explore random --where %paris --except <post id> --json'],
   input: object({ words: str('Words: the draw among the results that carry them (2 to 200 characters)', { minLength: 2, maxLength: 200 }), ...filterFlags, except: str('The map highlight not to draw again (the last one jumped to: its id)') }),
   output: openObject({ result: { type: ['object', 'null'], description: 'The map highlight drawn (ExploreResult), null when no very lively map cell' }, activity: { type: 'object', description: 'The activity of its map cell over the last 7 days' }, candidates: int('The number of very lively map cells it was drawn from'), filter: { type: 'object', description: 'The explore filter sent' }, where: { type: 'object', description: 'Where the area came from' } }),

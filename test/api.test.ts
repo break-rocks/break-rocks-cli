@@ -51,11 +51,11 @@ describe('the contract of the API', () => {
     // @ts-expect-error the generator is a script without types
     const { parse: parseSdl, readContract } = await import('../scripts/gen-schema-lib.mjs');
     expect({ ...parseSdl(readContract(source)), version: readFileSync(join(source, 'VERSION'), 'utf8').trim() }).toEqual(JSON.parse(JSON.stringify(GENERATED)));
-    expect(GENERATED.version).toBe('v136.3.0');
-    // The descriptions ("""…""") are not fields: Query holds the 242 reads of API v2, Mutation its 389 writes.
-    expect(Object.keys(GENERATED.query).length).toBe(242);
-    expect(Object.keys(GENERATED.mutation).length).toBe(389);
-    expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(15);
+    expect(GENERATED.version).toBe('v156.1.0');
+    // The descriptions ("""…""") are not fields: Query holds the 272 reads of API v2, Mutation its 439 writes.
+    expect(Object.keys(GENERATED.query).length).toBe(272);
+    expect(Object.keys(GENERATED.mutation).length).toBe(439);
+    expect(readdirSync(source).filter((f) => f.endsWith('.graphql')).length).toBe(17);
   });
   it('takes a requestId on every mutation but the four ephemeral signals', () => {
     const without = Object.entries(GENERATED.mutation).filter(([, f]) => !f[1]?.requestId).map(([n]) => n).sort();
@@ -164,7 +164,7 @@ describe('every command', () => {
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
     // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
-    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import']);
+    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import', 'experiences prefill build', 'experiences prefill open']);
     const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);

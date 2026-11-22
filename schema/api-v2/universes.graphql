@@ -776,9 +776,23 @@ private universe of the first level.
 """
 type Universe {
   """
+  Since D-463 (1): whether it is a frozen private universe (its owner banned from the social platform while it had
+  neither an admin nor a successor still a member): read-only for its members (UNIVERSE_FROZEN), who still leave it
+  and delete their own contents, its member subscriptions paused; false otherwise, and for a public universe.
+  """
+  frozen: Boolean!
+  """
   Whether it has a public long video (since v122.3.0, D-386): its long videos mode is offered from then.
   """
   hasLongVideos: Boolean!
+  """
+  Since D-492: whether its leadership allows the tournament sponsors (true by default).
+  """
+  tournamentSponsorsAllowed: Boolean!
+  """
+  Since D-498: the jury mode its leadership imposes on the judged contests of the universe and played in it; ANY: none.
+  """
+  contestJuryMode: ContestJuryModeSetting!
   """
   Since v85.5.0 (contracts/advertising.md): whether ads are shown in this public universe (on by default once
   its territory is open; turned off or on by a proposal ADVERTISING); false for a private universe, a universe
@@ -2778,7 +2792,8 @@ type UniverseDiscussion {
   """
   The place of a placed channel (since v101.0.0, D-300, public-channels.feature): a point or a zone, set by the
   leadership (setUniverseDiscussionPlace) or by a channel proposal (ChannelProposalAction PLACE); null when it has
-  none, and always for a channel of a private universe and a temporary universe discussion.
+  none, and always for a channel of a private universe and a temporary universe discussion. Since D-470
+  (public-channels.feature), its name is shown beside the channel in the list of the universe discussions.
   """
   place: ChannelPlace
   """

@@ -1,0 +1,753 @@
+# AI for the people of the social platform (D-460, contracts/ai.md, features/ai/): the AI credits, the AI actions
+# (package 1: the AI summaries, What I missed, the writing help; package 2: the AI images; package 3: the personal
+# reminders, the personal digest and the scheduled AI tasks; package 4: the model agents). The operations are in
+# base.graphql (group "ai"). Never a provider nor a model name in any field.
+
+"""
+Since D-460 (contracts/ai.md § Words): the AI level of an AI action: STANDARD ("Standard", by default) or ADVANCED
+("Advanced", a stronger class of model, more AI credits). The model gateway routes by it; never a provider nor a model
+name.
+"""
+enum AiLevel {
+  STANDARD
+  ADVANCED
+}
+
+"""
+Since D-460: the kind of an AI action: SUMMARY (an AI summary of a thread, a universe, a universe discussion, a
+conversation or a group chat), MISSED (What I missed), WRITING_HELP (a writing help), IMAGE (an AI image, package 2),
+DIGEST (a personal digest, package 3), TASK_SUMMARY (the AI summary of a scheduled AI task, package 3), POST_DRAFT (a
+post draft written by a scheduled AI task or a model agent copy, packages 3 and 4), EXPERIENCE (since D-506, generate
+an experience from "What do you want to do?", contracts/ai.md).
+"""
+enum AiActionKind {
+  SUMMARY
+  MISSED
+  WRITING_HELP
+  IMAGE
+  DIGEST
+  TASK_SUMMARY
+  POST_DRAFT
+  EXPERIENCE
+}
+
+"""
+Since D-460 (contracts/ai.md § The AI actions of package 1): the outcome of an AI action: RUNNING (accepted, its price
+reserved); READY (its AI result served, its price taken); REFUSED (the check of the person's own text found it contrary
+to the platform rules or the law, nothing taken, only a count kept); NOTHING_TO_SUMMARISE (fewer than 3 items to
+read, or nothing since the last visit; nothing taken); FAILED (the model, the check of the output or the time; nothing
+taken).
+"""
+enum AiActionStatus {
+  RUNNING
+  READY
+  REFUSED
+  NOTHING_TO_SUMMARISE
+  FAILED
+}
+
+"""
+Since D-460: the ground of a REFUSED AI action: PLATFORM_RULES (contrary to the platform rules), LAW (contrary to the
+law, an imitation of an election during an election period included).
+"""
+enum AiRefusalGround {
+  PLATFORM_RULES
+  LAW
+}
+
+"""
+Since D-460 (contracts/ai.md § The AI actions of package 1): an AI action of the caller, accepted at once and run after
+it; read by aiAction(id), told by the real-time event ai.action.
+"""
+type AiAction {
+  """
+  Its identifier.
+  """
+  id: ID!
+  """
+  Its kind.
+  """
+  kind: AiActionKind!
+  """
+  The AI level it ran at.
+  """
+  level: AiLevel!
+  """
+  Its price in AI credits, as told before it ran and reserved at its acceptance; what was taken is in the movements
+  (myAiCreditMovements): the price for READY, 0 otherwise.
+  """
+  price: Int!
+  """
+  Its outcome so far.
+  """
+  status: AiActionStatus!
+  """
+  Why a REFUSED AI action was refused; null otherwise.
+  """
+  ground: AiRefusalGround
+  """
+  Its AI result: READY, while it is readable (1 hour for an AI action in context, 7 days for a personal digest and a
+  scheduled AI task); null otherwise, and after it is erased.
+  """
+  result: AiResult
+  """
+  When it was accepted.
+  """
+  createdAt: AWSDateTime!
+  """
+  Whether the caller reported its AI result to the platform team (reportAiResult).
+  """
+  reported: Boolean!
+  """
+  The AI credits of the caller after its reservation, or after its outcome once it has one.
+  """
+  credits: AiCredits!
+}
+
+"""
+Since D-460: the AI result of an AI action, private to its human. An AI summary, What I missed, a personal digest and a
+writing proposal give text; an AI image gives image; a post draft gives draftId.
+"""
+type AiResult {
+  """
+  The text: an AI summary (at most 1,200 visible characters; a personal digest 2,000), or a writing proposal (at most
+  the maxLength asked), checked before it is served; null for an AI image and a post draft.
+  """
+  text: String
+  """
+  The language of text (ISO 639-1); null without text.
+  """
+  language: String
+  """
+  The number of items an AI summary, What I missed or a personal digest read (posts, replies, messages); 0 otherwise.
+  """
+  itemsRead: Int!
+  """
+  The number of items an AI summary left out because their author is blocked either way or muted by the caller; never
+  which; 0 otherwise.
+  """
+  itemsLeftOut: Int!
+  """
+  Whether an AI summary left out items beyond its cap of tokens (told to the caller); false otherwise.
+  """
+  truncated: Boolean!
+  """
+  The start of the time span an AI summary covers; null otherwise.
+  """
+  from: AWSDateTime
+  """
+  The end of the time span an AI summary covers; null otherwise.
+  """
+  to: AWSDateTime
+  """
+  The AI image proposed (package 2); null otherwise.
+  """
+  image: AiImageProposal
+  """
+  The post draft a scheduled AI task or a model agent copy deposited (packages 3 and 4); null otherwise.
+  """
+  draftId: ID
+  """
+  When the AI result is erased.
+  """
+  availableUntil: AWSDateTime!
+}
+
+"""
+Since D-460 (package 2, ai-images.feature): an AI image proposed, readable for 1 hour, carrying the Generated with AI
+mark (its visible mark and its C2PA manifest); used by useAiImage, else erased.
+"""
+type AiImageProposal {
+  """
+  The URL of its preview, valid while the AI result is readable.
+  """
+  url: String!
+  """
+  Its width, in pixels.
+  """
+  width: Int!
+  """
+  Its height, in pixels.
+  """
+  height: Int!
+}
+
+"""
+Since D-460 (package 2): an AI image the caller used (useAiImage): an image upload of theirs, counted as an upload, to
+attach by its id as any image (ImageAttachmentInput), with the alternative text suggested from its description.
+"""
+type AiImageUse {
+  """
+  The identifier of the image, to attach.
+  """
+  imageId: ID!
+  """
+  The alternative text suggested, in the language of the description; the person changes it.
+  """
+  alt: String!
+}
+
+"""
+Since D-460 (contracts/ai.md § The AI credits and their ledger): the AI credits of the caller and their AI settings.
+"""
+type AiCredits {
+  """
+  The monthly AI credits left (of Premium); 0 without Premium.
+  """
+  monthly: Int!
+  """
+  When the monthly AI credits left are lost (the end of their month); null without Premium.
+  """
+  monthlyEndsAt: AWSDateTime
+  """
+  The bought AI credits (of the AI credit packs), which never expire.
+  """
+  bought: Int!
+  """
+  monthly + bought: what the AI actions may take.
+  """
+  total: Int!
+  """
+  The AI credits taken today (UTC), for the daily AI credit cap.
+  """
+  spentToday: Int!
+  """
+  The daily AI credit cap of the caller, 1 to 100,000; null when none.
+  """
+  dailyCap: Int
+  """
+  The AI level by default of the caller (STANDARD unless set).
+  """
+  level: AiLevel!
+}
+
+"""
+Since D-460: a page of the movements of the AI credits of the caller, the most recent first.
+"""
+type AiCreditMovementPage {
+  """
+  The movements of the page.
+  """
+  items: [AiCreditMovement!]!
+  """
+  The cursor of the next page; null on the last page.
+  """
+  next: String
+}
+
+"""
+Since D-460: the kind of a movement of AI credits: MONTHLY_GRANT (the monthly AI credits of a month of Premium),
+MONTHLY_EXPIRY (the monthly AI credits lost at the end of their month or of Premium), PURCHASE (an AI credit pack paid,
+payments.md), PURCHASE_REVERSED (a pack refunded or charged back, never below 0), MONTHLY_REVERSED (a period of Premium
+refunded or charged back: its monthly AI credits not used), REFUND (the bought AI credits refunded pro rata at the
+deletion of the account or at a platform ban), ACTION (the reservation of an AI action), ACTION_RETURN (AI credits given
+back at its outcome), ADJUSTMENT (by the platform team, with a reason, audited).
+"""
+enum AiCreditMovementKind {
+  MONTHLY_GRANT
+  MONTHLY_EXPIRY
+  MONTHLY_REVERSED
+  PURCHASE
+  PURCHASE_REVERSED
+  REFUND
+  ACTION
+  ACTION_RETURN
+  ADJUSTMENT
+}
+
+"""
+Since D-460: a pot of AI credits: MONTHLY (the monthly AI credits of Premium, used first) or BOUGHT (the bought AI
+credits).
+"""
+enum AiCreditPot {
+  MONTHLY
+  BOUGHT
+}
+
+"""
+Since D-460: one movement of the AI credits of the caller. Never the target nor any text of an AI action.
+"""
+type AiCreditMovement {
+  """
+  Its kind.
+  """
+  kind: AiCreditMovementKind!
+  """
+  The AI credits it moved: positive when added, negative when taken.
+  """
+  credits: Int!
+  """
+  The pot it moved.
+  """
+  pot: AiCreditPot!
+  """
+  When.
+  """
+  at: AWSDateTime!
+  """
+  The AI action of an ACTION or ACTION_RETURN; null otherwise.
+  """
+  actionId: ID
+  """
+  The kind of that AI action; null otherwise.
+  """
+  actionKind: AiActionKind
+  """
+  The AI level of that AI action; null otherwise.
+  """
+  level: AiLevel
+  """
+  The outcome of that AI action so far; null otherwise.
+  """
+  outcome: AiActionStatus
+}
+
+"""
+Since D-460 (contracts/ai.md § Prices and their cost lines): the price table of the AI actions, the same for every
+caller, market prices (a consumer offer since v143.0.0) changed by the platform team without a deployment, never under
+the hard minimum of D-220.
+"""
+type AiPrices {
+  """
+  What 1 AI credit brings, in US dollars, once the VAT and the fees of its pack are paid (0.01).
+  """
+  creditUsd: Float!
+  """
+  The price of each kind of AI action at each AI level, in AI credits; a line the cell of the caller cannot serve (data
+  residency: no model of its route in its jurisdiction) is left out. A request refused by the check of the person's own
+  text takes nothing.
+  """
+  lines: [AiPriceLine!]!
+}
+
+"""
+Since D-460: the price of one kind of AI action at one AI level.
+"""
+type AiPriceLine {
+  """
+  The kind of AI action.
+  """
+  kind: AiActionKind!
+  """
+  The AI level.
+  """
+  level: AiLevel!
+  """
+  Its price, in AI credits: the expectedCredits of the AI action.
+  """
+  credits: Int!
+}
+
+"""
+Since D-460 (contracts/ai.md § The AI summary): an AI summary or What I missed (requestAiSummary). Exactly one target:
+postId (the thread of a post, a reply or a quote), universe (a universe address: its posts and those of its
+sub-universes of the last 24 hours), channel (a universe discussion address: its messages of the last 7 days),
+accountId (the conversation of the caller with that account, the last 7 days), groupChatId (a group chat of the
+caller, the last 7 days), missedIn (What I missed in a universe address, since the last visit, at most 7 days),
+missedHome true (What I missed on the home: the public posts of the personal timeline of the last 24 hours);
+AI_REQUEST_INVALID TARGET_MISSING otherwise. A private target (accountId, groupChatId, a private universe, a channel or
+a thread of one, missedIn a private universe): AI_PRIVATE_TARGETS_NOT_OPEN while ai.privateTargets is off. level: the AI level; expectedCredits: the price the app showed
+(AI_PRICE_CHANGED otherwise); language: the language of the app (ISO 639-1), the language of the AI summary.
+"""
+input AiSummaryInput {
+  postId: ID
+  universe: String
+  channel: String
+  accountId: ID
+  groupChatId: ID
+  missedIn: String
+  missedHome: Boolean
+  level: AiLevel!
+  expectedCredits: Int!
+  language: String!
+}
+
+"""
+Since D-460 (contracts/ai.md § The writing help): the help asked: IMPROVE, SHORTEN, FIX_SPELLING, TONE (with tone),
+FROM_NOTES (writes from the notes of the text), INSTRUCTION (with instruction).
+"""
+enum WritingHelpKind {
+  IMPROVE
+  SHORTEN
+  FIX_SPELLING
+  TONE
+  FROM_NOTES
+  INSTRUCTION
+}
+
+"""
+Since D-460: the tone of a writing help TONE: FRIENDLY, NEUTRAL, FORMAL.
+"""
+enum WritingTone {
+  FRIENDLY
+  NEUTRAL
+  FORMAL
+}
+
+"""
+Since D-460 (contracts/ai.md § The writing help): a writing help (requestWritingHelp). text: the text being written, 0
+to 5,000 visible characters (TEXT_LENGTH; empty only with INSTRUCTION, TEXT_EMPTY otherwise); help; tone with TONE
+(TONE_MISSING); instruction with INSTRUCTION, 1 to 300 visible characters (INSTRUCTION_LENGTH); at most one of
+replyToPostId (the post, reply or quote the text answers or quotes) and replyToMessageId (the message it answers),
+read only when the caller may read it (AI_TARGET_NOT_READABLE), a private message only while ai.privateTargets is on
+(AI_PRIVATE_TARGETS_NOT_OPEN); maxLength: the length the place allows, 1 to 5,000; a text beyond the cap of tokens:
+TEXT_TOO_LONG_FOR_MODEL, never cut; level, expectedCredits and language as AiSummaryInput (the reasons of
+AI_REQUEST_INVALID).
+"""
+input WritingHelpInput {
+  text: String!
+  help: WritingHelpKind!
+  tone: WritingTone
+  instruction: String
+  replyToPostId: ID
+  replyToMessageId: ID
+  maxLength: Int!
+  level: AiLevel!
+  expectedCredits: Int!
+  language: String!
+}
+
+"""
+Since D-460 (package 2): the style of an AI image: ILLUSTRATION, PHOTO_STYLE, CARICATURE, DRAWING. A real, identifiable
+person is drawn only in CARICATURE, and only a public figure, never a private individual (contracts/ai.md § Package 2).
+"""
+enum AiImageStyle {
+  ILLUSTRATION
+  PHOTO_STYLE
+  CARICATURE
+  DRAWING
+}
+
+"""
+Since D-460 (package 2): the shape of an AI image: SQUARE (1,024 × 1,024), PORTRAIT (768 × 1,344), LANDSCAPE (1,344 ×
+768).
+"""
+enum AiImageAspect {
+  SQUARE
+  PORTRAIT
+  LANDSCAPE
+}
+
+"""
+Since D-460 (package 2, contracts/ai.md § Package 2): an AI image (requestAiImage). description: 1 to 1,000 visible
+characters (DESCRIPTION_LENGTH); style; aspect; level, expectedCredits and language as AiSummaryInput.
+"""
+input AiImageInput {
+  description: String!
+  style: AiImageStyle!
+  aspect: AiImageAspect!
+  level: AiLevel!
+  expectedCredits: Int!
+  language: String!
+}
+
+"""
+Since D-460: a part of the AI settings to clear: DAILY_CAP (no daily AI credit cap).
+"""
+enum AiSettingsPart {
+  DAILY_CAP
+}
+
+"""
+Since D-460 (setAiSettings): level, the AI level by default; dailyCap, the daily AI credit cap, 1 to 100,000
+(AI_REQUEST_INVALID CAP_OUT_OF_BOUNDS); clear, the parts to remove. A part not given is unchanged.
+"""
+input AiSettingsInput {
+  level: AiLevel
+  dailyCap: Int
+  clear: [AiSettingsPart!]
+}
+
+"""
+Since D-460: why an AI result is reported to the platform team: WRONG (inaccurate), HARMFUL, ILLEGAL, OTHER.
+"""
+enum AiResultReportReason {
+  WRONG
+  HARMFUL
+  ILLEGAL
+  OTHER
+}
+
+"""
+Since D-460 (package 3, personal-assistant.feature): what a personal reminder is set on: TIME (a time from 5 minutes to
+1 year ahead), UNIVERSE_EVENT (before the start of a universe event, 15 minutes to 7 days), VOTE_END (before the end of
+the vote on a proposal, 1 hour to 7 days), POST (a post, at a time).
+"""
+enum PersonalReminderAnchor {
+  TIME
+  UNIVERSE_EVENT
+  VOTE_END
+  POST
+}
+
+"""
+Since D-460 (the personal reminders): a personal reminder (createPersonalReminder). anchor; at (TIME and POST: the time, 5 minutes to
+1 year ahead); eventId (UNIVERSE_EVENT), proposalId (VOTE_END), postId (POST); beforeMinutes (UNIVERSE_EVENT: 15 to
+10,080; VOTE_END: 60 to 10,080); text, 0 to 200 visible characters. Out of these bounds: REMINDER_INVALID.
+"""
+input PersonalReminderInput {
+  anchor: PersonalReminderAnchor!
+  at: AWSDateTime
+  eventId: ID
+  proposalId: ID
+  postId: ID
+  beforeMinutes: Int
+  text: String
+}
+
+"""
+Since D-460 (the personal reminders): a personal reminder of the caller, notified at its time (PERSONAL_REMINDER,
+category REMINDERS); no model, no AI credit.
+"""
+type PersonalReminder {
+  """
+  Its identifier.
+  """
+  id: ID!
+  """
+  What it is set on.
+  """
+  anchor: PersonalReminderAnchor!
+  """
+  When it is notified.
+  """
+  at: AWSDateTime!
+  """
+  The universe event of UNIVERSE_EVENT; null otherwise.
+  """
+  eventId: ID
+  """
+  The proposal of VOTE_END; null otherwise.
+  """
+  proposalId: ID
+  """
+  The post of POST; null otherwise.
+  """
+  postId: ID
+  """
+  Its text, as the caller wrote it; empty when none.
+  """
+  text: String!
+}
+
+"""
+Since D-460 (package 3): the kind of a scheduled AI task: DIGEST (a personal digest), SUMMARY (the AI summary of 1
+public universe or 1 public channel), POST_DRAFT (a post draft deposited in the post drafts of the caller).
+"""
+enum AiTaskKind {
+  DIGEST
+  SUMMARY
+  POST_DRAFT
+}
+
+"""
+Since D-460 (package 3): how often a schedule runs: DAILY or WEEKLY.
+"""
+enum AiTaskFrequency {
+  DAILY
+  WEEKLY
+}
+
+"""
+Since D-460 (packages 3 and 4): the state of a scheduled AI task: ACTIVE or PAUSED.
+"""
+enum AiTaskStatus {
+  ACTIVE
+  PAUSED
+}
+
+"""
+Since D-460: why a scheduled AI task is paused: BY_PERSON (its human paused it), CREDITS (the AI credits did not cover a
+run, or the daily AI credit cap), SOURCE_GONE (no source of it is public any more), PRICE_CHANGED (the price per run
+rose above the price told at its creation or its last change; changeAiTask or resuming tells the new one).
+"""
+enum AiTaskPauseReason {
+  BY_PERSON
+  CREDITS
+  SOURCE_GONE
+  PRICE_CHANGED
+}
+
+"""
+Since D-460 (packages 3 and 4): the schedule of a scheduled AI task: frequency; weekday (WEEKLY: 1 Monday to 7 Sunday);
+hour (0 to 23) and minute (0, 15, 30 or 45) in timeZone (an IANA time zone).
+"""
+type AiSchedule {
+  """
+  DAILY or WEEKLY.
+  """
+  frequency: AiTaskFrequency!
+  """
+  The day of the week of WEEKLY, 1 (Monday) to 7 (Sunday); null for DAILY.
+  """
+  weekday: Int
+  """
+  The hour, 0 to 23.
+  """
+  hour: Int!
+  """
+  The minute, 0, 15, 30 or 45.
+  """
+  minute: Int!
+  """
+  The IANA time zone of the schedule.
+  """
+  timeZone: String!
+}
+
+"""
+Since D-460: the schedule of AiTaskInput, as AiSchedule (AI_REQUEST_INVALID SCHEDULE_INVALID out of its bounds).
+"""
+input AiScheduleInput {
+  frequency: AiTaskFrequency!
+  weekday: Int
+  hour: Int!
+  minute: Int!
+  timeZone: String!
+}
+
+"""
+Since D-460 (packages 3 and 4, contracts/ai.md § Package 3, § Package 4): a scheduled AI task (createAiTask). Either kind
+(a scheduled AI task of the caller) or modelAgentId (a copy of a model agent of aiModelAgents, package 4:
+AI_MODEL_AGENTS_NOT_OPEN, AI_MODEL_AGENT_NOT_FOUND). name: 2 to 32 visible characters. schedule, or threshold for a
+model agent whose trigger is a condition (the number of messages of LIVELY_DISCUSSION, 10 to 1,000). universes: 1 to
+10 public universe or public channel addresses (AI_SOURCE_NOT_PUBLIC for a private one); accounts: 0 to 50 accounts
+(DIGEST); instruction (POST_DRAFT), 1 to 300 visible characters, checked as the person's own text; destination
+(POST_DRAFT), the universe of the post draft, null for the personal space; level; dailyBudget, the daily AI credit
+budget, 1 to 1,000, required for a model agent copy, never below the price of one run (BUDGET_BELOW_PRICE); expectedCredits, the price per run the app showed
+(AI_PRICE_CHANGED otherwise), which a run never passes. Out of these bounds: AI_REQUEST_INVALID.
+"""
+input AiTaskInput {
+  kind: AiTaskKind
+  modelAgentId: ID
+  name: String!
+  schedule: AiScheduleInput
+  threshold: Int
+  universes: [String!]!
+  accounts: [ID!]
+  instruction: String
+  destination: String
+  level: AiLevel!
+  dailyBudget: Int
+  expectedCredits: Int!
+}
+
+"""
+Since D-460 (packages 3 and 4): a scheduled AI task of the caller, or a model agent copy (modelAgent set).
+"""
+type AiTask {
+  """
+  Its identifier.
+  """
+  id: ID!
+  """
+  Its kind.
+  """
+  kind: AiTaskKind!
+  """
+  The model agent it copies; null for a scheduled AI task of the person's own.
+  """
+  modelAgent: AiModelAgent
+  """
+  Its name.
+  """
+  name: String!
+  """
+  Its schedule; null for a trigger by a condition.
+  """
+  schedule: AiSchedule
+  """
+  The threshold of its condition; null for a schedule.
+  """
+  threshold: Int
+  """
+  The public universes and channels it reads, by their addresses.
+  """
+  universes: [String!]!
+  """
+  The accounts a personal digest reads; empty otherwise.
+  """
+  accounts: [ID!]!
+  """
+  Its instruction (POST_DRAFT); null otherwise.
+  """
+  instruction: String
+  """
+  The universe of its post drafts; null for the personal space or another kind.
+  """
+  destination: String
+  """
+  The AI level of its runs.
+  """
+  level: AiLevel!
+  """
+  Its daily AI credit budget; null for a scheduled AI task without one.
+  """
+  dailyBudget: Int
+  """
+  The price of one run, in AI credits, as told at its creation or its last change (or its resumption): a run never
+  takes more; a higher price of now pauses it (PRICE_CHANGED).
+  """
+  pricePerRun: Int!
+  """
+  ACTIVE or PAUSED.
+  """
+  status: AiTaskStatus!
+  """
+  Why it is paused; null while ACTIVE.
+  """
+  pausedReason: AiTaskPauseReason
+  """
+  Its next run by its schedule; null while PAUSED or for a condition.
+  """
+  nextRunAt: AWSDateTime
+  """
+  The AI action of its last run; null before its first.
+  """
+  lastActionId: ID
+}
+
+"""
+Since D-460 (package 4): how a model agent is triggered: SCHEDULE (daily or weekly), LIVELY_DISCUSSION (a temporary
+universe discussion of a universe read passes a number of messages).
+"""
+enum AiTaskTrigger {
+  SCHEDULE
+  LIVELY_DISCUSSION
+}
+
+"""
+Since D-460 (package 4, model-agents.feature): a model agent of the catalogue of the social platform, written by the
+platform only, copied by createAiTask with its id.
+"""
+type AiModelAgent {
+  """
+  Its identifier ("weekly-post-draft"…).
+  """
+  id: ID!
+  """
+  Its name, in the language of the app.
+  """
+  name: String!
+  """
+  What it does, in the language of the app.
+  """
+  description: String!
+  """
+  The kind of the scheduled AI task its copy is.
+  """
+  kind: AiTaskKind!
+  """
+  The AI actions of each run, in order (an AI image after a post draft for the cartoon of the week).
+  """
+  steps: [AiActionKind!]!
+  """
+  How it may be triggered.
+  """
+  triggers: [AiTaskTrigger!]!
+  """
+  The price lines of its steps at each AI level, at the prices of now: one run costs the sum of the lines of its steps
+  at its AI level (0 for a step without a model).
+  """
+  prices: [AiPriceLine!]!
+}

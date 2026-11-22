@@ -742,7 +742,7 @@ type LiveWatch {
 }
 
 """
-A meet-up (a message of kind MEET_UP): its place, its time, its title (none: null), cancelled,
+A message meet-up (a message of kind MEET_UP): its place, its time, its title (none: null), cancelled,
 its last change of place, time or title, and the answers of its participants the caller sees
 (its author first; never across a block).
 """
@@ -752,7 +752,7 @@ type MeetUp {
   """
   answers: [MeetUpAnswer!]!
   """
-  The time of the meet-up.
+  The time of the message meet-up.
   """
   at: AWSDateTime!
   """
@@ -764,7 +764,7 @@ type MeetUp {
   """
   changedAt: AWSDateTime
   """
-  The place of the meet-up.
+  The place of the message meet-up.
   """
   place: Place!
   """
@@ -792,7 +792,7 @@ type MeetUpAnswer {
 }
 
 """
-The answer to a meet-up.
+The answer to a message meet-up.
 """
 enum MeetUpAnswerKind {
   ACCEPTED
@@ -800,7 +800,7 @@ enum MeetUpAnswerKind {
 }
 
 """
-A meet-up to send or to change: the whole place, time and title.
+A message meet-up to send or to change: the whole place, time and title.
 """
 input MeetUpInput {
   place: PlaceInput!
@@ -810,7 +810,7 @@ input MeetUpInput {
 
 """
 A message of a conversation, a group chat or a channel: one type for the three (G-1). The fields of a
-content that does not exist in a discussion are always null there (a meet-up in a channel). A message
+content that does not exist in a discussion are always null there (a message meet-up in a channel). A message
 deleted for everyone keeps its place with deleted true, its text empty and its contents null.
 """
 type Message {
@@ -838,7 +838,15 @@ type Message {
   """
   kind: MessageKind!
   """
-  The text as written (to change it); empty for a voice message, a place, a meet-up, an arrival, a live
+  Since D-460 (contracts/ai.md § The Written with AI mark, writing-help.feature): the Written with AI mark, true when the
+  words of its text, as sent or last changed, are word for word those of a writing proposal of its author of the last
+  90 days (the spaces, the punctuation, the case, the emoji and the reserved signs not counted); computed by the
+  platform, never given by a client; shown "Written with AI" (FR "Rédigé avec l'IA") beside its author. False
+  otherwise.
+  """
+  writtenWithAi: Boolean!
+  """
+  The text as written (to change it); empty for a voice message, a place, a message meet-up, an arrival, a live
   share marker, a route group session marker (since v130.0.0), an event, and once deleted.
   """
   text: String!
@@ -906,7 +914,7 @@ type Message {
   """
   place: Place
   """
-  A meet-up (a conversation or a group chat): no text; its answers are those the caller sees; null once
+  A message meet-up (a conversation or a group chat): no text; its answers are those the caller sees; null once
   deleted.
   """
   meetUp: MeetUp
@@ -1209,9 +1217,9 @@ type RequestMessage {
 
 """
 A message to send (sendMessage): its discussion and one content. A voice message is sent alone
-(VOICE_ALONE); a place, a meet-up and an arrival notice are sent without text, in a conversation or a group
+(VOICE_ALONE); a place, a message meet-up and an arrival notice are sent without text, in a conversation or a group
 chat only, each with the refusals it has (contracts/messages.md, contracts/map.md); since v81.1.0 (D-224), a
-place is also sent in a universe discussion, a meet-up and an arrival notice still not.
+place is also sent in a universe discussion, a message meet-up and an arrival notice still not.
 """
 input SendMessageInput {
   to: DiscussionRefInput!
@@ -1234,6 +1242,13 @@ input SendMessageInput {
   none when absent. It stays as sent.
   """
   stance: DebateStance
+  """
+  Since D-474, while agents.actForHuman is on: how the personal agent of a human says it writes the message
+  (AgentAuthorship, a hint); required from a personal agent (PERSONAL_AGENT_AUTHORSHIP_REQUIRED), INVALID_REQUEST from
+  another caller; a channel that forbids delegated agents never refuses a message its human confirmed on a trusted
+  device (PUBLICATION), and refuses every other.
+  """
+  authorship: AgentAuthorship
 }
 
 """

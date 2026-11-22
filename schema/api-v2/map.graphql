@@ -43,15 +43,15 @@ type LivePosition {
   """
   secondsToMeetingPoint: Int
   """
-  The time to arrival at the place of the meet-up the live share is for, in seconds (0 to 86,400), computed by the sharer's app; null when unknown, when the live share is not for a meet-up, since D-348 when the estimate is above 86,400 seconds, and for a minor sharer. Kept with the last position only.
+  The time to arrival at the place of the message meet-up the live share is for, in seconds (0 to 86,400), computed by the sharer's app; null when unknown, when the live share is not for a message meet-up, since D-348 when the estimate is above 86,400 seconds, and for a minor sharer. Kept with the last position only.
   """
   secondsToMeetUp: Int
   """
-  How the sharer travels to the meet-up (FOOT or BICYCLE); null with secondsToMeetUp.
+  How the sharer travels to the message meet-up (FOOT or BICYCLE); null with secondsToMeetUp.
   """
   meetUpMode: RouteMode
   """
-  Since D-348: true when secondsToMeetUp is estimated on the sharer's device while the directions cannot be computed (shown "about N minutes"); false when secondsToMeetUp is the time of the directions or is null, and when the live share is not for a meet-up. Always present.
+  Since D-348: true when secondsToMeetUp is estimated on the sharer's device while the directions cannot be computed (shown "about N minutes"); false when secondsToMeetUp is the time of the directions or is null, and when the live share is not for a message meet-up. Always present.
   """
   meetUpEstimated: Boolean!
   """
@@ -62,7 +62,7 @@ type LivePosition {
 
 """
 A live share in progress: its sharer (accountId), its discussion (a conversation or a group chat), its
-start and end, the event or the meet-up it lasts until, the meeting point of its group chat (or of the
+start and end, the event or the message meet-up it lasts until, the meeting point of its group chat (or of the
 route of its event).
 """
 type LiveShare {
@@ -91,7 +91,7 @@ type LiveShare {
   """
   eventId: ID
   """
-  The message of the meet-up it lasts until 15 minutes after; null otherwise.
+  The message of the message meet-up it lasts until 15 minutes after; null otherwise.
   """
   meetUpId: ID
   """
@@ -299,7 +299,9 @@ type PlaceMatch {
   """
   point: Point!
   """
-  The addresses of the universes, with their sign.
+  The addresses of the universes, with their sign: the public universes whose universe territory holds the place. Since
+  D-470 (map/map.feature), the apps show none of them: the search of a place offers places only; kept served until a
+  later contract.
   """
   universes: [String!]!
 }
@@ -338,11 +340,11 @@ input PositionInput {
   lon: Float!
   secondsToMeetingPoint: Int
   """
-  The time to arrival at the place of the meet-up, in seconds, 0 to 86,400; only for the live share of a meet-up. Out of range, or without meetUpMode, POSITIONS_INVALID. Since D-348, the app sends null for an estimate above 86,400 seconds (no time to arrival is shown), and the app of a minor always sends null.
+  The time to arrival at the place of the message meet-up, in seconds, 0 to 86,400; only for the live share of a message meet-up. Out of range, or without meetUpMode, POSITIONS_INVALID. Since D-348, the app sends null for an estimate above 86,400 seconds (no time to arrival is shown), and the app of a minor always sends null.
   """
   secondsToMeetUp: Int
   """
-  How the sharer travels to the meet-up: FOOT or BICYCLE only. Any other value, POSITIONS_INVALID.
+  How the sharer travels to the message meet-up: FOOT or BICYCLE only. Any other value, POSITIONS_INVALID.
   """
   meetUpMode: RouteMode
   """
@@ -659,7 +661,7 @@ How a route is travelled: on foot or by bicycle. Since v131.0.0 (D-413, routes.f
 (FOOT without more, WALK, RUN, HIKE), by bicycle (BICYCLE without more, ROAD_BICYCLE, MOUNTAIN_BICYCLE, GRAVEL_BICYCLE),
 HORSE (on horseback), WHEELCHAIR (in a wheelchair), on snow (ALPINE_SKI, CROSS_COUNTRY_SKI, SKI_TOURING, SNOWSHOES), on
 water (PADDLE "kayak or paddle", BOAT "sail or boat", SWIM "open-water swim"); only the modes on foot and by bicycle
-follow the streets and paths (snap). A client shows a value it does not know as FOOT. The live share of a meet-up
+follow the streets and paths (snap). A client shows a value it does not know as FOOT. The live share of a message meet-up
 (meetUpMode) takes FOOT and BICYCLE only, as before (POSITIONS_INVALID); route(snap: true) takes the modes on foot and
 by bicycle only (ROUTE_SNAP_NOT_OFFERED).
 """
@@ -893,7 +895,8 @@ type AvatarPart {
   owned: Boolean!
   """
   The price of a paid cosmetic part in the currency of the caller, in minor units; null for a free part. Since
-  v101.15.0: computed from the cost estimate of the part by the selling price rule (D-316, subscriptions.feature).
+  v101.15.0: computed from the cost estimate of the part by the selling price rule (D-316, subscriptions.feature);
+  since D-457, a consumer offer: its market price (payments.md § Consumer offers and professional offers).
   """
   priceMinor: Int
   """
@@ -1215,7 +1218,7 @@ type MapPost {
   """
   authorId: ID!
   """
-  Since D-368 (gathering-sheet.feature): for the post of a published experience feat, the id of its place feat
+  Since D-368 (gathering-sheet.feature): for the post of a published experience feat, the id of its place experience
   (placeFeat(id), startPlaceFeatRun: its feat card and "Do it too"); null for another post. Since D-393 (decided on
   2026-11-16; contracts/map.md § One map marker per place): such a post, placed at the point of interest of its place
   feat, is answered by mapGathering under FEATS only, never by mapPosts nor in the posts or videos entries of the files
@@ -1225,9 +1228,9 @@ type MapPost {
   placeFeatId: ID
   """
   Since D-393 (decided on 2026-11-16; map-markers.feature, contracts/map.md § One map marker per place): the placeId of
-  the place with a place feat in whose round this placed post or placed video is drawn, a place-folded post: its point
-  of interest (PostPlace.placeId) carries a place feat shown on the map read (with universe, a place feat that universe
-  hosts or adopted); computed by the server. Null for a post at a point of interest without a place feat, for a post
+  the place with a place experience in whose round this placed post or placed video is drawn, a place-folded post: its point
+  of interest (PostPlace.placeId) carries a place experience shown on the map read (with universe, a place experience that universe
+  hosts or adopted); computed by the server. Null for a post at a point of interest without a place experience, for a post
   rounded to its map cell (pointOfInterest false), for the post of a published experience feat (placeFeatId) and, since
   D-395, for a post of a private universe (never a place-folded post). With FEATS among the map kinds chosen, the apps
   never draw a post with foldedPlaceId set on its own: the round of its place counts it (MapPlaceFeats.foldedCount);
@@ -1534,14 +1537,14 @@ type CrossedPlace {
   """
   placeId: String
   """
-  For a place with a place feat (PLACE_FEAT), the address of its place feat ("%paris*arc-photo"); null otherwise.
+  For a place with a place experience (PLACE_FEAT), the address of its place experience ("%paris*arc-photo"); null otherwise.
   """
   placeFeat: String
 }
 
 """
 Since D-415: the kind of a crossed place: WATER (a lake, a pond, a reservoir), PARK (a park, a garden, a nature reserve),
-MONUMENT (a monument, a memorial, a castle, a historic site), PLACE_FEAT (a place with a place feat, whatever its kind
+MONUMENT (a monument, a memorial, a castle, a historic site), PLACE_FEAT (a place with a place experience, whatever its kind
 in the cartography).
 """
 enum CrossedPlaceKind {
@@ -1750,10 +1753,16 @@ input RoutePrivacyZoneInput {
 
 """
 A map kind, among the choices of what since D-410 (map.kinds, map-highlights.feature): POSTS "Posts and photos", VIDEOS "Videos", FEATS
-"Feats", EVENTS "Events", PEOPLE "People", UNIVERSES "Universes" (the map of Explore only), ROUTES "Routes".
+"Feats", EVENTS "Events", PEOPLE "People", UNIVERSES "Universes" (the map of Explore only), ROUTES "Routes". Since D-437
+(posts/explore-things-to-do.feature): EXPERIENCES "Experiences" (the map of Explore only, a signed-in caller, while the
+experiences are open: the public route experiences and the group experience instances of universe events, mapExperiences);
+the apps offer them in two what families, "To do" (EVENTS, EXPERIENCES, FEATS, ROUTES) and "To see" (POSTS, VIDEOS, PEOPLE,
+UNIVERSES). Since D-478 (map/map-universe-filter.feature, map-highlights.feature): UNIVERSES is offered on no map and the
+apps never send it; kept served (expand then contract) for the apps built before D-478.
 """
 enum MapKind {
   EVENTS
+  EXPERIENCES
   FEATS
   PEOPLE
   POSTS
@@ -1768,12 +1777,17 @@ Since D-355 (nearestActivity): the nearest activity of an empty area: what it is
 """
 type NearestActivity {
   """
-  Its map kind: POSTS, VIDEOS, FEATS, EVENTS, UNIVERSES or ROUTES (never PEOPLE).
+  Its map kind: POSTS, VIDEOS, FEATS, EVENTS, UNIVERSES, ROUTES or, since D-437, EXPERIENCES (never PEOPLE). Since
+  D-478, UNIVERSES only to an app that sent it among kinds, which an app built since never does.
   """
   kind: MapKind!
   """
-  Its id: the postId of a placed post or a placed video, the placeId of a place with a place feat, the id of a universe
-  event or of a route, the key of a public universe (its name in lowercase, without "%").
+  Its id: the postId of a placed post or a placed video, the placeId of a place with a place experience, the id of a universe
+  event or of a route, the key of a public universe (its name in lowercase, without "%"); since D-437, for EXPERIENCES,
+  the id of the experience (a route experience, measured to its route start as the readers other than its author see
+  it, or the experience of a group experience instance whose universe event the caller does not attend) or of the
+  experience instance (a group experience instance whose universe event the caller attends, measured to the point of its
+  universe event), as resultKind says.
   """
   id: ID!
   """
@@ -1785,6 +1799,18 @@ type NearestActivity {
   Its distance from the center of the area shown, in metres (0 to 500,000).
   """
   metres: Int!
+  """
+  Since D-437 (posts/explore-things-to-do.feature): for EXPERIENCES, what id is: EXPERIENCE (the experience: a route
+  experience, or the experience of a group experience instance whose universe event the caller does not attend, never
+  the id of an experience instance the caller may not read) or EXPERIENCE_RUN (a group experience instance whose universe
+  event the caller attends); null for the other kinds.
+  """
+  resultKind: ExploreResultKind
+  """
+  Since D-437: for EXPERIENCES, the title of the experience in the language of the caller, else in English, which the
+  to-do row and the list of results name ("canal-banks"); null for the other kinds.
+  """
+  title: String
 }
 
 """
@@ -1808,7 +1834,7 @@ type PointAddress {
 }
 
 """
-Since D-358 (placeCard): the place card of a place without a place feat.
+Since D-358 (placeCard): the place card of a place without a place experience.
 """
 type PlaceCard {
   """
@@ -1835,11 +1861,11 @@ type PlaceCard {
   contents: [PlaceContent!]!
   """
   Since D-395 (decided on 2026-11-16; map-markers.feature, contracts/map.md § One map marker per place): for a place with a
-  place feat, the section "Also here" of its place card: its place-folded posts (MapPost.foldedPlaceId, the placeId of
+  place experience, the section "Also here" of its place card: its place-folded posts (MapPost.foldedPlaceId, the placeId of
   this place), the placed posts (kind POSTS) and the placed videos (kind VIDEOS), 20 at most, in the order of the map
   highlights, with the exclusions of the map (never a content of an account blocked either way, applied by the read for
   the caller; the app also leaves out the accounts of hiddenAccounts by MapPost.authorId); never a universe event. Empty
-  for a place without a place feat and for a place without a place-folded post.
+  for a place without a place experience and for a place without a place-folded post.
   """
   alsoHere: [PlaceContent!]!
 }
@@ -1847,7 +1873,7 @@ type PlaceCard {
 """
 Since D-358: a content of a place card: a universe event (kind EVENTS, event set) or a placed post (kind POSTS, post set) or a
 placed video, a vertical clip or a long video (kind VIDEOS, post set). Since D-368, a content of a gathering sheet too
-(mapGathering, MapGatheringKind.contents), with the kind FEATS: a place with a place feat (place set) or a published
+(mapGathering, MapGatheringKind.contents), with the kind FEATS: a place with a place experience (place set) or a published
 experience feat (post set, its post, MapPost.placeFeatId set); placeCard never answers FEATS. Since D-393 (contracts/map.md
 § One map marker per place), the post of a published experience feat is never answered with the kind POSTS nor VIDEOS.
 """
@@ -1866,7 +1892,7 @@ type PlaceContent {
   """
   post: MapPost
   """
-  Since D-368 (mapGathering): a place with a place feat, kind FEATS, with its name (place.name), its place feat count
+  Since D-368 (mapGathering): a place with a place experience, kind FEATS, with its name (place.name), its place experience count
   (publishedCount) and its photo (photoUrl), as mapPlaceFeats answers it; null otherwise.
   """
   place: MapPlaceFeats
@@ -1877,7 +1903,7 @@ type PlaceContent {
   """
   featInstance: ExperienceInstance
   """
-  Since D-369 (mapGathering): for a published experience feat, the title of its place feat (PlaceFeat.title), in the
+  Since D-369 (mapGathering): for a published experience feat, the title of its place experience (PlaceFeat.title), in the
   language of the caller, else in its first language; null otherwise.
   """
   featTitle: String
@@ -1890,7 +1916,7 @@ that a touched map marker gathers: a gathering filter, its count and its first 2
 type MapGatheringKind {
   """
   POSTS (the gathering filter "Posts": the placed posts, with or without a photo), VIDEOS ("Clips": every placed video),
-  FEATS ("Feats": the places with a place feat and the published experience feats) or EVENTS ("Events"). Each thing in
+  FEATS ("Feats": the places with a place experience and the published experience feats) or EVENTS ("Events"). Each thing in
   one kind only: a published experience feat in FEATS, never in POSTS nor VIDEOS.
   """
   kind: MapKind!
@@ -1903,7 +1929,7 @@ type MapGatheringKind {
   """
   Its first 20 contents at most, in the order of the map highlights (each by its rank, contracts/map.md § The map
   highlights and the map kinds: a placed post or a placed video by its highlight score, a place by how lively it is then
-  its place feat count, a universe event in progress first, then the next 7 days by attendees, then the soonest).
+  its place experience count, a universe event in progress first, then the next 7 days by attendees, then the soonest).
   """
   contents: [PlaceContent!]!
 }
@@ -2145,7 +2171,7 @@ type RouteSessionMarker {
 
 """
 The nature of a saved item of My places (since v129.1.0, D-411, map/my-places.feature; contracts/map.md § My places):
-PLACE, a point of interest of the cartography, with or without a place feat (targetId: its placeId); FEAT, a published
+PLACE, a point of interest of the cartography, with or without a place experience (targetId: its placeId); FEAT, a published
 experience feat (targetId: the id of its experience instance); EVENT, a universe event (targetId: its id); ROUTE, a
 route (targetId: its id). Never a post. A client shows an unknown nature as a PLACE.
 """
@@ -2238,7 +2264,7 @@ type SavedItem {
   """
   exists: Boolean!
   """
-  The name of the thing (the name of a place or of a route, the title of a universe event, the place feat of an
+  The name of the thing (the name of a place or of a route, the title of a universe event, the place experience of an
   experience feat), as the caller may read it when read; null when it no longer exists. Since D-418, for a route, its
   route title, else its name (map/route-findability.feature).
   """

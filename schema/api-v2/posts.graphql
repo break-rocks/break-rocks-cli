@@ -121,6 +121,13 @@ type Image {
   """
   maskedAfterPosting: Boolean!
   """
+  Since D-460 (package 2, contracts/ai.md § Package 2, ai-images.feature): the Generated with AI mark, true for an AI
+  image (useAiImage) and for an image uploaded later that matches the perceptual fingerprint of one; kept by every edit
+  and every version, never removed by its author. The image carries a visible mark drawn by the platform and a C2PA
+  manifest; the apps show "Generated with AI" (FR "Générée par l'IA") beside it, to every reader. False otherwise.
+  """
+  aiGenerated: Boolean!
+  """
   The identifier of the image.
   """
   id: ID!
@@ -239,10 +246,13 @@ otherwise; UniverseEventInput.cover, UniverseEventChangeInput.cover). An avatar 
 (requestAvatarUpload). Only an image of POST gets a suggested alternative text (suggestedAlt). Since v136.2.0
 (simple-challenges.feature, contracts/experiences.md), EXPERIENCE_PROOF: the photo (IMAGE) or the clip (VIDEO) of an
 experience proof (submitExperienceMeasure.proofMediaId), read by who reads its experience instance, scanned as the media
-of a post, the data recorded in it removed; LONG_VIDEO and VOICE: MEDIA_DESTINATION_INVALID.
+of a post, the data recorded in it removed; LONG_VIDEO and VOICE: MEDIA_DESTINATION_INVALID. Since D-485, TOURNAMENT_APPEARANCE.
+Since D-498, CONTEST_ENTRY: the photo (IMAGE), the video (VIDEO, 3 minutes at most) or the audio (VOICE, 5 minutes at
+most) of a contest entry, read as its contest entry, scanned as the media of a post; LONG_VIDEO: MEDIA_DESTINATION_INVALID.
 """
 enum MediaDestination {
   CHANNEL_MESSAGE
+  CONTEST_ENTRY
   COURSE_DOCUMENT
   DIRECT_MESSAGE
   EVENT_COVER
@@ -251,6 +261,7 @@ enum MediaDestination {
   GROUP_MESSAGE
   POST
   THEME
+  TOURNAMENT_APPEARANCE
   UNIVERSE_BANNER
   UNIVERSE_IMAGE
 }
@@ -258,7 +269,8 @@ enum MediaDestination {
 """
 What a media upload is for (requestMediaUpload, C-11): an image of a post, a message or a universe, a
 video (the clip of a post or a message), a voice message; since v86.0.0, LONG_VIDEO the long video of a post
-(POST only; VIDEO_QUOTA_EXCEEDED beyond the video quota).
+(POST only; VIDEO_QUOTA_EXCEEDED beyond the video quota; LONG_VIDEO_PAID_TIER_REQUIRED from v140.0.0 to v141.0.0 only,
+no longer answered since D-458).
 """
 enum MediaKind {
   IMAGE
@@ -379,6 +391,10 @@ A post in a universe.
 """
 type Post {
   """
+  Since D-476: its place in a page read with the affinity mode; null otherwise.
+  """
+  affinityPlacement: AffinityPlacement
+  """
   Its identifier: "<cell>-<requestId>", the cell of its universe and the requestId of the createPost,
   replyTo, quote or repost that created it (R-1, contracts/cells.md § Which cell to call); never parsed by a
   client beyond its prefix.
@@ -454,6 +470,15 @@ type Post {
   author's kind). False for what a human writes without a delegated agent, whatever the app or the client.
   """
   automated: Boolean!
+  """
+  Since D-460 (contracts/ai.md § The Written with AI mark, writing-help.feature): the Written with AI mark, true when the
+  words of its text, as posted or last changed, are word for word those of a writing proposal of its author of the
+  last 90 days, or of the post draft a model agent copy deposited, unchanged (the spaces, the punctuation, the case,
+  the emoji and the reserved signs not counted); computed by the platform at the posting and at each change of the
+  text, never given by a client. The apps show "Written with AI" (FR "Rédigé avec l'IA") beside the author, to every
+  reader. False for every other post and every post of before.
+  """
+  writtenWithAi: Boolean!
   """
   A post of a restricted author waiting for the approval of a moderator (seen by its author and the moderators
   only).
@@ -661,6 +686,12 @@ type Post {
   Its long video (long-videos.feature, since v86.0.0); never with a clip or images. Null otherwise.
   """
   longVideo: LongVideo
+  """
+  The id of the reply its author pinned (since v136.4.0, D-434, long-video-replies.feature, setReplyPinned); an
+  attribute of the post item, read with it: no extra read, no field resolver. Null for a post without a pinned reply,
+  and for every reply.
+  """
+  pinnedReplyId: ID
   """
   Since v135.0.0 (D-422, posting.feature): its publication to the other accounts. PUBLISHED for a post without media
   to process and for every post another account reads; PROCESSING (its media processing not done) and FAILED only to
@@ -1108,6 +1139,13 @@ type TextSpan {
   """
   parameters: [AddressParameter!]!
   """
+  For a timestamp (kind timestamp, since v136.4.0, D-434, long-video-replies.feature): the second of the long video
+  of the thread it plays from; null for the other kinds. Computed once when the reply is written, changed or
+  translated (the length of the long video read once with the root of the thread) and kept with the spans: nothing at
+  read time.
+  """
+  seconds: Int
+  """
   What a universe, a tag or a playlist links to ("%paris/tourisme", "#sport", "@erin>journey"); null for the
   other kinds.
   """
@@ -1141,6 +1179,7 @@ enum TextSpanKind {
   tag
   address
   playlist
+  timestamp
 }
 
 """
@@ -1159,6 +1198,15 @@ type Thread {
   The post the thread starts from.
   """
   root: Post!
+  """
+  Since v136.4.0 (D-434, long-video-replies.feature): the reply the author of the root pinned (Post.pinnedReplyId),
+  on every page; it also stays in items at its place in chronological order, so that an app that does not know this
+  field loses nothing: an app that knows it shows it first and leaves out its copy in items. Null when none, and when
+  the reader may not read it (an author the reader blocked or muted, or who blocked the reader, as for every reply).
+  Cost: one GetItem of the reply by its id with the root, and the block and mute check of its author added to the set
+  the thread already checks for its items (no extra request when the author is already among them).
+  """
+  pinnedReply: Post
 }
 
 """
@@ -1168,7 +1216,7 @@ minutes of a proposal (id: the proposal), a conversation starter a POST; since v
 the alternative text of an image of a post, of its author, accepted or automatic (id: the image, container:
 the post), and CLIP_SUBTITLES the subtitles of the clip of a post (id: the post), automatic or corrected; since
 D-409, UNIVERSE_EVENT the title and the conditions of participation of a universe event (id: the universe event), and
-PLACE_FEAT the texts of a place feat the platform team did not write in the language asked (id: the place feat).
+PLACE_FEAT the texts of a place experience the platform team did not write in the language asked (id: the place experience).
 """
 enum TranslatableKind {
   BIO
@@ -1189,8 +1237,8 @@ enum TranslatableKind {
 
 """
 A content rendered in "language" (one of the 20 languages of the apps) from "from" (the language
-detected): "title" for a proposal, a universe event and a place feat; "text" and "display" the translated text (the
-conditions of participation of a universe event, the instruction of a place feat) (its formatting in
+detected): "title" for a proposal, a universe event and a place experience; "text" and "display" the translated text (the
+conditions of participation of a universe event, the instruction of a place experience) (its formatting in
 "spans", the mentions, addresses, tags and links untranslated at their new offsets, contracts/text.md;
 none for a charter, a description or a bio); "version" the version of the content translated.
 """
@@ -1221,16 +1269,16 @@ type Translation {
   """
   text: String!
   """
-  The translated title (a proposal; since D-409, a universe event, a place feat); null otherwise.
+  The translated title (a proposal; since D-409, a universe event, a place experience); null otherwise.
   """
   title: String
   """
-  The photo rules of a place feat in the language asked, in their order, translated from English unless the platform
+  The photo rules of a place experience in the language asked, in their order, translated from English unless the platform
   team wrote them in that language (PLACE_FEAT, since D-409); empty for any other kind and when it has none.
   """
   photoRules: [String!]!
   """
-  The place warnings of a place feat in the language asked, in their order, translated from English unless the
+  The place warnings of a place experience in the language asked, in their order, translated from English unless the
   platform team wrote them in that language (PLACE_FEAT, since D-409); empty for any other kind and when it has none.
   """
   placeWarnings: [String!]!

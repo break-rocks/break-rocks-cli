@@ -36,6 +36,8 @@ if (existsSync(join(experiences, 'engines.json')) && existsSync(join(experiences
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const f of ['engines.json', 'definition.schema.json']) copyFileSync(join(experiences, f), join(out, f));
+  // The catalogue of the creation templates (since D-510: the keys of a pre-filled link come from its choices).
+  if (existsSync(join(experiences, 'creation-templates.json'))) copyFileSync(join(experiences, 'creation-templates.json'), join(out, 'creation-templates.json'));
   const registry = JSON.parse(readFileSync(join(experiences, 'engines.json'), 'utf8'));
   const examples = {};
   for (const e of registry.engines ?? []) {
@@ -46,7 +48,7 @@ if (existsSync(join(experiences, 'engines.json')) && existsSync(join(experiences
   }
   const index = { $comment: 'Written by scripts/update-schema.mjs from contracts/experiences of the specs: do not edit. The version of the specs, and per engine the first definition of its test vectors (the example of experiences prompt).', version: version ?? null, examples };
   writeFileSync(join(out, 'index.json'), `${JSON.stringify(index, null, 2)}\n`);
-  console.log(`schema/experiences: engines.json, definition.schema.json and ${Object.keys(examples).length} examples copied from ${experiences}`);
+  console.log(`schema/experiences: engines.json, definition.schema.json, creation-templates.json and ${Object.keys(examples).length} examples copied from ${experiences}`);
 } else console.log(`schema/experiences: kept as it is (no contracts/experiences in ${path})`);
 console.log(`schema/api-v2: ${files.length} files copied from ${source}${version ? ` (${version})` : ', no version (give it: npm run update:schema -- <path> <vX.Y.Z>)'}`);
 execFileSync(process.execPath, [join(root, 'scripts', 'gen-schema.mjs')], { stdio: 'inherit' });

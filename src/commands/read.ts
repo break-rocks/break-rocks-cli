@@ -224,7 +224,7 @@ export const universesSub = apiCommand({
 });
 
 export const explore: Command<{ trending?: boolean; forYou?: boolean; happening?: string; accounts?: boolean; suggestions?: string; language?: string; kind?: 'POSTS' | 'CLIPS' }, unknown> = {
-  name: 'explore', summary: 'Explore: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow',
+  name: 'explore', summary: 'Explore, the Map view of Experiences: suggested posts, trending tags, recommendations, what happens now in a universe, accounts to follow',
   description: 'One at a time: --trending (trendingTags), --for-you (recommendations, --language, --kind), --happening %u (its time column: timeColumn), --accounts (accountsToFollow), --suggestions <text> (suggestions); suggestedPosts by default.',
   examples: ['breakrocks explore', 'breakrocks explore --trending', 'breakrocks explore --for-you --language fr', 'breakrocks explore --happening %france'],
   input: object({

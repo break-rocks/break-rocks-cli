@@ -5,6 +5,31 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-22
+
+Specs v156.1.0 (`specs/common` pinned on that tag; D-506, D-510, D-512, and what came between v136.3.0 and v156.1.0).
+`schema/api-v2` regenerated (272 reads, 439 writes, 17 files); `schema/experiences/creation-templates.json` copied by
+`npm run update:schema`.
+
+### Added
+
+- `me navigation` and `me navigation set map|now|my-experiences|last-view`: "The center button opens" (`Settings.navigation`).
+- `me privacy share-activity` and `me privacy share-activity set on|off`: "Share my activity with my close ones"
+  (`Settings.shareActivityWithCloseOnes`).
+- `experiences prefill keys`, `experiences prefill build` and `experiences prefill open`: the pre-filled links
+  `/new/<template>/v/…` of the creation templates, offline, creating nothing.
+- `links shorten` and `links resolve`: the short links `/go/<code>` (`createShortLink`, `shortLink`), the daily limit
+  told with its `retryAt`.
+
+### Changed
+
+- The help of `explore` names Explore as the Map view of Experiences.
+- The setting commands hide every other field of `SettingsInput`, read from the contract.
+
+### Removed
+
+- `map channels` (D-469: `mapChannels` deprecated, a placed channel is drawn on no map).
+
 ## [0.36.0] - 2026-11-18
 
 Specs v136.3.0 (`specs/common` pinned on that tag; D-423, D-424, the experiences of route/1 and challenge/1; D-433, the

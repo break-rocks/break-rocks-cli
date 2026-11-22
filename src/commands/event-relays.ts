@@ -1,6 +1,6 @@
 // Specs v122.0.0 to v122.2.0: the relay of a universe event in another universe (D-383, D-385: at once for the leadership of the
 // universe that relays it, by a proposal of a resident at 5 supports within 7 days otherwise), the event catalog with the event types
-// on the map of Explore, and who sees a resident by name among the present residents of a universe discussion (D-384).
+// on the Map view of Experiences (Explore), and who sees a resident by name among the present residents of a universe discussion (D-384).
 // The refusals are the platform's: EVENT_RELAY_NOT_ALLOWED, EVENT_RELAY_EXISTS, EVENT_RELAY_PROPOSALS_LIMIT.
 import { apiCommand } from '../api/command.js';
 import { discussionIdOf } from './discussions.js';
@@ -41,13 +41,13 @@ export const eventsRelaysProposals = apiCommand({
 type EventType = { key: string; name?: string; onExploreMap?: boolean; sensitive?: boolean };
 type Family = { key: string; name?: string; types?: EventType[] };
 export const eventsCatalog = apiCommand({
-  name: 'events catalog', summary: 'The event catalog: its event families and event types, and which event types are on the map of Explore (eventCatalog)',
-  description: 'An event type "on the map of Explore" is drawn there for its universe events that invite a passer-by (a place, in person, public) within 7 days, without their event organizer asking for it; --explore-map shown does it for any other, within 30 days.',
+  name: 'events catalog', summary: 'The event catalog: its event families and event types, and which event types are on the Map view of Experiences (Explore) (eventCatalog)',
+  description: 'An event type "on the Map view of Experiences (Explore)" is drawn there for its universe events that invite a passer-by (a place, in person, public) within 7 days, without their event organizer asking for it; --explore-map shown does it for any other, within 30 days.',
   kind: 'query', op: 'eventCatalog', depth: 3, hide: ['language'], extra: { language: { type: 'string', description: 'The language of the names (BCP 47: en, fr…; en by default)' } },
   prepare: (i) => ({ ...i, language: i.language ?? 'en' }),
   text: (r) => {
     const families = (r as { families?: Family[] } | null)?.families ?? [];
-    return families.length ? families.map((f) => [`${f.key}  ${f.name ?? ''}`, ...(f.types ?? []).map((t) => `  ${t.key}  ${t.name ?? ''}  ${t.onExploreMap ? 'on the map of Explore' : 'in its universe'}${t.sensitive ? '  sensitive' : ''}`)].join('\n')).join('\n') : '(none)';
+    return families.length ? families.map((f) => [`${f.key}  ${f.name ?? ''}`, ...(f.types ?? []).map((t) => `  ${t.key}  ${t.name ?? ''}  ${t.onExploreMap ? 'on the Map view of Experiences (Explore)' : 'in its universe'}${t.sensitive ? '  sensitive' : ''}`)].join('\n')).join('\n') : '(none)';
   },
   examples: ['breakrocks events catalog', 'breakrocks events catalog --language fr --json'],
 });

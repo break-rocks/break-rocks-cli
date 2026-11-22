@@ -14,6 +14,10 @@ schema {
 What can be read. Every root field is a line of the operation table of the backend, counted by the usage
 step. Grouped by domain: accounts, posts, messages, universes, governance, reports, appearance, map, experiences,
 explore, notifications, payments.
+Since D-472 and D-474 (contracts/agents-acting-for-their-human.md): while agents.actForHuman is on, a refusal to a
+delegated agent written in a description below is not answered to a delegated agent of a human for an act the
+classification of that contract opens; the act is then a free act, an act under agent mandate (AGENT_MANDATE_REQUIRED)
+or an act confirmed at each act (ACT_CONFIRMATION_REQUIRED); the exceptions stay refused.
 """
 type Query {
   """
@@ -53,7 +57,8 @@ type Query {
   hiddenAccounts: [ID!]
 
   """
-  The link to a part of a data copy READY, after a recent sign-in. Errors: DATA_REQUEST_NOT_FOUND
+  The link to a part of a data copy READY, after a recent sign-in; a human session only (since D-474, while
+  agents.actForHuman is on, HUMAN_SESSION_REQUIRED to a delegated agent, whatever its agent mandates). Errors: DATA_REQUEST_NOT_FOUND
   (another account's, an unknown id or part), DATA_COPY_NOT_READY, DATA_COPY_EXPIRED, RECENT_SIGN_IN_REQUIRED.
   """
   dataCopyDownload(part: Int!, dataRequestId: ID!): DataCopyDownload
@@ -77,6 +82,35 @@ type Query {
   allowance at most.
   """
   delegatedAgents: [DelegatedAgent!]
+
+  """
+  Since D-472 and D-474 (contracts/agents-acting-for-their-human.md): the trusted devices of the caller, a human, the
+  most recently used first, 5 at most (a bounded list). AGENTS_ACT_FOR_HUMAN_NOT_OPEN while agents.actForHuman is off;
+  HUMAN_SESSION_REQUIRED for a delegated agent or an agent operator. Usage category OTHER.
+  """
+  trustedDevices: [TrustedDevice!]
+
+  """
+  Since D-474: the act confirmation requests of the caller, a human, the waiting ones first, then the newest, of the
+  last 30 days. AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. limit: from 1 to 50 (20 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before. Usage category OTHER.
+  """
+  actConfirmationRequests(after: String, limit: Int): ActConfirmationRequestPage
+
+  """
+  Since D-474: one act confirmation request (id), read by its human, or by the delegated agent that asked it (challenge
+  and deviceId null to it). ACT_CONFIRMATION_NOT_FOUND (another's, unknown), AGENTS_ACT_FOR_HUMAN_NOT_OPEN. Usage
+  category OTHER.
+  """
+  actConfirmationRequest(id: ID!): ActConfirmationRequest
+
+  """
+  Since D-474: the record of agent acts of the caller, a human: the acts its delegated agents did in its name under an
+  agent mandate or confirmed at each act, of the last year, the newest first; agentId: one delegated agent only.
+  DELEGATED_AGENT_NOT_FOUND, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. limit: from 1 to 50 (30 by default;
+  LIMIT_INVALID otherwise); after: the next of the page before. Usage category OTHER.
+  """
+  agentActRecord(after: String, limit: Int, agentId: ID): AgentActRecordPage
 
   """
   The accounts that follow an account (accountId), the most recent follow first. Phase 1 of the cells (P-16):
@@ -140,6 +174,11 @@ type Query {
   who are not signed in; it never refuses.
   """
   publicInvitationLink(code: String!): PublicInvitationLink
+
+  """
+  D-502 (accounts.md).
+  """
+  registrationOpen: Boolean
 
   """
   An account by its id (C-14: one read; accountById is gone). Null for an id no account holds, and for a
@@ -255,9 +294,9 @@ type Query {
   The suggested posts of the caller, each with its reason. favoritesFirst (the home while the personal
   timeline is empty): the posts of the favorite universes and their sub-universes first (reason
   FAVORITE_UNIVERSES_LAST_48_HOURS), then the others. limit: from 1 to 50 (20 by default; LIMIT_INVALID
-  otherwise); after: the next of the page before.
+  otherwise); after: the next of the page before. affinityMode: the affinity mode on (D-476, contracts/affinity.md).
   """
-  suggestedPosts(after: String, limit: Int, favoritesFirst: Boolean): PostPage
+  suggestedPosts(after: String, limit: Int, favoritesFirst: Boolean, affinityMode: Boolean): PostPage
 
   """
   A post (postId) and its replies, in the order of the thread; hidden true: the hidden replies of its root,
@@ -278,7 +317,7 @@ type Query {
   null when it has no language or is already in it. "id": the post, the message, the proposal, the account
   (BIO), the universe address (CHARTER, UNIVERSE_DESCRIPTION), the image (IMAGE_ALT, since v78.0.0), the
   post of the clip (CLIP_SUBTITLES, since v78.0.0), the universe event (UNIVERSE_EVENT, since D-409; EVENT_NOT_FOUND),
-the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": what holds a message (DIRECT_MESSAGE: the
+the place experience (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": what holds a message (DIRECT_MESSAGE: the
   other account's id; GROUP_MESSAGE: the group chat's id; CHANNEL_MESSAGE: the channel or debate address), the
   post of the image (IMAGE_ALT). The content of a universe is translated once per version and language and
   kept with it; a direct or group message is served and kept nowhere, once the reader agreed
@@ -495,9 +534,10 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   The placed channels of the map cells of resolution 6 of the area shown (4 at most) (since v101.0.0, D-300,
   public-channels.feature): in one public universe (universe, the universe filter) or in every public universe
   (universe null), with their place, presentCount and lastMessage. Its bound is not written yet (README.md § To
-  settle).
+  settle). Since D-469, a placed channel is drawn on no map and the apps no longer read it; kept, unchanged, while a
+  client reads it (an app built before D-469, the command-line client), then removed by a later contract.
   """
-  mapChannels(parentMapCells: [String!]!, universe: String): [UniverseDiscussion!]
+  mapChannels(parentMapCells: [String!]!, universe: String): [UniverseDiscussion!] @deprecated(reason: "Since D-469: a placed channel is drawn on no map; a placed channel is reached from its universe.")
 
   """
   The routes that cross the map cells of resolution 6 of the area shown (4 at most) (since v101.0.0, D-300,
@@ -795,8 +835,8 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   moderationLog(after: String, limit: Int, universe: String!): ModerationLogPage
 
   """
-  Juries (from the city): the caller's duties; accept or decline within 24 hours; withdraw; vote a
-  decision (with its reasons) or the dismissal of the jury.
+  Appeal juries (from the city): the caller's duties; accept or decline within 24 hours; withdraw; vote a
+  decision (with its reasons) or the dismissal of the appeal jury.
   "universe" (since v49.9.0, My duties of the governance page): the duties of that universe only. limit: from
   1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page before.
   """
@@ -1070,7 +1110,7 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   (universe null), the most recent first, 200 at most. Since v92.0.0 (D-285): videosOnly true, the layer "Videos" (the
   placed videos only); a placed video of a private universe only in that universe, for its members. Since D-393
   (contracts/map.md § One map marker per place): never the post of a published experience feat placed at the point of
-  interest of its place feat (MapPost.placeFeatId; since D-395, that of a minor placed at the city is answered, as
+  interest of its place experience (MapPost.placeFeatId; since D-395, that of a minor placed at the city is answered, as
   before); a place-folded post is answered with MapPost.foldedPlaceId set.
   """
   mapPosts(parentMapCells: [String!]!, universe: String, videosOnly: Boolean): [MapPost!]
@@ -1078,8 +1118,8 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   Since D-355 (item 3), D-356, D-358 and D-360 (map-highlights.feature): the nearest activity of an area with nothing to draw,
   from its center, among the map kinds chosen (kinds; PEOPLE is never an activity, and PEOPLE alone answers null), on the
   map of Explore (universe null) or on the map of the public universe given in universe (its universe of the first
-  level, as its files: what that map shows; UNIVERSES ignored there): the nearest placed post, placed video, place with a place feat
-  (FEATS while the place feats are served), universe event, public universe (measured to the nearest point of its universe
+  level, as its files: what that map shows; UNIVERSES ignored there): the nearest placed post, placed video, place with a place experience
+  (FEATS while the place experiences are served), universe event, public universe (measured to the nearest point of its universe
   territory; a public universe without one is never answered) or route (measured to its start), the same for every reader
   but never of an account blocked either way, never a content of a private universe. Null when nothing is
   within 500 kilometres, with PEOPLE alone, or on the map of a private universe. INVALID_REQUEST for a center off the world.
@@ -1089,21 +1129,31 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   answered as any placed post or placed video. Since D-419 (map/map-universe-filter.feature), linked true: the
   universe filter of the map of Explore, the nearest activity linked to the universe given exactly (a sub-universe
   for a sub-universe, never its universe of the first level): what the universe filter keeps; false or not given, as
-  before. A signed-in caller only (SIGN_IN_REQUIRED for a visitor not signed in, unchanged).
+  before; since D-469, never a placed channel. A signed-in caller only (SIGN_IN_REQUIRED for a visitor not signed in,
+  unchanged). Since D-437
+  (posts/explore-things-to-do.feature), EXPERIENCES among kinds (the map of Explore only, ignored on the map of a
+  universe; ignored while the experiences are not open): the start of a public route experience as the readers other
+  than its author see it, or the point of the universe event of a group experience instance waiting for its start (D-442
+  (Q6)), of a public experience; never of an account blocked either way; EXPERIENCES only when named in kinds. For a
+  group experience instance, the caller who does not attend its universe event is answered its experience
+  (NearestActivity.resultKind EXPERIENCE, the id of the experience, the point of the universe event), never the id of the
+  experience instance. The to-do row with its three to-do shortcuts at 0 reads it with the kinds of the what family "To
+  do": EVENTS, EXPERIENCES, FEATS and ROUTES (D-442 (Q4)). Since D-478, the apps never send UNIVERSES among kinds (the
+  map kind "Universes" offered on no map), still answered as before for an app built before D-478.
   """
   nearestActivity(center: PointInput!, kinds: [MapKind!]!, universe: String, linked: Boolean): NearestActivity
 
   """
-  Since D-358 (item 2), D-360 and D-361 (map-markers.feature): the place card of a place without a place feat, by the id of
+  Since D-358 (item 2), D-360 and D-361 (map-markers.feature): the place card of a place without a place experience, by the id of
   its point of interest (PostPlace.placeId, PlaceMatch.id): its name, its point and its 20 contents in all, the universe
   events to come at the place first (the soonest first; one over never among them), then the placed posts and the placed
   videos in the order of the map highlights (a placed post, then a placed video, each by its rank); a placed video of a
   private universe for the members of that universe only; never a content of an account blocked either way. Null for a
   place the map does not know (the link of a place opens the map of Explore). Since D-362, its postal address
   (PlaceCard.address), read from the cartography at the time of the read, never kept. Since D-362, it answers for any
-  place the map knows, with or without a place feat: the share of a place with a place feat (D-352) reads its postal
-  address here too, by the placeId of the point of interest of its place feat. Since D-395 (contracts/map.md § One map
-  marker per place): for a place with a place feat, its section "Also here" (PlaceCard.alsoHere), its place-folded
+  place the map knows, with or without a place experience: the share of a place with a place experience (D-352) reads its postal
+  address here too, by the placeId of the point of interest of its place experience. Since D-395 (contracts/map.md § One map
+  marker per place): for a place with a place experience, its section "Also here" (PlaceCard.alsoHere), its place-folded
   posts, read when its place card opens.
   """
   placeCard(placeId: String!): PlaceCard
@@ -1338,9 +1388,9 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
 
   """
   Explore: the accounts to follow, ranked as reason tells, computed every minute (updatedAt). A ranking, not a
-  page: 10 accounts at most.
+  page: 10 accounts at most. affinityMode: the affinity mode on (D-476, contracts/affinity.md).
   """
-  accountsToFollow: AccountToFollowPage
+  accountsToFollow(affinityMode: Boolean): AccountToFollowPage
 
   """
   The clip feed, newest first: the posts with a vertical or square clip of what the caller follows
@@ -1355,9 +1405,9 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   popular clips, then the last end card; a private universe stops at its end card. "limit" 1 to
   50, 20 by default; "language": the language of the app (optional, the account's languages
   otherwise). Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the
-  next of the page before.
+  next of the page before. affinityMode: the affinity mode on (D-476, contracts/affinity.md). FEED is never ranked.
   """
-  clipFeedSequence(address: String, after: String, language: String, limit: Int): ClipFeedSequencePage
+  clipFeedSequence(address: String, after: String, language: String, limit: Int, affinityMode: Boolean): ClipFeedSequencePage
 
   """
   Favorite universes: the account itself (never an agent operator); each mutation returns them all.
@@ -1383,6 +1433,24 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   myNotInterested: [NotInterested!]
 
   """
+  My affinities (D-476, contracts/affinity.md), the most recent first, whatever the switches.
+  DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER. limit: from 1 to 100 (50 by default; LIMIT_INVALID otherwise);
+  after: the next of the page before.
+  """
+  myAffinities(after: String, limit: Int, kind: AffinityTargetKind, direction: AffinityDirection): AffinityPage
+
+  """
+  The expressed affinities of the caller with the targets given, 50 at most (AFFINITY_TARGETS_TOO_MANY); the others
+  left out. AFFINITY_NOT_OPEN; DELEGATED_AGENT_NOT_ALLOWED. Usage category READING.
+  """
+  myAffinitiesOf(targets: [AffinityTargetInput!]!): [Affinity!]
+
+  """
+  The affinity settings of the caller (D-476). DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  affinitySettings: AffinitySettings
+
+  """
   "Why this post" (since v85.8.0, for-you.feature): why post was shown to the caller in "For you" or the clip
   feed, from what was shown to it in the last 7 days (recommendations, platform posts, popular and platform clips); POST_NOT_FOUND for a post the caller cannot read or
   was not shown. A delegated agent: DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
@@ -1400,9 +1468,9 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   score, the reader's languages first, the last 7 days, then 30, then 90; 1 in 10 an exploration clip
   (recommendation NEW_ON_PLATFORM); "next" null once no clip is left. "limit" 1 to 50, 20 by default.
   Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
-  page before.
+  page before. affinityMode: the affinity mode on (D-476, contracts/affinity.md).
   """
-  platformClips(after: String, language: String!, limit: Int): ClipFeedItemPage
+  platformClips(after: String, language: String!, limit: Int, affinityMode: Boolean): ClipFeedItemPage
 
   """
   The popular clips of the caller's languages (the language of the app, those of its account): the
@@ -1410,9 +1478,9 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   the authors it blocked or muted, what it is not interested in, the clips it reported and, with
   the recommendations on, those shown to it in the last 7 days. "limit" 1 to 50, 20 by default.
   Usage category READING. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
-  page before.
+  page before. affinityMode: the affinity mode on (D-476, contracts/affinity.md).
   """
-  popularClips(after: String, language: String!, limit: Int): PostPage
+  popularClips(after: String, language: String!, limit: Int, affinityMode: Boolean): PostPage
 
   """
   The universes the caller visited last, the most recent first: 20 at most.
@@ -1424,9 +1492,9 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   favorite universes, the tags it engaged with and the trending posts of its languages (language: the language
   of the app); off, a delegated agent: an empty page. Usage category READING. Phase 1 of the cells (P-16): the
   posts of the cell called only. limit: from 1 to 20 (20 by default; LIMIT_INVALID otherwise); after: the next
-  of the page before.
+  of the page before. affinityMode: the affinity mode on (D-476, contracts/affinity.md). FOLLOWED is never ranked.
   """
-  recommendations(after: String, kind: RecommendationKind!, language: String!, limit: Int): RecommendationPage
+  recommendations(after: String, kind: RecommendationKind!, language: String!, limit: Int, affinityMode: Boolean): RecommendationPage
 
   """
   Search (since v55.5.0, contracts/search.md): the query of 2 to 200 characters, words and addresses;
@@ -1446,7 +1514,14 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   and adds the new ones at the end. What the caller may read, with the exclusions of the map (never a content of a
   private universe the caller is not a member of, nor of an account blocked either way). INVALID_REQUEST for an area
   missing or invalid with AREA, a query missing or out of 2 to 200 characters, days
-  out of 1 to 90, an order not of its scope. A signed-in caller only, as search: SIGN_IN_REQUIRED for a visitor not
+  out of 1 to 90, an order not of its scope. Since D-437 (posts/explore-things-to-do.feature), only with EXPERIENCES
+  named in kinds (kinds not given keeps the map kinds of before D-437; ignored while the experiences are not open), the
+  results EXPERIENCE (a public route experience in the area, a public simple challenge everywhere only, found by its
+  title or its name) and EXPERIENCE_RUN (a group experience instance planned at a universe event of the area, of the same
+  selection as mapExperiences: STARTED, of a public experience, from a universe event of the selection of D-382, its
+  start within the time window), narrowed by experienceDuration and experienceCompany; a route that has a public route
+  experience is answered once, as EXPERIENCE, never again as ROUTE, while EXPERIENCES is among kinds; never ordered by the
+  number of accounts that like an experience; the density counts EXPERIENCES only when named. A signed-in caller only, as search: SIGN_IN_REQUIRED for a visitor not
   signed in (the map highlights, the events files and randomHighlight stay open to it). Phase 1 of the cells (P-16):
   what the cell called holds, as search. limit:
   from 1 to 60, the largest marker budget (20 by default; LIMIT_INVALID otherwise); after: the next of the page before
@@ -1455,11 +1530,24 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   exploreSearch(filter: ExploreFilterInput!, after: String, limit: Int): ExploreSearchResults
 
   """
+  Since D-437 (posts/explore-things-to-do.feature; contracts/map.md § The things to do in Explore): the resume band of
+  Explore, in one read: the experience instances in which the experience result of the caller is IN_PROGRESS (never
+  STARTED: one waiting for its scheduled start is not shown), the soonest end first (a route experience, which keeps no
+  time, after those with an end), and the universe events of the day, in the time zone of their place, that the caller
+  attends and that have not ended, the soonest first; 20 at most of each, with their numbers. Read when Explore opens
+  and when the app comes back to the foreground; never pushed: the app removes an experience instance once the
+  experience result of the caller in it ended (the realtime events of the experience instance, realtime.md) and a
+  universe event at its end. While the experiences are not open, runs is empty and runCount 0, never refused. A
+  signed-in caller only (SIGN_IN_REQUIRED).
+  """
+  exploreResume: ExploreResume
+
+  """
   Since v128.0.0 (D-408, map-highlights.feature): the random jump, drawn in two steps: a very lively map cell of the
   explore filter, each with the same chance (filter: its area, null for the whole world; its words, time window, map
   kinds, event families and map filter; scope and order ignored), a map cell of resolution 8 that holds at least
   map.randomJump.minContents public contents of the last 7 days (20 by default, a setting of the platform); then one of
-  its map highlights of the filter, each with the same chance: a placed post, a placed video, a place with a place feat
+  its map highlights of the filter, each with the same chance: a placed post, a placed video, a place with a place experience
   or a universe event, never a person, a universe nor a route; never the map highlight exceptId (the one just jumped
   to); never a content of an account blocked either way (left out before the draw). The same for every reader: nothing
   else of the caller chooses it. Read by a visitor not signed in too (the map highlights being
@@ -1473,12 +1561,16 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   ExploreAreaInput.mapCells may carry, 0 to 9, so that any area sums its own cells) and the same for every reader,
   whoever they blocked: the public content only, never a content of a private universe, never a person, a map presence
   nor an account. Of the explore filter (filter), it reads the area (required: INVALID_REQUEST without it), the time
-  window (when, days), the map kinds (kinds; PEOPLE ignored), the event families (families, ignored without EVENTS
+  window (when, days), the map kinds (kinds; PEOPLE ignored; since D-437, EXPERIENCES counted only when named in kinds,
+  while the experiences are open, ignored otherwise: the part EXPERIENCES, or GROUP_RUNS and ROUTE_EXPERIENCES with
+  EXPERIENCES alone; kinds not given keeps the map kinds of before D-437, so no new AreaSummaryKind reaches an app built
+  before D-437; the threshold of 3 distinct accounts applies to these parts in each map cell before adding up, D-428 (a)), the event families (families, ignored without EVENTS
   among kinds, as exploreSearch) and the universe of mapFilter (its universe filter); it ignores the words (query), the
   tags of mapFilter, scope and order. The universe events of the time window (the selection of D-382), the placed posts
   with a photo, the placed videos and the experience feats published in the last 24 hours, and the routes that cross
-  the area, each counted once; a part whose content comes from fewer than 3 distinct accounts is left out, so that the
-  summary never tells the activity of one account. Computed again within 5 minutes of a change, with the files; cached
+  the area, each counted once; in each map cell, before the cells are summed (D-428), what a part counts there is left
+  out when it comes from fewer than 3 distinct accounts in that cell, so that the summary never tells the activity of
+  one account, even by comparing two areas. Computed again within 5 minutes of a change, with the files; cached
   60 seconds by its arguments. A signed-in caller only: SIGN_IN_REQUIRED for a visitor not signed in, as
   nearestActivity. Rate limited as any read, and by its own limit: 30 reads a minute per account; beyond, RATE_LIMITED
   with errorInfo { limit, retryAt }.
@@ -1540,21 +1632,25 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
 
   """
   Explore: the trending tags, ranked as reason tells, computed every minute (updatedAt). A ranking, not a
-  page: 10 tags at most.
+  page: 10 tags at most. affinityMode: the affinity mode on (D-476, contracts/affinity.md).
   """
-  trendingTags: TrendingTagPage
+  trendingTags(affinityMode: Boolean): TrendingTagPage
 
   """
   A list of Explore (G-7, contracts/explore.md), ranked as its reason tells, computed every minute
   (updatedAt): by ACTIVE, FIELD (field), CLOSE_TO_LEVEL, AREA (mapCells, the H3 cells of the map shown, 50 at
   most), LANGUAGE (language, ISO 639-1), NEW, WHERE_FOLLOWED_ACCOUNTS_POST. The argument its by needs,
   missing: INVALID_REQUEST. A ranking, not a page: no cursor; 20 universes at most (10 for CLOSE_TO_LEVEL; NEW
-  and AREA as their rules say). Phase 1 of the cells (P-16): the universes of the cell called only.
+  and AREA as their rules say). Phase 1 of the cells (P-16): the universes of the cell called only. affinityMode: the affinity mode on (D-476, contracts/affinity.md). Not AREA. Since D-478, AREA serves "Around here" only
+  (map/map-universe-filter.feature).
   """
-  exploreUniverses(by: ExploreBy!, field: UniverseField, language: String, mapCells: [String!]): ExploreUniversePage
+  exploreUniverses(by: ExploreBy!, field: UniverseField, language: String, mapCells: [String!], affinityMode: Boolean): ExploreUniversePage
 
   """
-  The notifications of the account itself (a human or an agent operator; a delegated agent is refused), the
+  The notifications of the account itself (a human or an agent operator); a delegated agent reads those of its
+  operator when its restrictions allow both direct messages and group chats, or it has none (DELEGATED_AGENT_NOT_ALLOWED
+  otherwise; as built, contracts/notifications.md; before D-472 this description said "refused": C-1; never the
+  kinds ACT_CONFIRMATION_REQUEST, TRUSTED_DEVICE_REGISTERED, AGENT_ACT_RECORD, AGENT_POSITION_SHARED), the
   newest first. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
   before.
   """
@@ -1565,6 +1661,53 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   recommendations, the nearby label, the subtitles, the gesture tips shown. A delegated agent reads its operator's.
   """
   mySettings: Settings
+
+  """
+  Since D-460 (contracts/ai.md § Prices and their cost lines, ai-credits.feature): the price table of the AI actions, in
+  AI credits per kind and AI level, and what 1 AI credit is worth; the same for every caller, read before an AI action
+  to tell its price (its expectedCredits). AI_NOT_OPEN, AI_HUMANS_ONLY. Weight 1.
+  """
+  aiPrices: AiPrices
+
+  """
+  Since D-460 (contracts/ai.md § The AI credits and their ledger): the AI credits of the caller (monthly, bought, spent
+  today) and their AI settings (the AI level by default, the daily AI credit cap). AI_NOT_OPEN, AI_HUMANS_ONLY. Weight 1.
+  """
+  myAiCredits: AiCredits
+
+  """
+  Since D-460: the movements of the AI credits of the caller, the most recent first, kept 13 months (the purchases as
+  payments.md keeps them). limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the page
+  before. AI_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  myAiCreditMovements(after: String, limit: Int): AiCreditMovementPage
+
+  """
+  Since D-460 (contracts/ai.md § The AI actions of package 1): an AI action of the caller (requestAiSummary,
+  requestWritingHelp, requestAiImage, a run of a scheduled AI task): its outcome and, READY, its AI result while it is
+  readable (1 hour, 7 days for a personal digest and a scheduled AI task). AI_ACTION_NOT_FOUND (unknown, another
+  account's, older than 13 months), AI_HUMANS_ONLY. Answered whatever the switches, so that an AI action accepted before
+  a switch is closed still reaches the caller. Weight 1.
+  """
+  aiAction(id: ID!): AiAction
+
+  """
+  Since D-460 (personal-assistant.feature, contracts/ai.md § The personal reminders): the personal reminders of the
+  caller waiting, the earliest first; 50 at most. REMINDERS_NOT_OPEN, REMINDERS_HUMANS_ONLY.
+  """
+  myPersonalReminders: [PersonalReminder!]
+
+  """
+  Since D-460 (packages 3 and 4): the scheduled AI tasks and the model agent copies of the caller, the most recently
+  created first; 10 at most. AI_ASSISTANT_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  myAiTasks: [AiTask!]
+
+  """
+  Since D-460 (package 4, model-agents.feature): the catalogue of model agents of the social platform, 5 to 10, in the
+  order of the platform, in the language of the app. AI_MODEL_AGENTS_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  aiModelAgents: [AiModelAgent!]
 
   """
   What a billing day would cost; changes nothing. Errors: as setBillingDay.
@@ -1681,9 +1824,23 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   """
   The history of the caller (since v122.3.0, D-386): the long videos it watched 30 seconds or more, the most
   recent first, 500 at most. limit: from 1 to 50 (20 by default; LIMIT_INVALID otherwise); after: the next of the
-  page before.
+  page before. Since v136.4.0 (D-434, video-mode.feature), unfinished true: only the unfinished long videos among the
+  100 most recent entries of the history, the most recent first: those whose last play stopped before 90 % of their
+  length (recordPlayback), and, for an entry kept before v136.4.0, those whose position is before 90 % of their
+  length; none while the history is paused (paused true, items empty); limit from 1 to 2 there. The Continue card is
+  videoHistory(unfinished: true, limit: 1) on a phone, limit: 2 from 1,024 pixels of width. False or left out: as
+  before.
   """
-  videoHistory(after: String, limit: Int): HistoryPage
+  videoHistory(after: String, limit: Int, unfinished: Boolean): HistoryPage
+
+  """
+  The video universe chips of the caller (since v136.4.0, D-434, video-mode.feature): the addresses ("%paris") of the
+  public universes, among the 50 most recent residences of the caller, that have a public long video
+  (Universe.hasLongVideos), the most recent residence first, 10 at most; empty when none ("All" is then not offered
+  either); never a private universe. Two requests, at most 100 items read (playlists.graphql, cost at rest). Phase 1
+  of the cells (P-16): a universe of another cell is left out. A delegated agent: DELEGATED_AGENT_NOT_ALLOWED.
+  """
+  videoUniverseChips: [String!]
 
   """
   Since v86.0.0 (long-videos.feature): the view of the long videos: the posts with a long video of an address
@@ -1691,9 +1848,15 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   searched in their posts (search.md), then by relevance. limit: from 1 to 50 (20 by default; LIMIT_INVALID
   otherwise); after: the next of the page before. Since v122.3.0 (D-386), without an address, tab: FOLLOWING (the
   default, as before) or FOR_YOU (the long videos the interest profile of the caller recommends, each with its
-  reason, for-you.feature); with an address, tab is ignored.
+  reason, for-you.feature); with an address, tab is ignored. Since D-440, FOLLOWING: the long videos of the accounts
+  the caller follows and of the universes of its 50 most recent residences, not their sub-universes (a universe is never followed). Since
+  v136.4.0 (D-434, video-mode.feature), filter: the video search filters (LongVideoSearchFilter), applied to the long
+  videos the query finds; since D-440, also with no query, applied to the long videos the read lists (the tab, or the
+  address), in their order (until D-440: INVALID_REQUEST). The video search type is the client's: "All" and "Accounts and universes" and "Playlists" read
+  search(query) (its accounts, universes and playlists), "All" and "Videos" read longVideos(query, filter)
+  (contracts/search.md § The search of the long videos).
   """
-  longVideos(address: String, after: String, limit: Int, query: String, tab: LongVideosTab): PostPage
+  longVideos(address: String, after: String, filter: LongVideoSearchFilter, limit: Int, query: String, tab: LongVideosTab): PostPage
 
   """
   Since v86.0.0: the chapters the social platform proposes from the subtitles of a long video of the caller
@@ -1711,25 +1874,27 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   resolveAddress(address: String!): ResolvedAddress
 
   """
-  Since v86.0.0: the video quota of the caller; since v101.8.0 (D-309), a delegated agent's own.
+  Since v86.0.0: the video quota of the caller; since v101.8.0 (D-309), a delegated agent's own; since D-458 and
+  D-462, for a human, its video threshold (VideoQuota.refusedBeyond false), never a refusal; limitMinutes 0 is no
+  longer answered (v140.0.0 to v141.0.0, D-454).
   """
   myVideoQuota: VideoQuota
 
   """
-  Since v104.2.0 (experiences group: experience-feats.feature, contracts/experiences.md): the place feats of a point of
+  Since v104.2.0 (experiences group: experience-feats.feature, contracts/experiences.md): the place experiences of a point of
   interest (its place card; read by a visitor not signed in too), the most done first, 20 at most, a withdrawn one left out. PLACE_NOT_PUBLIC (placeId names
   no point of interest of the cartography), PLACE_FEATS_NOT_OPEN.
   """
   placeFeats(placeId: String!): [PlaceFeat!]
 
   """
-  Since v104.2.0: a place feat by its identifier, a withdrawn one included (its address answers PLACE_FEAT_NOT_FOUND);
+  Since v104.2.0: a place experience by its identifier, a withdrawn one included (its address answers PLACE_FEAT_NOT_FOUND);
   read by a visitor too. PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN.
   """
   placeFeat(id: ID!): PlaceFeat
 
   """
-  Since v104.2.0: the feat gallery of a place feat: its published experience feats the caller may read (one of a private
+  Since v104.2.0: the feat gallery of a place experience: its published experience feats the caller may read (one of a private
   universe for its members only; a minor's never), in "order" (NEWEST by default); accountId: those of one account
   only (the address "%paris*arc-photo!@alice"). after: the next of the page before. limit: from 1 to 50 (20 by
   default). Read by a visitor too. PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN.
@@ -1751,12 +1916,26 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
 
   """
   Since v104.2.0: the experiences layer over the map cells of resolution 6 of the area shown (4 at most): the points of
-  interest with a place feat, each with its pin cluster and how lively it is, the most published first, 200 at most;
-  universe, the universe filter (the place feats it hosts or adopted). Read again when the area changes, never pushed;
+  interest with a place experience, each with its pin cluster and how lively it is, the most published first, 200 at most;
+  universe, the universe filter (the place experiences it hosts or adopted). Read again when the area changes, never pushed;
   read by a visitor too.
   LAYER_NOT_SERVED while the platform does not serve the layer (client-config experiences.placeFeats off).
   """
   mapPlaceFeats(parentMapCells: [String!]!, universe: String): [MapPlaceFeats!]
+
+  """
+  Contract: contracts/experiences.md § API v2 descriptions, mapExperiences (moved there by D-498, unchanged).
+  """
+  mapExperiences(parentMapCells: [String!]!, universe: String, inProgress: Boolean): [MapExperience!]
+
+  """
+  Since D-437 (posts/explore-things-to-do.feature, Q14): of the place experiences given (placeFeatIds, 1 to 100, those of the
+  result cards and the place cards shown; INVALID_REQUEST otherwise), those of which the caller holds an experience feat
+  (the marker of the place experience count, contracts/experiences.md § Counts and the lively place), whatever its visibility:
+  the result card shows "Done". An unknown or withdrawn place experience is left out, never refused. A signed-in caller only
+  (SIGN_IN_REQUIRED); LAYER_NOT_SERVED while the place experiences are not served.
+  """
+  myPlaceFeatsDone(placeFeatIds: [ID!]!): [ID!]
 
   """
   Since v136.2.0 (experiences group: experience-addresses.feature, contracts/experiences.md): an experience of route/1 or
@@ -1773,11 +1952,51 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   experiences(owner: String!, after: String, limit: Int): ExperiencePage
 
   """
+  Since D-492: the price of a level on a tournament edition the caller reads (contracts/experiences.md § Tournament
+  sponsors; refusals: contracts/errors.md § Tournament sponsors).
+  """
+  sponsorshipQuote(runId: ID!, level: SponsorLevel!): SponsorshipQuote
+
+  """
+  Since D-492: with runId, the sponsorship offers of that edition, to its experience organizer; without, the caller's
+  own. limit: from 1 to 50 (20 by default).
+  """
+  sponsorshipOffers(runId: ID, after: String, limit: Int): SponsorshipOfferPage
+
+  """
+  Since D-498: the contest entries of a contest edition the caller reads, of one contest category or all, by submission
+  before the results and by place after them (contracts/experiences.md § Judged contests (contest/1)). limit: from 1 to
+  50 (20 by default). EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN.
+  """
+  contestEntries(runId: ID!, category: String, after: String, limit: Int): ContestEntryPage
+
+  """
+  Since D-498: every vote signal of a contest edition, to its experience organizer, until the results, the latest first.
+  limit: from 1 to 50 (20 by default). EXPERIENCE_RUN_NOT_FOUND (anyone else), EXPERIENCES_NOT_OPEN.
+  """
+  contestVoteSignals(runId: ID!, after: String, limit: Int): ContestVoteSignalPage
+
+  """
+  Since D-451 (visit-experiences.feature): the visit experiences of other owners that link a route of the caller
+  (routeId; an account route of the caller), UNLISTED or PUBLIC, the detached ones included, the most recently linked
+  first. after: the next of the page before. limit: from 1 to 50 (20 by default). ROUTE_NOT_FOUND (a route that is not
+  the caller's), DELEGATED_AGENT_NOT_ALLOWED, EXPERIENCES_NOT_OPEN.
+  """
+  routeLinks(routeId: ID!, after: String, limit: Int): RouteLinkPage
+
+  """
   Since v136.2.0 (P-15): checks an experience template (breakrocks.experience/4) for the caller, writing nothing: every
   problem at once, one per path (DocumentProblem; empty: none), as createExperience and updateExperience would refuse
-  it. EXPERIENCES_NOT_OPEN.
+  it. EXPERIENCES_NOT_OPEN. Since D-473, also the TEMPLATE_* problems while the creation templates apply; experienceId:
+  as the next version of that experience (EXPERIENCE_NOT_FOUND, EXPERIENCE_NOT_YOURS).
   """
-  checkExperience(document: AWSJSON!): [DocumentProblem!]
+  checkExperience(document: AWSJSON!, experienceId: ID): [DocumentProblem!]
+
+  """
+  Since D-473 (contracts/experiences.md § Creation templates): the catalogue of the creation templates served, a
+  document of creation-templates.schema.json. EXPERIENCES_NOT_OPEN, SIGN_IN_REQUIRED; INTERNAL if unreadable.
+  """
+  creationTemplates: AWSJSON
 
   """
   Since v136.2.0 (experience-instances.feature): an experience instance of route/1 or challenge/1, as the caller may read
@@ -1785,6 +2004,11 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   whether or not it exists. EXPERIENCES_NOT_OPEN.
   """
   experienceRun(id: ID!): ExperienceRun
+
+  """
+  Since D-510: the URL a short link stands for (contracts/urls.md § Pre-filled links); SHORT_LINK_NOT_FOUND.
+  """
+  shortLink(code: String!): ShortLink
 
   """
   Since v136.2.0: the experience instances of route/1 and challenge/1 the caller takes or took part in (shown in My feats
@@ -1796,12 +2020,49 @@ the place feat (PLACE_FEAT, since D-409; PLACE_FEAT_NOT_FOUND); "container": wha
   """
   Since v136.2.0 (experience-rankings.feature): the ranking of one group experience instance of a simple challenge that
   declares one, as the caller may read the experience instance: its experience participants who chose to appear, by
-  their experience result SUCCESS and PEOPLE_VALIDATED, in the order of the experience, the earlier final measure first
+  their experience result SUCCESS and PEOPLE_VALIDATED (since D-461, or SUCCESS and DEVICE_MEASURED, served with its
+  proof; one removed by the moderation left out), in the order of the experience, the earlier final measure first
   between equal values; 50 at most (its experience participants), computed from the experience instance; an account the
   caller blocked or that blocked the caller left out. No ranking across experience instances. EXPERIENCE_RUN_NOT_FOUND,
   EXPERIENCE_NO_RANKING (the experience declares none, or a solo experience instance), EXPERIENCES_NOT_OPEN.
   """
   experienceRunRanking(runId: ID!): [ExperienceRankingEntry!]
+
+  """
+  Since D-461 (feat-collection.feature, contracts/experiences.md § The Feat collection and the event Feats): the Feat
+  collection of the caller, with hidden; empty until the caller adds a Feat. DELEGATED_AGENT_NOT_ALLOWED,
+  AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS, FEAT_COLLECTION_NOT_OPEN, EXPERIENCES_NOT_OPEN.
+  """
+  myFeatCollection: FeatCollection
+
+  """
+  Since D-467 (health-measures.feature, contracts/experiences.md § Device measures), revised on 2026-11-19: the health
+  consent of the caller. Without runId, their standing health consent (scope ALWAYS), one per account; allowed false
+  when never given or withdrawn. With runId, the health consent that covers that experience instance: the standing
+  health consent while it is given, otherwise the one-time health consent of that experience instance (scope ONCE,
+  runId), otherwise allowed false. DELEGATED_AGENT_NOT_ALLOWED, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS,
+  EXPERIENCE_RUN_NOT_FOUND (runId: no experience instance the caller reads), EXPERIENCES_NOT_OPEN.
+  """
+  myHealthConsent(runId: ID): HealthConsentState
+
+  """
+  Since D-461 (feat-collection.feature): the Feat collection shown on the profile of an account, as the caller may read
+  it: its entries in their order, the title and the address of an experience the caller may not read left out; an
+  empty list when the collection is hidden, empty, or of an account the caller blocked or that blocked the caller (the
+  same answer for all). 12 entries at most. ACCOUNT_NOT_FOUND, SIGN_IN_REQUIRED, FEAT_COLLECTION_NOT_OPEN,
+  EXPERIENCES_NOT_OPEN.
+  """
+  featCollection(accountId: ID!): [FeatCollectionEntry!]
+
+  """
+  Since v139.1.0 (D-439, visit-generator.feature, contracts/experiences.md § The visit generator): a visit generation of
+  the caller (generateVisitDraft, correctVisitDraft): its outcome and, READY, its generated visit draft for 1 hour after
+  it is ready (then draft null). VISIT_GENERATION_NOT_FOUND (unknown, another account's, older than 7 days),
+  VISIT_GENERATOR_HUMANS_ONLY (a delegated agent or an agent operator), EXPERIENCES_NOT_OPEN. Answered whatever
+  experiences.visitGenerator, so that a visit generation accepted before the switch is closed still reaches the caller.
+  Weight 1.
+  """
+  visitGeneration(generationId: ID!): VisitGeneration
 }
 
 """
@@ -1811,6 +2072,10 @@ step. Every mutation takes requestId: ID!, the idempotency key of the request: a
 typing, sendLivePositions, recordClipPlays and watch, which take none (README.md § Idempotency). A creation
 played again with the same requestId answers what it created the first time and creates nothing more; a
 toggle or a setting writes the state wanted, so playing it again gives the same state.
+Since D-472 and D-474 (contracts/agents-acting-for-their-human.md): while agents.actForHuman is on, a refusal to a
+delegated agent written in a description below is not answered to a delegated agent of a human for an act the
+classification of that contract opens; the act is then a free act, an act under agent mandate (AGENT_MANDATE_REQUIRED)
+or an act confirmed at each act (ACT_CONFIRMATION_REQUIRED); the exceptions stay refused.
 """
 type Mutation {
   """
@@ -1955,9 +2220,13 @@ type Mutation {
   """
   Every session of the caller ends (a human only: Cognito token; delegated agents' sessions
   are not concerned): signed out everywhere, its refresh tokens revoked, and every app of the
-  account told by the real-time updates ("session.ended") to close and sign out.
+  account told by the real-time updates ("session.ended") to close and sign out. Since D-474, while agents.actForHuman
+  is on, also a delegated agent of a human, for its human, under the agent mandate ACCOUNT_SECURITY
+  (AGENT_MANDATE_REQUIRED); the trusted devices stay registered, unless resetAgentPowers is true (a human session only,
+  HUMAN_SESSION_REQUIRED otherwise): then every trusted device is removed, every agent mandate withdrawn and the
+  designation of the personal agent ended, as a password change or reset does.
   """
-  signOutEverywhere(requestId: ID!): Boolean
+  signOutEverywhere(resetAgentPowers: Boolean, requestId: ID!): Boolean
 
   """
   The caller skips the onboarding. Returns the onboarding.
@@ -2009,6 +2278,81 @@ type Mutation {
   changeDelegatedAgent(agentId: ID!, input: DelegatedAgentChangeInput!, requestId: ID!): DelegatedAgent
 
   """
+  Since D-474 (contracts/agents-acting-for-their-human.md): a challenge, valid 2 minutes and used once, bound to its
+  purpose and to what it names (input): REGISTER, signed by a device to be registered (registerTrustedDevice);
+  APPROVE_DEVICE, signed by an active trusted device to approve a pending one (approveTrustedDevice); GIVE_MANDATE,
+  signed by an active trusted device to give one agent mandate to one delegated agent (setAgentMandate). The device shows
+  what it names before its means of access. TRUSTED_DEVICE_NOT_FOUND, DELEGATED_AGENT_NOT_FOUND, INVALID_REQUEST (what the
+  purpose needs missing), AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED.
+  """
+  startTrustedDeviceChallenge(input: TrustedDeviceChallengeInput!, requestId: ID!): TrustedDeviceChallenge
+
+  """
+  Since D-474: registers the device the caller, a human, is signed in on as a trusted device, with the credential the
+  device made over a challenge of purpose REGISTER after its own means of access, a recent sign-in needed. The first
+  trusted device is ACTIVE at once; another, while one exists, is PENDING for 24 hours unless an active one approves it
+  (approveTrustedDevice). RECENT_SIGN_IN_REQUIRED, TRUSTED_DEVICES_TOO_MANY (5, a pending one counted),
+  TRUSTED_DEVICE_NO_MEANS_OF_ACCESS (no attested platform authenticator), TRUSTED_DEVICE_CHALLENGE_EXPIRED,
+  TRUSTED_DEVICE_CHALLENGE_MISMATCH, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. The human is notified at once
+  on the other devices and by email, with "Not me" (TRUSTED_DEVICE_REGISTERED). Returns the trusted device.
+  """
+  registerTrustedDevice(input: TrustedDeviceInput!, requestId: ID!): TrustedDevice
+
+  """
+  Since D-474: an active trusted device of the caller, a human, approves a pending one (id), which becomes ACTIVE at once,
+  with proof over a challenge of purpose APPROVE_DEVICE naming it. TRUSTED_DEVICE_REQUIRED, TRUSTED_DEVICE_PROOF_INVALID,
+  TRUSTED_DEVICE_PENDING (the approving device is pending itself), TRUSTED_DEVICE_CHALLENGE_MISMATCH,
+  TRUSTED_DEVICE_CHALLENGE_EXPIRED, TRUSTED_DEVICE_NOT_FOUND, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED.
+  Returns the trusted device approved.
+  """
+  approveTrustedDevice(id: ID!, proof: TrustedDeviceProofInput!, requestId: ID!): TrustedDevice
+
+  """
+  Since D-474: removes a trusted device of the caller, a human, from any of its sessions (a lost or stolen device): its
+  waiting act confirmation requests stay offered on the other trusted devices. TRUSTED_DEVICE_NOT_FOUND,
+  AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. Returns it as it was.
+  """
+  removeTrustedDevice(id: ID!, requestId: ID!): TrustedDevice
+
+  """
+  Since D-474: the human answers an act confirmation request (id). accept false refuses it, from any session of the
+  human, without a proof; accept true confirms it, from a trusted device only, with proof (the signature of that
+  device over the challenge of the request, made after its means of access): the platform then runs the act kept,
+  once, as the human, only when the summary and the details built again are those confirmed (status DONE, or FAILED with
+  ACT_CONFIRMATION_STALE or the code of the act). TRUSTED_DEVICE_REQUIRED, TRUSTED_DEVICE_PROOF_INVALID,
+  TRUSTED_DEVICE_PENDING, TRUSTED_DEVICE_NOT_FOUND, ACT_CONFIRMATION_NOT_FOUND, ACT_CONFIRMATION_ANSWERED,
+  ACT_CONFIRMATION_EXPIRED, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. Returns the act confirmation request.
+  """
+  answerActConfirmation(id: ID!, accept: Boolean!, proof: TrustedDeviceProofInput, requestId: ID!): ActConfirmationRequest
+
+  """
+  Since D-474: the human pauses (paused true) or resumes (false) the act confirmation requests of one of its delegated
+  agents, from any of its sessions (offered with each request on a trusted device): while paused, its requests waiting
+  are WITHDRAWN and its new ones refused (ACT_CONFIRMATIONS_PAUSED). DELEGATED_AGENT_NOT_FOUND,
+  AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED. Returns the delegated agent.
+  """
+  setAgentConfirmationsPaused(agentId: ID!, paused: Boolean!, requestId: ID!): DelegatedAgent
+
+  """
+  Since D-474: the human gives (input.given true, from an active trusted device only, with proof over a challenge of
+  purpose GIVE_MANDATE naming that delegated agent and that kind) or withdraws (false, from any of its sessions, no
+  proof) the agent mandate of one kind of agent act to one of its delegated agents; giving again a suspended one lifts
+  its suspension; in force or withdrawn for the open sessions of the agent within 5 seconds. TRUSTED_DEVICE_REQUIRED,
+  TRUSTED_DEVICE_PROOF_INVALID, TRUSTED_DEVICE_PENDING, TRUSTED_DEVICE_CHALLENGE_EXPIRED,
+  TRUSTED_DEVICE_CHALLENGE_MISMATCH, DELEGATED_AGENT_NOT_FOUND, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED.
+  Returns the delegated agent.
+  """
+  setAgentMandate(input: AgentMandateInput!, requestId: ID!): DelegatedAgent
+
+  """
+  Since D-474: the human designates one of its delegated agents as its personal agent (personal true; the former one,
+  if any, stops being one, its agent mandates suspended) or stops it being one (false). PERSONAL_AGENT_DESIGNATIONS_TOO_MANY
+  (5 designations a UTC day; removing is never refused), DELEGATED_AGENT_NOT_FOUND, AGENTS_ACT_FOR_HUMAN_NOT_OPEN, HUMAN_SESSION_REQUIRED
+  (never a delegated agent, nor an agent operator: its agents have no personal agent). Returns the delegated agent.
+  """
+  setPersonalAgent(agentId: ID!, personal: Boolean!, requestId: ID!): DelegatedAgent
+
+  """
   A token to connect by NFC (P-2, G-13: was nfcConnectionToken), valid until expiresAt
   (contracts/invitations.md).
   """
@@ -2034,15 +2378,20 @@ type Mutation {
   (PostVersion.images); IMAGE_NOT_FOUND (not an image of the post), IMAGE_ALT_TOO_LONG. sources (since v81.8.0,
   D-230): its post sources, the whole list wanted ([] removes them; null keeps them), within the same edit
   window, the former ones kept with its versions (PostVersion.sources); not for a repost. Returns the post.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); a change of a text confirmed
+  without a new PUBLICATION confirmation is published with the Automated mark, under the bans on agents.
   """
-  changePost(images: [ImageAttachmentInput!], postId: ID!, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
+  changePost(authorship: AgentAuthorship, images: [ImageAttachmentInput!], postId: ID!, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
 
   """
   Posts a text, images (at most 4) or a clip (never both: POST_IMAGES_AND_CLIP), or both a text and media, in
   a universe (universe: a posting address; none: the personal space). clip: a video uploaded with
   requestMediaUpload (VIDEO); longVideo (since v86.0.0): a horizontal video of more than 3 minutes and
   at most 4 hours uploaded with requestMediaUpload (LONG_VIDEO), never with a clip or images (POST_IMAGES_AND_CLIP;
-  VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED); an address with ">" (since v93.0.0; "!" before): PLAYLIST_ADDRESS_MISUSED; images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
+  VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED; LONG_VIDEO_PAID_TIER_REQUIRED from v140.0.0 to
+  v141.0.0 only, no longer answered since D-458; since D-462, VIDEO_QUOTA_EXCEEDED to a delegated agent only: beyond
+  its video threshold, a long video of a human is posted and processed at once in its base quality only); an address with ">" (since v93.0.0; "!" before): PLAYLIST_ADDRESS_MISUSED; images: uploaded with requestMediaUpload (IMAGE); link: the link whose preview
   the author accepted; replyPolicy: who can reply; announcement: an announcement of the leadership; sources
   (since v81.8.0, D-230): its post sources (PostSourceInput), at most 10, outside the 1,000 visible
   characters. requestId is the idempotency key, and the post is "<cell>-<requestId>" (Post.id). The posting
@@ -2060,8 +2409,11 @@ type Mutation {
   notification POST_PUBLICATION_FAILED); every refusal knowable when it is posted stays in the answer (the declared
   length and orientation of a video, VIDEO_QUOTA_EXCEEDED with its minutes reserved); its rights are checked again
   when it is published; the same for replyTo, quote, publishPostDraft and a scheduled post. Returns the post.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); agents forbidden for posts never
+  refuse a text of the personal agent its human confirmed on a trusted device (PUBLICATION), and refuse every other.
   """
-  createPost(announcement: Boolean, clip: ID, document: PostDocumentInput, images: [ImageAttachmentInput!], link: String, longVideo: ID, place: PostPlaceInput, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
+  createPost(announcement: Boolean, authorship: AgentAuthorship, clip: ID, document: PostDocumentInput, images: [ImageAttachmentInput!], link: String, longVideo: ID, place: PostPlaceInput, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   Saves a post draft of the caller (since v85.1.0): a new one (draftId absent) or the whole content of one of its
@@ -2078,14 +2430,20 @@ type Mutation {
   or the personal space (SCHEDULED_POST_NOT_ALLOWED); SCHEDULED_POST_LIMIT (20 waiting, 40 with X2, 200 with X10;
   errorInfo { max }); SCHEDULED_POST_LOCKED from 1 minute before its time; POST_DRAFT_NOT_FOUND; a delegated
   agent: within its restrictions (DELEGATED_AGENT_UNIVERSE_NOT_ALLOWED). Returns the draft.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); a change of a text confirmed
+  without a new PUBLICATION confirmation is published with the Automated mark, under the bans on agents.
   """
-  schedulePostDraft(draftId: ID!, publishAt: AWSDateTime, requestId: ID!): PostDraft
+  schedulePostDraft(authorship: AgentAuthorship, draftId: ID!, publishAt: AWSDateTime, requestId: ID!): PostDraft
 
   """
   Publishes a post draft of the caller now (since v85.1.0), as createPost with its content and the posting codes;
   the draft is deleted once posted, kept on a refusal. POST_DRAFT_NOT_FOUND. Returns the post.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); a change of a text confirmed
+  without a new PUBLICATION confirmation is published with the Automated mark, under the bans on agents.
   """
-  publishPostDraft(draftId: ID!, requestId: ID!): Post
+  publishPostDraft(authorship: AgentAuthorship, draftId: ID!, requestId: ID!): Post
 
   """
   Deletes a post draft of the caller, a scheduled post included (since v85.1.0), with the media it alone
@@ -2113,8 +2471,11 @@ type Mutation {
   document, as createPost (POST_DOCUMENT_WITH_VIDEO with a clip); the post quoted keeps its own document card.
   Since v135.0.0 (D-422): created at once, its media processing as createPost; a post quoted that is not PUBLISHED:
   POST_NOT_PUBLISHED. Returns the quote.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); agents forbidden for posts never
+  refuse a text of the personal agent its human confirmed on a trusted device (PUBLICATION), and refuse every other.
   """
-  quote(clip: ID, document: PostDocumentInput, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
+  quote(authorship: AgentAuthorship, clip: ID, document: PostDocumentInput, postId: ID!, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], text: String!, universe: String, requestId: ID!): Post
 
   """
   Replies to a post or a reply (postId) with a text and media; requestId is the idempotency key, and the reply
@@ -2122,15 +2483,21 @@ type Mutation {
   delegated agent where the universe of the thread forbids agents for posts. Since v135.0.0 (D-422): created at once,
   its media processing as createPost; counted in the replies of its post once PUBLISHED; a post replied to that is
   not PUBLISHED: POST_NOT_PUBLISHED. Returns the reply.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); agents forbidden for posts never
+  refuse a text of the personal agent its human confirmed on a trusted device (PUBLICATION), and refuse every other.
   """
-  replyTo(clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
+  replyTo(authorship: AgentAuthorship, clip: ID, postId: ID!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], text: String!, requestId: ID!): Post
 
   """
   Reposts a post (postId), in its universe or in another one the caller may post in; UNIVERSE_AGENTS_FORBIDDEN
   for a delegated agent where the universe of the repost forbids agents for posts (since v81.8.0). Since v135.0.0
   (D-422): a post that is not PUBLISHED: POST_NOT_PUBLISHED. Returns the repost.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); agents forbidden for posts never
+  refuse a text of the personal agent its human confirmed on a trusted device (PUBLICATION), and refuse every other.
   """
-  repost(postId: ID!, universe: String, requestId: ID!): Post
+  repost(authorship: AgentAuthorship, postId: ID!, universe: String, requestId: ID!): Post
 
   """
   A member asks to repost a post (postId) of its private universe into targetUniverse (a posting address),
@@ -2203,6 +2570,23 @@ type Mutation {
   setReplyHidden(postId: ID!, hidden: Boolean!, requestId: ID!): Post
 
   """
+  Since v136.4.0 (D-434, long-video-replies.feature): the author of a post with a long video pins (pinned true) a
+  reply (postId) that answers that post directly, replacing the reply pinned before, or unpins it (pinned false); the
+  author of the pinned reply unpins it too (pinned false), without deleting it; pinned false on a reply that is not
+  pinned changes nothing. Refusals, in this order: POST_NOT_FOUND (no such reply, or one the caller cannot read);
+  DELEGATED_AGENT_NOT_ALLOWED (a delegated agent never pins nor unpins); NOT_A_REPLY; NOT_THREAD_AUTHOR (pinned true
+  by another than the author of the post: never the leadership nor the moderation of its universe; pinned false by
+  another than the author of the post or of the reply); POST_NOT_PUBLISHED (the reply is not published yet, D-422);
+  INTERACTION_BLOCKED (the author of the reply blocked the caller); UNBLOCK_FIRST (the caller blocked the author of
+  the reply); REPLY_NOT_PINNABLE (a reply to a reply, a hidden, deleted or removed reply, a reply of a post without a
+  long video). A reply hidden, deleted or removed afterwards, or a block either way between the two authors, unpins
+  it for good: its restoring after an appeal and an unblocking do not pin it again. Since D-440, pinned true notifies
+  the author of the reply (REPLY_PINNED, contracts/notifications.md § The video mode), unless the caller is that
+  author; pinned false notifies nobody. Returns the post answered (P-6): the pinned state is an attribute of that post (pinnedReplyId), not of the reply.
+  """
+  setReplyPinned(postId: ID!, pinned: Boolean!, requestId: ID!): Post
+
+  """
   Pins a post (pinned true, at the end, 5 at most) or unpins it (G-9). A private universe: its owner and
   admins, a post of the universe or of a sub-universe. A public universe: its leadership from the governance
   level "village", a post or a quote of the universe or of its public sub-universes (a sub-universe: its
@@ -2244,7 +2628,8 @@ type Mutation {
   (MEDIA_DESTINATION_MISMATCH otherwise, from the operation that attaches it); MEDIA_DESTINATION_INVALID. Since
   v101.8.0 (D-309), the media license and its attribution of a video of POST (MediaUploadInput, MediaLicense):
   MEDIA_LICENSE_REQUIRED, MEDIA_ATTRIBUTION_REQUIRED, MEDIA_ATTRIBUTION_TOO_LONG, MEDIA_LICENSE_NOT_ALLOWED. A
-  delegated agent uploads VIDEO and LONG_VIDEO as a human does, LONG_VIDEO against its own video quota.
+  delegated agent uploads VIDEO and LONG_VIDEO as a human does, LONG_VIDEO against its own video quota. From v140.0.0 to
+  v141.0.0 (D-454), LONG_VIDEO only on a paid tier (LONG_VIDEO_PAID_TIER_REQUIRED); since D-458, every account.
   """
   requestMediaUpload(input: MediaUploadInput!, requestId: ID!): MediaUpload
 
@@ -2403,7 +2788,7 @@ type Mutation {
 
   """
   Sends a message (C-3, G-2) to a conversation, a group chat or a channel: a text with images, a clip or a
-  link, a voice message alone, a place, a meet-up (a human, in a conversation or a group chat) or an arrival
+  link, a voice message alone, a place, a message meet-up (a human, in a conversation or a group chat) or an arrival
   notice. requestId is the idempotency key and the identifier of the message: a UUIDv7 dated less than 24
   hours ago and at most 1 minute ahead (MESSAGE_ID_INVALID; MESSAGE_ID_TAKEN for another message). The
   refusals of each discussion and content stay (contracts/errors.md § Messages, Channels, The map). Since v136.0.0
@@ -2420,12 +2805,15 @@ type Mutation {
 
   """
   Changes the text of a message of the caller (C-3), within 15 minutes of sending it
-  (MESSAGE_CHANGE_WINDOW_PASSED); not a voice message (VOICE_NOT_CHANGEABLE), a meet-up (changeMeetUp), a
+  (MESSAGE_CHANGE_WINDOW_PASSED); not a voice message (VOICE_NOT_CHANGEABLE), a message meet-up (changeMeetUp), a
   place or an arrival (MESSAGE_NOT_CHANGEABLE). MESSAGE_NOT_AUTHOR, MESSAGE_NOT_FOUND, MESSAGE_DELETED. Since
   v136.0.0 (D-422): the 15 minutes count from its publication; a message PROCESSING is changed at any time before
   it, published with its text then, not marked as changed (changedAt null). Returns the message.
+  Since D-474, while agents.actForHuman is on: authorship, from the personal agent of a human only (AgentAuthorship;
+  PERSONAL_AGENT_AUTHORSHIP_REQUIRED without it, INVALID_REQUEST from another caller); a change of a text confirmed
+  without a new PUBLICATION confirmation is published with the Automated mark, under the bans on agents.
   """
-  changeMessage(discussion: DiscussionRefInput!, messageId: ID!, text: String!, requestId: ID!): Message
+  changeMessage(authorship: AgentAuthorship, discussion: DiscussionRefInput!, messageId: ID!, text: String!, requestId: ID!): Message
 
   """
   Deletes a message (C-3): for everyone (its author; a group chat admin; a channel moderator), or for the
@@ -2446,21 +2834,21 @@ type Mutation {
   typing(discussion: DiscussionRefInput!): Boolean
 
   """
-  A participant answers a meet-up (ACCEPTED, DECLINED) until its time (MEET_UP_PAST), again to change the
-  answer. MEET_UP_NOT_PARTICIPANT, MEET_UP_NOT_FOUND, MEET_UP_CANCELLED. Returns the meet-up.
+  A participant answers a message meet-up (ACCEPTED, DECLINED) until its time (MEET_UP_PAST), again to change the
+  answer. MEET_UP_NOT_PARTICIPANT, MEET_UP_NOT_FOUND, MEET_UP_CANCELLED. Returns the message meet-up.
   """
   answerMeetUp(discussion: DiscussionRefInput!, messageId: ID!, answer: MeetUpAnswerKind!, requestId: ID!): MeetUp
 
   """
-  Its author, or a group chat admin, changes a meet-up: the whole place, time and title
+  Its author, or a group chat admin, changes a message meet-up: the whole place, time and title
   (MEET_UP_CHANGE_NOT_ALLOWED, MEET_UP_PAST; never a delegated agent). A change of the day clears every
-  answer but the author's. Returns the meet-up.
+  answer but the author's. Returns the message meet-up.
   """
   changeMeetUp(discussion: DiscussionRefInput!, messageId: ID!, meetUp: MeetUpInput!, requestId: ID!): MeetUp
 
   """
-  Its author, or a group chat admin, cancels a meet-up until its time: it stays as a message, cancelled
-  true, no longer answered. Returns the meet-up.
+  Its author, or a group chat admin, cancels a message meet-up until its time: it stays as a message, cancelled
+  true, no longer answered. Returns the message meet-up.
   """
   cancelMeetUp(discussion: DiscussionRefInput!, messageId: ID!, requestId: ID!): MeetUp
 
@@ -3167,8 +3555,8 @@ type Mutation {
   setUniverseBan(universe: String!, accountId: ID!, banned: Boolean!, requestId: ID!): Universe
 
   """
-  A drawn juror accepts (accept true) or declines its draw for the appeal of a sanction, before its answer
-  date. Returns the jury duty.
+  A drawn appeal juror accepts (accept true) or declines its draw for the appeal of a sanction, before its answer
+  date. Returns the appeal jury duty.
   """
   answerJuryDraw(accept: Boolean!, sanctionId: ID!, requestId: ID!): JuryDuty
 
@@ -3194,9 +3582,22 @@ type Mutation {
   PLATFORM_APPEAL_TEXT_TOO_LONG. Since D-398, a platform measure against a universe (the removal of its universe
   theme, its universe banner or a universe page) is appealed by a member of its leadership (the owner or an admin of a
   private universe), once per measure whoever files it: PLATFORM_APPEAL_LEADERSHIP_ONLY for another account.
-  Returns the measure with its appeal.
+  Returns the measure with its appeal. Since D-463 (2), groundOnly true contests only the ground of a platform ban
+  (PAYMENT_FRAUD): a CANCELLED outcome then removes the ground and refunds what it withheld, the ban staying;
+  PLATFORM_APPEAL_NOT_AVAILABLE when the measure has no ground.
   """
-  appealPlatformMeasure(measureId: ID!, text: String, requestId: ID!): PlatformMeasure
+  appealPlatformMeasure(measureId: ID!, text: String, groundOnly: Boolean, requestId: ID!): PlatformMeasure
+
+  """
+  Since D-463 (8): the reporter files a reporter's platform appeal against a decision NO_ACTION of the platform team
+  on its report (reportId), once, before Report.appealableUntil (6 months), with a text of at most 2,000 characters
+  (optional); at most 20 in any rolling 30 days per account (contracts/reports.md § The reporter's platform appeal).
+  Allowed under a platform suspension; never by a delegated agent (DELEGATED_AGENT_NOT_ALLOWED). NOT_FOUND (no report
+  of the caller), REPORT_APPEAL_NOT_AVAILABLE (another status, or a decision of the moderation of a universe),
+  PLATFORM_APPEAL_EXISTS, PLATFORM_APPEAL_DEADLINE_PASSED, PLATFORM_APPEAL_TEXT_TOO_LONG, REPORTER_APPEAL_RATE_LIMITED.
+  Returns the report with its appeal.
+  """
+  appealReportDecision(reportId: ID!, text: String, requestId: ID!): Report
 
   """
   The sanctioned account appeals a sanction (sanctionId) before appealableUntil, its name published with the
@@ -3224,10 +3625,10 @@ type Mutation {
   askProposalRefusalReview(proposalId: ID!, requestId: ID!): ProposalRefusal
 
   """
-  A juror who accepted asks, for the jury, the two platform AI agents to review the sanction against
+  An appeal juror who accepted asks, for the appeal jury, the two platform AI agents to review the sanction against
   the charter, one for it and one against it (universe-moderation.feature): once per appeal; their
-  reasoning in the duties of the jurors within a minute, then published with the decision. Not a
-  juror who accepted, of the jury sitting: NOT_A_JUROR.
+  reasoning in the duties of the appeal jurors within a minute, then published with the decision. Not a
+  appeal juror who accepted, of the appeal jury sitting: NOT_A_JUROR.
   """
   askSanctionReviews(sanctionId: ID!, requestId: ID!): JuryDuty
 
@@ -3322,8 +3723,8 @@ type Mutation {
   supportProposal(proposalId: ID!, requestId: ID!): Proposal
 
   """
-  A juror votes on the appeal of a sanction: an outcome with its reasons (reducedToDays for a reduction), or
-  dismiss. Returns the jury duty.
+  An appeal juror votes on the appeal of a sanction: an outcome with its reasons (reducedToDays for a reduction), or
+  dismiss. Returns the appeal jury duty.
   """
   voteAsJuror(dismiss: Boolean, outcome: AppealOutcome, reasons: String, reducedToDays: Int, sanctionId: ID!, requestId: ID!): JuryDuty
 
@@ -3340,7 +3741,7 @@ type Mutation {
   voteOnProposal(candidate: ID, proposalId: ID!, yes: Boolean, requestId: ID!): Proposal
 
   """
-  A juror withdraws from the jury of an appeal before its vote. Returns the jury duty.
+  An appeal juror withdraws from the appeal jury of an appeal before its vote. Returns the appeal jury duty.
   """
   withdrawFromJury(sanctionId: ID!, requestId: ID!): JuryDuty
 
@@ -3645,7 +4046,7 @@ type Mutation {
   Restores an appearance of the appearance history of a universe (since v96.0.0, D-289; contracts/themes.md §
   Customize): publishes the next version of its theme "appearance" from that entry (its image, its color, its
   appearance character and its layout) and sets it, with that layout as the default layout; the appearance
-  replaced stays in the history. Also the "Undo" offered for 10 seconds after applying. By who applies an
+  replaced stays in the history. Also the "Undo" offered for 10 seconds after applying (since D-505, as long as the passing notice stays while the setting "Nothing disappears on its own" of the caller is on: accounts/display.feature). By who applies an
   appearance at once; a resident who can vote of a public universe, or the leadership with propose true,
   files instead a proposal of the kind APPEARANCE from that entry, with the optional reason text (the order of
   the universe pages is never part of it); THEME_SET_NOT_ALLOWED for anyone else.
@@ -3762,7 +4163,7 @@ type Mutation {
 
   """
   A human starts a live share (sharing true) in a conversation or a group chat (discussion), for 15 to 1,440
-  minutes, until an event it attends that ends within 24 hours, or until 15 minutes after a meet-up; or
+  minutes, until an event it attends that ends within 24 hours, or until 15 minutes after a message meet-up; or
   stops one (sharing false, shareId) (C-13). discussion missing with sharing true, or shareId missing with
   sharing false: INVALID_REQUEST. NOT_CONNECTED, LIVE_SHARE_TOO_LONG, EVENT_NOT_ATTENDED,
   MEET_UP_NOT_PARTICIPANT, MEET_UP_SHARE_NOT_OPEN, LIVE_SHARE_NOT_FOUND, LIVE_SHARE_ENDED. Returns the live
@@ -3835,6 +4236,39 @@ type Mutation {
   setNotInterested(input: NotInterestedInput!, notInterested: Boolean!, requestId: ID!): NotInterested
 
   """
+  The affinity gesture (D-476, contracts/affinity.md): direction MORE or LESS, or null to withdraw (answers null;
+  never refused by the switch nor the bounds). In this order: AFFINITY_TARGET_INVALID, AFFINITY_TARGET_NOT_FOUND,
+  AFFINITY_CONSENT_REQUIRED, AFFINITY_NOT_OPEN, AFFINITY_DAILY_LIMIT, AFFINITY_LIMIT; DELEGATED_AGENT_NOT_ALLOWED but
+  the personal agent while agents.actForHuman is on. Notifies nobody. Usage category OTHER.
+  """
+  setAffinity(target: AffinityTargetInput!, direction: AffinityDirection, requestId: ID!): Affinity
+
+  """
+  Erases every expressed affinity of the caller and its affinity scores at once (D-476 (8)), whatever the
+  switches. DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  forgetAffinities(requestId: ID!): Boolean
+
+  """
+  The affinity mode turned on or off on a device (D-476 (6)): records the offer made and, with consent true, the
+  affinity consent; never withdraws it. AFFINITY_MODE_NOT_OPEN; DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  setAffinityMode(enabled: Boolean!, consent: Boolean, requestId: ID!): AffinitySettings
+
+  """
+  Gives or withdraws the affinity consent (D-476 (7), contracts/affinity.md); a withdrawal is never refused by
+  the switches, a gift answers AFFINITY_NOT_OPEN while affinity.gesture is off. DELEGATED_AGENT_NOT_ALLOWED. Usage
+  category OTHER.
+  """
+  setAffinityConsent(consent: Boolean!, requestId: ID!): AffinitySettings
+
+  """
+  Sets the discovery share (D-476 (10)): DISCOVERY_SHARE_INVALID outside the bounds of AffinitySettings.
+  AFFINITY_MODE_NOT_OPEN; DELEGATED_AGENT_NOT_ALLOWED. Usage category OTHER.
+  """
+  setDiscoveryShare(share: Int!, requestId: ID!): AffinitySettings
+
+  """
   Mutes a universe from discovery (since v85.8.0, for-you.feature), its sub-universes included: 500 at most
   (MUTED_UNIVERSE_LIMIT); UNIVERSE_NOT_FOUND for a universe the caller cannot read; a delegated agent:
   DELEGATED_AGENT_NOT_ALLOWED. Muting it again changes nothing. Returns what is recorded.
@@ -3879,19 +4313,131 @@ type Mutation {
   setPushDevice(token: String!, registered: Boolean!, platform: PushPlatform, environment: PushEnvironment, appVersion: String, locale: String, timeZone: String, requestId: ID!): Boolean
 
   """
+  Since D-460 (contracts/ai.md § The AI summary, ai-summaries.feature): asks for an AI summary or What I missed
+  (AiSummaryInput), for its price told before (expectedCredits). Asynchronous: the switches, the input, the price
+  (AI_PRICE_CHANGED, errorInfo { price }), the limits of the account (AI_LIMIT_REACHED, errorInfo { reason, limit,
+  retryAt }: running, the day, the refusals, the failures), the daily AI credit cap
+  (AI_DAILY_CAP_REACHED, errorInfo { retryAt, cap }) and the AI credits (AI_CREDITS_INSUFFICIENT, errorInfo { price,
+  balance }) are checked in the request, which reserves the price and answers at once an AiAction RUNNING; then a
+  decision model chooses what to read (only what the caller may read; never an account blocked either way or muted,
+  counted in itemsLeftOut; a private target only while ai.privateTargets is on, AI_PRIVATE_TARGETS_NOT_OPEN), a language
+  model writes, the output is checked (links, mentions and reserved signs stripped; a quotation not found verbatim in
+  an item of its author removed). A target with a free summary shown (a running summary, a universe discussion summary,
+  the daily digest of the day): AI_SUMMARY_FREE_HERE. A line the cell cannot serve: AI_NOT_AVAILABLE_IN_CELL. The outcome (READY, its AI
+  result private to the caller for 1 hour; NOTHING_TO_SUMMARISE and FAILED, nothing taken) reaches the caller by the
+  real-time event ai.action and by aiAction(id), within 2 minutes. The same requestId answers the same AiAction, taken
+  once. AI_REQUEST_INVALID (errorInfo { reason }), AI_TARGET_NOT_READABLE, AI_UNAVAILABLE (errorInfo { retryAt }),
+  AI_HUMANS_ONLY, AI_NOT_OPEN, SIGN_IN_REQUIRED. Usage category OTHER, weight 10.
+  """
+  requestAiSummary(input: AiSummaryInput!, requestId: ID!): AiAction
+
+  """
+  Since D-460 (contracts/ai.md § The writing help, writing-help.feature): asks for a writing help on the text being
+  written (WritingHelpInput), for its price told before. Asynchronous as requestAiSummary, with the same refusals; the
+  text and the instruction are checked first: contrary to the platform rules or the law, the outcome REFUSED (ground),
+  nothing taken, only a count kept (10 a day at most). READY: a writing proposal, readable 1 hour, private to the caller; nothing is
+  posted nor sent; its fingerprint is kept 90 days for the Written with AI mark (never for FIX_SPELLING). Usage category OTHER, weight 10.
+  """
+  requestWritingHelp(input: WritingHelpInput!, requestId: ID!): AiAction
+
+  """
+  Since D-460 (package 2, contracts/ai.md § Package 2, ai-images.feature): asks for one AI image (AiImageInput), for its
+  price told before. Asynchronous as requestAiSummary (10 minutes at most), with its refusals and AI_IMAGES_NOT_OPEN; the
+  description is checked as the person's own text (REFUSED, nothing taken), the image by the AI analysis and the rules on
+  real people and election periods (FAILED, nothing taken). READY: an AiImageProposal readable 1 hour, carrying the
+  Generated with AI mark. At most 50 a UTC day (AI_LIMIT_REACHED). Usage category OTHER, weight 10.
+  """
+  requestAiImage(input: AiImageInput!, requestId: ID!): AiAction
+
+  """
+  Since D-460 (package 2): uses the AI image of an AI action of the caller READY within its hour: it becomes an image
+  upload of the caller, counted as an upload, attached by its id as any image, always with the Generated with AI mark.
+  Once per AI action (played again: the same AiImageUse). AI_ACTION_NOT_FOUND (unknown, another account's, not an AI
+  image), AI_RESULT_EXPIRED (after its hour), AI_IMAGES_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  useAiImage(actionId: ID!, requestId: ID!): AiImageUse
+
+  """
+  Since D-460: the AI settings of the caller (AiSettingsInput): the AI level by default, the daily AI credit cap.
+  AI_REQUEST_INVALID (CAP_OUT_OF_BOUNDS), AI_NOT_OPEN, AI_HUMANS_ONLY. Returns the AI credits with the settings.
+  """
+  setAiSettings(input: AiSettingsInput!, requestId: ID!): AiCredits
+
+  """
+  Since D-460 (contracts/ai.md § Moderation and reports of an AI result): reports the AI result of an AI action of the
+  caller to the platform team, while it is readable; the report keeps its text or its image for the review, 6 months
+  after its decision; note: 0 to 500 visible characters. Once per AI action (AI_ALREADY_REPORTED). AI_ACTION_NOT_FOUND,
+  AI_RESULT_EXPIRED, AI_NOT_OPEN, AI_HUMANS_ONLY. Returns the AI action, reported true.
+  """
+  reportAiResult(actionId: ID!, reason: AiResultReportReason!, note: String, requestId: ID!): AiAction
+
+  """
+  Since D-460 (personal-assistant.feature, contracts/ai.md § The personal reminders): sets a personal reminder
+  (PersonalReminderInput), notified at its time (PERSONAL_REMINDER, category REMINDERS); no model, no AI credit, outside
+  the AI; 50 waiting at most (REMINDERS_LIMIT_REACHED). An anchor the caller may not read: AI_TARGET_NOT_READABLE.
+  REMINDER_INVALID, REMINDERS_NOT_OPEN, REMINDERS_HUMANS_ONLY.
+  """
+  createPersonalReminder(input: PersonalReminderInput!, requestId: ID!): PersonalReminder
+
+  """
+  Since D-460: deletes a personal reminder of the caller; returns it. REMINDER_NOT_FOUND, REMINDERS_NOT_OPEN,
+  REMINDERS_HUMANS_ONLY.
+  """
+  deletePersonalReminder(id: ID!, requestId: ID!): PersonalReminder
+
+  """
+  Since D-460 (packages 3 and 4, contracts/ai.md § Package 3, § Package 4): sets a scheduled AI task, or copies a model
+  agent (AiTaskInput); 10 per account at most, model agent copies counted (AI_TASKS_LIMIT_REACHED). A source that is not
+  a public universe or a public channel: AI_SOURCE_NOT_PUBLIC (nothing private is read in the background). The
+  instruction is checked in the request as the person's own text: refused, AI_TASK_INSTRUCTION_REFUSED (errorInfo {
+  ground }), nothing taken, counted in the refusals of the day (AI_LIMIT_REACHED REFUSALS beyond 10). A daily AI credit
+  budget below the price of one run: AI_REQUEST_INVALID BUDGET_BELOW_PRICE. AI_MODEL_AGENT_NOT_FOUND,
+  AI_REQUEST_INVALID, AI_MODEL_AGENTS_NOT_OPEN, AI_ASSISTANT_NOT_OPEN, AI_HUMANS_ONLY. Its runs take their price at each
+  run.
+  """
+  createAiTask(input: AiTaskInput!, requestId: ID!): AiTask
+
+  """
+  Since D-460 (packages 3 and 4): changes a scheduled AI task of the caller, its kind and its model agent unchanged
+  (AI_REQUEST_INVALID otherwise), with the refusals of createAiTask; its next run follows the new schedule.
+  AI_TASK_NOT_FOUND.
+  """
+  changeAiTask(id: ID!, input: AiTaskInput!, requestId: ID!): AiTask
+
+  """
+  Since D-460 (packages 3 and 4): pauses (true, pausedReason BY_PERSON) or resumes (false) a scheduled AI task of the
+  caller; a task paused for lack of AI credits, of a public source or for a price changed runs again only once resumed.
+  expectedCredits (resuming): the price per run the app showed, which becomes its pricePerRun (AI_PRICE_CHANGED when it
+  is not the price of now; required to resume a task paused for PRICE_CHANGED). Resuming a task with no public source
+  left: AI_SOURCE_NOT_PUBLIC. AI_TASK_NOT_FOUND, AI_ASSISTANT_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  setAiTaskPaused(id: ID!, paused: Boolean!, expectedCredits: Int, requestId: ID!): AiTask
+
+  """
+  Since D-460 (packages 3 and 4): deletes a scheduled AI task or a model agent copy of the caller, its schedule with it;
+  the post drafts it deposited stay. Returns it. AI_TASK_NOT_FOUND, AI_ASSISTANT_NOT_OPEN, AI_HUMANS_ONLY.
+  """
+  deleteAiTask(id: ID!, requestId: ID!): AiTask
+
+  """
   The Stripe Customer Portal (payment methods, invoices), back to "returnPath". Errors: SUBSCRIPTION_NOT_FOUND
   (never paid), RETURN_PATH_INVALID.
   """
   openBillingPortal(returnPath: String, requestId: ID!): PaymentPage
 
   """
-  A Stripe Checkout session paying a gift code of "months" (1, 3 or 12) of "tier" (X2, X10) once;
-  the code is made when Stripe confirms the payment (myGiftCodes); back to "returnPath" (default
-  /me/gift-codes). Errors: GIFT_CODE_NOT_OFFERED (no price), PROVIDER_NOT_AVAILABLE, RETURN_PATH_INVALID,
-  GIFT_CODE_LIMIT_REACHED (since specs v61.0.0: a payer holds at most 500 euros, or 500 US dollars, of
-  unused gift codes, the accounts paying with the same card counting as one payer).
+  contracts/payments.md § API v2 descriptions.
   """
   buyGiftCode(currency: String, months: Int!, returnPath: String, tier: PaidTier!, requestId: ID!): PaymentPage
+
+  """
+  Since D-460 (contracts/payments.md § The AI credit packs): a Stripe Checkout session paying one AI credit pack of
+  "credits" AI credits once, a human only; the bought AI credits are written in the ledger (myAiCredits, the movement
+  PURCHASE) when Stripe confirms the payment; back to "returnPath" (default /me/ai). Never renewed. Errors:
+  AI_PACK_NOT_OFFERED (no such pack, or no price in the currency), AI_CREDITS_HELD_LIMIT_REACHED, PROVIDER_NOT_AVAILABLE,
+  RETURN_PATH_INVALID, AI_HUMANS_ONLY, AI_NOT_OPEN.
+  """
+  buyAiCredits(credits: Int!, currency: String, returnPath: String, requestId: ID!): PaymentPage
 
   """
   A larger plan applies at once, the difference paid pro rata for the rest of the paid period
@@ -3914,13 +4460,7 @@ type Mutation {
   offerSubscriptionTier(input: SubscriptionTierOfferInput!, universe: String!, requestId: ID!): SubscriptionTier
 
   """
-  The reader uses a gift code, on the web or in the apps: its tier for its months; since specs
-  v60.0.0 a gift code of the paid tier in force extends its paid period, one of a higher tier
-  applies at once and the paid period in progress resumes after it; since v61.2.0 one of a lower
-  tier waits for the end of the paid period in progress ("next"), and an automatic renewal is paused
-  during the period the gift code gives. Returns the subscription in force. Errors:
-  GIFT_CODE_NOT_FOUND, GIFT_CODE_ALREADY_USED, GIFT_CODE_EXPIRED, GIFT_CODE_REFUNDED,
-  SUBSCRIPTION_EXISTS (a renewal waiting for its payment; a paid period already following the one in force).
+  contracts/payments.md § API v2 descriptions.
   """
   redeemGiftCode(code: String!, requestId: ID!): PaidSubscription
 
@@ -3957,25 +4497,24 @@ type Mutation {
   setTierSubscriptionRenewal(enabled: Boolean!, universe: String!, requestId: ID!): TierSubscription
 
   """
-  A Stripe Checkout session for the plan of "delegatedAgents" (10, 100, 1,000 or, since specs
-  v61.0.0, any multiple of 1,000, paid by blocks of 1,000), for "interval"
-  (MONTH by default; YEAR, 10 times the monthly price, since specs v60.0.0): the command-line
-  client opens "url" in the browser; the plan starts when Stripe confirms the payment (webhook),
-  at once over a period paid with x402 (not refunded); a plan of more than 10,000 rises by 1,000
-  delegated agents each hour beyond 10,000 (delegatedAgentAllowance). Errors: PLAN_NOT_OFFERED (another
-  number), SUBSCRIPTION_EXISTS (a plan is live: changeOperatorPlan), PROVIDER_NOT_AVAILABLE,
-  CURRENCY_NOT_SUPPORTED, RETURN_PATH_INVALID, INSTANT_PAYMENT_NOT_ALLOWED (a delegated agent).
+  contracts/payments.md § API v2 descriptions.
   """
   startOperatorPlan(currency: String, delegatedAgents: Int!, interval: BillingInterval, returnPath: String, requestId: ID!): PaymentPage
 
   """
-  A Stripe Checkout session (a subscription, the reader as payer and beneficiary): the app opens
-  "url", Stripe comes back to "returnPath" (default /me/subscription) with "?checkout=success" or
-  "cancel". The subscription starts when Stripe confirms the payment (webhook), never from the
-  return page. Errors: SUBSCRIPTION_EXISTS, PROVIDER_NOT_AVAILABLE, CURRENCY_NOT_SUPPORTED,
-  RETURN_PATH_INVALID.
+  contracts/payments.md § API v2 descriptions.
   """
   startSubscription(automaticRenewal: Boolean!, currency: String, interval: BillingInterval!, returnPath: String, tier: PaidTier!, requestId: ID!): PaymentPage
+
+  """
+  D-500 (payments.md).
+  """
+  submitStorePurchase(input: StorePurchaseInput!, requestId: ID!): PaidSubscription
+
+  """
+  D-502 (accounts.md).
+  """
+  sendPriorityInvitation(email: String, requestId: ID!): PriorityInvitation
 
   """
   A subscription to a tier, on the web (a Checkout of the payment provider): the membership starts
@@ -4436,9 +4975,17 @@ type Mutation {
   playlistId: the second, every 30 seconds of play and at a stop; watched true once played to its last 10 % (since
   v87.1.0: to 90 % of its length; with playlistId, it checks the item in that playlist, on every playlist form).
   The start of a video of a course with ordered playback whose video before is not watched:
-  PLAYLIST_ORDER_REQUIRED. One write per call, kept 1 year. Returns true.
+  PLAYLIST_ORDER_REQUIRED. One write per call, kept 1 year. Returns true. Since v136.4.0 (D-434, video-mode.feature),
+  seconds is a second of the video, whatever the playback speed, and watched also keeps "finished" in the history
+  entry (videoHistory, unfinished: a later play of 30 seconds from before 90 % makes it unfinished again);
+  playedSeconds: the seconds of the video played since the call before for this long video, seeks left out (the app
+  counts them); the backend credits at most the time elapsed since the call before of the caller for this long video
+  that day (UTC) times 2, nothing for the first call of the day, and adds it to the view marker of the caller, long
+  video and day; once 30 seconds are credited, one long video view (LongVideo.viewCount; contracts/recommendations.md
+  § Long video views); left out, nothing is credited. Nothing is credited nor kept for the view while the history of
+  the caller is paused.
   """
-  recordPlayback(postId: ID!, playlistId: ID, seconds: Int!, watched: Boolean, requestId: ID!): Boolean
+  recordPlayback(postId: ID!, playlistId: ID, playedSeconds: Int, seconds: Int!, watched: Boolean, requestId: ID!): Boolean
 
   """
   Since v87.1.0 (D-264): checks a post (kind POST) of a course for the caller, once opened from it. A video is checked by recordPlayback. PLAYLIST_NOT_FOUND,
@@ -4479,6 +5026,16 @@ type Mutation {
   setPlaylistTracks(playlistId: ID!, tracks: [PlaylistTrackInput!]!, requestId: ID!): Playlist
 
   """
+  Since D-462 (long-videos.feature, contracts/payments.md § Usage limits): the author of a post forces the higher
+  qualities of its long video at once, before 3 distinct viewers started it: 3 a calendar month (UTC) on the free tier,
+  10 on X2, without limit on X10, by the paid tier of its own account (VideoQuota.forcedThisMonth, forcedLimit);
+  FORCED_QUALITIES_USED beyond (errorInfo { limit, retryAt }); a long video already in its higher qualities, or already
+  forced, answers it again without counting; NOT_THREAD_AUTHOR for another account's post, POST_NOT_FOUND.
+  Later (D-459, media.processingOnDemand): the clip of a post too. Returns the long video.
+  """
+  forceHigherQualities(postId: ID!, requestId: ID!): LongVideo
+
+  """
   Since v86.0.0 (long-videos.feature): sets the chapters of a long video of the caller, all at once (empty:
   none). CHAPTERS_INVALID, CHAPTERS_NOT_ALLOWED. Returns the long video.
   """
@@ -4486,8 +5043,8 @@ type Mutation {
 
   """
   Since v104.2.0 (experiences group: experience-feats.feature, contracts/experiences.md): starts an experience instance
-  of a place feat for the caller, a human only (PLACE_FEAT_HUMANS_ONLY: a delegated agent or an agent operator, for
-  every write of the place feats), private, IN_PROGRESS, with the current version of its template. RUN_IN_PROGRESS when the caller already has one in progress for that place feat (errorInfo { instanceId });
+  of a place experience for the caller, a human only (PLACE_FEAT_HUMANS_ONLY: a delegated agent or an agent operator, for
+  every write of the place experiences), private, IN_PROGRESS, with the current version of its template. RUN_IN_PROGRESS when the caller already has one in progress for that place experience (errorInfo { instanceId });
   PLACE_FEAT_WITHDRAWN, PLACE_FEAT_NOT_FOUND, PLACE_FEATS_NOT_OPEN. Returns the experience instance.
   """
   startPlaceFeatRun(placeFeatId: ID!, requestId: ID!): ExperienceInstance
@@ -4510,7 +5067,7 @@ type Mutation {
   setFeatInvitees(instanceId: ID!, accountIds: [ID!]!, requestId: ID!): ExperienceInstance
 
   """
-  Since v104.2.0: publishes an experience feat of the caller to its place feat (PublishFeatInput): a post with its photo
+  Since v104.2.0: publishes an experience feat of the caller to its place experience (PublishFeatInput): a post with its photo
   or its clip, in "universe", with its feat card, placed as "placement" says (the point of interest for an adult by
   default, its post placed in a public universe only; not on the map; the city for a minor); the form of the post follows its media as
   for any post; the refusals of createPost for that universe and that text. Once only: FEAT_NOT_PUBLISHABLE
@@ -4522,7 +5079,7 @@ type Mutation {
   publishFeat(input: PublishFeatInput!, requestId: ID!): ExperienceInstance
 
   """
-  Since v104.2.0: removes a published experience feat of the caller from its place feat: its post deleted, the
+  Since v104.2.0: removes a published experience feat of the caller from its place experience: its post deleted, the
   experience feat back to PRIVATE (INVITED with feat invitees), never published again (FEAT_NOT_PUBLISHABLE WITHDRAWN).
   Deleting the post (deletePost) does the same. PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS,
   EXPERIENCE_INSTANCE_NOT_FOUND. Played again, or on an experience feat not published: the same answer. Returns the
@@ -4532,13 +5089,13 @@ type Mutation {
 
   """
   Since v104.2.0: deletes an experience instance of the caller, its experience feat and its media (its post too when
-  published); the caller is no longer counted for the place feat once none of their experience feats of it is left.
+  published); the caller is no longer counted for the place experience once none of their experience feats of it is left.
   PLACE_FEAT_HUMANS_ONLY, RUN_NOT_YOURS, EXPERIENCE_INSTANCE_NOT_FOUND (also played again). True once done.
   """
   deleteExperienceInstance(instanceId: ID!, requestId: ID!): Boolean
 
   """
-  Since v104.2.0: the leadership of a public universe adopts a place feat (adopt true) or stops adopting it (false):
+  Since v104.2.0: the leadership of a public universe adopts a place experience (adopt true) or stops adopting it (false):
   the experience feats published in that universe then carry its monogram (or no longer). LEADERSHIP_ONLY
   (a public universe with a leadership, from the governance level "village"), PLACE_FEAT_NOT_FOUND. Returns the place
   feat.
@@ -4546,15 +5103,9 @@ type Mutation {
   setPlaceFeatAdoption(universe: String!, placeFeatId: ID!, adopt: Boolean!, requestId: ID!): PlaceFeat
 
   """
-  Since v136.2.0 (experiences group: experience-addresses.feature, simple-challenges.feature, route-experiences.feature,
-  contracts/experiences.md): creates an experience from its experience template (breakrocks.experience/4, without id,
-  version nor copiedFrom), PRIVATE, at the version 1.0: for its owner, the caller ("@<handle>"; a delegated agent, for its
-  operator, the Automated mark), or a public universe whose leadership the caller (or the operator of the delegated
-  agent) is a member of. EXPERIENCE_DOCUMENT_INVALID (errorInfo { problems }: the DocumentProblem list of
-  checkExperience), EXPERIENCE_NAME_TAKEN, EXPERIENCE_OWNER_NOT_ALLOWED, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS,
-  EXPERIENCE_RATE_LIMITED (20 created or copied a day), EXPERIENCES_NOT_OPEN. Returns the experience.
+  Contract: contracts/experiences.md § API v2 descriptions, createExperience (moved there by D-498, unchanged).
   """
-  createExperience(document: AWSJSON!, requestId: ID!): Experience
+  createExperience(document: AWSJSON!, requestId: ID!, generationId: ID): Experience
 
   """
   Since v136.2.0: changes an experience of the caller (the leadership for a universe experience) with a whole experience
@@ -4562,8 +5113,8 @@ type Mutation {
   engine block, the parameters, the ranking); every new version of a public experience is checked again, the version
   published staying the previous one until it passes (only its owner starts the new version meanwhile, in a group
   chat); the experience instances already started keep theirs. EXPERIENCE_RATE_LIMITED (50 changes or publications a
-  day). EXPERIENCE_DOCUMENT_INVALID,
-  EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience.
+  day). EXPERIENCE_DOCUMENT_INVALID (since D-473, also a structural change outside the creation templates while they
+  apply), EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience.
   """
   updateExperience(experienceId: ID!, document: AWSJSON!, requestId: ID!): Experience
 
@@ -4571,19 +5122,46 @@ type Mutation {
   Since v136.2.0: sets the visibility of an experience of the caller (the leadership for a universe experience):
   PRIVATE and UNLISTED at once; PUBLIC after its experience check (check.status CHECKING, the experience keeping its
   former visibility until the check passes; without an answer within 10 minutes, it is not published, flagged to the
-  platform team). EXPERIENCE_RATE_LIMITED (50 changes or publications a day). A route experience never more visible than its route, and PUBLIC by a
+  platform team). EXPERIENCE_RATE_LIMITED (50 changes or publications a day). A route experience never more visible than its route (since v136.5.0, a visit experience never more visible than a linked route of its owner), and PUBLIC by a
   delegated agent: EXPERIENCE_VISIBILITY_NOT_ALLOWED. EXPERIENCE_NOT_YOURS, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN.
   Returns the experience.
   """
   publishExperience(experienceId: ID!, visibility: ExperienceVisibility!, requestId: ID!): Experience
 
   """
+  Since D-451 (visit-experiences.feature): detaches a route of the caller (routeId) from a visit experience of another
+  owner that links it (experienceId), the route keeping its visibility: the visit experience is read without a line
+  (VisitSetup.routeId null to every reader), its document unchanged, its owner told (LINKED_ROUTE_DETACHED,
+  contracts/notifications.md); while detached, a version that sets visit.routeId to that route anew is
+  ROUTE_NOT_AVAILABLE. Detaching a detached link changes nothing. ROUTE_NOT_FOUND (a route that is not the caller's),
+  EXPERIENCE_NOT_FOUND (no visit experience of another owner, UNLISTED or PUBLIC, links that route),
+  DELEGATED_AGENT_NOT_ALLOWED, EXPERIENCES_NOT_OPEN. Returns the link.
+  """
+  detachRouteLink(routeId: ID!, experienceId: ID!, requestId: ID!): RouteLink
+
+  """
+  Since D-451 (visit-experiences.feature): allows again the link of a route of the caller to a visit experience it
+  was detached from: the line is drawn again while the route is PUBLIC and no block stands, and visit.routeId may be
+  set to that route again; nobody is told. Allowing a link that is not detached changes nothing. ROUTE_NOT_FOUND,
+  EXPERIENCE_NOT_FOUND, DELEGATED_AGENT_NOT_ALLOWED, EXPERIENCES_NOT_OPEN. Returns the link.
+  """
+  allowRouteLink(routeId: ID!, experienceId: ID!, requestId: ID!): RouteLink
+
+  """
   Since v136.2.0: copies a PUBLIC simple challenge into a new experience of the caller, named "name", PRIVATE, its
   copiedFrom set, then changed freely. A route experience, or an experience that is not PUBLIC: EXPERIENCE_NOT_COPYABLE
-  ("Do this route" copies a route). EXPERIENCE_NAME_TAKEN, EXPERIENCE_RATE_LIMITED, EXPERIENCE_NOT_FOUND,
-  EXPERIENCES_NOT_OPEN. Returns the new experience.
+  ("Do this route" copies a route); since v136.5.0, a visit experience too in this slice (D-436); since D-473, a
+  version outside the creation templates while they apply.
+  EXPERIENCE_NAME_TAKEN, EXPERIENCE_RATE_LIMITED, EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the new
+  experience.
   """
   copyExperience(experienceId: ID!, name: String!, requestId: ID!): Experience
+
+  """
+  Since D-510: the short link of a URL of break.rocks (contracts/urls.md § Pre-filled links), the same code for the same
+  URL. SHORT_LINK_TARGET_INVALID, SHORT_LINK_RATE_LIMITED.
+  """
+  createShortLink(url: String!, requestId: ID!): ShortLink
 
   """
   Since v136.2.0: deletes an experience of the caller (the leadership for a universe experience): its address answers
@@ -4596,23 +5174,55 @@ type Mutation {
   """
   Since v136.2.0: the leadership of a public universe adopts a PUBLIC experience of an account (adopt true) or stops
   adopting it (false), without a limit: it is then listed among the experiences of that universe, marked adopted.
-  LEADERSHIP_ONLY, EXPERIENCE_NOT_FOUND, EXPERIENCE_NOT_COPYABLE (not PUBLIC), EXPERIENCES_NOT_OPEN. Returns the
-  experience.
+  LEADERSHIP_ONLY, EXPERIENCE_NOT_FOUND, EXPERIENCE_NOT_COPYABLE (not PUBLIC; since v136.5.0, a visit experience in this
+  slice), EXPERIENCES_NOT_OPEN. Returns the experience. Since v137.1.0 (D-439, platform-experiences.feature): also a
+  PUBLIC visit experience of the social platform, by the leadership of any public universe, as a PUBLIC experience of
+  an account (made for the universes of cities and countries, with no test of the place); adopting it lists it among
+  the experiences of the universe and adds none of its visit stages to what is linked to the universe. A visit
+  experience of an account, and an experience of the social platform of another engine: EXPERIENCE_NOT_COPYABLE, as
+  before.
   """
   setExperienceAdoption(universe: String!, experienceId: ID!, adopt: Boolean!, requestId: ID!): Experience
 
   """
-  Since v136.2.0 (experience-instances.feature): starts an experience instance of an experience the caller may read
-  (StartExperienceRunInput), a human only, the caller its experience organizer and its first experience participant:
-  solo, or in a group chat, a universe discussion (challenge/1) or a universe event; IN_PROGRESS at once, or STARTED until
-  startsAt. A universe discussion or a universe event takes a PUBLIC experience only; a PRIVATE or UNLISTED one is
-  started in a group chat by its owner only (EXPERIENCE_RUN_PLACE_INVALID). A place is busy (EXPERIENCE_RUN_PLACE_BUSY)
-  only with an experience instance IN_PROGRESS or STARTED at most 7 days ahead. EXPERIENCE_RATE_LIMITED (20 a day,
-  /challenge included). A route experience: solo, its route guidance (guidanceId); in a group chat or a universe event, its route
-  group session (the refusals of startRouteGroupSession). EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_IN_PROGRESS
-  (errorInfo { runId }), EXPERIENCE_RUN_PLACE_INVALID, EXPERIENCE_RUN_PLACE_BUSY, EXPERIENCE_START_INVALID,
-  EXPERIENCE_PARAMETERS_INVALID (errorInfo { key }), EXPERIENCE_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience
-  instance.
+  Since v139.1.0 (D-439, D-448, D-449, visit-generator.feature, contracts/experiences.md § The visit generator): a human
+  asks the visit generator for a visit experience (GenerateVisitInput): the visit request (1 to 500 visible characters),
+  one area (bounds or placeId, at most 50 km across), optional constraints. Asynchronous: the switches, the input, the
+  visit generator ceiling and the allowance are checked in the request, which answers at once a VisitGeneration
+  GENERATING; then the visit request is checked (the strict verdict of the proposal check), a language model turns it
+  into structured constraints, the visit decision model chooses 2 to 30 visit stages among the candidate places of the
+  places service and the stage order function orders them, the language model writes the title, the instruction and the
+  notes in the language of the visit request, the automatic translation of the platform their English (as the
+  experience template requires), and these texts are checked. The outcome (READY with its
+  GeneratedVisitDraft, private to the caller, created nowhere; REFUSED with its ground, counted; NOTHING_FOUND; FAILED)
+  reaches the caller by the real-time event visit.generation and by visitGeneration(generationId), within 2 minutes. A
+  visit generation: 3 a day per account (00:00 to 24:00 UTC), free, and 10 visit requests and visit draft corrections
+  accepted a day whatever their outcome; the same requestId within 10 minutes answers the same VisitGeneration, not
+  counted again. VISIT_REQUEST_INVALID (errorInfo { reason }), VISIT_GENERATOR_CEILING_REACHED (errorInfo { retryAt },
+  not counted), VISIT_GENERATION_ALLOWANCE_USED (errorInfo { retryAt, limit }: limit 3 or 10),
+  VISIT_GENERATOR_UNAVAILABLE (errorInfo { retryAt }: the queue could not take it, not counted),
+  VISIT_GENERATOR_HUMANS_ONLY, VISIT_GENERATOR_NOT_OPEN, EXPERIENCES_NOT_OPEN, SIGN_IN_REQUIRED. Usage category OTHER,
+  weight 10.
+  """
+  generateVisitDraft(input: GenerateVisitInput!, requestId: ID!): VisitGeneration
+
+  """
+  Since v139.1.0 (D-439 (1), the third step, visit-generator.feature): a visit draft correction
+  (CorrectVisitDraftInput): the caller's current generated visit draft (its generationId, within 7 days; its document as
+  the app holds it, changed or not; the VisitConstraints it was served with, unchanged: their seal is checked,
+  VISIT_REQUEST_INVALID CONSTRAINTS_ALTERED otherwise) and an instruction in natural language (1 to 500 visible
+  characters), checked as a visit request. A document that is not a visit/1 document of the caller passing
+  checkExperience: EXPERIENCE_DOCUMENT_INVALID (errorInfo { problems }). Asynchronous as generateVisitDraft; its READY
+  outcome is a new
+  GeneratedVisitDraft (a new generationId) with what changed (changes): it keeps only the visit stages that are still
+  candidate places (KEPT_FROM_DRAFT) and adds only candidate places. A visit generation, counted as one.
+  VISIT_DRAFT_CORRECTION_NOT_OPEN (client-config experiences.visitDraftCorrection off), VISIT_GENERATION_NOT_FOUND, and
+  the refusals of generateVisitDraft (VISIT_GENERATOR_HUMANS_ONLY included). Usage category OTHER, weight 10.
+  """
+  correctVisitDraft(input: CorrectVisitDraftInput!, requestId: ID!): VisitGeneration
+
+  """
+  Contract: contracts/experiences.md § API v2 descriptions, startExperienceRun (moved there by D-498, unchanged).
   """
   startExperienceRun(input: StartExperienceRunInput!, requestId: ID!): ExperienceRun
 
@@ -4621,10 +5231,15 @@ type Mutation {
   members of its group chat, who may write in its universe discussion, the attendees of its universe event); their
   experience result begins at once, or at its start. EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_IN_PROGRESS,
   EXPERIENCE_RUN_FULL (50, errorInfo { max }), EXPERIENCE_RUN_REJOIN_NOT_ALLOWED (the caller left it or their result in
-  it ended: never again), EXPERIENCE_RATE_LIMITED (60 joins and leaves an hour), EXPERIENCE_RUN_ENDED, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN.
-  Returns the experience instance.
+  it ended: never again), EXPERIENCE_RATE_LIMITED (60 joins and leaves an hour), EXPERIENCE_RUN_ENDED, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN;
+  since D-461, EXPERIENCE_MEASURING_MEANS_NOT_OPEN (a simple challenge measured by the device, or an attendance meetup,
+  while the switch of its measuring means is off). Since D-467: timeZone, the IANA time zone of the device of the caller
+  (none: "UTC"; not an IANA time zone: INVALID_REQUEST), kept with their experience result; EXPERIENCE_RUN_JOIN_CLOSED (a
+  multi-day challenge after the end of its first challenge day, a simple tournament after its tournament draw);
+  EXPERIENCE_RUN_FULL at 33 for a simple tournament; EXPERIENCE_ENGINE_NOT_OPEN (its engine switch off). Returns the
+  experience instance. Since D-483: code.
   """
-  joinExperienceRun(runId: ID!, requestId: ID!): ExperienceRun
+  joinExperienceRun(runId: ID!, requestId: ID!, timeZone: String, code: String): ExperienceRun
 
   """
   Since v136.2.0: the caller leaves an experience instance: their experience result IN_PROGRESS ends FREE (a route
@@ -4638,22 +5253,16 @@ type Mutation {
   Since v136.2.0: the experience organizer ends a group experience instance for everyone (a STARTED one is cancelled);
   so may, in a universe discussion or from a universe event, the leadership and the moderators of the universe, and, in
   a group chat, its admins. The experience results still IN_PROGRESS end FREE, those VALIDATING keep their validation
-  window. EXPERIENCE_RUN_NOT_ORGANIZER,
+  window. Since v136.5.0 (D-436): on a solo experience instance of a visit experience, its experience participant ends
+  it as the end by choice: a success when the last visit progress has thresholdMet, a free end otherwise.
+  EXPERIENCE_RUN_NOT_ORGANIZER,
   EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Played again: the same answer. Returns the
   experience instance.
   """
   endExperienceRun(runId: ID!, requestId: ID!): ExperienceRun
 
   """
-  Since v136.2.0 (simple-challenges.feature): records a measure of the caller in an experience instance of a simple
-  challenge (ExperienceMeasureInput): a progress measure, or the final measure with its proof, judged by the evaluator of
-  challenge/1 (contracts/experiences.md § The evaluators); a progress is pushed to the other experience participants
-  (experience.progress). requestId: made at the measure, sent again unchanged once the network is back (recorded once);
-  a measure received after the end of the experience result of the caller is refused (TOO_LATE), never re-opening it.
-  EXPERIENCE_RATE_LIMITED (a progress at most every 5 seconds per experience result, enforced by the platform),
-  EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: a reason of the evaluator), EXPERIENCE_NOT_A_PARTICIPANT,
-  EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. A route experience takes its stage
-  check-ins by checkInRouteStage (runId). Returns the experience instance.
+  Contract: contracts/experiences.md § API v2 descriptions, submitExperienceMeasure (moved there by D-498, unchanged).
   """
   submitExperienceMeasure(input: ExperienceMeasureInput!, requestId: ID!): ExperienceRun
 
@@ -4680,7 +5289,8 @@ type Mutation {
   """
   Since v136.2.0: deletes the experience result of the caller in an experience instance: it leaves the experience
   instance (FREE first when IN_PROGRESS) and its ranking, its proof deleted. EXPERIENCE_RUN_NOT_FOUND (also
-  played again), EXPERIENCES_NOT_OPEN. True once done.
+  played again, and since D-441 (5) for a delegated agent, which takes part in no experience instance and has no
+  experience result), EXPERIENCES_NOT_OPEN. True once done.
   """
   deleteExperienceParticipation(runId: ID!, requestId: ID!): Boolean
 
@@ -4692,6 +5302,119 @@ type Mutation {
   EXPERIENCE_RUN_NOT_FOUND, EXPERIENCES_NOT_OPEN. Returns the experience instance.
   """
   contestExperienceProof(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-461 (attendance-meetups.feature, contracts/experiences.md § Attendance meetups and the organizer code): an
+  experience participant of an attendance meetup in progress enters the organizer code its experience organizer shows
+  (6 digits, typed or read from the QR code): while the experience result of the caller is not in progress, refused
+  first (EXPERIENCE_MEASURE_REFUSED NOT_BEGUN or PARTICIPATION_ENDED), the code not checked; otherwise checked at its receipt, the codes of the step of the receipt, of the step
+  before it and of the step after it accepted (30 to 60 seconds after a code is shown); accepted, the experience result is a success, present by the organizer code.
+  ORGANIZER_CODE_INVALID (an older or a wrong code, the same answer), EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }:
+  NOT_BEGUN, PARTICIPATION_ENDED, OWN_CODE), EXPERIENCE_NOT_A_PARTICIPANT, EXPERIENCE_RUN_HUMANS_ONLY,
+  EXPERIENCE_RATE_LIMITED (10 codes in 10 minutes per experience participant, errorInfo { retryAt }),
+  ORGANIZER_CODE_LOCKED (30 wrong codes in that experience instance: no more code in it),
+  EXPERIENCE_RUN_NOT_FOUND (also another engine), EXPERIENCES_NOT_OPEN. Returns the experience instance.
+  """
+  submitOrganizerCode(runId: ID!, code: String!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-461 (feat-collection.feature): writes the whole Feat collection of the caller, its entries in their order and
+  hidden. FEAT_NOT_YOURS (an entry that is not a Feat of the caller: another account's, not a success, deleted, removed
+  by the moderation), FEAT_NOT_PUBLISHED (a Feat of a place experience not published, or whose post was removed),
+  FEAT_COLLECTION_FULL (more than 12, errorInfo { max }), INVALID_REQUEST (an entry twice, or not exactly one of runId
+  and instanceId), DELEGATED_AGENT_NOT_ALLOWED, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS, EXPERIENCE_RATE_LIMITED (60 a day
+  per account), FEAT_COLLECTION_NOT_OPEN, EXPERIENCES_NOT_OPEN. Returns the Feat collection.
+  """
+  setFeatCollection(input: FeatCollectionInput!, requestId: ID!): FeatCollection
+
+  """
+  Since D-467 (simple-tournaments.feature, contracts/experiences.md § Simple tournaments): the experience organizer of a
+  simple tournament in progress has the tournament draw made: every other experience participant becomes a tournament
+  entrant, in an order the platform draws at random, and the bracket is set (ExperienceRun.bracket); nobody joins
+  afterwards. TOURNAMENT_ENTRANTS_INVALID (fewer than 4 or more than 32 other experience participants, errorInfo { min,
+  max }; only the experience participants whose experience result is still in progress are drawn),
+  EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: NOT_BEGUN before its start, ALREADY_DRAWN),
+  EXPERIENCE_RUN_NOT_ORGANIZER, EXPERIENCE_RUN_ENDED, EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RUN_NOT_FOUND (also another engine),
+  EXPERIENCES_NOT_OPEN. Played again: the same answer. Returns the experience instance. Since D-481, tournament/2 too.
+  """
+  drawTournament(runId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-481: one act on a tournament edition (contracts/experiences.md § Tournaments (tournament/2), The acts).
+  """
+  actOnTournament(runId: ID!, act: TournamentActInput!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-498: one act on a contest edition (contracts/experiences.md § Judged contests (contest/1), The acts).
+  """
+  actOnContest(runId: ID!, act: ContestActInput!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-492: a tournament sponsor proposes a sponsorship offer (contracts/experiences.md § Tournament sponsors).
+  """
+  proposeSponsorship(input: SponsorshipProposalInput!, requestId: ID!): SponsorshipOffer
+
+  """
+  Since D-492: the answer of the experience organizer, or the consent of the main sponsor.
+  """
+  answerSponsorship(offerId: ID!, answer: SponsorshipAnswer!, requestId: ID!): SponsorshipOffer
+
+  """
+  Since D-492: the Checkout of an accepted sponsorship offer, back to "returnPath".
+  """
+  paySponsorship(offerId: ID!, returnPath: String, requestId: ID!): PaymentPage
+
+  """
+  Since D-492: the tournament sponsor or the experience organizer withdraws a sponsorship offer.
+  """
+  withdrawSponsorship(offerId: ID!, requestId: ID!): SponsorshipOffer
+
+  """
+  Since D-489: a proof code (§ Dated proofs). Since D-498, for a contest edition without match.
+  """
+  requestProofCode(runId: ID!, match: String, requestId: ID!): ProofCode
+
+  """
+  Since D-485: a tournament appearance (contracts/layouts.md).
+  """
+  setTournamentAppearance(experienceId: ID!, appearance: AWSJSON!, requestId: ID!): AWSJSON
+
+  """
+  Since D-483: the tournament settings of a universe (§ The tournament command).
+  """
+  setUniverseTournamentSettings(universe: String!, settings: UniverseTournamentSettingsInput!, requestId: ID!): Universe
+
+  """
+  Since D-467 (simple-tournaments.feature): the experience organizer of a simple tournament names the winner of a
+  tournament match whose two tournament entrants are known (winnerAccountId, one of them); final. The loser's experience
+  result is a failure; the winner of the last tournament match a success, validated by people.
+  EXPERIENCE_RUN_NOT_ORGANIZER (anyone but the experience organizer, as drawTournament), EXPERIENCE_RUN_ENDED,
+  EXPERIENCE_MEASURE_REFUSED (errorInfo { reason }: NOT_DRAWN, MATCH_NOT_READY), EXPERIENCE_RUN_HUMANS_ONLY, EXPERIENCE_RATE_LIMITED (120 decisions an hour, as the decisions on
+  proofs), EXPERIENCE_RUN_NOT_FOUND (also another engine), EXPERIENCES_NOT_OPEN. Played again: the same answer. Returns
+  the experience instance.
+  """
+  decideTournamentMatch(runId: ID!, winnerAccountId: ID!, requestId: ID!): ExperienceRun
+
+  """
+  Since D-467 (health-measures.feature, contracts/experiences.md § Device measures), revised on 2026-11-19: the caller
+  gives (allowed true) or withdraws (false) a health consent of the scope they chose: ALWAYS, their standing health
+  consent, one per account, their steps read and their number sent in every experience instance measured by the steps
+  of the health data, whatever the experience and its version, runId null; ONCE, a one-time health consent for the
+  experience instance runId only (required), one the caller takes part in, measured by the steps of the health data,
+  whose experience result is in progress (every challenge day and challenge round included). The app calls it once the
+  experience instance is started or joined, with the choice the person made at the begin; a refusal sends nothing.
+  Withdrawn, the steps are no longer read in the experience instances it covered, in progress too, and a final measure
+  sent DEVICE there is refused (HEALTH_CONSENT_REQUIRED); a standing health consent withdrawn is asked again at the next
+  begin; a one-time one is not asked again in its experience instance. A standing health consent given takes the place
+  of the one-time health consents of the experience instances in progress, which are withdrawn with it. The same value
+  again changes nothing.
+  INVALID_REQUEST (ONCE without runId, ALWAYS with one), EXPERIENCE_RUN_NOT_FOUND (ONCE: no experience instance the
+  caller reads, or one not measured by the steps of the health data), EXPERIENCE_NOT_A_PARTICIPANT (ONCE: the caller
+  takes no part in it), EXPERIENCE_RUN_ENDED (ONCE: the experience instance or the experience result of the caller in
+  it ended), DELEGATED_AGENT_NOT_ALLOWED, AGENT_OPERATOR_NO_SOCIAL_INTERACTIONS, EXPERIENCES_NOT_OPEN. Returns the state
+  of that health consent.
+  """
+  setHealthConsent(allowed: Boolean!, scope: HealthConsentScope!, runId: ID, requestId: ID!): HealthConsentState
 
   """
   Since v136.3.0 (D-433, experience-opinions.feature, contracts/experiences.md § Experience opinions): the caller gives
