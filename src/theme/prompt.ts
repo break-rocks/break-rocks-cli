@@ -11,6 +11,7 @@
 import { usageError } from '../errors.js';
 import { FIELDS, IMAGE_SHOWS, MEDIA_WIDTHS, SKIES, validThemeName, type ImageShows } from './check.js';
 import { approvedTypeface, characterOfTypeface, typefaceNames } from './typefaces.js';
+import { SOCLE } from './design.js';
 
 export type Field = (typeof FIELDS)[number];
 export const LANGUAGES = ['en', 'fr'] as const;
@@ -170,11 +171,20 @@ ${universal}
 Sur **toutes les pages d'un univers**, en **quatre familles de surfaces** et **deux images** :
 
 - \`page\` : la page, autour et entre les blocs, sous les posts (un post n'a pas de carte : il est posé sur la page) ;
+  sur un téléphone, la barre des pages en bas de l'univers et la rangée du sélecteur de vues (« Posts » · « Clips » ·
+  « Vidéos » · « Discussions »), dans un ton un peu plus marqué de \`page\` ;
 - \`sky\` : le ciel de l'univers (la barre d'identité, la colonne du ciel ou la bande du ciel, la bannière de l'univers) ;
 - \`block\` : chaque bloc de la page (un widget, une carte de la colonne du temps, une tuile de la bande du
-  temps, la citation dans un post, l'en-tête et les bulles d'un channel, un bloc libre, un rail) ;
-- \`control\` : les boutons, les badges, les puces (la barre des focus, le sélecteur de disposition) et
-  les liens ; un lien et un bouton secondaire prennent son \`background\` comme couleur de texte.
+  temps, la citation dans un post, l'en-tête et les bulles d'un channel, un bloc libre, un rail, la vue choisie
+  du sélecteur de vues, chaque pastille de la rangée de pastilles : en direct, annonce épinglée, règles) ;
+- \`control\` : les boutons, les badges, les puces (les filtres du fil, le sélecteur de disposition), les compteurs
+  du sélecteur de vues et de la barre des pages, l'icône de la page affichée, et les liens ; un lien et un bouton
+  secondaire prennent son \`background\` comme couleur de texte.
+
+La barre des lieux (Accueil, Univers, Expériences, Messages, Moi) reste celle de la plateforme, jamais du thème ;
+seul son bouton central, la marque d'Expériences, prend le \`primary\` du thème quand une page de l'univers est
+affichée : il doit garder **3:1 au moins** sur la barre de la plateforme (\`${SOCLE.night.surface}\` la nuit, \`${SOCLE.dim.surface}\` en nuit
+atténuée, \`${SOCLE.day.surface}\` le jour), sinon les apps l'éclaircissent ou l'assombrissent.
 
 L'image \`page\` est derrière la page ; l'image \`pageHeader\` derrière le ciel. **La plateforme fixe la
 forme** : les rayons (un post 0, un bloc 20 px, un contrôle 12 px), aucun trait ni bordure autour d'une
@@ -320,11 +330,20 @@ ${universal}
 On **every page of a universe**, in **four families of surfaces** and **two images**:
 
 - \`page\`: the page, around and between the blocks, under the posts (a post has no card: it lies on the page);
+  on a phone, the pages bar at the bottom of the universe and the row of the view selector ("Posts" · "Clips" ·
+  "Videos" · "Discussions"), in a slightly stronger tone of \`page\`;
 - \`sky\`: the sky of the universe (the identity bar, the sky column or the sky band, the universe banner);
 - \`block\`: every block of the page (a widget, a card of the time column, a tile of the time strip, the
-  quote inside a post, the header and the bubbles of a channel, a free block, a rail);
-- \`control\`: the buttons, the badges, the chips (the focus bar, the layout switcher) and the links; a
-  link and a secondary button take its \`background\` as their text color.
+  quote inside a post, the header and the bubbles of a channel, a free block, a rail, the place view chosen in the
+  view selector, each pill of the row of pills: live, pinned announcement, rules);
+- \`control\`: the buttons, the badges, the chips (the feed filters, the layout switcher), the counts of the view
+  selector and of the pages bar, the icon of the page shown, and the links; a link and a secondary button take its
+  \`background\` as their text color.
+
+The bar of the places (Home, Universes, Experiences, Messages, Me) stays the platform's, never the theme's; only its
+center button, the mark of Experiences, takes the \`primary\` of the theme while a page of the universe is shown: it
+must keep **at least 3:1** on the bar of the platform (\`${SOCLE.night.surface}\` by night, \`${SOCLE.dim.surface}\` by dim night, \`${SOCLE.day.surface}\` by
+day), else the apps lighten or darken it.
 
 The image \`page\` lies behind the page; the image \`pageHeader\` behind the sky. **The platform sets the
 shape**: the radii (a post 0, a block 20 px, a control 12 px), no stroke nor border around a surface, the

@@ -137,6 +137,20 @@ describe('theme check (the model of specs v99, design-lib/lib/theme)', () => {
     expect(contrast.every((p) => p.severity === 'warning' && /^#[0-9A-F]{6}$/.test(p.suggested!))).toBe(true);
     expect(await h.run('theme', 'check', file, '--strict', '--json')).toBe(1);
   });
+  it('warns when the primary would not keep 3:1 on the bar of the places, where the mark of Experiences takes it (D-506)', async () => {
+    const doc = theme() as Record<string, any>;
+    // 3.3:1 on the page by night, 2.8:1 on the bar of the dim night.
+    doc.variants.night.palette.primary = '#666666';
+    const { h, file } = folder(doc);
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    const mark = last<Report>(h).problems.filter((p) => p.code === 'THEME_MARK_CONTRAST');
+    expect(mark.map((p) => p.path)).toEqual(['variants.night.palette.primary']);
+    expect(mark[0].severity).toBe('warning');
+    expect(mark[0].suggested).toMatch(/^#[0-9A-F]{6}$/);
+    writeFileSync(file, JSON.stringify(theme()));
+    expect(await h.run('theme', 'check', file, '--json')).toBe(0);
+    expect(codes(last<Report>(h))).not.toContain('THEME_MARK_CONTRAST');
+  });
   it('reads how the image of the page shows from the block appearance as the platform keeps it; none: no mask', async () => {
     const doc = theme() as Record<string, any>;
     doc.appearance = { accent: '#E5484D', imageShows: 'through', sky: 'band' };
@@ -269,6 +283,13 @@ describe('theme prompt', () => {
     expect(r.prompt).toContain('Ambiance : hémicycle');
     expect(r.prompt).toContain('Zen Maru Gothic');
     expect(themePrompt({ field: 'GAMES', mood: 'neon', name: 'faille', universe: '%gaming' }).prompt).toContain('Mood: neon');
+    // The surfaces of the navigation of D-506: the view selector, the pages bar, the row of pills, the mark on the bar.
+    const nav = themePrompt({ field: 'GAMES', mood: 'neon', name: 'faille', universe: '%gaming' }).prompt;
+    expect(nav).toMatch(/view selector/);
+    expect(nav).toMatch(/pages bar/);
+    expect(nav).toMatch(/row of pills/);
+    expect(nav).toContain('the mark of Experiences');
+    expect(nav).toContain('#161B22');
   });
   it('refuses a field, a name, a universe or a typeface that is none', async () => {
     expect(() => fieldOf('cooking')).toThrow(/not a field/);

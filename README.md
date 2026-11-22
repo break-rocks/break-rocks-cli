@@ -1164,6 +1164,19 @@ operations of v122.0.0 to v122.2.0 each have their command; the refusals are the
 - **A vote lent** (D-381): `proposals show` carries `myHolderBallot` (`CAST` or `NOT_CAST`, `null` when the account did not
   lend its vote, or the vote is not open).
 
+### Themes and the app navigation of D-506 (0.37.0)
+
+The theme tools cover the surfaces of the navigation of specs v156.0.0 (D-506, `apps/app-navigation.feature`,
+`universes/universe-views.feature`), drawn on the four families without a new one:
+
+- **`look themes check`** tells `THEME_MARK_CONTRAST` (a warning, an error with `--strict`) when the primary of a variant,
+  as the platform raises it, keeps less than 3:1 on the bar of the places of Socle (its surface by night and dim night,
+  by day), where the mark of Experiences takes the primary of the universe shown; `suggested` is the color the apps draw.
+- **`look themes prompt`** names where the theme shows in the new navigation: the pages bar and the row of the view
+  selector on `page`, the place view chosen and the row of pills on `block`, the counts and the icon of the page shown on
+  `control`, and the mark of Experiences on the bar of the platform, 3:1 on it (the surfaces of Socle read from the design
+  tokens).
+
 ### Themes in the format of specs v122 (0.20.0, specs v122.1.0)
 
 `specs/common` pinned on **v122.1.0** and `schema/api-v2` regenerated (15 SDL files: 217 queries, 347 mutations). The theme

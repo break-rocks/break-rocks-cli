@@ -5,6 +5,23 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-22
+
+The themes and the app navigation of D-506 (specs v156.0.0; `specs/common` unchanged, the theme model needs no new
+surface).
+
+### Added
+
+- `look themes check`: `THEME_MARK_CONTRAST`, the primary of a variant under 3:1 on the bar of the places of Socle (night,
+  dim night, day), where the mark of Experiences takes the primary of the universe shown; a warning with the color the
+  apps draw, an error with `--strict`.
+
+### Changed
+
+- `look themes prompt`: the generated prompt names the surfaces of the new navigation (the pages bar and the view
+  selector on `page`, the place view chosen and the row of pills on `block`, the counts on `control`, the mark of
+  Experiences on the bar of the platform at 3:1).
+
 ## [0.37.0] - 2026-11-22
 
 Specs v156.1.0 (`specs/common` pinned on that tag; D-506, D-510, D-512, and what came between v136.3.0 and v156.1.0).
