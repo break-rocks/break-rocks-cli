@@ -219,6 +219,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me measures appeal` | Appeal a platform measure (confirmation: `--yes`) | `breakrocks me measures appeal <measure id> --text "The post quoted a news article" --yes` |
 | `me terms` | The terms the account accepted | `breakrocks me terms` |
 | `me terms accept` | Accept the latest terms (confirmation: `--yes`) | `breakrocks me terms accept --yes` |
+| `me profile show` | Show the account profile: handle, display name, bio, links | `breakrocks me profile show` |
 | `me profile set` | Change the account profile | `breakrocks me profile set --display-name "Alice" --bio "Cyclist in Paris"` |
 | `me handle check` | Whether a handle is free | `breakrocks me handle check alice` |
 | `me handle change` | Change the handle of the account (confirmation: `--yes`) | `breakrocks me handle change alice2 --yes` |
@@ -915,6 +916,38 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `mcp` | Start the MCP server on stdio (offline) | `breakrocks mcp` |
 | `links shorten` | Make the short link /go/<code> of a URL | `breakrocks links shorten "/new/tournament/v/entrants.max=24"` |
 | `links resolve` | The URL a short link stands for | `breakrocks links resolve 7Hk2pQa9xT` |
+
+### The new backend, native-sulfur (0.40.0)
+
+One CLI talks to the former backend (`legacy`: Cognito, AppSync API v2, the agents host) or to the new one (`sulfur`:
+native-sulfur, its own OAuth endpoints and GraphQL runtime per cell). The backend of a run: `--backend legacy|sulfur`, else
+`BREAKROCKS_BACKEND`, else the profile's (`breakrocks config set backend sulfur`, `config unset backend`), else **legacy**:
+the default flips with the release that moves the testers. `src/backend.ts`, `src/sulfur/`.
+
+- **Where**: one host per cell, `https://<cell>.api.<site>` (`eu.api.dev.break.rocks`, `eu.api.staging.break.rocks`,
+  `eu.api.break.rocks`) serving `/graphql`, `/auth/*` and `/oauth/*`; `BREAKROCKS_SULFUR_URL` replaces it (a cell not on its
+  custom domain yet: its CloudFront address). Every POST carries `x-amz-content-sha256` (the SHA-256 of the exact bytes:
+  CloudFront's origin access control) and the token goes in `x-authorization: Bearer …`.
+- **Sign-in** as the client `cli`, no password: `login` alone is the **device code** (RFC 8628): the CLI writes an address and
+  a code (`EU-XXXX-XXXX`, never a prefilled link), the person types it on a device already signed in and approves, the CLI
+  polls every 5 s (10 s more after a `slow_down`); the session is fixed 7 days and reaches content only (no account change).
+  `login --email <address>` is the **e-mail code** in the terminal (`/auth/email/start`, `/auth/email/verify`,
+  `/auth/complete` at the home cell with PKCE S256, `/oauth/token`): asked in a terminal, else the first run sends it and
+  `login --email <address> --code "1234 5678"` finishes within its 5 minutes (the flow kept 0600 meanwhile); `--sign-up`
+  creates the account. No device key in Node (Q-6): the session is untrusted, renewed on its own, ended after 24 hours unused
+  or 7 days. `login --browser` (the `/cli/login` page of the new backend) and passwords: `NOT_ON_NEW_BACKEND`, `NO_PASSWORD`.
+- **Tokens**: in the system keychain (`sulfur:<profile>`) when there is one, else in `sessions/<profile>.sulfur.json` (0600);
+  the account, the cell and the dates in that file either way; never printed. The refresh token rotates and a token used twice
+  ends the session, so the renewal (an access token ending within a minute, or refused once by the API) is **single-flight**:
+  one promise per profile in a process, a lock file (`sessions/<profile>.sulfur.lock`, stale after 30 s) across processes,
+  the waiting process taking the tokens the other one saved. A renewal refused: the session forgotten, `SESSION_EXPIRED`
+  (exit 3).
+- **Commands served there**: `login`, `logout` (`/oauth/revoke`; `--everywhere`: `endAllSessions`), `whoami`, `me profile
+  show`, `me profile set --name --bio`, `posts feed` (`homeTimeline`, `--clips`, `--after`, `--limit`, `--all`) and
+  `posts create "text" --in %universe` (`publish`, a UUIDv7 id; the universe is required there). Media, links, sources and
+  the other options of these commands: `NOT_ON_NEW_BACKEND`. Every other command that reaches the platform answers
+  `NOT_ON_NEW_BACKEND` (exit 1); the offline ones (help, config, themes checked offline, completion) and `update` work as
+  ever. The MCP server follows the backend of its profile or of `BREAKROCKS_BACKEND`.
 
 ### The app tour (0.39.0, specs v158.0.0)
 

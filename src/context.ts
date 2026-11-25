@@ -8,6 +8,7 @@ import type { Output } from './output.js';
 import type { CodeExchange } from './browser-login.js';
 import type { Payer } from './payment-types.js';
 import { networkSettings, profileProxy, type NetworkSettings } from './network.js';
+import { backendOf, type Backend } from './backend.js';
 
 export type Io = {
   out: Output;
@@ -53,6 +54,8 @@ export type GlobalFlags = {
   caFile?: string;
   /** No colour (--no-color). */
   noColor?: boolean;
+  /** The backend of this run (--backend): before BREAKROCKS_BACKEND and the profile's (src/backend.ts). */
+  backend?: Backend;
 };
 export const NO_FLAGS: GlobalFlags = { json: false, quiet: false, yes: false, help: false, version: false };
 
@@ -93,6 +96,10 @@ export class Context {
       return { ...saved, env: wanted };
     }
     return saved;
+  }
+  /** The backend this run talks to: --backend, else BREAKROCKS_BACKEND, else the profile's, else the former one (src/backend.ts). */
+  backend(): Backend {
+    return backendOf(this.flags.backend, this.io.env, this.agentName ? undefined : this.store.profile(this.profileName));
   }
   /** The network settings of this run: --proxy and --ca-file, else the profile, else the environment (README § Proxy). */
   network(): NetworkSettings {

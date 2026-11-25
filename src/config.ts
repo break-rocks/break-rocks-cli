@@ -43,6 +43,8 @@ export type Profile = {
   noProxy?: string;
   /** A CA bundle (PEM) added to the authorities of Node (config set ca-file). */
   caFile?: string;
+  /** The backend of the profile (config set backend): legacy (the former one, by default) or sulfur (src/backend.ts). */
+  backend?: 'legacy' | 'sulfur';
 };
 
 export type ConfigFile = { version: 1; current?: string; profiles: Record<string, Profile> };

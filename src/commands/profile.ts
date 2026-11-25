@@ -1,5 +1,6 @@
 // profile add|use|list|remove|show: several accounts and environments side by side, each in
 // a profile of the configuration folder. --profile or BREAKROCKS_PROFILE picks one for a command.
+import { checkBackend } from '../backend.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DEFAULT_PROFILE, ENVIRONMENTS, checkProfileName, type Profile } from '../config.js';
@@ -17,7 +18,7 @@ const profileOutput = openObject({
   agentId: str('The id of the delegated agent'), handle: str('The handle of the account'), keys: openObject({}, 'Paths of its key files'),
   wallet: openObject({ address: str('The address of the wallet'), source: str('file or env'), maxUsdPerDay: { type: 'number', description: 'Cap per UTC day' } }),
   session: openObject({ expiresAt: str('When the session ends') }),
-  proxy: str('Its proxy, credentials hidden (config set proxy)'), noProxy: str('Its hosts reached without the proxy'), caFile: str('Its CA bundle'),
+  proxy: str('Its proxy, credentials hidden (config set proxy)'), noProxy: str('Its hosts reached without the proxy'), caFile: str('Its CA bundle'), backend: str('Its backend (config set backend): legacy or sulfur; none: legacy'),
   network: openObject({ proxy: str('The proxy of the https requests in effect, credentials hidden'), httpProxy: str('The proxy of the http requests, when another'), proxySource: str('option, profile or environment'), noProxy: str('The hosts reached directly'), caFile: str('The CA bundle added'), caSource: str('option or profile') }, 'The network settings in effect for this profile (--proxy, the profile, the environment)'),
 });
 
@@ -103,9 +104,9 @@ export const profileRemove: Command<{ name: string }, { removed: string; keysKep
   quiet: (r) => r.removed,
 };
 
-const SETTINGS = ['proxy', 'no-proxy', 'ca-file'] as const;
+const SETTINGS = ['proxy', 'no-proxy', 'ca-file', 'backend'] as const;
 type Setting = (typeof SETTINGS)[number];
-const settingSchema = str('The setting: proxy (http://, https:// or socks5://, credentials allowed), no-proxy (hosts reached directly, as NO_PROXY), ca-file (a PEM bundle)', { enum: [...SETTINGS] });
+const settingSchema = str('The setting: proxy (http://, https:// or socks5://, credentials allowed), no-proxy (hosts reached directly, as NO_PROXY), ca-file (a PEM bundle), backend (legacy or sulfur)', { enum: [...SETTINGS] });
 
 /** The profile [name] (the one in use by default), saved: a profile not saved yet is made in [env] (prod by default). */
 function savedProfile(ctx: Context, name: string | undefined): [string, Profile] {
@@ -115,9 +116,9 @@ function savedProfile(ctx: Context, name: string | undefined): [string, Profile]
 }
 
 export const configSet: Command<{ setting: Setting; value: string; name?: string }, ProfileView> = {
-  name: 'config set', summary: 'Set a network setting of a CLI profile',
+  name: 'config set', summary: 'Set a network setting or the backend of a CLI profile',
   details: 'Set the proxy, the hosts reached without it or a CA bundle of a CLI profile (README § Proxy). The proxy of the profile comes after --proxy and before HTTPS_PROXY / HTTP_PROXY; its credentials are kept apart from config.json, in a file for the user alone, and never printed.',
-  examples: ['breakrocks config set proxy http://proxy.corp.example:3128', 'breakrocks config set no-proxy localhost,.corp.example', 'breakrocks config set ca-file ./corp-ca.pem --name work'],
+  examples: ['breakrocks config set proxy http://proxy.corp.example:3128', 'breakrocks config set no-proxy localhost,.corp.example', 'breakrocks config set ca-file ./corp-ca.pem --name work', 'breakrocks config set backend sulfur'],
   input: object({ setting: settingSchema, value: str('Its value'), name: str('The profile (the one in use by default)') }, ['setting', 'value']),
   output: profileOutput, args: { positionals: ['setting', 'value'] }, offline: true, mcp: false,
   run: (ctx, { setting, value, name }) => {
@@ -125,6 +126,7 @@ export const configSet: Command<{ setting: Setting; value: string; name?: string
     let next: Profile;
     if (setting === 'proxy') next = saveProfileProxy(ctx.store, profileName, profile, value);
     else if (setting === 'no-proxy') next = { ...profile, noProxy: value };
+    else if (setting === 'backend') next = { ...profile, backend: checkBackend(value, 'backend') };
     else {
       const file = resolve(ctx.io.cwd, value);
       if (!existsSync(file)) throw usageError('CA_FILE_NOT_FOUND', `No CA bundle at ${file}`, { caFile: file });
@@ -145,7 +147,7 @@ export const configUnset: Command<{ setting: Setting; name?: string }, ProfileVi
     const [profileName, profile] = savedProfile(ctx, name);
     let next: Profile;
     if (setting === 'proxy') next = saveProfileProxy(ctx.store, profileName, profile, undefined);
-    else { const { [setting === 'no-proxy' ? 'noProxy' : 'caFile']: _gone, ...rest } = profile; next = rest; }
+    else { const { [setting === 'no-proxy' ? 'noProxy' : setting === 'backend' ? 'backend' : 'caFile']: _gone, ...rest } = profile; next = rest; }
     ctx.store.saveProfile(profileName, next);
     return view(ctx, profileName, next);
   },

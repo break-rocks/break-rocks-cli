@@ -14,6 +14,8 @@ import { renderText, selectFields } from './render.js';
 import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
 import { applyNetwork, redactText } from './network.js';
+import { checkBackend } from './backend.js';
+import { forBackend } from './sulfur/dispatch.js';
 import { colourEnabled, highlight, paintErr, setColour, truecolorEnabled } from './colour.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
@@ -41,6 +43,7 @@ export function parseGlobals(argv: readonly string[]): { flags: GlobalFlags; tok
       case '--profile': flags.profile = value(); break;
       case '--proxy': flags.proxy = value(); break;
       case '--ca-file': flags.caFile = value(); break;
+      case '--backend': flags.backend = checkBackend(value(), '--backend'); break;
       // --agent before the command is the global one (its value is not the command); after it,
       // takeAgentFlag decides (a command may have an option "agent" of its own).
       case '--agent': if (tokens.some((x) => !x.startsWith('-'))) { tokens.push(t); if (inline === undefined && argv[i + 1] !== undefined) tokens.push(argv[++i]); } else flags.agent = value(); break;
@@ -177,12 +180,14 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     if (alias) io.out.error(deprecationNotice(alias, command));
     const rest = takeAgentFlag(command, flags, tokens.slice((alias ?? command.name).split(' ').length));
     const ctx = new Context(io, flags);
-    if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(command), commands: [{ name: command.name, summary: command.summary }] });
-    const input = parseCommandLine(command.input, command.args ?? {}, rest);
-    if (!command.offline) await io.configureNetwork?.(ctx.network());
-    const result = await execute(ctx, command, input);
-    const exit = writeAnswer(ctx, command, result, input);
-    if (exit === EXIT.OK) rememberUse(ctx, command, input, result);
+    // The backend of the run (--backend, BREAKROCKS_BACKEND, the profile): the new one serves some commands only.
+    const effective = forBackend(ctx, command, { soft: flags.help });
+    if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(effective), commands: [{ name: effective.name, summary: effective.summary }] });
+    const input = parseCommandLine(effective.input, effective.args ?? {}, rest);
+    if (!effective.offline) await io.configureNetwork?.(ctx.network());
+    const result = await execute(ctx, effective, input);
+    const exit = writeAnswer(ctx, effective, result, input);
+    if (exit === EXIT.OK) rememberUse(ctx, effective, input, result);
     return exit;
   } catch (error) {
     return writeError(io.out, json, asCliError(error));

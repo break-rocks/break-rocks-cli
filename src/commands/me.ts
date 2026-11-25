@@ -8,6 +8,9 @@ import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import { checkImage, uploadAvatar } from '../media.js';
 import { pageText } from './shared.js';
+import type { Command } from '../registry.js';
+import { object, openObject, str } from '../schema.js';
+import { api } from '../session.js';
 
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -16,6 +19,15 @@ const profileText = (r: unknown) => {
   const p = r as Profile | null;
   if (!p) return '(none)';
   return [`@${p.handle ?? '?'}  ${p.displayName ?? ''}`, ...(p.bio ? [p.bio] : []), ...(p.links ?? []).map((l) => `link: ${l.label ? `${l.label} ` : ''}${l.url}`)].join('\n');
+};
+
+export const meProfileShow: Command<Record<string, never>, Profile> = {
+  name: 'me profile show', summary: 'Show the account profile: handle, display name, bio, links', api: 'me',
+  examples: ['breakrocks me profile show', 'breakrocks me profile show --json'],
+  input: object({}),
+  output: openObject({ id: str('The account'), handle: str('Its handle'), displayName: str('Its display name'), bio: { type: ['string', 'null'], description: 'Its bio' } }),
+  run: async (ctx) => (await api<{ me: Profile }>(ctx, '{ me { id handle displayName bio links { label url } } }')).me,
+  text: profileText, quiet: (p) => p.id,
 };
 
 export const meProfileSet = apiCommand({
@@ -192,7 +204,7 @@ export const meInviteExceptionsAdd = inviteException(true);
 export const meInviteExceptionsRemove = inviteException(false);
 
 export const meCommands = [
-  meProfileSet, meHandleCheck, meHandleChange, mePassword, meEmailChange, meEmailConfirm, meDelete, meDeleteConfirm,
+  meProfileShow, meProfileSet, meHandleCheck, meHandleChange, mePassword, meEmailChange, meEmailConfirm, meDelete, meDeleteConfirm,
   meDataRequests, meDataCopy, meDataDownload, meDataErase, meDataEraseCancel, meDataConfirm, meDataRectify,
   meOnboarding, meOnboardingStart, meOnboardingSkip, meOnboardingRecord, meInvitationLink, meInvitationLinkRenew, meInvitationLinkRead,
   meInteractions, mePosts, meReports, meInviteExceptionsAdd, meInviteExceptionsRemove,

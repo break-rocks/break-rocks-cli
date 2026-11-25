@@ -5,6 +5,21 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-25
+
+The new backend, native-sulfur, behind a backend switch (client port plan Q-5, Q-6; README § The new backend).
+
+### Added
+
+- The backend switch: `--backend legacy|sulfur`, `BREAKROCKS_BACKEND`, `config set backend`; the former backend stays the
+  default.
+- On the new backend: `login` by a device code (RFC 8628) or by an e-mail code in the terminal (`--email`, `--code`,
+  `--sign-up`), as the client `cli`; the tokens in the system keychain, else a 0600 file, never printed; the renewal
+  single-flight within the process and across processes (a lock file); `logout` (`--everywhere`), `whoami`, `me profile show`,
+  `me profile set --name --bio`, `posts feed`, `posts create "text" --in %universe`. Every other command that reaches the
+  platform answers `NOT_ON_NEW_BACKEND`.
+- `me profile show` on the former backend too (`me`: handle, display name, bio, links).
+
 ## [0.39.0] - 2026-11-22
 
 Specs v158.0.0 (`specs/common` pinned on that tag; D-514, D-515 of v157.0.0, D-516 of v158.0.0). `schema/api-v2` regenerated
