@@ -31,6 +31,7 @@ import * as exploreMap from './explore-map.js';
 import * as map from './map.js';
 import { myPlacesCommands } from './my-places.js';
 import { experiencesCommands } from './experiences.js';
+import { experienceRunCommands } from './experience-runs.js';
 import { linkCommands } from './links.js';
 import { navigationCommands } from './navigation.js';
 import { tourCommands } from './tour.js';
@@ -81,7 +82,7 @@ register(
   map.meetupsAnswer, map.meetupsChange, map.meetupsCancel,
   map.nearbyToken, map.nearbyRequest, map.nearbyRequests, map.nearbyAccept, map.nearbyDecline, map.nearbyLeave, map.nearbySightings, map.postsPlace,
   ...myPlacesCommands,
-  ...experiencesCommands, ...linkCommands,
+  ...experiencesCommands, ...experienceRunCommands, ...linkCommands,
   routes.routesList, routes.routesShow, routes.routesNearby, routes.routesCreate, routes.routesEdit, routes.routesDelete, routes.routesCopy, routes.routesGpxExport, routes.routesGpxImport, routes.routesPrivacyZones, routes.routesPrivacyZonesSet, routes.routesPlan, read.timeColumn, read.live, read.accountsShow, read.accountsFollowers, read.accountsFollowing, ...readingCommands, read.notifications,
   read.eventsList, publish.eventsCreate, publish.eventsAttend,
   read.proposalsList, publish.proposalsShow, publish.proposalsFile, publish.proposalsSupport, publish.proposalsVote, publish.proposalsWithdraw,

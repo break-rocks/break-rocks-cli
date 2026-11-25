@@ -148,3 +148,38 @@ describe('the server schema', () => {
     expect(r.status, r.stderr).toBe(0);
   });
 });
+
+describe('commands through the seam on the new backend', () => {
+  function cell(answers: (query: string, variables: Record<string, unknown>) => unknown) {
+    const sent: { query: string; variables: Record<string, unknown> }[] = [];
+    const fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, unknown> };
+      sent.push(body);
+      return Response.json({ data: answers(body.query, body.variables) });
+    }) as typeof globalThis.fetch;
+    const h = harness({ fetch, env: { BREAKROCKS_SULFUR_URL: 'https://sulfur.test', BREAKROCKS_BACKEND: 'sulfur' } });
+    saveSulfurSession(new Context(h.io, NO_FLAGS), { backend: 'sulfur', env: 'dev', cell: 'eu', accountId: 'eu_a', kind: 'untrusted', method: 'email', signedInAt: '2026-10-23T10:00:00.000Z', accessExpiresAt: '2026-10-23T11:00:00.000Z', storage: 'file', access: 'at', refresh: 'rt' });
+    return { h, sent };
+  }
+
+  it('records a measure of a run (submitExperienceMeasure), its input flattened', async () => {
+    const { h, sent } = cell(() => ({ submitExperienceMeasure: { id: 'run1', state: 'IN_PROGRESS' } }));
+    expect(await h.run('experiences', 'runs', 'measure', 'run1', '--value', '120', '--measured-at', '2026-11-25T10:00:00Z', '--final', '--json')).toBe(0);
+    expect(sent[0].query).toContain('submitExperienceMeasure(');
+    expect(sent[0].variables).toMatchObject({ input: { runId: 'run1', value: 120, final: true, measuredAt: '2026-11-25T10:00:00Z' } });
+  });
+
+  it('saves a place with its name and point read from its card (saveToMyPlaces, deviation 6c-1)', async () => {
+    const { h, sent } = cell((q) => (q.includes('placeCard') ? { placeCard: { name: 'Tour Eiffel', point: { lat: 48.85, lon: 2.29 } } } : { saveToMyPlaces: { id: 's1', kind: 'PLACE', name: 'Tour Eiffel' } }));
+    expect(await h.run('my-places', 'save', 'PLACE', 'N1', '--json')).toBe(0);
+    const save = sent.find((s) => s.query.includes('saveToMyPlaces('))!;
+    expect(save.variables).toMatchObject({ input: { kind: 'PLACE', targetId: 'N1', name: 'Tour Eiffel', point: { lat: 48.85, lon: 2.29 } } });
+  });
+
+  it('follows with follow(address), and answers the talc Follow', async () => {
+    const { h, sent } = cell((q) => (q.includes('follow(') ? { follow: { account: { id: 'eu_b' }, universes: [] } } : { accounts: [{ id: 'eu_b', handle: 'bob' }] }));
+    expect(await h.run('accounts', 'follow', '@bob', '--json')).toBe(0);
+    expect(sent[0]).toMatchObject({ variables: { a: '@bob' } });
+    expect(h.values.at(-1)).toMatchObject({ address: '@bob', account: { id: 'eu_b', handle: 'bob' } });
+  });
+});

@@ -20,7 +20,8 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
 - **Adapted**: an operation the server serves otherwise by design has an adapter (`src/sulfur/talc.ts` `ADAPTERS`) that asks
   the server's operation and answers the talc shape: `me` and `account` (the talc account read by `accounts(ids)`),
   `updateProfile` (`ProfileInput { name, bio, avatar }`), `setFollow` (`follow` / `unfollow`), `isFollowing` (`relations`),
-  `setBlock` (`block` / `unblock`), `setMute` (`mute` / `unmute`).
+  `setBlock` (`block` / `unblock`), `setMute` (`mute` / `unmute`), `saveToMyPlaces` (a place saved with its name and
+  point, read from its `placeCard`: deviation 6c-1).
 - **Media**: `requestUpload` (`src/sulfur/media.ts`): the kind (`image`, `clip` = a post's video of at most 3 minutes, `video`
   = a long video, horizontal, more than 3 minutes, `document`), the destination (`post`, `reply`, `quote` scoped by the
   universe's id; `avatar`; `playlist` scoped by the playlist), the SHA-256 of the file, and for a clip or a long video its
@@ -57,6 +58,10 @@ schema). None is worked around in the CLI.
 | `requestUpload(kind: video)` | A long video is refused to a free account | `SUBSCRIPTION_REQUIRED` | By design (D-454); billing is dormant, so no account of dev can post one: the long video path (single and in parts) is checked with a clip sent in parts. |
 | `follow(address: "%universe")` | A universe alone cannot be followed | `UNIVERSE_ALONE` | By design: one joins a universe; `accounts follow @handle` and `@handle%universe` work. |
 | `createPost` → `Post.author.displayName` | `""` for an account without a display name, where `Account.displayName` falls back to the handle (talc-deviations 1d) | — | Cosmetic. |
+| `createUniverseEvent` | Refused to a member who cannot vote yet: `RESIDENTS_ONLY` before joining, then `REQUIREMENT_NOT_MET` ("you cannot vote here yet": an account of 3 days and a membership of 1 day at the first level) | `REQUIREMENT_NOT_MET` | By design (governance levels). Dev was reset on 2026-11-25, so no account can create an event there before 2026-11-28; the CLI's request is fitted and reaches the server's rule. |
+| `startPlaceFeatRun`, `endPlaceFeatRun`, `publishFeat` | No place feat on dev (they are seeded by the back office): `placeFeats` and `mapPlaceFeats` answer `[]`, `publishFeat` of a challenge run `EXPERIENCE_INSTANCE_NOT_FOUND` | — | Not verifiable on dev until place feats are seeded. A challenge's run, its measures and its feat flag work. |
+| `startExperienceRun` (tournament, contest) | A tournament or a judged contest is run in a group instance only (`EXPERIENCE_RUN_PLACE_INVALID`) and names an edition (`EDITION_NAME_INVALID`) | — | `experiences runs start <id> --discussion '{"groupChatId":"…"}' --edition <name>`; by design. |
+| `createGroupChat(invite: [not connected])` | The group is created with the creator alone, the account not connected is left out without a word (no refusal, no invitation) | — | `inviteToGroupChat` refuses it (`NOT_CONNECTED`): connect first (`connections request`, `connections accept`). |
 | (posts) emoji reactions | Neither talc nor the server has a reaction on a post (likes and dislikes only); reactions are on messages | — | `posts like` / `posts dislike`; `messages react` for messages. |
 
 ## Commands
@@ -67,7 +72,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-629 commands: 542 work as they are, 21 through an adapter, 4 partly, 36 not available, 26 offline; 26 run against dev.
+648 commands: 560 work as they are, 22 through an adapter, 4 partly, 36 not available, 26 offline; 62 run against dev.
 
 #### account
 
@@ -271,13 +276,13 @@ deviations), which the command then reports with the server's code.
 | `posts repost-requests` | works |  | repostRequests |  |
 | `posts repost-requests accept` | works |  | answerRepostRequest |  |
 | `posts repost-requests decline` | works |  | answerRepostRequest |  |
-| `playlists hub` | works |  | playlistsHub |  |
+| `playlists hub` | works | yes | playlistsHub |  |
 | `playlists followed` | works |  | followedPlaylists |  |
-| `playlists show` | works |  | playlist |  |
-| `playlists create` | works |  | createPlaylist |  |
+| `playlists show` | works | yes | playlist |  |
+| `playlists create` | works | yes | createPlaylist |  |
 | `playlists edit` | works |  | updatePlaylist |  |
 | `playlists delete` | works |  | deletePlaylist |  |
-| `playlists add` | works |  | addToPlaylist |  |
+| `playlists add` | works | yes | addToPlaylist |  |
 | `playlists remove` | works |  | removeFromPlaylist |  |
 | `playlists move` | works |  | movePlaylistItem |  |
 | `playlists follow` | works |  | setPlaylistFollow |  |
@@ -357,20 +362,20 @@ deviations), which the command then reports with the server's code.
 | `messages direct read` | works |  | deleteMessage |  |
 | `messages direct delete` | works |  |  | no talc operation found by the scan: not checked |
 | `messages direct ephemeral` | works |  | setConversationEphemeral |  |
-| `messages groups create` | works |  | createGroupChat |  |
+| `messages groups create` | works | yes | createGroupChat |  |
 | `messages groups` | works |  | inbox |  |
 | `messages groups show` | works |  | groupChat |  |
 | `messages groups send` | works |  |  | no talc operation found by the scan: not checked |
 | `messages groups read` | works |  |  | no talc operation found by the scan: not checked |
-| `messages groups invite` | works |  | inviteToGroupChat |  |
+| `messages groups invite` | works | yes | inviteToGroupChat |  |
 | `messages groups leave` | works |  | leaveGroupChat |  |
 | `messages groups members` | works |  | groupChatMembers |  |
 | `messages groups admins` | works |  | groupChatMembers |  |
 | `messages groups admin-add` | works |  | setGroupChatAdmin |  |
 | `messages groups admin-remove` | works |  | setGroupChatAdmin |  |
 | `messages groups ephemeral` | works |  | setGroupChatEphemeral |  |
-| `messages groups invitations` | works |  | groupChatInvitations |  |
-| `messages groups accept` | works |  | answerGroupChatInvitation |  |
+| `messages groups invitations` | works | yes | groupChatInvitations |  |
+| `messages groups accept` | works | yes | answerGroupChatInvitation |  |
 | `messages groups decline` | works |  | answerGroupChatInvitation |  |
 | `messages settings` | works |  | mySettings |  |
 | `messages settings set` | works |  | setSettings |  |
@@ -444,10 +449,10 @@ deviations), which the command then reports with the server's code.
 
 | Command | On sulfur | Dev | Operations | Note |
 |---|---|---|---|---|
-| `map places search` | works |  | places |  |
+| `map places search` | works | yes | places |  |
 | `map boundary` | works |  |  | no talc operation found by the scan: not checked |
 | `map routes` | works |  | mapRouteMarkers |  |
-| `map posts` | works |  | mapPosts |  |
+| `map posts` | works | yes | mapPosts |  |
 | `map places` | works |  | mapRecentPlaces |  |
 | `map place-feats` | works |  | mapPlaceFeats |  |
 | `map place-card` | works |  | placeCard |  |
@@ -478,9 +483,9 @@ deviations), which the command then reports with the server's code.
 | `map nearby decline` | works |  | answerNearbyConnection |  |
 | `map nearby leave` | works |  | leaveNearby |  |
 | `map nearby sightings` | works |  | recordNearbySightings |  |
-| `my-places list` | works |  | myPlaces |  |
+| `my-places list` | works | yes | myPlaces |  |
 | `my-places show` | works |  | mySavedItem |  |
-| `my-places save` | works |  | saveToMyPlaces |  |
+| `my-places save` | adapted | yes | saveToMyPlaces | adapted: saveToMyPlaces |
 | `my-places edit` | works |  | updateSavedItem |  |
 | `my-places remove` | works |  | removeSavedItem |  |
 | `my-places clear` | works |  | clearMyPlaces |  |
@@ -513,13 +518,32 @@ deviations), which the command then reports with the server's code.
 | `experiences show` | works |  | experience |  |
 | `experiences export` | works |  | experience, checkExperience |  |
 | `experiences check` | works |  | checkExperience, updateExperience, createExperience, publishExperience, experiences |  |
-| `experiences import` | works |  | createExperience |  |
+| `experiences import` | works | yes | createExperience |  |
 | `experiences prompt` | offline |  |  | no platform request |
+| `experiences kinds` | works | yes | experienceKinds |  |
+| `experiences publish` | works | yes | publishExperience |  |
+| `experiences runs start` | works | yes | startExperienceRun |  |
+| `experiences runs join` | works | yes | joinExperienceRun |  |
+| `experiences runs leave` | works | yes | leaveExperienceRun |  |
+| `experiences runs measure` | works | yes | submitExperienceMeasure |  |
+| `experiences runs end` | works | yes | endExperienceRun |  |
+| `experiences runs show` | works | yes | experienceRun |  |
+| `experiences runs list` | works | yes | myExperienceRuns |  |
+| `experiences runs ranking` | works | yes | experienceRunRanking |  |
+| `experiences runs draw` | works | yes | drawTournament |  |
+| `experiences runs tournament` | works | yes | actOnTournament |  |
+| `experiences runs contest` | works | yes | actOnContest |  |
+| `experiences runs entries` | works | yes | contestEntries |  |
+| `experiences feats list` | works | yes | myFeats |  |
+| `experiences feats at` | works | yes | placeFeats |  |
+| `experiences feats start` | works |  | startPlaceFeatRun |  |
+| `experiences feats end` | works |  | endPlaceFeatRun |  |
+| `experiences feats publish` | works | yes | publishFeat |  |
 | `experiences prefill keys` | offline |  |  | no platform request |
 | `experiences prefill build` | works |  |  | no talc operation found by the scan: not checked |
 | `experiences prefill open` | works |  |  | no talc operation found by the scan: not checked |
-| `events list` | works |  | universeEvents |  |
-| `events create` | works |  | createUniverseEvent |  |
+| `events list` | works | yes | universeEvents |  |
+| `events create` | works | yes | createUniverseEvent |  |
 | `events attend` | works |  | attendUniverseEvent |  |
 | `events support` | works |  | supportUniverseEvent |  |
 | `events change` | works |  | changeUniverseEvent |  |
@@ -529,7 +553,7 @@ deviations), which the command then reports with the server's code.
 | `events relay support` | works |  | supportEventRelay |  |
 | `events relay remove` | works |  | removeEventRelay |  |
 | `events relays proposals` | works |  | eventRelayProposals |  |
-| `events catalog` | works |  | eventCatalog |  |
+| `events catalog` | works | yes | eventCatalog |  |
 
 #### governance
 
@@ -692,12 +716,12 @@ deviations), which the command then reports with the server's code.
 | `accounts following` | works |  | following |  |
 | `accounts replies` | works |  | replies |  |
 | `accounts is-following` | adapted | yes | isFollowing | adapted: isFollowing |
-| `connections request` | works |  | requestConnection |  |
-| `connections accept` | works |  | answerConnectionRequest |  |
+| `connections request` | works | yes | requestConnection |  |
+| `connections accept` | works | yes | answerConnectionRequest |  |
 | `connections decline` | works |  | answerConnectionRequest |  |
 | `connections remove` | works |  | removeConnection |  |
 | `connections list` | works |  | myAccounts |  |
-| `connections requests` | works |  | connectionRequests |  |
+| `connections requests` | works | yes | connectionRequests |  |
 | `connections state` | works |  | connectionStates |  |
 | `connections mine` | works |  | myConnections |  |
 

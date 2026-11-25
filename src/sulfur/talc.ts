@@ -117,6 +117,18 @@ export const ADAPTERS: Record<string, Adapter> = {
     await sulfurApi(ctx, `mutation($id: ID!) { ${call.args.muted === false ? 'unmute' : 'mute'}(accountId: $id) }`, { id });
     return connectionState(await relation(ctx, id), id);
   },
+  // 6c-1: a place is saved with its name and point (talc: its id alone), read from its card (placeCard).
+  saveToMyPlaces: async (ctx, call) => {
+    const input = { ...((call.args.input ?? {}) as Json) };
+    if (input.kind === 'PLACE' && (typeof input.name !== 'string' || !input.point)) {
+      const card = (await sulfurApi<{ placeCard: { name: string; point: { lat: number; lon: number } } | null }>(ctx, 'query($id: String!) { placeCard(placeId: $id) { name point { lat lon } } }', { id: String(input.targetId ?? '') })).placeCard;
+      if (!card) throw platformRefusal('MY_PLACES_TARGET_INVALID', 'No such place (placeCard)');
+      input.name = card.name;
+      input.point = { lat: card.point.lat, lon: card.point.lon };
+    }
+    const doc = `mutation($input: SaveToMyPlacesInput!, $requestId: ID!) { saveToMyPlaces(input: $input, requestId: $requestId) ${call.selection || '{ id }'} }`;
+    return (await runServed(ctx, doc, { input, requestId: call.args.requestId })).saveToMyPlaces;
+  },
 };
 
 /** The selection of the field [name] inside [selection] ("{ account { id } address }" → "{ id }"), or "". */
