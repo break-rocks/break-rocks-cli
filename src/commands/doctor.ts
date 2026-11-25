@@ -3,6 +3,7 @@
 // (the fields of the contract the CLI was built with that the deployed API lacks, read by
 // introspection: the cause of a command refused with "FieldUndefined"). Text, or JSON with --json; an MCP tool.
 import { SCHEMA } from '../api/schema.generated.js';
+import { NOT_ON_FORMER_BACKEND } from '../api/degrade.js';
 import { paint } from '../colour.js';
 import type { Context } from '../context.js';
 import { asCliError } from '../errors.js';
@@ -75,6 +76,9 @@ export function schemaDrift(deployed: Introspected): { fields: string[]; depreca
   const operations = missing.splice(0);
   for (const [name, type] of Object.entries(SCHEMA.types)) if ((type.k === 'o' || type.k === 'i') && type.f) compare(name, Object.keys(type.f));
   const deprecated = new Set(SCHEMA.deprecated ?? []);
+  // The fields the former backend never serves (the new backend's): never asked there, so no drift.
+  const never = new Set(NOT_ON_FORMER_BACKEND.map((u) => `${u.type}.${u.field}`));
+  for (let i = missing.length - 1; i >= 0; i--) if (never.has(missing[i])) missing.splice(i, 1);
   // An operation the contract deprecates and the API no longer serves: no command calls it (test/api.test.ts), a deprecated field among the others.
   return { fields: missing.filter((f) => !deprecated.has(f)), deprecatedFields: [...operations.filter((f) => deprecated.has(f)), ...missing.filter((f) => deprecated.has(f))], operations: operations.filter((f) => !deprecated.has(f)) };
 }

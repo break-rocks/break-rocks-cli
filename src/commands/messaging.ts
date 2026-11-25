@@ -140,9 +140,16 @@ export const groupsCreate: Command<{ name: string; accounts?: string[]; descript
   output: openObject({ group: outputSchema('GroupChat', 1), refused: list('Invitations refused', openObject({ accountId: str('Account'), code: str('Code') })) }), args: { positionals: ['name', 'accounts'] },
   run: async (ctx, i) => {
     const invite = await Promise.all((i.accounts ?? []).map((a) => accountIdOf(ctx, a)));
-    const r = await api<{ createGroupChat: unknown; _errors?: { errorType?: string; errorInfo?: { refused?: unknown[] } }[] }>(ctx, `mutation($n: String!, $d: String, $i: [ID!], $r: ID!) { createGroupChat(name: $n, description: $d, invite: $i, requestId: $r) ${selection('GroupChat', 1)} }`, { n: i.name, d: i.description ?? null, i: invite, r: uuidv7(ctx.now()) }, { partial: true });
-    const refused = r._errors?.find((e) => e.errorType === 'GROUP_INVITATIONS_REFUSED')?.errorInfo?.refused ?? [];
+    const r = await api<{ createGroupChat: unknown; _errors?: { errorType?: string; errorInfo?: unknown }[] }>(ctx, `mutation($n: String!, $d: String, $i: [ID!], $r: ID!) { createGroupChat(name: $n, description: $d, invite: $i, requestId: $r) ${selection('GroupChat', 1)} }`, { n: i.name, d: i.description ?? null, i: invite, r: uuidv7(ctx.now()) }, { partial: true });
+    // The group is made; the invitations refused come beside it (a partial answer, on either backend): told, never lost.
+    const info = r._errors?.find((e) => e.errorType === 'GROUP_INVITATIONS_REFUSED')?.errorInfo as { refused?: unknown[] } | string | undefined;
+    const parsed = typeof info === 'string' ? (() => { try { return JSON.parse(info) as { refused?: unknown[] }; } catch { return undefined; } })() : info;
+    const refused = parsed?.refused ?? [];
     return { group: r.createGroupChat, refused };
+  },
+  text: (r) => {
+    const { group, refused } = r as { group?: { id?: string; name?: string } | null; refused: { accountId?: string; code?: string }[] };
+    return [`Group ${group?.name ?? ''} created${group?.id ? ` (${group.id})` : ''}`, ...refused.map((x) => `invitation refused: ${x.accountId ?? '?'} (${x.code ?? 'refused'})`)].join('\n');
   },
   quiet: (r) => (r as { group?: { id?: string } }).group?.id,
 };

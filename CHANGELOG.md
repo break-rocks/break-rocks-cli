@@ -5,7 +5,7 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
-## [0.44.0] - 2026-11-25
+## [0.44.0] - 2026-11-26
 
 ### Added
 
@@ -21,6 +21,34 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
   `errorInfo { days, minutes, at }` ("You can vote here from <at>: an account of 1 day is required"; the recipient of
   `governance lend-votes` named by `accountId`), on both backends; `--json` keeps the code and `errorInfo`. The new
   backend's refusals now keep `extensions.errorInfo` as `errorInfo` in `--json`.
+- New backend: adapters for `messages quick-poll` (the discussion by its id), `messages vote` and `unvote` (with
+  `--discussion`, as the other message operations) and `look themes delete` (the theme read by its universe and name,
+  deleted by its id); `scripts/sulfur-table.ts` counts an operation whose server arguments talc lacks as not available
+  without an adapter, and `--check` keeps docs/sulfur.md current (tested).
+- New backend: `messages groups create` keeps the group when the server answers it with refused invitations beside it
+  (`GROUP_INVITATIONS_REFUSED`, a partial answer), and tells each one.
+
+### Fixed
+
+- The former backend is never asked for the fields only the new one serves (the vote requirement in minutes): the
+  document is sent without them, once, and answers them `null`; `doctor` sees no `SCHEMA_DRIFT` and no "backend is
+  behind" warning for them.
+- New backend: a session of another environment than the one asked is refused (`ENV_MISMATCH`) before any request, and
+  `login` keeps the profile as a person's (`kind: human`), so another `--env` with it is refused too.
+- New backend: an agent's session keeps its agent id (another agent signs in again); the BREAKROCKS_* variables or an
+  agent's key beside a human's profile or session are refused (`PROFILE_HOLDS_HUMAN`); `login` refuses an agent's profile
+  (`PROFILE_HOLDS_AGENT_ACCOUNT`) and the agent variables; `--handle` without `--email` is refused before any browser or code.
+- `breakrocks --backend sulfur mcp` serves its tools on the new backend; `batch` runs each line on a context of its own
+  and with the command of the backend (its stand-in, its refusal).
+- New backend: `isFollowing` reads the server's path keys (no `%`) by scope, `null` when the relation cannot tell; a
+  follow's `createdAt` is `null` (never this device's time); `false` and `""` are values in the fit of a document (refused
+  where the server takes no such argument); a universe's `image` is its `shownImage`, a media id answered where talc answers
+  an `Image` becomes the `Image` of that id; `usage` and `me capabilities` say who acts from the session (human, delegated
+  agent, operator); a resumed upload in parts keeps its parts on a network error; a delegated agent posts a video without
+  `--license` (the server takes none at upload yet); `doctor` signs an agent in with its key when it has no session file;
+  an agent's assertion is dated 30 seconds back.
+- `npm run e2e:sulfur` checks the results of join, leave, unfollow and delete by reading them back, waits for a post's
+  publication before replying, and checks a group, a quick poll and the environment guard.
 
 ## [0.43.0] - 2026-11-25
 

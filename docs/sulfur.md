@@ -13,15 +13,31 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
 - **Served as is**: the document is fitted to the schema the server serves (`src/sulfur/fit.ts`; the schema copied in
   `schema/sulfur/server.graphql` and compacted in `src/sulfur/schema.generated.ts` by `npm run update:sulfur-schema`, from
   the server checkout `../server`): a field the server's type lacks is left out and answered `null` (`[]` where talc answers
-  a list); an argument the server does not take is left out when the command gave it no value, and refused with
-  `NOT_ON_NEW_BACKEND` when it did (never sent without it); a variable is declared with the server's type of its argument
+  a list); an argument the server does not take is left out when the command gave it no value (`null`, or an empty
+  list), and refused with `NOT_ON_NEW_BACKEND` when it did, `false` and `""` included (never sent without it); a variable is declared with the server's type of its argument
   (an enum the server takes as a `String`, an optional `requestId`); the fields of an input the server lacks are left out
-  when empty, refused when given.
+  when empty, refused when given. Talc's `Universe.image` (an `Image`) is asked as the server's `shownImage`; an `image` the
+  server answers as a media id where talc answers an `Image` (`MyUniverse.image`, `GroupChat.image`) comes back as the
+  `Image` of that id, its other fields `null` (`[]` for a list).
 - **Adapted**: an operation the server serves otherwise by design has an adapter (`src/sulfur/talc.ts` `ADAPTERS`) that asks
   the server's operation and answers the talc shape: `me` and `account` (the talc account read by `accounts(ids)`),
-  `updateProfile` (`ProfileInput { name, bio, avatar }`), `setFollow` (`follow` / `unfollow`), `isFollowing` (`relations`),
-  `setBlock` (`block` / `unblock`), `setMute` (`mute` / `unmute`), `saveToMyPlaces` (a place saved with its name and
-  point, read from its `placeCard`: deviation 6c-1).
+  `updateProfile` (`ProfileInput { name, bio, avatar }`), `setFollow` (`follow` / `unfollow`; the server's `Following`
+  has no date: `createdAt` is `null`), `isFollowing` (`relations`, below), `setBlock` (`block` / `unblock`), `setMute`
+  (`mute` / `unmute`), `saveToMyPlaces` (a place saved with its name and point, read from its `placeCard`: deviation
+  6c-1), `sendQuickPoll` (the discussion by its id: a group chat's id, `dm.<the two account ids, sorted>` for a
+  conversation, a universe discussion's read by `universeDiscussion(address)`), `voteOnContribution` and
+  `withdrawContributionVote` (with `--discussion`, as the messages below), `deleteTheme` (the theme read by
+  `theme(universe, name)`, deleted by its id; the answer is the theme as it was, `deleted: true`).
+- **isFollowing**: the server's `relations` tells `follows` (any follow) and `universes`, the path keys of the scoped
+  follows (no `%`; each level case-folded and mapped through the Unicode confusables: `games` is `garnes`), never the
+  everywhere follow. So `accounts is-following @bob` is `true` when Bob is followed and no universe is listed, `@bob%paris`
+  is `true` when Paris is listed or the follow is everywhere, `false` when Bob is not followed; and `null` when the
+  relation cannot tell (Bob followed in universes, asked everywhere or in another universe: the everywhere follow may be
+  there too; a universe name beyond ASCII, which the CLI cannot key). A server field `everywhere` on `Relation` would
+  remove the `null`.
+- **Groups**: `messages groups create` with an account not connected: the server makes the group and answers the
+  refused invitations beside it (a partial answer: `GROUP_INVITATIONS_REFUSED`, `errorInfo.refused`): the CLI keeps the
+  group and tells each invitation refused (`refused` in `--json`).
 - **Media**: `requestUpload` (`src/sulfur/media.ts`): the kind (`image`, `clip` = a post's video of at most 3 minutes, `video`
   = a long video, horizontal, more than 3 minutes, `document`), the destination (`post`, `reply`, `quote` scoped by the
   universe's id; `avatar`; `playlist` scoped by the playlist), the SHA-256 of the file, and for a clip or a long video its
@@ -39,10 +55,23 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   <name>`, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY) or an agent operator signs an EdDSA
   assertion (`kid`: the SHA-256 of its raw public key; `iss` = `sub` = its id; `aud`: the cell's token endpoint; 2 minutes;
   a `jti`) exchanged at `/oauth/token` (`jwt-bearer`) for a token acting for its owner; every command does it by itself and
-  again when the token ends (no refresh token). `whoami` says `delegated-agent` and its `agentId`.
-- **Messages**: the server names a message by its discussion (D-628): `messages react`, `unreact`, `thread` and
-  `reply-thread` take `--discussion <id>` there (and `--thread-root`); the answers of the message reads carry
-  `discussion.id`.
+  again when the token ends (no refresh token), `iat` 30 seconds back (a clock a little ahead of the server's). `whoami`,
+  `usage` and `me capabilities` say who acts from the session: `human`, `delegated-agent` (its `agentId`) or `operator`.
+  The session keeps the id of the agent that signed it in: another agent in the same profile signs in again, never with
+  its token. An agent is never signed into a human's session file: the BREAKROCKS_* variables (or the key of an agent's
+  profile) beside a profile holding a human, or beside a human's session, are refused with `PROFILE_HOLDS_HUMAN`; a person
+  signs in (`login`) neither into an agent's profile (`PROFILE_HOLDS_AGENT_ACCOUNT`) nor with those variables set.
+  `doctor` signs an agent in with its key when it has no session yet. A delegated agent posts a video there without
+  `--license`: the server takes no media license at upload yet (a license given is refused, `NOT_ON_NEW_BACKEND`), so the
+  former backend's `MEDIA_LICENSE_REQUIRED` is not asked there.
+- **Environment**: a session is of one environment. `login` keeps the profile as a person's (`kind: human`) with its
+  environment, so another `--env` with it is refused (`ENV_MISMATCH`, exit 2); a session of another environment than the one
+  asked is refused the same way, before any request: a command for dev never reaches prod with a session of prod.
+- **MCP and batch**: `breakrocks --backend sulfur mcp` serves every tool on the new backend (as `--profile`, `--env` and
+  `--agent`); `batch` runs each line on the backend of its run (its stand-in, or its refusal there).
+- **Messages**: the server names a message by its discussion (D-628): `messages react`, `unreact`, `thread`,
+  `reply-thread`, `vote` and `unvote` take `--discussion <id>` there (and `--thread-root`); the answers of the message
+  reads carry `discussion.id`. `messages quick-poll` names its discussion as everywhere (`--with`, `--group`, `--channel`).
 
 ## For automation (several personas)
 
@@ -70,7 +99,6 @@ schema). None is worked around in the CLI.
 | `createUniverseEvent` | Refused to a member who cannot vote yet: `RESIDENTS_ONLY` before joining, then, since the server's D-659 revision, `VOTE_ACCOUNT_TOO_RECENT` or `VOTE_JOINED_TOO_RECENTLY` with `errorInfo { days, minutes, at }` (at the first level, the group of friends, an account of 1 day and a membership of 1 day, in every environment; it was 3 days and 1 day) | `VOTE_ACCOUNT_TOO_RECENT`, `VOTE_JOINED_TOO_RECENTLY` | By design (governance levels). The CLI tells "You can vote here from <at>: …" and keeps the code and `errorInfo` in `--json`; `universes residences` tells where the resident stands ("account 0 of 1 day"). |
 | `startPlaceFeatRun`, `endPlaceFeatRun`, `publishFeat` | No place feat on dev (they are seeded by the back office): `placeFeats` and `mapPlaceFeats` answer `[]`, `publishFeat` of a challenge run `EXPERIENCE_INSTANCE_NOT_FOUND` | — | Not verifiable on dev until place feats are seeded. A challenge's run, its measures and its feat flag work. |
 | `startExperienceRun` (tournament, contest) | A tournament or a judged contest is run in a group instance only (`EXPERIENCE_RUN_PLACE_INVALID`) and names an edition (`EDITION_NAME_INVALID`) | — | `experiences runs start <id> --discussion '{"groupChatId":"…"}' --edition <name>`; by design. |
-| `createGroupChat(invite: [not connected])` | The group is created with the creator alone, the account not connected is left out without a word (no refusal, no invitation) | — | `inviteToGroupChat` refuses it (`NOT_CONNECTED`): connect first (`connections request`, `connections accept`). |
 | `createPost` (and every post) with an agent's token (RFC 7523, `act.sub` = the agent) | The post is created, but its `author` is a tombstone (`handle: ""`, `deleted: true`) and it carries no agent mark (`via: null`, `ai: false`, `automated: false`) | — | Server bug: an agent's post must show its owner's card with the agent mark. |
 | `reactToMessage(discussionId: <group chat>)` | A message of a group chat answers `MESSAGE_NOT_FOUND` | `MESSAGE_NOT_FOUND` | Reactions and threads are for universe discussions (talc; `replyInThread` says so with `THREAD_NOT_ALLOWED`); a clearer refusal than "not found" would help. Universe discussions are opened by the governance (`LEADERSHIP_ONLY`), so not verifiable with new accounts on dev. |
 | `buyGiftCode`, `billingPortal` | Answer a payment page (the Stripe sandbox of dev): billing is not dormant there | — | The CLI opens nothing without `--yes`; no payment was made. |
@@ -80,12 +108,12 @@ schema). None is worked around in the CLI.
 ## Commands
 
 Generated by `npx tsx scripts/sulfur-table.ts --write` from the code (the operations each command sends, checked against
-the server's schema and the adapters); **Dev** marks the commands run against dev on 2026-11-25 (`scripts/sulfur-verified.ts`): they did what they say, or met a refusal of the server listed above. "works"
+the server's schema and the adapters); **Dev** marks the commands run against dev (last on 2026-11-26, `scripts/sulfur-verified.ts`): they did what they say, or met a refusal of the server listed above. "works"
 means the server serves every operation the command sends under its talc name: the server may still refuse a case (its
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-648 commands: 558 work as they are, 26 through an adapter, 4 partly, 34 not available, 26 offline; 128 run against dev.
+648 commands: 554 work as they are, 30 through an adapter, 4 partly, 34 not available, 26 offline; 129 run against dev.
 
 #### account
 
@@ -407,7 +435,7 @@ deviations), which the command then reports with the server's code.
 | `messages unpin` | works |  | setPinnedMessage |  |
 | `messages silence` | works |  | setDiscussionSilence |  |
 | `messages unsilence` | works |  | setDiscussionSilence |  |
-| `messages quick-poll` | works |  | sendQuickPoll | arguments not taken (refused when given): sendQuickPoll(discussion) |
+| `messages quick-poll` | adapted | yes | sendQuickPoll | adapted: sendQuickPoll |
 | `messages quick-poll-pick` | works |  | pickQuickPollChoice |  |
 | `discussions list` | works | yes | universeDiscussions |  |
 | `discussions show` | works |  | universeDiscussion |  |
@@ -450,8 +478,8 @@ deviations), which the command then reports with the server's code.
 | `messages remove-discussion` | works |  | removeDiscussionFromMessages |  |
 | `messages block-universe` | works |  | setUniverseBlockedInMessages |  |
 | `messages unblock-universe` | works |  | setUniverseBlockedInMessages |  |
-| `messages vote` | works |  | voteOnContribution |  |
-| `messages unvote` | works |  | withdrawContributionVote |  |
+| `messages vote` | adapted |  | voteOnContribution | adapted: voteOnContribution |
+| `messages unvote` | adapted |  | withdrawContributionVote | adapted: withdrawContributionVote |
 | `messages react` | adapted | yes | reactToMessage | adapted: reactToMessage |
 | `messages unreact` | adapted |  | unreactToMessage | adapted: unreactToMessage |
 | `messages thread` | adapted | yes | threadMessages | adapted: threadMessages |
@@ -674,7 +702,7 @@ deviations), which the command then reports with the server's code.
 | `look personal saved` | not available | yes | personalThemes | not served: personalThemes |
 | `look themes export` | partly |  | themeCatalog, (former hosts) | not served: the former backend's session or agents host |
 | `look themes shots` | works |  | themeCatalog |  |
-| `look themes delete` | works |  | deleteTheme | arguments not taken (refused when given): deleteTheme(name, universe) |
+| `look themes delete` | adapted |  | deleteTheme | adapted: deleteTheme |
 | `look layouts list` | works |  | layoutCatalog |  |
 | `look layouts show` | works |  | layout |  |
 | `look layouts check` | works |  | checkLayout, themeCatalog |  |

@@ -153,13 +153,16 @@ export function actsAsDelegatedAgent(ctx: Context): boolean {
  * --license and --attribution checked as the platform checks them, before anything is sent: a media license for
  * the video of a post, a reply or a quote only, an attribution with a media license only (MEDIA_LICENSE_NOT_ALLOWED);
  * at most 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG); required for CC BY and CC BY-SA
- * (MEDIA_ATTRIBUTION_REQUIRED); and from a delegated agent, a media license for every video (MEDIA_LICENSE_REQUIRED).
+ * (MEDIA_ATTRIBUTION_REQUIRED); and from a delegated agent, a media license for every video (MEDIA_LICENSE_REQUIRED), on the
+ * former backend only: the new one takes no license at upload yet.
  */
 export function checkLicense(ctx: Context, given: { license?: string; attribution?: string }, hasVideo: boolean): LicenseChoice | undefined {
   const attribution = given.attribution?.trim() || undefined;
   if (given.license === undefined) {
     if (attribution) throw usageError('MEDIA_LICENSE_NOT_ALLOWED', 'An attribution goes with a media license: give --license too');
-    if (hasVideo && actsAsDelegatedAgent(ctx)) throw usageError('MEDIA_LICENSE_REQUIRED', `A delegated agent declares the media license of every video it posts: --license ${MEDIA_LICENSES.join('|')} (with --attribution "<author, source>" for CC_BY and CC_BY_SA)`);
+    // The new backend takes no media license at upload yet (sulfurMedia refuses one): a delegated agent posts its video
+    // without it there, or it could post none (docs/sulfur.md § Agents).
+    if (hasVideo && ctx.backend() !== 'sulfur' && actsAsDelegatedAgent(ctx)) throw usageError('MEDIA_LICENSE_REQUIRED', `A delegated agent declares the media license of every video it posts: --license ${MEDIA_LICENSES.join('|')} (with --attribution "<author, source>" for CC_BY and CC_BY_SA)`);
     return undefined;
   }
   const license = licenseOf(given.license);

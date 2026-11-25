@@ -75,6 +75,61 @@ async function accountId(ctx: Context, value: unknown): Promise<string> {
   return found.id;
 }
 
+/** A follow address as the server reads it (social-graph/following.feature): `@bob`, `@bob%paris/sport`, `%paris@bob`. */
+export function splitFollowAddress(address: string): { handle: string; path: string | null } {
+  const a = address.trim();
+  const m = /^@([^%@]+)(?:%([^%@]+))?$/u.exec(a) ?? /^%([^%@]+)@([^%@]+)$/u.exec(a);
+  if (!m) throw usageError('BAD_ADDRESS', `Not a follow address: "${address}" (@handle, @handle%universe)`);
+  const [handle, path] = a.startsWith('@') ? [m[1], m[2]] : [m[2], m[1]];
+  // "@bob%root" is "@bob".
+  return { handle, path: path && pathKeyOf(path) !== 'root' ? path : null };
+}
+
+/**
+ * The server's path key of a universe path (server src/core/graph/scopes.ts: each level canonical, NFC and case-folded,
+ * mapped through the Unicode confusables, escaped for `%`, `#` and `~`). The CLI has the confusables of the characters a
+ * universe name of ASCII letters and digits can hold (0 → o, 1 → l, m → rn); a level outside them is undefined (unknown).
+ */
+export function pathKeyOf(path: string): string | undefined {
+  const canonical = (t: string) => t.normalize('NFC').toLowerCase().normalize('NFC');
+  const levels = path.replace(/^%/, '').split('/');
+  if (!levels.every((l) => /^[\x21-\x7e]+$/.test(l))) return undefined;
+  const ascii: Record<string, string> = { '0': 'o', '1': 'l', m: 'rn', '|': 'l', '`': "'", '"': "''" };
+  return levels.map((l) => canonical([...canonical(l)].map((c) => ascii[c] ?? c).join('')).replace(/[%#~]/g, (c) => (c === '%' ? '%25' : c === '#' ? '%23' : '%7E'))).join('/');
+}
+
+/**
+ * Whether a relation (server `relations`: `follows` for any follow, `universes` the path keys of the scoped ones, never the
+ * everywhere one) follows the account in [path] (null: everywhere). An everywhere follow covers every universe. When the
+ * relation cannot tell (scoped follows only and the everywhere one asked, a universe not among them, a name the CLI
+ * cannot key): null, never a guess.
+ */
+export function followScope(r: { follows: boolean; universes: string[] } | undefined, path: string | null): boolean | null {
+  if (!r?.follows) return false;
+  const scoped = r.universes ?? [];
+  // No scope listed: the follow is the everywhere one.
+  if (!scoped.length) return true;
+  if (path === null) return null;
+  const key = pathKeyOf(path);
+  if (key !== undefined && scoped.includes(key)) return true;
+  return null;
+}
+
+/** The discussion id of a talc DiscussionRefInput (a conversation, a group chat, a universe discussion). */
+async function discussionIdOf(ctx: Context, ref: Json): Promise<string> {
+  if (typeof ref.groupChatId === 'string' && ref.groupChatId) return ref.groupChatId;
+  if (typeof ref.accountId === 'string' && ref.accountId) {
+    const other = await accountId(ctx, ref.accountId);
+    return ['dm', ...[myId(ctx), other].sort()].join('.');
+  }
+  if (typeof ref.channel === 'string' && ref.channel) {
+    const d = (await sulfurApi<{ universeDiscussion: { id: string } | null }>(ctx, 'query($a: String) { universeDiscussion(address: $a) { id } }', { a: ref.channel })).universeDiscussion;
+    if (!d) throw platformRefusal('CHANNEL_NOT_FOUND', `No universe discussion ${ref.channel}`);
+    return d.id;
+  }
+  throw usageError('DISCUSSION_REQUIRED', 'Name the discussion: --with, --group or --channel');
+}
+
 const relation = async (ctx: Context, id: string) => (await sulfurApi<{ relations: { follows: boolean; blocked: boolean; blockedBy: boolean; muted: boolean; connected: boolean }[] }>(ctx, 'query($ids: [ID!]!) { relations(ids: $ids) { accountId follows blocked blockedBy muted connected } }', { ids: [id] })).relations[0];
 
 /** The talc ConnectionState of a relation (setBlock, setMute answer it). */
@@ -110,21 +165,22 @@ export const ADAPTERS: Record<string, Adapter> = {
     await sulfurApi(ctx, 'mutation($input: ProfileInput!) { updateProfile(input: $input) { id } }', { input: out });
     return talcAccount(ctx, myId(ctx), call.selection);
   },
-  // 1d: `follow(address)` / `unfollow(address)` (talc: setFollow(following)); the talc Follow read from the answer.
+  // 1d: `follow(address)` / `unfollow(address)` (talc: setFollow(following)); the talc Follow read from the answer. The
+  // server's Following has no date: createdAt is null (never the time of this device).
   setFollow: async (ctx, call) => {
     const address = String(call.args.address ?? '');
     if (call.args.following === false) { await sulfurApi(ctx, 'mutation($a: String!) { unfollow(address: $a) }', { a: address }); return null; }
     const out = (await sulfurApi<{ follow: { account: { id: string }; universes: string[] } }>(ctx, 'mutation($a: String!) { follow(address: $a) { account { id } universes } }', { a: address })).follow;
     const universe = address.includes('%') ? address.slice(address.indexOf('%')) : null;
-    return { address, universe, createdAt: new Date(ctx.now()).toISOString(), account: await talcAccount(ctx, out.account.id, subSelection(call.selection, 'account')) };
+    return { address, universe, createdAt: null, account: await talcAccount(ctx, out.account.id, subSelection(call.selection, 'account')) };
   },
-  // 1d: `relations(ids)` (talc: isFollowing(address)); an account's address only (@handle, @handle%universe).
+  // 1d: `relations(ids)` (talc: isFollowing(address)); an account's address only (@handle, @handle%universe), see followScope.
   isFollowing: async (ctx, call) => {
     const address = String(call.args.address ?? '');
-    if (!address.startsWith('@')) throw notServed('isFollowing(%universe)', 'a universe is followed by joining it there');
-    const at = address.indexOf('%');
-    const r = (await sulfurApi<{ relations: { follows: boolean; universes: string[] }[] }>(ctx, 'query($ids: [ID!]!) { relations(ids: $ids) { follows universes } }', { ids: [await accountId(ctx, at < 0 ? address : address.slice(0, at))] })).relations[0];
-    return at < 0 ? !!r?.follows : !!r?.follows || !!r?.universes.includes(address.slice(at));
+    if (!address.startsWith('@') && !/^%[^@%]+@[^@%]+$/.test(address)) throw notServed('isFollowing(%universe)', 'a universe is followed by joining it there');
+    const { handle, path } = splitFollowAddress(address);
+    const r = (await sulfurApi<{ relations: { follows: boolean; universes: string[] }[] }>(ctx, 'query($ids: [ID!]!) { relations(ids: $ids) { follows universes } }', { ids: [await accountId(ctx, `@${handle}`)] })).relations[0];
+    return followScope(r, path);
   },
   // 1d: `block` / `unblock` (talc: setBlock(blocked)).
   setBlock: async (ctx, call) => {
@@ -143,6 +199,26 @@ export const ADAPTERS: Record<string, Adapter> = {
   unreactToMessage: onMessage('unreactToMessage'),
   threadMessages: onMessage('threadMessages'),
   replyInThread: onMessage('replyInThread'),
+  // The contribution votes of a temporary universe discussion: named by its discussion too (`--discussion`).
+  voteOnContribution: onMessage('voteOnContribution'),
+  withdrawContributionVote: onMessage('withdrawContributionVote'),
+  // A quick poll is sent to a discussion by its id (talc: a DiscussionRefInput): a group chat's id is its discussion's,
+  // a conversation's is `dm.<the two account ids, sorted>`, a universe discussion's is read by its address.
+  sendQuickPoll: async (ctx, call) => {
+    const discussionId = await discussionIdOf(ctx, (call.args.discussion ?? {}) as Json);
+    const doc = `mutation($d: ID!, $q: String!, $c: [String!]!, $r: ID!) { sendQuickPoll(discussionId: $d, question: $q, choices: $c, requestId: $r) ${call.selection || '{ id }'} }`;
+    return (await runServed(ctx, doc, { d: discussionId, q: call.args.question, c: call.args.choices, r: call.args.requestId })).sendQuickPoll;
+  },
+  // A theme is deleted by its id there (talc: by its universe and name): read first (theme(universe, name)), its talc
+  // answer the theme as it was, marked deleted.
+  deleteTheme: async (ctx, call) => {
+    const selection = call.selection || '{ id }';
+    const withId = /\{\s*id\b|\sid\b/.test(selection) ? selection : selection.replace(/^\{/, '{ id ');
+    const theme = (await runServed(ctx, `query($u: String!, $n: String!) { theme(universe: $u, name: $n) ${withId} }`, { u: call.args.universe, n: call.args.name })).theme as Json | null;
+    if (!theme?.id) throw platformRefusal('THEME_NOT_FOUND', `No theme ${String(call.args.universe)}/${String(call.args.name)}`);
+    await sulfurApi(ctx, 'mutation($id: ID!) { deleteTheme(id: $id) }', { id: theme.id });
+    return 'deleted' in theme ? { ...theme, deleted: true } : theme;
+  },
   // 6c-1: a place is saved with its name and point (talc: its id alone), read from its card (placeCard).
   saveToMyPlaces: async (ctx, call) => {
     const input = { ...((call.args.input ?? {}) as Json) };
@@ -167,20 +243,20 @@ export function subSelection(selection: string, name: string): string {
   } catch { return ''; }
 }
 
-/** A document whose root fields are all served as is: fitted, sent, completed. */
-async function runServed(ctx: Context, query: string, variables: Json): Promise<Json> {
+/** A document whose root fields are all served as is: fitted, sent, completed ([partial]: refusals beside the data kept, `_errors`). */
+async function runServed(ctx: Context, query: string, variables: Json, options: { partial?: boolean } = {}): Promise<Json> {
   const fitted = fitDocument(query, variables);
-  const data = await sulfurApi<Json>(ctx, fitted.document, fitted.variables);
+  const data = await sulfurApi<Json>(ctx, fitted.document, fitted.variables, options);
   return fillLeftOut(data, fitted.left);
 }
 
 /** A talc request (a document of the CLI and its variables) on the new backend: its talc data. */
-export async function sulfurTalc<T>(ctx: Context, query: string, variables: Json = {}): Promise<T> {
+export async function sulfurTalc<T>(ctx: Context, query: string, variables: Json = {}, options: { partial?: boolean } = {}): Promise<T> {
   const ops = parseOperations(query);
   if (ops.length !== 1) throw notServed('a document of several operations');
   const op = ops[0];
   const adapted = op.selection.items.filter((i) => i.kind === 'field' && ADAPTERS[i.name]);
-  if (!adapted.length) return runServed(ctx, query, variables) as Promise<T>;
+  if (!adapted.length) return runServed(ctx, query, variables, options) as Promise<T>;
   const data: Json = {};
   // The served root fields, sent together without the adapted ones.
   const served = op.selection.items.filter((i) => i.kind === 'field' && !ADAPTERS[i.name] && i.name !== '__typename');

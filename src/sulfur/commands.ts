@@ -7,8 +7,9 @@ import { usageError } from '../errors.js';
 import type { AnyCommand, Command } from '../registry.js';
 import { bool, int, object, openObject, str } from '../schema.js';
 import { browserSignIn, canOpenBrowser } from './browser.js';
-import { claimsOf, codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
-import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, saveSulfurSession, sulfurApi, type SulfurSession } from './session.js';
+import { codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
+import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, saveSulfurSession, sulfurActorOf, sulfurApi, type SulfurSession } from './session.js';
+import { agentFromEnv } from '../session.js';
 import type { Context } from '../context.js';
 import { CONTRACT } from '../api/graphql.js';
 import { VERSION } from '../version.js';
@@ -52,9 +53,15 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
     const profile = ctx.profile();
     const env = profile.env as Environment;
     if (i.passwordStdin) throw usageError('NO_PASSWORD', 'The new backend has no password: login (device code) or login --email');
-    // A profile saved with its environment, so that the next commands find it without --env.
-    if (!ctx.store.profile(ctx.profileName) && !ctx.agentName) ctx.saveProfile({ env });
     if ([i.email !== undefined, !!i.browser, !!i.device].filter(Boolean).length > 1) throw usageError('LOGIN_MODES_CONFLICT', 'Choose one: --email, --browser or --device');
+    // Everything checked before a browser opens, a code is asked or an e-mail sent.
+    if (i.handle !== undefined && i.email === undefined) throw usageError('INVALID_INPUT', '--handle goes with --email');
+    // A person signs in here: never into the profile of an agent, never with an agent's credentials set (they would sign
+    // the agent into the person's session file next).
+    if (ctx.agentName || profile.kind === 'operator' || profile.kind === 'agent') throw usageError('PROFILE_HOLDS_AGENT_ACCOUNT', `The profile "${ctx.profileName}" holds ${profile.kind === 'operator' ? 'an agent operator' : 'a delegated agent'}: an agent signs in with its key (breakrocks --backend sulfur agents login); sign the person in another profile (--profile <name>)`, { profile: ctx.profileName });
+    if (agentFromEnv(ctx.env)) throw usageError('PROFILE_HOLDS_HUMAN', `BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set: a person signs in without them, an agent with breakrocks --backend sulfur agents login`, { profile: ctx.profileName });
+    // A profile saved with its environment, so that the next commands find it without --env.
+    if (!ctx.store.profile(ctx.profileName)) ctx.saveProfile({ env });
     const device = () => deviceSignIn(ctx, env, {
       cell: i.cell, label: i.label,
       onCode: (s) => ctx.notice(`To sign in, open ${s.verification_uri} on a device already signed in and type the code ${paint.bold(s.user_code)} (valid ${Math.round(s.expires_in / 60)} minutes)`),
@@ -96,7 +103,8 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
       session = await emailFinish(ctx, pending, code);
       if (i.handle) session = await takeHandle(ctx, session, i.handle.replace(/^@/, ''));
     }
-    if (i.handle && mode !== 'email') throw usageError('INVALID_INPUT', '--handle goes with --email');
+    // The profile holds a person from now on: another environment asked with it is ENV_MISMATCH (src/context.ts).
+    ctx.saveProfile({ ...ctx.store.profile(ctx.profileName), env, kind: 'human' });
     return { backend: 'sulfur', env, cell: session.cell, accountId: session.accountId, handle: session.handle, session: sessionView(session) };
   },
   text: (r) => (r.codeSent ? `Code sent: run the same command with --code <code> within 5 minutes ${paint.dim(`(${r.env}, cell ${r.cell})`)}` : `${paint.ok('Signed in')} on the new backend: @${r.handle} ${paint.dim(`(${r.accountId})`)}\n${paint.dim(`${r.env}, cell ${r.cell}`)}\n${r.session?.note}`),
@@ -150,9 +158,8 @@ export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
     const me = (await sulfurApi<{ me: { id: string; tier: string; card: Card } }>(ctx, '{ me { id tier card { handle name } } }')).me;
     const s = await ensureSulfurSession(ctx);
     // An agent's token acts for its owner (`act.sub`: the agent); an agent operator's is its own (no `act`).
-    const act = s.method === 'agent' ? (claimsOf(s.access).act as { sub?: string } | undefined)?.sub : undefined;
-    const actor = s.method !== 'agent' ? 'human' : act ? 'delegated-agent' : 'operator';
-    return { backend: 'sulfur', actor, ...(act ? { agentId: act } : {}), profile: ctx.profileName, env: s.env, cell: s.cell, account: { id: me.id, handle: me.card.handle, name: me.card.name, tier: me.tier }, session: sessionView(s) };
+    const { actor, agentId } = sulfurActorOf(s);
+    return { backend: 'sulfur', actor, ...(agentId ? { agentId } : {}), profile: ctx.profileName, env: s.env, cell: s.cell, account: { id: me.id, handle: me.card.handle, name: me.card.name, tier: me.tier }, session: sessionView(s) };
   },
   text: (r) => [`${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.id})`)}${r.account.name ? ` ${r.account.name}` : ''}`, paint.dim(`new backend, ${r.env}, cell ${r.cell}, profile ${r.profile}`), `tier ${r.account.tier}`, `session ${r.session.kind}: ${r.session.note}`].join('\n'),
   quiet: (r) => r.account.id,
@@ -172,8 +179,8 @@ const agentLogin = (name: 'operator login' | 'agents login'): Command<Record<str
     const creds = agentCredentials(ctx);
     if (!creds) throw usageError('AGENT_CREDENTIALS_REQUIRED', 'No key here: --agent <local agent>, a profile of an operator or of a delegated agent, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY');
     const s = await agentSignIn(ctx, creds);
-    const act = (claimsOf(s.access).act as { sub?: string } | undefined)?.sub;
-    return { backend: 'sulfur', actor: act ? 'delegated-agent' : 'operator', accountId: s.accountId, ...(act ? { agentId: act } : {}), session: sessionView(s) };
+    const { actor, agentId } = sulfurActorOf(s);
+    return { backend: 'sulfur', actor, accountId: s.accountId, ...(agentId ? { agentId } : {}), session: sessionView(s) };
   },
   text: (r) => `${paint.ok('Signed in')} on the new backend as ${r.actor}${r.agentId ? ` ${r.agentId}` : ''} for ${r.accountId}`,
   quiet: (r) => r.accountId,
@@ -195,8 +202,19 @@ export const sulfurDoctor: Command<Record<string, never>, DoctorResult> = {
     const env = profile.env as Environment;
     checks.push({ name: 'backend', status: 'ok', detail: `sulfur (${sulfurBase(ctx, env)})` });
     checks.push({ name: 'configuration', status: 'ok', detail: ctx.store.dir });
-    const session = readSulfurSession(ctx);
-    if (!session) checks.push({ name: 'session', status: 'fail', code: 'SIGN_IN_REQUIRED', detail: 'not signed in: breakrocks --backend sulfur login' });
+    // An agent (a local agent, a profile of an operator or a delegated agent, the BREAKROCKS_* variables) has no session
+    // file before its first command: it signs in with its key here, as every command does.
+    let session = readSulfurSession(ctx);
+    const { agentCredentials, mayActAsAgent } = await import('./agent.js');
+    if (mayActAsAgent(ctx, profile)) {
+      try {
+        if (!agentCredentials(ctx)) checks.push({ name: 'agent', status: 'fail', code: 'AGENT_CREDENTIALS_REQUIRED', detail: 'the key of the agent is not here' });
+        else { session = await ensureSulfurSession(ctx); checks.push({ name: 'agent', status: 'ok', detail: `signed in with its key (RFC 7523): ${sulfurActorOf(session).actor}` }); }
+      } catch (e) {
+        checks.push({ name: 'agent', status: 'fail', code: (e as { code?: string }).code, detail: (e as Error).message });
+      }
+    }
+    if (!session) checks.push({ name: 'session', status: 'fail', code: 'SIGN_IN_REQUIRED', detail: mayActAsAgent(ctx, profile) ? 'the agent could not sign in (above)' : 'not signed in: breakrocks --backend sulfur login' });
     else checks.push({ name: 'session', status: 'ok', detail: `@${session.handle ?? '?'} (${session.accountId}), ${session.method}, ${session.kind}, cell ${session.cell}, token until ${session.accessExpiresAt} (${session.storage})` });
     if (session) {
       try {

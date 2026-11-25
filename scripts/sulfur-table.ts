@@ -3,7 +3,7 @@
 // LEGACY_ONLY), or the talc operations it sends (an API command's own; for the others, the GraphQL documents of its source
 // read by a pattern) checked against the server's schema (src/sulfur/schema.generated.ts) and the adapters
 // (src/sulfur/talc.ts ADAPTERS). VERIFIED lists the commands run against dev (scripts/e2e-sulfur-dev.mjs and by hand).
-// npx tsx scripts/sulfur-table.ts [--write: into docs/sulfur.md]
+// npx tsx scripts/sulfur-table.ts [--write: into docs/sulfur.md] [--check: docs/sulfur.md is current]
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,7 @@ import { DOMAINS } from '../src/tree.js';
 import { LEGACY_ONLY } from '../src/sulfur/dispatch.js';
 import { SULFUR_COMMANDS } from '../src/sulfur/commands.js';
 import { ADAPTERS } from '../src/sulfur/talc.js';
+import { serverRequiresBeyondTalc } from '../src/sulfur/fit.js';
 import { SERVER } from '../src/sulfur/schema.generated.js';
 import { CONTRACT } from '../src/api/graphql.js';
 import { VERIFIED } from './sulfur-verified.js';
@@ -74,6 +75,10 @@ function classify(c: AnyCommand, scan: Map<string, string[]>): Row {
     const talcArgs = Object.keys(CONTRACT[kind][op]?.[1] ?? {}), serverArgs = served[1] ?? {};
     const lacking = talcArgs.filter((a) => !(a in serverArgs) && a !== 'requestId');
     if (lacking.length) args.push(`${op}(${lacking.join(', ')})`);
+    // An argument the server requires and talc does not have: the document cannot be fitted (src/sulfur/fit.ts refuses
+    // it, NOT_ON_NEW_BACKEND) without an adapter.
+    const required = serverRequiresBeyondTalc(op, kind);
+    if (required.length) missing.push(`${op} (the server requires ${required.join(', ')})`);
   }
   const list = [...ops].join(', ');
   if (missing.length && missing.length === ops.size) return { command: c.name, state: 'not available', ops: list, note: `not served: ${missing.join(', ')}`, verified };
@@ -98,7 +103,12 @@ for (const d of DOMAINS) {
   out.push('');
 }
 const text = out.join('\n');
-if (process.argv.includes('--write')) {
+if (process.argv.includes('--check')) {
+  // The table of docs/sulfur.md is the one the code gives (test/sulfur-table.test.ts).
+  const current = readFileSync(join(root, 'docs', 'sulfur.md'), 'utf8').split('<!-- table -->')[1]?.split('<!-- /table -->')[0] ?? '';
+  if (current.trim() !== text.trim()) { process.stderr.write('docs/sulfur.md: the table is not the one of the code: npx tsx scripts/sulfur-table.ts --write\n'); process.exit(1); }
+  process.stdout.write('docs/sulfur.md: the table is current\n');
+} else if (process.argv.includes('--write')) {
   // docs/sulfur.md: the table between its markers.
   const doc = join(root, 'docs', 'sulfur.md');
   const current = readFileSync(doc, 'utf8');

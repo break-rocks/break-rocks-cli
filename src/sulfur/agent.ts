@@ -7,14 +7,17 @@
 // device, the token is kept as a session of the new backend (src/sulfur/session.ts), never printed.
 import { createHash, randomUUID, sign, type KeyObject, createPublicKey } from 'node:crypto';
 import type { Context } from '../context.js';
-import type { Environment } from '../config.js';
-import { credentialsOf } from '../session.js';
+import type { Environment, Profile } from '../config.js';
+import { usageError } from '../errors.js';
+import { agentFromEnv, credentialsOf } from '../session.js';
 import { authRefusal, SULFUR_SITES, sulfurBase, sulfurGraphql, sulfurPost } from './http.js';
-import { sessionFromTokens, saveSulfurSession, type SulfurSession } from './session.js';
+import { readSulfurSession, sessionFromTokens, saveSulfurSession, type SulfurSession } from './session.js';
 
 export const JWT_BEARER = 'urn:ietf:params:oauth:grant-type:jwt-bearer';
 /** The life of an assertion (the server takes 5 minutes at most). */
 export const ASSERTION_SECONDS = 120;
+/** How far back `iat` is set: a clock of this device a little ahead of the server's never makes an assertion "not yet valid". */
+export const IAT_BACKDATE_SECONDS = 30;
 
 const b64url = (v: Buffer | string) => Buffer.from(v).toString('base64url');
 
@@ -26,15 +29,30 @@ export function keyIdOf(key: KeyObject): string {
 
 /** The assertion of [agentId] for [audience], signed with [key]. */
 export function assertionOf(agentId: string, key: KeyObject, audience: string, nowMs: number): string {
-  const iat = Math.floor(nowMs / 1000);
+  const now = Math.floor(nowMs / 1000);
   const header = b64url(JSON.stringify({ alg: 'EdDSA', typ: 'JWT', kid: keyIdOf(key) }));
-  const payload = b64url(JSON.stringify({ iss: agentId, sub: agentId, aud: audience, iat, exp: iat + ASSERTION_SECONDS, jti: randomUUID() }));
+  const payload = b64url(JSON.stringify({ iss: agentId, sub: agentId, aud: audience, iat: now - IAT_BACKDATE_SECONDS, exp: now + ASSERTION_SECONDS, jti: randomUUID() }));
   const signature = sign(null, Buffer.from(`${header}.${payload}`), key);
   return `${header}.${payload}.${b64url(signature)}`;
 }
 
 /** The cell of an account id (`eu_…`). */
 const cellOfId = (id: string) => (/^[a-z]{2}_/.test(id) ? id.slice(0, 2) : undefined);
+
+/** Whether this run may act as an agent (the BREAKROCKS_* variables, a local agent, a profile of an operator or a delegated agent), its key not read yet. */
+export function mayActAsAgent(ctx: Context, profile: Profile = ctx.profile()): boolean {
+  return !!(ctx.env.BREAKROCKS_OPERATOR_ID?.trim() && ctx.env.BREAKROCKS_AGENT_ID?.trim() && ctx.env.BREAKROCKS_AGENT_KEY) || !!profile.localAgent || profile.kind === 'agent' || profile.kind === 'operator';
+}
+
+/**
+ * Agent credentials beside a human (as the former backend's src/session.ts ensureSession): a profile holding a human
+ * account, or a human's session on the new backend, is never signed into by an agent (PROFILE_HOLDS_HUMAN).
+ */
+export function refuseAgentIntoHuman(ctx: Context, profile: Profile = ctx.profile(), current: SulfurSession | undefined = readSulfurSession(ctx)): void {
+  if (profile.kind !== 'human' && (!current || current.method === 'agent')) return;
+  const what = agentFromEnv(ctx.env) ? 'BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set' : 'This run acts as an agent';
+  throw usageError('PROFILE_HOLDS_HUMAN', `${what}, but the profile "${ctx.profileName}" holds a human account${profile.kind === 'human' ? '' : ' (its session on the new backend)'}: use another profile (--profile <name>)`, { profile: ctx.profileName });
+}
 
 /** Whether this run acts as an agent with credentials of its own (a local agent, a profile of an agent, the BREAKROCKS_* variables). */
 export function agentCredentials(ctx: Context): { agentId: string; operatorId: string; key: KeyObject } | undefined {
@@ -44,7 +62,9 @@ export function agentCredentials(ctx: Context): { agentId: string; operatorId: s
 
 /** Signs the agent of this run in (RFC 7523) and keeps its session. */
 export async function agentSignIn(ctx: Context, creds: { agentId: string; operatorId: string; key: KeyObject }): Promise<SulfurSession> {
-  const env = ctx.profile().env as Environment;
+  const profile = ctx.profile();
+  refuseAgentIntoHuman(ctx, profile);
+  const env = profile.env as Environment;
   const cell = cellOfId(creds.agentId) ?? 'eu';
   const base = sulfurBase(ctx, env, cell);
   // The audience is the cell's token endpoint on its domain (the signInUrl of the credentials), whatever host is reached.
@@ -53,6 +73,6 @@ export async function agentSignIn(ctx: Context, creds: { agentId: string; operat
   if (answer.status !== 200) throw authRefusal(answer, 'The agent sign-in');
   const access = String(answer.json.access_token ?? '');
   const me = (await sulfurGraphql<{ me: { id: string; card: { handle: string } } }>(ctx, base, access, '{ me { id card { handle } } }')).me;
-  const session = sessionFromTokens(ctx, answer.json, { backend: 'sulfur', env, cell, accountId: me.id, handle: me.card.handle, method: 'agent', signedInAt: new Date(ctx.now()).toISOString(), kind: 'agent' });
+  const session = sessionFromTokens(ctx, answer.json, { backend: 'sulfur', env, cell, accountId: me.id, handle: me.card.handle, method: 'agent', agentId: creds.agentId, signedInAt: new Date(ctx.now()).toISOString(), kind: 'agent' });
   return saveSulfurSession(ctx, session);
 }
