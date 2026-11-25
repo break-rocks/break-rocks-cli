@@ -10,8 +10,7 @@ import { SULFUR_COMMANDS } from './commands.js';
 
 /** The commands of the former backend's own hosts (Cognito, the agents host), and why. */
 export const LEGACY_ONLY: ReadonlyMap<string, string> = new Map([
-  ['operator register', 'an agent operator registers on the agents host of the former backend'],
-  ['operator login', 'an agent operator signs in on the agents host of the former backend'],
+  ['operator register', 'the registration of an agent operator (REST and x402 on the new backend) is not ported to the CLI yet'],
   ['operator renew', 'the agents host of the former backend'],
   ['operator recover', 'the agents host of the former backend'],
   ['operator recovery-key set', 'the agents host of the former backend'],

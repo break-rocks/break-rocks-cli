@@ -7,15 +7,20 @@ import { usageError } from '../errors.js';
 import type { AnyCommand, Command } from '../registry.js';
 import { bool, int, object, openObject, str } from '../schema.js';
 import { browserSignIn, canOpenBrowser } from './browser.js';
-import { codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
+import { claimsOf, codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
 import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, saveSulfurSession, sulfurApi, type SulfurSession } from './session.js';
 import type { Context } from '../context.js';
+import { CONTRACT } from '../api/graphql.js';
+import { VERSION } from '../version.js';
+import { sulfurBase } from './http.js';
+import { SERVER } from './schema.generated.js';
+import { ADAPTERS } from './talc.js';
 
 
 type SessionView = { kind: string; method: string; signedInAt: string; accessExpiresAt: string; storage: string; note: string };
 const sessionView = (s: SulfurSession): SessionView => ({
   kind: s.kind, method: s.method, signedInAt: s.signedInAt, accessExpiresAt: s.accessExpiresAt, storage: s.storage,
-  note: s.kind === 'device' ? 'device code: content only, 7 days from the sign-in, never extended' : s.kind === 'untrusted' ? 'renewed on its own; sign in again after 24 hours unused, or 7 days' : 'renewed on its own',
+  note: s.method === 'agent' ? 'an agent: its key signs a new assertion whenever its token ends' : s.kind === 'device' ? 'device code: content only, 7 days from the sign-in, never extended' : s.kind === 'untrusted' ? 'renewed on its own; sign in again after 24 hours unused, or 7 days' : 'renewed on its own',
 });
 const sessionSchema = openObject({ kind: str('The session kind: untrusted (e-mail code), device (device code)'), method: str('email or device'), signedInAt: str('When'), accessExpiresAt: str('When the access token ends (renewed on its own)'), storage: str('Where its tokens are: keychain or file (0600)'), note: str('How long it lasts') });
 
@@ -135,7 +140,7 @@ export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
 
 type Card = { handle: string; name: string | null };
 
-type WhoamiResult = { backend: 'sulfur'; actor: 'human'; profile: string; env: string; cell: string; account: { id: string; handle: string; name: string | null; tier: string }; session: SessionView };
+type WhoamiResult = { backend: 'sulfur'; actor: 'human' | 'delegated-agent' | 'operator'; agentId?: string; profile: string; env: string; cell: string; account: { id: string; handle: string; name: string | null; tier: string }; session: SessionView };
 export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
   name: 'whoami', summary: 'The account signed in on the new backend',
   examples: ['breakrocks --backend sulfur whoami', 'breakrocks --backend sulfur whoami --json'],
@@ -144,12 +149,71 @@ export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
   run: async (ctx) => {
     const me = (await sulfurApi<{ me: { id: string; tier: string; card: Card } }>(ctx, '{ me { id tier card { handle name } } }')).me;
     const s = await ensureSulfurSession(ctx);
-    return { backend: 'sulfur', actor: 'human', profile: ctx.profileName, env: s.env, cell: s.cell, account: { id: me.id, handle: me.card.handle, name: me.card.name, tier: me.tier }, session: sessionView(s) };
+    // An agent's token acts for its owner (`act.sub`: the agent); an agent operator's is its own (no `act`).
+    const act = s.method === 'agent' ? (claimsOf(s.access).act as { sub?: string } | undefined)?.sub : undefined;
+    const actor = s.method !== 'agent' ? 'human' : act ? 'delegated-agent' : 'operator';
+    return { backend: 'sulfur', actor, ...(act ? { agentId: act } : {}), profile: ctx.profileName, env: s.env, cell: s.cell, account: { id: me.id, handle: me.card.handle, name: me.card.name, tier: me.tier }, session: sessionView(s) };
   },
   text: (r) => [`${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.id})`)}${r.account.name ? ` ${r.account.name}` : ''}`, paint.dim(`new backend, ${r.env}, cell ${r.cell}, profile ${r.profile}`), `tier ${r.account.tier}`, `session ${r.session.kind}: ${r.session.note}`].join('\n'),
   quiet: (r) => r.account.id,
 };
 
+// ---- operator login / agents login ----
+
+type AgentLoginResult = { backend: 'sulfur'; actor: string; accountId: string; agentId?: string; session: SessionView };
+const agentLogin = (name: 'operator login' | 'agents login'): Command<Record<string, never>, AgentLoginResult> => ({
+  name, summary: name === 'operator login' ? 'Sign the agent operator in on the new backend with its key (RFC 7523)' : 'Sign a delegated agent in on the new backend with its key (RFC 7523)',
+  description: 'The key of the profile (or of --agent, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID, BREAKROCKS_AGENT_KEY) signs an assertion exchanged at the cell\'s token endpoint for an access token; a new assertion renews it whenever it ends (no refresh token). Every command signs in this way by itself: this one only checks it.',
+  examples: [`breakrocks --backend sulfur ${name}`, 'breakrocks --backend sulfur --agent herald whoami'],
+  input: object({}), output: openObject({ backend: str('sulfur'), actor: str('delegated-agent or operator'), accountId: str('The account it acts as'), agentId: str('The delegated agent'), session: sessionSchema }),
+  mcp: false,
+  run: async (ctx) => {
+    const { agentCredentials, agentSignIn } = await import('./agent.js');
+    const creds = agentCredentials(ctx);
+    if (!creds) throw usageError('AGENT_CREDENTIALS_REQUIRED', 'No key here: --agent <local agent>, a profile of an operator or of a delegated agent, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY');
+    const s = await agentSignIn(ctx, creds);
+    const act = (claimsOf(s.access).act as { sub?: string } | undefined)?.sub;
+    return { backend: 'sulfur', actor: act ? 'delegated-agent' : 'operator', accountId: s.accountId, ...(act ? { agentId: act } : {}), session: sessionView(s) };
+  },
+  text: (r) => `${paint.ok('Signed in')} on the new backend as ${r.actor}${r.agentId ? ` ${r.agentId}` : ''} for ${r.accountId}`,
+  quiet: (r) => r.accountId,
+});
+
+// ---- doctor ----
+
+type Check = { name: string; status: 'ok' | 'warn' | 'fail' | 'skip'; detail: string; code?: string };
+type DoctorResult = { ok: boolean; version: string; backend: 'sulfur'; serverSchema?: string; profile: string; env: string; checks: Check[]; missingFields: string[]; missingDeprecatedFields: string[]; missingOperations: string[] };
+
+export const sulfurDoctor: Command<Record<string, never>, DoctorResult> = {
+  name: 'doctor', summary: 'Check what keeps the CLI from working on the new backend: the profile, the session, the API, the operations it serves',
+  examples: ['breakrocks --backend sulfur doctor', 'breakrocks --backend sulfur doctor --json'],
+  input: object({}),
+  output: openObject({ ok: bool('Nothing fails'), version: str('The CLI'), backend: str('sulfur'), serverSchema: str('The server commit of the schema the CLI fits its requests to'), profile: str('The profile'), env: str('Environment'), checks: { type: 'array', items: openObject({ name: str('What'), status: str('ok, warn, fail or skip'), detail: str('Why') }) }, missingOperations: { type: 'array', items: { type: 'string' }, description: 'Talc operations the new backend does not serve (NOT_ON_NEW_BACKEND)' } }),
+  run: async (ctx) => {
+    const checks: Check[] = [];
+    const profile = ctx.profile();
+    const env = profile.env as Environment;
+    checks.push({ name: 'backend', status: 'ok', detail: `sulfur (${sulfurBase(ctx, env)})` });
+    checks.push({ name: 'configuration', status: 'ok', detail: ctx.store.dir });
+    const session = readSulfurSession(ctx);
+    if (!session) checks.push({ name: 'session', status: 'fail', code: 'SIGN_IN_REQUIRED', detail: 'not signed in: breakrocks --backend sulfur login' });
+    else checks.push({ name: 'session', status: 'ok', detail: `@${session.handle ?? '?'} (${session.accountId}), ${session.method}, ${session.kind}, cell ${session.cell}, token until ${session.accessExpiresAt} (${session.storage})` });
+    if (session) {
+      try {
+        const h = (await sulfurApi<{ health: { ok: boolean; cell: string } }>(ctx, '{ health { ok cell } }')).health;
+        checks.push({ name: 'api', status: h.ok ? 'ok' : 'fail', detail: `health ${h.ok ? 'ok' : 'not ok'}, cell ${h.cell}` });
+      } catch (e) {
+        checks.push({ name: 'api', status: 'fail', code: (e as { code?: string }).code, detail: (e as Error).message });
+      }
+    } else checks.push({ name: 'api', status: 'skip', detail: 'no session' });
+    const missing = [...Object.keys(CONTRACT.query).filter((q) => !SERVER.query[q] && !ADAPTERS[q]).map((q) => `Query.${q}`), ...Object.keys(CONTRACT.mutation).filter((m) => !SERVER.mutation[m] && !ADAPTERS[m]).map((m) => `Mutation.${m}`)];
+    checks.push({ name: 'operations', status: missing.length ? 'warn' : 'ok', detail: `${missing.length} talc operations not served by the new backend (schema of ${SERVER.version ?? '?'}): their commands answer NOT_ON_NEW_BACKEND (docs/sulfur.md)` });
+    return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, backend: 'sulfur', ...(SERVER.version ? { serverSchema: SERVER.version } : {}), profile: ctx.profileName, env, checks, missingFields: [], missingDeprecatedFields: [], missingOperations: missing };
+  },
+  text: (r) => [...r.checks.map((c) => `${c.status === 'ok' ? paint.ok('ok  ') : c.status === 'fail' ? paint.error('fail') : paint.dim(c.status.padEnd(4))} ${c.name}: ${c.detail}`), r.ok ? paint.ok('Nothing keeps the CLI from working on the new backend') : paint.error('Something keeps the CLI from working on the new backend')].join('\n'),
+  quiet: (r) => (r.ok ? 'ok' : 'fail'),
+};
+
 /** The commands of the new backend, by the registry name they stand in for. */
-export const SULFUR_COMMANDS: ReadonlyMap<string, AnyCommand> = new Map<string, AnyCommand>([sulfurLogin, sulfurLogout, sulfurWhoami].map((c) => [c.name, c as AnyCommand]));
+export const SULFUR_COMMANDS: ReadonlyMap<string, AnyCommand> = new Map<string, AnyCommand>([sulfurLogin, sulfurLogout, sulfurWhoami, sulfurDoctor, agentLogin('operator login'), agentLogin('agents login')].map((c) => [c.name, c as AnyCommand]));
 

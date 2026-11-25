@@ -34,8 +34,8 @@ export type SulfurMeta = {
   handle?: string;
   /** The session kind the token endpoint gave (untrusted: e-mail code; device: device code). */
   kind: SessionKind;
-  /** How it was signed in: email or device. */
-  method: 'email' | 'device' | 'browser';
+  /** How it was signed in: email, device, browser, or agent (RFC 7523: renewed by a new assertion, no refresh token). */
+  method: 'email' | 'device' | 'browser' | 'agent';
   signedInAt: string;
   /** When the access token ends. */
   accessExpiresAt: string;
@@ -158,6 +158,14 @@ export function renewSulfurSession(ctx: Context, current: SulfurSession): Promis
 /** The session of the profile, its access token renewed when it ends within a minute; SIGN_IN_REQUIRED without one. */
 export async function ensureSulfurSession(ctx: Context, options: { renew?: boolean } = {}): Promise<SulfurSession> {
   const current = readSulfurSession(ctx);
+  // A delegated agent (or an agent operator) with its own credentials: an assertion signed with its key (src/sulfur/agent.ts),
+  // again whenever its token ends; never a refresh token.
+  if (!current || current.method === 'agent') {
+    const { agentCredentials, agentSignIn } = await import('./agent.js');
+    const creds = agentCredentials(ctx);
+    if (creds && (!current || options.renew || Date.parse(current.accessExpiresAt) - ctx.now() <= RENEW_BEFORE_MS || current.accountId === '')) return agentSignIn(ctx, creds);
+    if (creds && current) return current;
+  }
   if (!current) throw networkError('SIGN_IN_REQUIRED', `The profile "${ctx.profileName}" is not signed in on the new backend: breakrocks --backend sulfur login`, { profile: ctx.profileName });
   if (!options.renew && Date.parse(current.accessExpiresAt) - ctx.now() > RENEW_BEFORE_MS) return current;
   return renewSulfurSession(ctx, current);

@@ -9,6 +9,7 @@ import type { Context } from '../context.js';
 import { platformRefusal, usageError } from '../errors.js';
 import { notServed, fillLeftOut, fitDocument, parseOperations } from './fit.js';
 import { readSulfurSession, sulfurApi } from './session.js';
+import { SERVER } from './schema.generated.js';
 
 type Json = Record<string, unknown>;
 
@@ -29,6 +30,26 @@ const literal = (text: string): unknown => {
   if (/^-?[0-9]/.test(text)) return Number(text);
   if (text.startsWith('"')) { try { return JSON.parse(text); } catch { return text.slice(1, -1); } }
   return text;
+};
+
+/**
+ * What a command knows that its talc operation does not carry and the server needs (a message's discussion id: deviation
+ * 1c, D-628), handed to the adapter of this run.
+ */
+const HINTS = new WeakMap<Context, Record<string, string>>();
+export const sulfurHint = (ctx: Context, key: string, value: unknown) => { if (typeof value === 'string' && value) HINTS.set(ctx, { ...HINTS.get(ctx), [key]: value }); };
+const hinted = (ctx: Context, key: string) => HINTS.get(ctx)?.[key];
+const SERVER_ARGS = (field: string): Record<string, string> => (SERVER.mutation[field] ?? SERVER.query[field])?.[1] ?? {};
+
+/** A message's operation sent with its discussion's id (and its thread root, when given), which the server requires (1c, D-628). */
+const onMessage = (field: string): Adapter => async (ctx, call) => {
+  const discussionId = hinted(ctx, 'discussionId');
+  if (!discussionId) throw usageError('DISCUSSION_REQUIRED', `On the new backend a message is named with its discussion: --discussion <discussion id> (${field})`);
+  const threadRoot = hinted(ctx, 'threadRoot');
+  const vars: Json = { ...call.args, discussionId, ...(threadRoot ? { threadRoot } : {}) };
+  const decl = Object.entries(SERVER_ARGS(field)).filter(([k]) => vars[k] !== undefined && vars[k] !== null);
+  const doc = `${call.kind}(${decl.map(([k, t]) => `$${k}: ${t}`).join(', ')}) { ${field}(${decl.map(([k]) => `${k}: $${k}`).join(', ')}) ${call.selection} }`;
+  return (await runServed(ctx, doc, Object.fromEntries(decl.map(([k]) => [k, vars[k]]))))[field];
 };
 
 /** The id of the account signed in on the new backend. */
@@ -117,6 +138,11 @@ export const ADAPTERS: Record<string, Adapter> = {
     await sulfurApi(ctx, `mutation($id: ID!) { ${call.args.muted === false ? 'unmute' : 'mute'}(accountId: $id) }`, { id });
     return connectionState(await relation(ctx, id), id);
   },
+  // 1c (D-628): a message is keyed by its discussion; a thread reply by its root too.
+  reactToMessage: onMessage('reactToMessage'),
+  unreactToMessage: onMessage('unreactToMessage'),
+  threadMessages: onMessage('threadMessages'),
+  replyInThread: onMessage('replyInThread'),
   // 6c-1: a place is saved with its name and point (talc: its id alone), read from its card (placeCard).
   saveToMyPlaces: async (ctx, call) => {
     const input = { ...((call.args.input ?? {}) as Json) };
