@@ -7,9 +7,10 @@
 // renewal is single-flight, within the process (one promise per profile) and across processes (a lock file created
 // exclusively; whoever waited reads the renewed tokens instead of renewing again).
 import { closeSync, existsSync, mkdirSync, openSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { join, resolve } from 'node:path';
 import type { Context } from '../context.js';
-import { readJson, writePrivate } from '../config.js';
+import { configDir, readJson, writePrivate } from '../config.js';
 import { systemKeychain } from '../keychain.js';
 import { CliError, EXIT, networkError } from '../errors.js';
 import { isTokenRefused, sulfurBase, sulfurGraphql, sulfurPost } from './http.js';
@@ -48,7 +49,14 @@ export type SulfurSession = Omit<SulfurMeta, 'secrets'> & SulfurSecrets;
 
 const metaFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur.json`);
 const lockFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur.lock`);
-const keychainAccount = (ctx: Context) => `sulfur:${ctx.profileName}`;
+/**
+ * The keychain entry of the profile's tokens: `sulfur:<profile>` for the default configuration folder, followed by a hash
+ * of the folder for any other (BREAKROCKS_CONFIG_DIR, BREAKROCKS_CLI_DIR: personas side by side never share an entry).
+ */
+const keychainAccount = (ctx: Context) => {
+  const dir = resolve(ctx.store.dir);
+  return dir === resolve(configDir({ HOME: ctx.env.HOME, APPDATA: ctx.env.APPDATA, XDG_CONFIG_HOME: ctx.env.XDG_CONFIG_HOME })) ? `sulfur:${ctx.profileName}` : `sulfur:${ctx.profileName}@${createHash('sha256').update(dir).digest('hex').slice(0, 12)}`;
+};
 const keychainOf = (ctx: Context) => ctx.io.keychain ?? systemKeychain(ctx.env);
 
 /** The session of the profile on the new backend, or none. */

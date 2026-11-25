@@ -62,11 +62,14 @@ function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; denied?:
         if (!refusedOnce || g !== generation) { refusedOnce = true; return json(401, { errors: [{ message: 'token refused', extensions: { code: 'UNAUTHENTICATED' } }] }); }
         const q = String(body.query);
         const v = (body.variables ?? {}) as Record<string, Record<string, string>>;
-        if (q.includes('updateProfile')) { Object.assign(card, v.input); return json(200, { data: { updateProfile: card } }); }
-        if (q.includes('publish')) { posts.unshift({ id: v.input.id, kind: 'post', author: { id: ACCOUNT, handle: 'ada', name: 'Ada', agent: false }, text: v.input.text, address: v.input.universe, state: 'live', counts: { likes: 0, replies: 0, reposts: 0 } }); return json(200, { data: { publish: { id: v.input.id, state: 'live' } } }); }
-        if (q.includes('homeTimeline')) return json(200, { data: { homeTimeline: { items: posts, next: null } } });
         if (q.includes('endAllSessions')) return json(200, { data: { endAllSessions: true } });
-        if (q.includes('me')) return json(200, { data: { me: { id: ACCOUNT, tier: 'free', card } } });
+        if (/\{ me \{ id( tier)? card/.test(q)) return json(200, { data: { me: { id: ACCOUNT, tier: 'free', card } } });
+        const talcAccount = () => ({ id: ACCOUNT, handle: card.handle, handleSince: card.handleSince, displayName: card.name ?? card.handle, bio: card.bio, kind: 'human', deleted: false, links: [], followerCount: 0, followingCount: 0, avatar: null });
+        if (q.includes('updateProfile')) { Object.assign(card, v.input); return json(200, { data: { updateProfile: { id: ACCOUNT } } }); }
+        if (q.includes('changeHandle')) { card.handle = String(v.h); return json(200, { data: { changeHandle: { handle: card.handle } } }); }
+        if (q.includes('accounts(')) return json(200, { data: { accounts: [talcAccount()] } });
+        if (q.includes('createPost')) { const post = { id: `eu_post${posts.length + 1}`, kind: 'post', author: { id: ACCOUNT, handle: card.handle, displayName: card.name }, text: v.text, universe: v.universe, address: v.universe, likeCount: 0, replyCount: 0, repostCount: 0, images: [] }; posts.unshift(post); return json(200, { data: { createPost: post } }); }
+        if (q.includes('timeline(')) return json(200, { data: { timeline: { items: posts, next: null } } });
         return json(400, { errors: [{ message: 'unknown', extensions: { code: 'BAD_REQUEST' } }] });
       }
       default: return json(404, {});
@@ -97,9 +100,9 @@ describe('the backend switch', () => {
     expect(new Context(h.io, NO_FLAGS).backend()).toBe('legacy');
     expect(await h.run('--backend', 'granite', 'whoami', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'BACKEND_INVALID' } });
-    // A command not served there yet says so; offline ones work as ever.
-    expect(await sulfur('universes', 'join', '%paris', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND', command: 'universes join' } });
+    // A command of the former backend's own hosts says so; offline ones work as ever.
+    expect(await sulfur('operator', 'login', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND', command: 'operator login' } });
     expect(await sulfur('version', '--json')).toBe(0);
     expect(await sulfur('whoami', '--json')).toBe(3);
     expect(last(h)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED' } });
@@ -134,7 +137,10 @@ describe('sign-in on the new backend', () => {
     expect(cell.paths()).toEqual(['/auth/email/start', '/auth/email/verify', '/auth/complete', '/oauth/token', '/graphql']);
     expect(cell.calls[2].body).toMatchObject({ clientId: 'cli', ticket: 'pt-1' });
     expect(readFileSync(metaFile, 'utf8')).not.toMatch(/rt-|eyJ|secrets/);
-    expect(keychain.entries.get('sulfur:default')).toMatch(/rt-1-secret/);
+    // The entry of this configuration folder (not the default one): personas in other folders never share it.
+    const entry = [...keychain.entries.keys()].find((k) => k.startsWith('sulfur:default@'));
+    expect(entry).toMatch(/^sulfur:default@[0-9a-f]{12}$/);
+    expect(keychain.entries.get(entry!)).toMatch(/rt-1-secret/);
     expect(h.all()).not.toMatch(/rt-\d|eyJ/);
     // A code without a flow started: said.
     expect(await sulfur('login', '--email', 'bob@example.com', '--code', '12345678', '--json')).toBe(2);
@@ -280,23 +286,24 @@ async function signedIn(options: Parameters<typeof setup>[0] = {}) {
 }
 
 describe('the commands on the new backend', () => {
-  it('profile show and set, publish, the timeline, sign-out', async () => {
+  it('profile show and set, publish, the timeline (the talc operations through the seam), sign-out', async () => {
     const { h, cell, metaFile, sulfur } = await signedIn();
     expect(await sulfur('me', 'profile', 'show', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ id: ACCOUNT, handle: 'ada', name: 'Ada' });
-    expect(await sulfur('me', 'profile', 'set', '--name', 'Ada L.', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ name: 'Ada L.' });
-    expect(cell.calls.at(-1)!.body).toMatchObject({ variables: { input: { name: 'Ada L.' } } });
-    expect(await sulfur('me', 'profile', 'set', '--avatar', 'x', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ id: ACCOUNT, handle: 'ada', displayName: 'Ada' });
+    expect(cell.calls.at(-1)!.body).toMatchObject({ variables: { ids: [ACCOUNT] } });
+    expect(await sulfur('me', 'profile', 'set', '--display-name', 'Ada L.', '--bio', 'Hi', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ displayName: 'Ada L.', bio: 'Hi' });
+    expect(cell.calls.find((c) => String(c.body.query).includes('updateProfile'))!.body).toMatchObject({ variables: { input: { name: 'Ada L.', bio: 'Hi' } } });
+    expect(await sulfur('me', 'profile', 'set', '--ai-description', 'x', '--json')).toBe(1);
     expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
-    expect(await sulfur('posts', 'create', 'Hello sulfur', '--json')).toBe(2);
-    expect(last(h)).toMatchObject({ error: { code: 'ADDRESS_REQUIRED' } });
-    expect(await sulfur('posts', 'create', 'Hello sulfur', '--in', 'paris', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ state: 'live', universe: '%paris', id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(await sulfur('posts', 'create', 'Hello sulfur', '--in', '%paris', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ id: 'eu_post1', universe: '%paris', text: 'Hello sulfur' });
+    // createPost's talc arguments the server does not take, left empty: not sent.
+    const sent = String(cell.calls.at(-1)!.body.query);
+    expect(sent).toContain('createPost(');
+    expect(sent).not.toMatch(/announcement|longVideo: \$longVideo, sources: \$sources\) \{.*\$announcement/);
     expect(await sulfur('posts', 'feed', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ items: [{ text: 'Hello sulfur', address: '%paris', author: { handle: 'ada' } }], next: null });
-    expect(await sulfur('posts', 'feed')).toBe(0);
-    expect(h.lines.at(-1)).toContain('Hello sulfur');
+    expect(last(h)).toMatchObject({ items: [{ text: 'Hello sulfur', author: { handle: 'ada' } }], next: null });
     expect(cell.calls.every((c) => c.path !== '/graphql' || /^Bearer /.test(c.headers['x-authorization']))).toBe(true);
     expect(await sulfur('logout', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ signedOut: true, revoked: true });
@@ -305,11 +312,27 @@ describe('the commands on the new backend', () => {
     expect(await sulfur('whoami', '--json')).toBe(3);
   });
 
+  it('signs up headless: the code from the standard input or BREAKROCKS_EMAIL_CODE, the handle taken', async () => {
+    const { h, cell, sulfur } = setup({ env: { BREAKROCKS_EMAIL_CODE: '1234 5678' } });
+    expect(await sulfur('--env', 'dev', 'login', '--email', 'bot@example.com', '--sign-up', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ codeSent: true, email: 'bot@example.com' });
+    expect(cell.calls[0].body).toMatchObject({ intent: 'sign-up' });
+    expect(await sulfur('login', '--email', 'bot@example.com', '--handle', '@my_bot', '--json')).toBe(0);
+    expect(last(h)).toMatchObject({ accountId: ACCOUNT, handle: 'my_bot', session: { method: 'email' } });
+    expect(cell.calls.some((c) => String(c.body.query).includes('changeHandle'))).toBe(true);
+    const b = setup();
+    b.h.io.readStdin = async () => '12345678\n';
+    expect(await b.sulfur('--env', 'dev', 'login', '--email', 'bot@example.com', '--json')).toBe(0);
+    expect(await b.sulfur('login', '--email', 'bot@example.com', '--code', '-', '--json')).toBe(0);
+    expect(last(b.h)).toMatchObject({ accountId: ACCOUNT });
+    expect(b.h.all()).not.toMatch(/rt-\d|eyJ/);
+  });
+
   it('renews an access token that ends, once for concurrent callers', async () => {
     const { h, cell } = await signedIn();
     h.clock.now += 15 * 60_000;
     const ctx = new Context(h.io, { ...NO_FLAGS, backend: 'sulfur' });
-    await Promise.all([sulfurApi(ctx, '{ me { id } }'), sulfurApi(ctx, '{ me { id } }'), sulfurApi(ctx, '{ me { id } }')]);
+    await Promise.all([sulfurApi(ctx, '{ me { id card { handle } } }'), sulfurApi(ctx, '{ me { id card { handle } } }'), sulfurApi(ctx, '{ me { id card { handle } } }')]);
     expect(cell.paths().filter((p) => p === '/oauth/token')).toHaveLength(1);
     expect(readSulfurSession(ctx)!.refresh).toBe('rt-2-secret');
   });

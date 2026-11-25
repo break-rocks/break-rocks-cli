@@ -25,10 +25,10 @@ export function unservedFields(errors: readonly { message?: string }[] | undefin
   return found;
 }
 
-type Token = { kind: 'name' | 'punct' | 'value'; text: string; start: number; end: number };
+export type Token = { kind: 'name' | 'punct' | 'value'; text: string; start: number; end: number };
 
 /** The tokens of a document (names, punctuators, strings and numbers), with their offsets. */
-function tokenize(doc: string): Token[] {
+export function tokenize(doc: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < doc.length) {

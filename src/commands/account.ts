@@ -5,7 +5,7 @@ import type { Context } from '../context.js';
 import { CliError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
-import { agentFromEnv, api, ensureSession, readSession } from '../session.js';
+import { agentFromEnv, api, ensureSession, readSession, type Session } from '../session.js';
 import { DEFAULT_MAX_USD_PER_DAY, formatUsdc, networkOf, spentToday } from '../x402.js';
 
 // API v2 holds what only the account reads of itself in Account.own (null on the read of another account):
@@ -92,8 +92,9 @@ export const usage: Command<Record<string, never>, UsageResult> = {
   input: object({}),
   output: openObject({ actor: str('human, operator or delegated-agent'), tier: { type: ['string', 'null'], description: 'Usage tier' }, minute: windowSchema, hour: windowSchema, quota: windowSchema, byCategory: list('Units by category', openObject({ category: str('Category'), hour: int('This hour'), quota: { type: ['integer', 'null'] } })), allowance: openObject({ allowance: int('Delegated agents allowed'), operated: int('Operated'), createdLast24Hours: int('Created in 24 hours') }) }),
   run: async (ctx) => {
-    await ensureSession(ctx);
-    const actor = actorOf(ctx);
+    // The new backend: a person's session of its own (src/sulfur/session.ts), its usage through the seam.
+    if (ctx.backend() !== 'sulfur') await ensureSession(ctx);
+    const actor = ctx.backend() === 'sulfur' ? 'human' : actorOf(ctx);
     const { myUsage } = await api<{ myUsage: Usage }>(ctx, USAGE);
     let allowance: Allowance | undefined;
     if (actor === 'operator') allowance = (await api<{ delegatedAgentAllowance: Allowance | null }>(ctx, '{ delegatedAgentAllowance { allowance operated createdLast24Hours } }')).delegatedAgentAllowance ?? undefined;
@@ -147,8 +148,10 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     notes: list('What else to know'),
   }),
   run: async (ctx, { universe }) => {
-    const { session, at } = await ensureSession(ctx);
-    const actor = actorOf(ctx);
+    // The new backend: a person's session of its own (src/sulfur/session.ts), read as a human's.
+    const sulfur = ctx.backend() === 'sulfur';
+    const { session, at } = sulfur ? { session: { kind: 'human' } as Session, at: { env: ctx.profile().env } } : await ensureSession(ctx);
+    const actor = sulfur ? 'human' : actorOf(ctx);
     const notes: string[] = [];
     if (session.kind === 'human') {
       // A human: no operator, no delegated agent to manage, no x402 wallet (its payments are in the app).

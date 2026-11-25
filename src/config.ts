@@ -53,11 +53,13 @@ export const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 export const DEFAULT_PROFILE = 'default';
 
 /**
- * The configuration folder (D-235): BREAKROCKS_CONFIG_DIR or BREAKROCKS_HOME when set; on Windows
+ * The configuration folder (D-235): BREAKROCKS_CONFIG_DIR (or its alias BREAKROCKS_CLI_DIR: one folder per persona of an
+ * automation) or BREAKROCKS_HOME when set; on Windows
  * %APPDATA%\breakrocks; $XDG_CONFIG_HOME/breakrocks when XDG_CONFIG_HOME is set; else ~/.breakrocks.
  */
 export function configDir(env: NodeJS.ProcessEnv, platform: NodeJS.Platform = process.platform): string {
   if (env.BREAKROCKS_CONFIG_DIR) return resolve(env.BREAKROCKS_CONFIG_DIR);
+  if (env.BREAKROCKS_CLI_DIR) return resolve(env.BREAKROCKS_CLI_DIR);
   if (env.BREAKROCKS_HOME) return resolve(env.BREAKROCKS_HOME);
   if (platform === 'win32') return join(env.APPDATA ?? join(homedir(), 'AppData', 'Roaming'), 'breakrocks');
   if (env.XDG_CONFIG_HOME) return join(env.XDG_CONFIG_HOME, 'breakrocks');
@@ -75,7 +77,7 @@ export const MIGRATED_NOTE = 'MIGRATED';
  * kept, with the note. Answers whether it copied.
  */
 export function migrateConfig(env: NodeJS.ProcessEnv, dir: string, platform: NodeJS.Platform = process.platform): boolean {
-  if (platform === 'win32' || env.BREAKROCKS_CONFIG_DIR || env.BREAKROCKS_HOME || env.XDG_CONFIG_HOME) return false;
+  if (platform === 'win32' || env.BREAKROCKS_CONFIG_DIR || env.BREAKROCKS_CLI_DIR || env.BREAKROCKS_HOME || env.XDG_CONFIG_HOME) return false;
   const legacy = legacyConfigDir(env);
   if (resolve(legacy) === resolve(dir) || !existsSync(legacy) || existsSync(join(legacy, MIGRATED_NOTE)) || existsSync(join(dir, 'config.json'))) return false;
   try {

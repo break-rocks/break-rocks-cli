@@ -1,0 +1,10 @@
+// The commands run against dev on the new backend (native-sulfur), by scripts/e2e-sulfur-dev.mjs or by hand, with the
+// date of the last run: read by scripts/sulfur-table.ts (docs/sulfur.md, column Dev).
+export const VERIFIED_ON = '2026-11-25';
+export const VERIFIED: ReadonlySet<string> = new Set([
+  'login', 'logout', 'whoami', 'me profile show', 'me profile set',
+  'posts create', 'posts reply', 'posts quote', 'posts repost', 'posts like', 'posts delete', 'posts thread', 'posts list', 'posts feed', 'posts show', 'posts place',
+  'accounts follow', 'accounts unfollow', 'accounts is-following', 'accounts show',
+  'universes show', 'universes join', 'universes leave',
+  'look personal saved', 'usage', 'me capabilities',
+]);

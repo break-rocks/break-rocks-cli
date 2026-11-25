@@ -5,7 +5,27 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-25
+
+The CLI's commands on the new backend (native-sulfur), which serves the talc schema (API v2) as its starting point (D-612):
+docs/sulfur.md lists each command, served, adapted or not, and the server findings.
+
 ### Added
+
+- The seam of the talc requests on the new backend (`src/sulfur/talc.ts`, `src/sulfur/fit.ts`): each document fitted to the
+  server's schema (`schema/sulfur/server.graphql`, `npm run update:sulfur-schema`, `npm run gen:sulfur-schema`), adapters for
+  the operations the server serves otherwise (`me`, `account`, `updateProfile`, `setFollow`, `isFollowing`, `setBlock`,
+  `setMute`), `NOT_ON_NEW_BACKEND` with the operation named for the others.
+- Media on the new backend (`src/sulfur/media.ts`, `src/mp4.ts`): images, clips, long videos (in parts of 64 MiB above
+  500 MB, resumable), avatars, course documents through `requestUpload`, the SHA-256 declared, a video's duration and
+  orientation read from its MP4 header; `BREAKROCKS_MULTIPART_ABOVE`.
+- Headless sign-in for automation: `login --email … --code -` (the code on stdin), `BREAKROCKS_EMAIL_CODE`, `--handle` (the
+  handle taken once signed in); `BREAKROCKS_CLI_DIR` (an alias of `BREAKROCKS_CONFIG_DIR`), a keychain entry per
+  configuration folder.
+- `posts create --point <lat>,<lon>` / `--place-id`: the post placed once created (`setPostPlace`), on both backends.
+- `usage` and `me capabilities` on the new backend.
+- `scripts/sulfur-table.ts` (the table of docs/sulfur.md); the dev journey (`npm run e2e:sulfur`) covers media, replies,
+  quotes, reposts, likes, universes, follows and deletion.
 
 - New backend: `login --browser` (the web page `/cli/login`, a loopback redirect `http://127.0.0.1:<port>/cb`, PKCE S256;
   `--no-open`, `--timeout`), `login --device`; `login` alone is the browser when one can be opened (a terminal, no SSH, a
@@ -14,6 +34,8 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ### Changed
 
+- On the new backend, `me profile show`, `me profile set`, `posts create` and `posts feed` are the CLI's own commands (their
+  options and `--json` outputs those of the former backend) instead of the stand-ins of 0.40.0 (`--name`: `--display-name`).
 - The device code refused on the other device (`access_denied`) says so (`DEVICE_CODE_DENIED`, exit 1).
 
 ## [0.40.0] - 2026-11-25

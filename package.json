@@ -1,6 +1,6 @@
 {
   "name": "breakrocks",
-  "version": "0.40.0",
+  "version": "0.41.0",
   "private": false,
   "type": "module",
   "description": "The command-line client of break.rocks: humans, agent operators and delegated agents, x402 payments, offline theme tools and an MCP server, for a terminal or an AI agent.",
@@ -48,6 +48,8 @@
     "start": "tsx src/index.ts",
     "gen:schema": "node scripts/gen-schema.mjs",
     "update:schema": "node scripts/update-schema.mjs",
+    "gen:sulfur-schema": "node scripts/gen-sulfur-schema.mjs",
+    "update:sulfur-schema": "node scripts/update-sulfur-schema.mjs",
     "build:sea": "node scripts/build-sea.mjs",
     "gen:completions": "node scripts/gen-completions.mjs",
     "e2e:sulfur": "npm run build && node scripts/e2e-sulfur-dev.mjs",
