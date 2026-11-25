@@ -189,7 +189,7 @@ async function ensureHumanSession(ctx: Context, profile: Profile, options: { ren
  */
 export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   // The new backend (native-sulfur): the same talc request through its seam (src/sulfur/talc.ts).
-  if (ctx.backend() === 'sulfur') return sulfurTalc<T>(ctx, query, variables);
+  if (ctx.backend() === 'sulfur') return sulfurTalc<T>(ctx, query, variables, options);
   const { session, at } = await ensureSession(ctx);
   try {
     return await withExtraUsage(ctx, session, (token, extra) => graphql<T>(ctx, at.api, token, query, variables, false, !!options.partial, extra));

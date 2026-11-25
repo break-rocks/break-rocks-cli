@@ -11,7 +11,7 @@ import { closeSync, openAsBlob, openSync, readSync, rmSync, statSync } from 'nod
 import { join } from 'node:path';
 import type { Context } from '../context.js';
 import { readJson, writePrivate } from '../config.js';
-import { CliError, networkError, platformRefusal, usageError } from '../errors.js';
+import { CliError, EXIT, networkError, platformRefusal, usageError } from '../errors.js';
 import { probeVideo } from '../mp4.js';
 import { sulfurApi } from './session.js';
 
@@ -96,7 +96,12 @@ async function multipart(ctx: Context, file: SulfurFile, input: Record<string, u
   const blob = await openAsBlob(file.path);
   let grant: Grant;
   if (state) {
-    try { grant = (await sulfurApi<{ resumeUpload: Grant }>(ctx, `mutation($u: ID!, $p: [String!]) { resumeUpload(uploadId: $u, partSha256: $p) { ${GRANT} } }`, { u: state.uploadId, p: state.partSha256 })).resumeUpload; } catch { state = undefined; }
+    try { grant = (await sulfurApi<{ resumeUpload: Grant }>(ctx, `mutation($u: ID!, $p: [String!]) { resumeUpload(uploadId: $u, partSha256: $p) { ${GRANT} } }`, { u: state.uploadId, p: state.partSha256 })).resumeUpload; } catch (error) {
+      // No answer (the network, the server, the session): the parts done are kept for the next run. Refused by the
+      // platform (the upload ended, unknown): a new upload.
+      if (!(error instanceof CliError) || error.exit === EXIT.NETWORK) throw error;
+      state = undefined;
+    }
   }
   if (!state) {
     const count = Math.ceil(file.bytes / PART_BYTES);

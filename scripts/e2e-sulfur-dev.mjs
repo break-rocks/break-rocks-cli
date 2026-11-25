@@ -2,8 +2,9 @@
 // The journey of the CLI on the new backend (native-sulfur) in dev, by hand or in a host-side check (README § The new
 // backend): a headless sign-up by e-mail code (the code on stdin, the handle taken), whoami, the profile with its avatar,
 // posts (text, two images in a new universe and its sub-level, a clip when BREAKROCKS_E2E_CLIP names a vertical MP4), a
-// reply, a quote and a repost into %root, a like, the thread, the universe feed, join and leave, follow, delete, the
-// timeline, a command not served, sign-out, sign-in again.
+// reply, a quote and a repost into %root, a like, the thread, the universe feed, join and leave (read back), follow and
+// unfollow (read back), a group and a quick poll, delete (read back), another environment refused, the timeline, a
+// command not served, sign-out, sign-in again.
 // The e-mail codes come from the dev e2e mailbox (*@inbox.dev.break.rocks) through the server's helper
 // (tools/e2e-mailbox/cli.ts): BREAKROCKS_SERVER_DIR names the server checkout (default ../server), AWS_PROFILE its
 // credentials (default breakrocks-dev). A fresh configuration folder in the system's temporary folder, the tokens in a file
@@ -77,27 +78,42 @@ expectOk('a new universe and its sub-level, by a first post', cli('posts', 'crea
 const images = expectOk('post with two images in the sub-level', cli('posts', 'create', 'Two images', '--in', `${universe}/sub`, '--image', red, '--alt', 'Red', '--image', blue, '--alt', 'Blue'), (o) => o.images?.length === 2);
 expectOk('the new universe', cli('universes', 'show', universe), (o) => o.universe?.exists === true);
 if (process.env.BREAKROCKS_E2E_CLIP) expectOk('post with a vertical clip', cli('posts', 'create', 'A clip', '--in', universe, '--video', process.env.BREAKROCKS_E2E_CLIP), (o) => !!o.clip?.id);
-expectOk('reply with an image', cli('posts', 'reply', images.id, 'A reply', '--image', blue), (o) => o.parentId === images.id);
+// A post is published once its media are processed (server D-422): replies wait for it (NOT_PUBLISHED meanwhile).
+const pause = () => spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)']);
+let reply = cli('posts', 'reply', images.id, 'A reply', '--image', blue);
+for (let i = 0; i < 30 && reply.out?.error?.code === 'NOT_PUBLISHED'; i++) { pause(); reply = cli('posts', 'reply', images.id, 'A reply', '--image', blue); }
+expectOk('reply with an image (once the post is published)', reply, (o) => o.parentId === images.id);
 expectOk('quote into %root', cli('posts', 'quote', images.id, 'A quote', '--in', '%root'), (o) => o.universe === '%root');
 expectOk('repost into %root', cli('posts', 'repost', images.id, '--universe', '%root'), (o) => o.universe === '%root');
 expectOk('like', cli('posts', 'like', images.id), (o) => o.likedByMe === true);
 expectOk('thread', cli('posts', 'thread', images.id), (o) => Array.isArray(o.items));
 expectOk('universe feed', cli('posts', 'list', `${universe}/sub`), (o) => o.items?.some((p) => p.id === images.id));
-expectOk('join', cli('universes', 'join', universe), () => true);
-expectOk('leave', cli('universes', 'leave', universe, '--yes'), () => true);
+const readerRole = () => cli('universes', 'show', universe).out?.universe?.myReaderRole;
+expectOk('join', cli('universes', 'join', universe), (o) => o !== null && typeof o === 'object');
+expectOk('joined: a resident', { code: 0, out: readerRole(), err: '' }, (role) => role === 'RESIDENT');
+expectOk('leave', cli('universes', 'leave', universe, '--yes'), (o) => o?.name === universe);
+expectOk('left: no longer a resident', { code: 0, out: readerRole(), err: '' }, (role) => !!role && role !== 'RESIDENT');
 // Follow an author of %root other than this account (an account, or an account in a universe: a universe alone is not followed).
 const other = (cli('posts', 'list', '%root').out?.items ?? []).map((p) => p.author?.handle).find((h) => h && h !== handle);
 if (other) {
   expectOk(`follow @${other}`, cli('accounts', 'follow', `@${other}`), (o) => o.address === `@${other}`);
   expectOk('is following', cli('accounts', 'is-following', `@${other}`), (o) => o === true);
-  expectOk('unfollow', cli('accounts', 'unfollow', `@${other}`), () => true);
+  expectOk('unfollow', cli('accounts', 'unfollow', `@${other}`), (o) => o === null);
+  expectOk('no longer following', cli('accounts', 'is-following', `@${other}`), (o) => o === false);
+  // A group with an account not connected: the group made, the invitation refused told beside it (or, on a server
+  // without partial answers yet, left out).
+  const group = expectOk('a group with an account not connected', cli('messages', 'groups', 'create', `CLI e2e ${stamp}`, `@${other}`), (o) => !!o?.group?.id && Array.isArray(o.refused) && o.refused.every((r) => r.accountId && r.code));
+  expectOk('a quick poll in the group (its discussion by its id)', cli('messages', 'quick-poll', 'Ride on Sunday?', '--choices', 'yes,no', '--group', group.group.id), (o) => !!o?.id);
 }
 const gone = expectOk('a post to delete', cli('posts', 'create', 'To delete', '--in', '%root'), (o) => !!o.id);
-expectOk('delete', cli('posts', 'delete', gone.id, '--yes'), () => true);
+expectOk('delete', cli('posts', 'delete', gone.id, '--yes'), (o) => o?.id === gone.id && o.deleted === true);
+expectOk('deleted: no longer read', cli('posts', 'show', gone.id), (o) => o?.post === null);
+// A session of dev is never used for another environment (nothing sent).
+expectOk('another environment refused', { ...cli('--env', 'prod', 'whoami'), code: 0 }, (o) => o?.error?.code === 'ENV_MISMATCH');
 // The timeline is written after the post (asynchronously): read again for up to 30 s.
 const inFeed = (o) => o?.items?.some((p) => p.id === post.id);
 let feed = cli('posts', 'feed', '--limit', '20');
-for (let i = 0; i < 15 && feed.code === 0 && !inFeed(feed.out); i++) { spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)']); feed = cli('posts', 'feed', '--limit', '20'); }
+for (let i = 0; i < 15 && feed.code === 0 && !inFeed(feed.out); i++) { pause(); feed = cli('posts', 'feed', '--limit', '20'); }
 expectOk('timeline', feed, inFeed);
 expectOk('not served there', { ...cli('look', 'personal', 'saved'), code: 0 }, (o) => o?.error?.code === 'NOT_ON_NEW_BACKEND' && o.error.operation === 'personalThemes');
 expectOk('logout', cli('logout'), (o) => o.signedOut && o.revoked);

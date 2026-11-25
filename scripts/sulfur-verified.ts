@@ -1,6 +1,6 @@
 // The commands run against dev on the new backend (native-sulfur), by scripts/e2e-sulfur-dev.mjs or by hand, with the
 // date of the last run: read by scripts/sulfur-table.ts (docs/sulfur.md, column Dev).
-export const VERIFIED_ON = '2026-11-25';
+export const VERIFIED_ON = '2026-11-26';
 export const VERIFIED: ReadonlySet<string> = new Set([
   'login', 'logout', 'whoami', 'me profile show', 'me profile set',
   'posts create', 'posts reply', 'posts quote', 'posts repost', 'posts like', 'posts delete', 'posts thread', 'posts list', 'posts feed', 'posts show', 'posts place',
@@ -13,7 +13,7 @@ export const VERIFIED: ReadonlySet<string> = new Set([
   'experiences runs measure', 'experiences runs end', 'experiences runs show', 'experiences runs list', 'experiences runs ranking',
   'experiences runs draw', 'experiences runs tournament', 'experiences runs contest', 'experiences runs entries', 'experiences feats list',
   'experiences feats at', 'experiences feats publish',
-  'messages groups create', 'messages groups invite', 'messages groups accept', 'messages groups invitations', 'connections request',
+  'messages groups create', 'messages quick-poll', 'messages groups invite', 'messages groups accept', 'messages groups invitations', 'connections request',
   'connections requests', 'connections accept',
   'messages direct send', 'messages direct read', 'messages inbox', 'messages groups send', 'messages groups read', 'messages react', 'messages thread', 'messages reply-thread',
   'search', 'explore', 'explore search', 'explore random', 'interests show', 'accounts followers', 'accounts following', 'accounts replies', 'notifications',

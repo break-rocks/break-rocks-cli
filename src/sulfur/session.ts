@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 import type { Context } from '../context.js';
 import { configDir, readJson, writePrivate } from '../config.js';
 import { systemKeychain } from '../keychain.js';
-import { CliError, EXIT, networkError } from '../errors.js';
+import { CliError, EXIT, networkError, usageError } from '../errors.js';
 import { isTokenRefused, sulfurBase, sulfurGraphql, sulfurPost } from './http.js';
 
 export const CLIENT_ID = 'cli';
@@ -36,6 +36,8 @@ export type SulfurMeta = {
   kind: SessionKind;
   /** How it was signed in: email, device, browser, or agent (RFC 7523: renewed by a new assertion, no refresh token). */
   method: 'email' | 'device' | 'browser' | 'agent';
+  /** An agent's session: the id that signed it in (the delegated agent, or the operator itself), compared with the credentials of each run. */
+  agentId?: string;
   signedInAt: string;
   /** When the access token ends. */
   accessExpiresAt: string;
@@ -155,32 +157,60 @@ export function renewSulfurSession(ctx: Context, current: SulfurSession): Promis
   return p.finally(() => RENEWING.delete(key));
 }
 
-/** The session of the profile, its access token renewed when it ends within a minute; SIGN_IN_REQUIRED without one. */
+/**
+ * The session of the profile, its access token renewed when it ends within a minute; SIGN_IN_REQUIRED without one.
+ * Refused: a session of another environment than the one asked (ENV_MISMATCH: a dev command never reaches prod), and the
+ * agent credentials of this run (the BREAKROCKS_* variables, a key of the profile) beside a human's session or profile
+ * (PROFILE_HOLDS_HUMAN: an agent is never signed into a human's session file). An agent's session signed by another agent
+ * than the one of this run is replaced by a new sign-in.
+ */
 export async function ensureSulfurSession(ctx: Context, options: { renew?: boolean } = {}): Promise<SulfurSession> {
+  const profile = ctx.profile();
   const current = readSulfurSession(ctx);
-  // A delegated agent (or an agent operator) with its own credentials: an assertion signed with its key (src/sulfur/agent.ts),
-  // again whenever its token ends; never a refresh token.
-  if (!current || current.method === 'agent') {
-    const { agentCredentials, agentSignIn } = await import('./agent.js');
+  if (current && current.env !== profile.env) {
+    throw usageError('ENV_MISMATCH', `The session of the profile "${ctx.profileName}" on the new backend is of ${current.env}, not ${profile.env}: use another profile for ${profile.env} (breakrocks config add <name> --env ${profile.env}), or sign out first`, { profile: ctx.profileName, env: current.env, requested: profile.env });
+  }
+  const { agentCredentials, agentSignIn, mayActAsAgent, refuseAgentIntoHuman } = await import('./agent.js');
+  if (mayActAsAgent(ctx, profile)) {
+    refuseAgentIntoHuman(ctx, profile, current);
+    // A delegated agent (or an agent operator) with its own credentials: an assertion signed with its key
+    // (src/sulfur/agent.ts), again whenever its token ends; never a refresh token.
     const creds = agentCredentials(ctx);
-    if (creds && (!current || options.renew || Date.parse(current.accessExpiresAt) - ctx.now() <= RENEW_BEFORE_MS || current.accountId === '')) return agentSignIn(ctx, creds);
-    if (creds && current) return current;
+    if (creds) {
+      const same = current?.method === 'agent' && current.agentId === creds.agentId && current.accountId !== '';
+      if (!same || !current || options.renew || Date.parse(current.accessExpiresAt) - ctx.now() <= RENEW_BEFORE_MS) return agentSignIn(ctx, creds);
+      return current;
+    }
   }
   if (!current) throw networkError('SIGN_IN_REQUIRED', `The profile "${ctx.profileName}" is not signed in on the new backend: breakrocks --backend sulfur login`, { profile: ctx.profileName });
   if (!options.renew && Date.parse(current.accessExpiresAt) - ctx.now() > RENEW_BEFORE_MS) return current;
+  // An agent's session without its key here: used until its token ends, never renewed (no refresh token).
+  if (current.method === 'agent') throw networkError('SIGN_IN_REQUIRED', `The agent session of the profile "${ctx.profileName}" ended and its key is not here: --agent <name>, or the BREAKROCKS_* variables`, { profile: ctx.profileName });
   return renewSulfurSession(ctx, current);
 }
 
-/** A GraphQL request with the profile's session; a token refused renews the session once and tries again. */
-export async function sulfurApi<T>(ctx: Context, query: string, variables: Record<string, unknown> = {}): Promise<T> {
+/** Who acts in [session]: a human, a delegated agent (its token's `act.sub`), or an agent operator (an agent session without `act`). */
+export function sulfurActorOf(session: SulfurSession): { actor: 'human' | 'delegated-agent' | 'operator'; agentId?: string } {
+  if (session.method !== 'agent') return { actor: 'human' };
+  let act: string | undefined;
+  try { act = (JSON.parse(Buffer.from(session.access.split('.')[1] ?? '', 'base64url').toString('utf8')) as { act?: { sub?: string } }).act?.sub; } catch { act = undefined; }
+  return act ? { actor: 'delegated-agent', agentId: act } : { actor: 'operator' };
+}
+
+/**
+ * A GraphQL request with the profile's session; a token refused renews the session once and tries again. [partial]: an
+ * answer with its data and refusals beside it (`extensions.partial`: createGroupChat's GROUP_INVITATIONS_REFUSED) gives
+ * the data, the refusals under `_errors` (talc's shape: errorType, errorInfo, path).
+ */
+export async function sulfurApi<T>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   const session = await ensureSulfurSession(ctx);
   const base = sulfurBase(ctx, session.env as never, session.cell);
   try {
-    return await sulfurGraphql<T>(ctx, base, session.access, query, variables);
+    return await sulfurGraphql<T>(ctx, base, session.access, query, variables, options);
   } catch (e) {
     if (!isTokenRefused(e)) throw e;
     const renewed = await ensureSulfurSession(ctx, { renew: true });
-    try { return await sulfurGraphql<T>(ctx, base, renewed.access, query, variables); } catch (again) {
+    try { return await sulfurGraphql<T>(ctx, base, renewed.access, query, variables, options); } catch (again) {
       if (isTokenRefused(again)) throw sessionEnded(ctx, 'the token was refused again');
       throw again;
     }

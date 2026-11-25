@@ -210,11 +210,15 @@ export const messagesVote = apiCommand({
   name: 'messages vote', summary: 'Give your contribution vote, UP or DOWN, to a message of an open temporary universe discussion (voteOnContribution; a human acting itself only)',
   description: 'One per account and per message, the other one replaces it. CONTRIBUTION_VOTE_HUMANS_ONLY for a delegated agent, CONTRIBUTION_VOTE_OWN_MESSAGE, CONTRIBUTION_VOTE_NOT_ALLOWED outside a temporary universe discussion, CONTRIBUTION_VOTE_RATE_LIMITED.',
   kind: 'mutation', op: 'voteOnContribution', positionals: ['messageId', 'vote'], select: SCORED, dry: true, descriptions: { messageId: 'The message', vote: 'UP or DOWN' }, text: scoreText,
-  examples: ['breakrocks messages vote <message id> UP'],
+  examples: ['breakrocks messages vote <message id> UP', 'breakrocks --backend sulfur messages vote <message id> UP --discussion <discussion id>'],
+  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)') },
+  prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion')); },
 });
 export const messagesUnvote = apiCommand({
   name: 'messages unvote', summary: 'Withdraw your contribution vote from a message (withdrawContributionVote)', kind: 'mutation', op: 'withdrawContributionVote', positionals: ['messageId'], select: SCORED, dry: true, descriptions: { messageId: 'The message' }, text: scoreText,
-  examples: ['breakrocks messages unvote <message id>'],
+  examples: ['breakrocks messages unvote <message id>', 'breakrocks --backend sulfur messages unvote <message id> --discussion <discussion id>'],
+  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)') },
+  prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion')); },
 });
 export const channelsLevels = apiCommand({
   name: 'channels levels', summary: 'The levels where a channel proposal may open a channel in a public universe of the first level: the universe and its public sub-universes (channelProposalLevels)', kind: 'query', op: 'channelProposalLevels', positionals: ['universe'],

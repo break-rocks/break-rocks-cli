@@ -6,7 +6,7 @@ import type { Context } from './context.js';
 import { paintErr } from './colour.js';
 import { CliError, EXIT, networkError, platformRefusal, refusalText } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
-import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
+import { degrade, fitFormerBackend, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
 import { VERSION } from './version.js';
 import { redactText } from './network.js';
 
@@ -99,7 +99,11 @@ export const isUnauthorized = (error: unknown) => error instanceof CliError && e
  * Unauthorized) is the code "Unauthorized". A field the backend does not serve yet (it is behind the contract
  * of this CLI): the request sent again once without it, the field null in the answer (src/api/degrade.ts).
  */
-export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void; degraded?: boolean } = {}): Promise<T> {
+export async function graphql<T = Record<string, unknown>>(ctx: Context, url: string, token: string, query: string, variables: Record<string, unknown> = {}, retried = false, partial = false, extra: { headers?: Record<string, string>; seen?: (headers: Headers) => void; degraded?: boolean; fitted?: boolean } = {}): Promise<T> {
+  // The fields the former backend never serves (the new backend's, D-659): left out before the request, null in the
+  // answer, without a word (one request, no FieldUndefined first).
+  const former = extra.fitted ? undefined : fitFormerBackend(query);
+  if (former) return nullRemoved(await graphql<T>(ctx, url, token, former.document, variables, retried, partial, { ...extra, fitted: true }), former.removed);
   const known = extra.degraded ? undefined : degradedOf(ctx).get(query);
   if (known) return nullRemoved(await graphql<T>(ctx, url, token, known.document, variables, retried, partial, { ...extra, degraded: true }), known.removed);
   const res = await apiRequest(ctx, url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', authorization: token, ...extra.headers }, body: JSON.stringify({ query, variables }) });

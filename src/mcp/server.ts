@@ -1,7 +1,7 @@
 // The MCP server of the CLI: every command of the registry as a tool (breakrocks_<group>_<action>,
 // the input schema of the registry, the answer = the --json of the command), three resources
 // (breakrocks://whoami, breakrocks://capabilities, breakrocks://profiles) and a prompt (theme-prompt).
-// It uses the current profile (or the --profile / --env given to `breakrocks mcp`); a tool that asks a
+// It uses the current profile (or the --profile / --env / --agent / --backend given to `breakrocks mcp`); a tool that asks a
 // confirmation is refused unless its input carries "yes": true; nothing is ever asked on stdin
 // (stdin and stdout are the protocol), progress goes to stderr.
 import { forBackend } from '../sulfur/dispatch.js';
@@ -20,6 +20,9 @@ export const RESOURCES = [
   { uri: 'breakrocks://capabilities', name: 'capabilities', title: 'What the profile may do now', description: 'The answer of breakrocks me capabilities --json', command: 'me capabilities' },
   { uri: 'breakrocks://profiles', name: 'profiles', title: 'The profiles', description: 'The answer of breakrocks config list --json', command: 'config list' },
 ] as const;
+
+/** What `breakrocks mcp` hands every tool: its profile, environment, local agent and backend (--backend). */
+export type ServerFlags = Pick<GlobalFlags, 'profile' | 'env' | 'agent' | 'backend'>;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -40,7 +43,7 @@ export const commandOfTool = (name: string): AnyCommand | undefined => {
 };
 
 /** Runs a command for an MCP client: its JSON answer, or its refusal ({ error }) marked isError. */
-export async function callCommand(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: AnyCommand, args: Record<string, unknown>) {
+export async function callCommand(io: Io, base: ServerFlags, command: AnyCommand, args: Record<string, unknown>) {
   const { yes, ...input } = args;
   if (yes !== undefined && !command.interactive) return failure(usageError('INVALID_INPUT', `input.yes: is not an option of ${command.name}`));
   const ctx = new Context({ ...io, interactive: false, readStdin: undefined, collectWatch: true }, { ...NO_FLAGS, ...base, json: true, yes: yes === true });
@@ -59,15 +62,15 @@ function failure(error: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(refusal, null, 2) }], structuredContent: refusal, isError: true };
 }
 
-const answerOf = async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>, command: string) => (await callCommand(io, base, findCommand(command.split(' '))!.command, {})).content[0].text;
+const answerOf = async (io: Io, base: ServerFlags, command: string) => (await callCommand(io, base, findCommand(command.split(' '))!.command, {})).content[0].text;
 
 /**
  * The account prompts (D-235): whoami (who acts), agents (the local agents) and login (how a person
  * signs in: never done in the MCP server, which opens no session for another account).
  */
 export const ACCOUNT_PROMPTS = [
-  { name: 'whoami', title: 'Who acts', description: 'The account and the delegated agent this MCP server acts as (breakrocks whoami --json)', text: async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>) => `This break.rocks MCP server acts as:\n${await answerOf(io, base, 'whoami')}` },
-  { name: 'agents', title: 'The local agents', description: 'The local agents of this device (breakrocks agents local --json): start the server with --agent <name> to act as one', text: async (io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'>) => `The local agents of this device (start \`breakrocks mcp --agent <name>\` to act as one; this server acts as ${base.agent ? `"${base.agent}"` : 'its profile'}):\n${await answerOf(io, base, 'agents local')}` },
+  { name: 'whoami', title: 'Who acts', description: 'The account and the delegated agent this MCP server acts as (breakrocks whoami --json)', text: async (io: Io, base: ServerFlags) => `This break.rocks MCP server acts as:\n${await answerOf(io, base, 'whoami')}` },
+  { name: 'agents', title: 'The local agents', description: 'The local agents of this device (breakrocks agents local --json): start the server with --agent <name> to act as one', text: async (io: Io, base: ServerFlags) => `The local agents of this device (start \`breakrocks mcp --agent <name>\` to act as one; this server acts as ${base.agent ? `"${base.agent}"` : 'its profile'}):\n${await answerOf(io, base, 'agents local')}` },
   { name: 'login', title: 'How to sign in', description: 'How a person signs in from a terminal (no sign-in happens in the MCP server)', text: async () => [
     'The MCP server never signs anyone in: a person runs one of these in a terminal, then restarts the MCP server.',
     '- A human: `breakrocks login` (an email code), or `breakrocks login --browser`.',
@@ -79,7 +82,7 @@ export const ACCOUNT_PROMPTS = [
 ] as const;
 
 /** The MCP server of the CLI, on [io] (its out must be stderr-only: stdout is the protocol). */
-export function createServer(io: Io, base: Pick<GlobalFlags, 'profile' | 'env' | 'agent'> = {}): Server {
+export function createServer(io: Io, base: ServerFlags = {}): Server {
   const server = new Server({ name: 'breakrocks', title: 'break.rocks', version: VERSION }, {
     capabilities: { tools: {}, resources: {}, prompts: {} },
     instructions: 'The break.rocks CLI as tools, with the session of the profile the server started with (a human signed in with breakrocks login at the terminal, an agent operator, or a delegated agent: sign-in with keys; beyond its quota, a delegated agent pays its extra usage with x402 when its profile allows it, breakrocks wallet set --extra-usage, within the caps of the wallet, otherwise the tool is refused PAYMENT_REQUIRED with the conditions): reading, publishing, messages, themes, usage and capabilities, offline theme tools. A delegated agent declares the media license of every video it posts (breakrocks_posts_create, breakrocks_posts_reply, breakrocks_posts_quote, breakrocks_drafts_save: license CC0, CC_BY, CC_BY_SA, PUBLIC_DOMAIN or OWN_WORK_ALL_RIGHTS; attribution, the author and the source, for CC_BY and CC_BY_SA), and has its own video quota, never paid with x402 (VIDEO_QUOTA_EXCEEDED). Read breakrocks://capabilities before acting. Every refusal is { "error": { "code" } } with the code of the contract. Irreversible or paid tools need "yes": true.',

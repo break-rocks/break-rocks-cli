@@ -71,7 +71,7 @@ export function expectAuthOk(answer: SulfurAnswer, what: string): Record<string,
 }
 
 /** A GraphQL error of the new backend. */
-type GqlError = { message?: string; extensions?: { code?: string; reason?: string; errorInfo?: unknown } };
+type GqlError = { message?: string; path?: unknown; extensions?: { code?: string; reason?: string; errorInfo?: unknown; partial?: boolean } };
 
 /** A token refused by the API: the caller renews it once and tries again. */
 export const isTokenRefused = (e: unknown) => e instanceof CliError && e.code === 'TOKEN_REFUSED';
@@ -81,11 +81,17 @@ export const isTokenRefused = (e: unknown) => e instanceof CliError && e.code ==
  * kind). 401 is TOKEN_REFUSED (the session renewed by the caller), a 403 CREDENTIAL_ACT_REQUIRES_HUMAN or INSUFFICIENT_SCOPE
  * says what the session may not do.
  */
-export async function sulfurGraphql<T>(ctx: Context, base: string, token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
+export async function sulfurGraphql<T>(ctx: Context, base: string, token: string, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
   const answer = await sulfurPost(ctx, base, '/graphql', { query, variables }, { token });
   const body = answer.json as { data?: T; errors?: GqlError[] };
   const first = body.errors?.[0];
   if (answer.status === 401) throw new CliError('TOKEN_REFUSED', first?.message ?? 'The access token is refused', EXIT.NETWORK, {}, 'platform');
+  // A partial answer (the server's `answerPartially`: every error marked `partial`, the data standing), when asked: the
+  // data, the refusals beside it in talc's shape (src/transport.ts graphql, the former backend's partial answers).
+  if (options.partial && first && body.data && body.errors!.every((e) => e.extensions?.partial === true)) {
+    const errors = body.errors!.map((e) => ({ errorType: e.extensions?.reason ?? e.extensions?.code, message: e.message, ...(e.extensions?.errorInfo !== undefined ? { errorInfo: e.extensions.errorInfo } : {}), ...(e.path ? { path: e.path } : {}) }));
+    return { ...(body.data as object), _errors: errors } as T;
+  }
   if (first) {
     const code = first.extensions?.reason ?? first.extensions?.code ?? 'GRAPHQL_ERROR';
     if (code === 'CREDENTIAL_ACT_REQUIRES_HUMAN') throw platformRefusal(code, 'This session may not do that (a device-code session reaches content only): sign in with the email code (login --email) for account changes');

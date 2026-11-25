@@ -115,6 +115,7 @@ describe('an upload to the new backend', () => {
     }) as typeof globalThis.fetch;
     const h = harness({ fetch, env: { BREAKROCKS_SULFUR_URL: 'https://sulfur.test', ...env } });
     const ctx = new Context(h.io, { ...NO_FLAGS, backend: 'sulfur' });
+    ctx.saveProfile({ env: 'dev', kind: 'human' });
     saveSulfurSession(ctx, { backend: 'sulfur', env: 'dev', cell: 'eu', accountId: 'eu_a', kind: 'untrusted', method: 'email', signedInAt: '2026-10-23T10:00:00.000Z', accessExpiresAt: '2026-10-23T11:00:00.000Z', storage: 'file', access: 'at', refresh: 'rt' });
     return { h, ctx, calls };
   }
@@ -158,7 +159,9 @@ describe('commands through the seam on the new backend', () => {
       return Response.json({ data: answers(body.query, body.variables) });
     }) as typeof globalThis.fetch;
     const h = harness({ fetch, env: { BREAKROCKS_SULFUR_URL: 'https://sulfur.test', BREAKROCKS_BACKEND: 'sulfur' } });
-    saveSulfurSession(new Context(h.io, NO_FLAGS), { backend: 'sulfur', env: 'dev', cell: 'eu', accountId: 'eu_a', kind: 'untrusted', method: 'email', signedInAt: '2026-10-23T10:00:00.000Z', accessExpiresAt: '2026-10-23T11:00:00.000Z', storage: 'file', access: 'at', refresh: 'rt' });
+    const ctx = new Context(h.io, NO_FLAGS);
+    ctx.saveProfile({ env: 'dev', kind: 'human' });
+    saveSulfurSession(ctx, { backend: 'sulfur', env: 'dev', cell: 'eu', accountId: 'eu_a', kind: 'untrusted', method: 'email', signedInAt: '2026-10-23T10:00:00.000Z', accessExpiresAt: '2026-10-23T11:00:00.000Z', storage: 'file', access: 'at', refresh: 'rt' });
     return { h, sent };
   }
 
@@ -195,7 +198,8 @@ describe('an agent on the new backend (RFC 7523)', () => {
     const x = (publicKey.export({ format: 'jwk' }) as { x: string }).x;
     expect(header).toEqual({ alg: 'EdDSA', typ: 'JWT', kid: createHash('sha256').update(Buffer.from(x, 'base64url')).digest('hex') });
     expect(keyIdOf(privateKey)).toBe(header.kid);
-    expect(claims).toMatchObject({ iss: 'eu_agent1', sub: 'eu_agent1', aud: 'https://eu.api.dev.break.rocks/oauth/token', exp: claims.iat + 120 });
+    // iat 30 s back (a clock a little ahead of the server's), exp 2 minutes ahead.
+    expect(claims).toMatchObject({ iss: 'eu_agent1', sub: 'eu_agent1', aud: 'https://eu.api.dev.break.rocks/oauth/token', iat: Date.parse('2026-11-25T10:00:00Z') / 1000 - 30, exp: Date.parse('2026-11-25T10:00:00Z') / 1000 + 120 });
     expect(typeof claims.jti).toBe('string');
     expect(verify(null, Buffer.from(`${h}.${p}`), publicKey, Buffer.from(sig, 'base64url'))).toBe(true);
   });

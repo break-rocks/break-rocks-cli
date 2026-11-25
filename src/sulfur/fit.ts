@@ -19,7 +19,7 @@ import { SERVER } from './schema.generated.js';
 export const notServed = (what: string, detail?: string): CliError => cliRefusal('NOT_ON_NEW_BACKEND', `${what} is not served by the new backend (native-sulfur)${detail ? `: ${detail}` : ''}: --backend legacy, or wait for its port`, { operation: what, backend: 'sulfur' });
 
 type Arg = { name: string; start: number; end: number; variable?: string; inner: string[]; empty: boolean };
-type Field = { kind: 'field'; key: string; name: string; start: number; end: number; args: Arg[]; argsStart?: number; argsEnd?: number; selection?: Selection };
+type Field = { kind: 'field'; key: string; name: string; nameStart: number; nameEnd: number; start: number; end: number; args: Arg[]; argsStart?: number; argsEnd?: number; selection?: Selection };
 type Inline = { kind: 'inline'; on?: string; spread?: string; start: number; end: number; selection?: Selection };
 type Selection = { start: number; end: number; items: (Field | Inline)[] };
 type VarDef = { name: string; start: number; end: number; typeStart: number; typeEnd: number; type: string };
@@ -47,7 +47,8 @@ export function parseOperations(doc: string): Operation[] {
       }
       return { last, inner, empty: count === 1 };
     }
-    return { last: first, inner: [], empty: first.text === 'null' || first.text === 'false' || first.text === '""' };
+    // Only null is no value: false and "" are values a command chose (never dropped without a word).
+    return { last: first, inner: [], empty: first.text === 'null' };
   };
   const directives = () => { while (peek('@')) { next(); next(); if (peek('(')) { next(); while (!peek(')')) { next(); expect(':'); value(); } next(); } } };
   const args = (): { list: Arg[]; start: number; end: number } => {
@@ -80,13 +81,14 @@ export function parseOperations(doc: string): Operation[] {
         } else throw new Error('Named fragments are not read here');
         continue;
       }
-      let name = first.text;
-      const key = name;
-      if (peek(':')) { next(); name = next().text; }
+      let nameToken = first;
+      const key = first.text;
+      if (peek(':')) { next(); nameToken = next(); }
+      const name = nameToken.text;
       const a = peek('(') ? args() : undefined;
       directives();
       const selection = peek('{') ? selectionSet() : undefined;
-      items.push({ kind: 'field', key, name, start: first.start, end: selection?.end ?? tokens[at - 1].end, args: a?.list ?? [], ...(a ? { argsStart: a.start, argsEnd: a.end } : {}), ...(selection ? { selection } : {}) });
+      items.push({ kind: 'field', key, name, nameStart: nameToken.start, nameEnd: nameToken.end, start: first.start, end: selection?.end ?? tokens[at - 1].end, args: a?.list ?? [], ...(a ? { argsStart: a.start, argsEnd: a.end } : {}), ...(selection ? { selection } : {}) });
     }
     return { start: open.start, end: expect('}').end, items };
   };
@@ -128,11 +130,29 @@ export function parseOperations(doc: string): Operation[] {
   return ops;
 }
 
+/**
+ * The arguments the server requires of the root field [op] that talc's has not (a message's discussionId, a theme's id):
+ * its talc documents cannot be fitted without an adapter (scripts/sulfur-table.ts says it, fitDocument refuses them).
+ */
+export function serverRequiresBeyondTalc(op: string, kind: 'query' | 'mutation', server: Sdl = SERVER, talc: Sdl = CONTRACT): string[] {
+  const served = server[kind][op];
+  if (!served) return [];
+  const talcArgs = talc[kind][op]?.[1] ?? {};
+  return Object.entries(served[1] ?? {}).filter(([a, t]) => t.endsWith('!') && !(a in talcArgs)).map(([a]) => a);
+}
+
 /** A field left out, where its answer is: its keys from the top of the data, and whether talc answers a list there. */
-export type LeftOut = { path: string[]; list: boolean };
+export type LeftOut = { path: string[]; list: boolean; wrap?: { key: string; list: boolean }[] };
+
+/**
+ * A talc object field the server serves under another name (talc's Universe.image, an Image: the server's
+ * Universe.shownImage; its own `image` is the media id): asked under the server's name, answered under the talc key.
+ */
+const RENAMED: Record<string, string> = { 'Universe.image': 'shownImage' };
 export type Fitted = { document: string; variables: Record<string, unknown>; left: LeftOut[]; roots: { key: string; name: string; kind: Operation['kind'] }[] };
 
-const emptyValue = (v: unknown) => v === undefined || v === null || v === false || v === '' || (Array.isArray(v) && !v.length);
+/** No value given: null or undefined (an empty list too: nothing in it). false and "" are values, refused where not taken. */
+const emptyValue = (v: unknown) => v === undefined || v === null || (Array.isArray(v) && !v.length);
 const rootOf = (s: Sdl, kind: Operation['kind']) => (kind === 'mutation' ? s.mutation : kind === 'query' ? s.query : undefined);
 const fieldOf = (s: Sdl, type: string, name: string) => (type === 'Query' ? s.query[name] : type === 'Mutation' ? s.mutation[name] : s.types[type]?.f?.[name]);
 const isLeaf = (s: Sdl, type: string) => { const k = s.types[type]?.k; return !k || k === 'e' || k === 's'; };
@@ -183,9 +203,22 @@ export function fitDocument(doc: string, variables: Record<string, unknown>, ser
         continue;
       }
       if (item.name.startsWith('__')) { kept++; continue; }
-      const def = fieldOf(server, serverType, item.name);
+      const renamed = item.selection ? RENAMED[`${serverType}.${item.name}`] : undefined;
+      const serverName = renamed && fieldOf(server, serverType, renamed) ? renamed : item.name;
+      if (serverName !== item.name) cuts.push({ start: item.nameStart, end: item.nameEnd, text: item.key === item.name ? `${item.key}: ${serverName}` : serverName });
+      const def = fieldOf(server, serverType, serverName);
       const talcDef = talcType ? fieldOf(talc, talcType, item.name) : undefined;
       const inner = def ? typeRef(def[0]).name : '';
+      // A talc Image (an object) the server answers as its media id (MyUniverse.image, GroupChat.image): asked as the
+      // id, answered as an Image of that id, its other fields null ([] for a list).
+      const talcInner = talcDef ? typeRef(talcDef[0]).name : '';
+      if (def && item.selection && talcInner === 'Image' && isLeaf(server, inner) && ['String', 'ID'].includes(inner)) {
+        kept++;
+        cuts.push({ start: item.selection.start, end: item.selection.end, text: '' });
+        const wrap = item.selection.items.filter((i): i is Field => i.kind === 'field' && !i.name.startsWith('__')).map((i) => ({ key: i.key, list: (() => { const d = fieldOf(talc, 'Image', i.name); return d ? typeRef(d[0]).list : false; })() }));
+        left.push({ path: [...path, item.key], list: false, wrap });
+        continue;
+      }
       if (!def || (isLeaf(server, inner) === !!item.selection)) {
         cuts.push({ start: item.start, end: item.end, text: '' });
         left.push({ path: [...path, item.key], list: talcDef ? typeRef(talcDef[0]).list : false });
@@ -268,6 +301,15 @@ export function fillLeftOut<T>(data: T, left: readonly LeftOut[]): T {
     if (path.length === 1) { if (!(path[0] in value)) value[path[0]] = list ? [] : null; return; }
     place(value[path[0]], path.slice(1), list);
   };
-  for (const l of left) place(data, l.path, l.list);
+  /** A media id answered where talc answers an Image: the Image of that id. */
+  const wrapId = (value: unknown, path: readonly string[], wrap: { key: string; list: boolean }[]): void => {
+    if (Array.isArray(value)) { for (const v of value) wrapId(v, path, wrap); return; }
+    if (!isObject(value)) return;
+    if (path.length > 1) { wrapId(value[path[0]], path.slice(1), wrap); return; }
+    const id = value[path[0]];
+    if (typeof id === 'string' && id) value[path[0]] = Object.fromEntries(wrap.map((w) => [w.key, w.key === 'id' ? id : w.list ? [] : null]));
+    else if (id === undefined || id === '') value[path[0]] = null;
+  };
+  for (const l of left) { if (l.wrap) wrapId(data, l.path, l.wrap); else place(data, l.path, l.list); }
   return data;
 }

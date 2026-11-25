@@ -8,6 +8,28 @@ import { CONTRACT, typeRef } from './graphql.js';
 /** A field the backend does not serve: "Y.x". */
 export type Unserved = { type: string; field: string };
 
+/**
+ * The fields of the contract the former backend (talc's API v2, frozen) will never serve: added to the contract for the
+ * new backend (D-659: the vote requirement in minutes). Never asked there (a document is sent without them, once, and
+ * answers them null), and not a drift (doctor): not "the backend is behind".
+ */
+export const NOT_ON_FORMER_BACKEND: readonly Unserved[] = [
+  { type: 'VoteRequirement', field: 'accountMinutes' }, { type: 'VoteRequirement', field: 'presenceMinutes' },
+  { type: 'VoteStatus', field: 'accountMinutesDone' }, { type: 'VoteStatus', field: 'presenceMinutesDone' },
+];
+const FORMER_FITTED = new Map<string, Degraded | null>();
+
+/** [doc] without the fields NOT_ON_FORMER_BACKEND (by their types, aliases and fragments included); undefined when it asks none. */
+export function fitFormerBackend(doc: string): Degraded | undefined {
+  let fitted = FORMER_FITTED.get(doc);
+  if (fitted === undefined) {
+    fitted = NOT_ON_FORMER_BACKEND.some((u) => doc.includes(u.field)) ? degrade(doc, NOT_ON_FORMER_BACKEND) ?? null : null;
+    if (FORMER_FITTED.size > 500) FORMER_FITTED.clear();
+    FORMER_FITTED.set(doc, fitted);
+  }
+  return fitted ?? undefined;
+}
+
 const FIELD_UNDEFINED = /Validation error of type FieldUndefined: Field '([_A-Za-z][_0-9A-Za-z]*)' in type '([_A-Za-z][_0-9A-Za-z]*)' is undefined/;
 
 /**
