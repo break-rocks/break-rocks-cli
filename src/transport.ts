@@ -4,7 +4,7 @@
 // retryAt is within 60 seconds likewise. A refusal is a CliError with the code of the contract.
 import type { Context } from './context.js';
 import { paintErr } from './colour.js';
-import { CliError, EXIT, networkError, platformRefusal, refusalSentence } from './errors.js';
+import { CliError, EXIT, networkError, platformRefusal, refusalText } from './errors.js';
 import { CONTRACT } from './api/graphql.js';
 import { degrade, nullRemoved, unservedFields, type Degraded } from './api/degrade.js';
 import { VERSION } from './version.js';
@@ -131,7 +131,7 @@ export async function graphql<T = Record<string, unknown>>(ctx: Context, url: st
         return graphql<T>(ctx, url, token, query, variables, true, partial, extra);
       }
     }
-    throw platformRefusal(code, refusalSentence(code, first.message), { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });
+    throw platformRefusal(code, refusalText(code, first.message, first.errorInfo), { ...(first.errorInfo ? { errorInfo: first.errorInfo } : {}), ...(first.path ? { path: first.path } : {}) });
   }
   if (!res.ok) throw platformRefusal(`HTTP_${res.status}`, `The API answered ${res.status}`, { status: res.status });
   return (body.data ?? {}) as T;

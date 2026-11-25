@@ -4147,12 +4147,16 @@ type Residence {
 type VoteRequirement {
   accountDays: Int!
   presenceDays: Int!
+  accountMinutes: Int!
+  presenceMinutes: Int!
   contributionRequired: Boolean!
 }
 
 type VoteStatus {
   accountDaysDone: Int!
   presenceDaysDone: Int!
+  accountMinutesDone: Int!
+  presenceMinutesDone: Int!
   contributed: Boolean!
 }
 

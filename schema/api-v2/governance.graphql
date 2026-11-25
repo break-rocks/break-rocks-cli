@@ -1927,41 +1927,59 @@ enum VoteReception {
 }
 
 """
-What voting needs at a governance level: an account of "accountDays", joined "presenceDays" ago, and a prior
-contribution when "contributionRequired".
+What voting needs at a governance level: an account of "accountMinutes", joined "presenceMinutes" ago, and a prior
+contribution when "contributionRequired"; the day fields are the floor of the minutes divided by 1,440 (D-659: "group
+of friends" asks 1 day and 1 day, in every environment; contracts/living-universes.md § Vote requirement and My
+residence).
 """
 type VoteRequirement {
   """
-  The days the account must have.
+  The whole days the account must have: floor(accountMinutes / 1440).
   """
   accountDays: Int!
+  """
+  The minutes the account must have (1440 at "group of friends", 10080 at "village").
+  """
+  accountMinutes: Int!
   """
   Whether a prior contribution is required.
   """
   contributionRequired: Boolean!
   """
-  The days of presence required.
+  The whole days of presence required: floor(presenceMinutes / 1440).
   """
   presenceDays: Int!
+  """
+  The minutes since joining required (1440 at "group of friends", 4320 at "village").
+  """
+  presenceMinutes: Int!
 }
 
 """
-Where a resident stands: its whole days of account and of presence, up to those required, and its prior
-contribution.
+Where a resident stands: its time of account and of presence, in whole minutes and whole days, not capped at those
+required (the apps show at most the requirement), and its prior contribution.
 """
 type VoteStatus {
   """
-  The days the account has.
+  The whole days the account has: floor(accountMinutesDone / 1440); not capped at accountDays.
   """
   accountDaysDone: Int!
+  """
+  The whole minutes the account has; not capped at accountMinutes.
+  """
+  accountMinutesDone: Int!
   """
   Whether the resident contributed.
   """
   contributed: Boolean!
   """
-  The days of presence done.
+  The whole days of presence done: floor(presenceMinutesDone / 1440); not capped at presenceDays.
   """
   presenceDaysDone: Int!
+  """
+  The whole minutes since joining; not capped at presenceMinutes.
+  """
+  presenceMinutesDone: Int!
 }
 
 """

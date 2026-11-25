@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto';
 import type { Context } from '../context.js';
 import type { Environment } from '../config.js';
-import { CliError, EXIT, networkError, platformRefusal } from '../errors.js';
+import { CliError, EXIT, networkError, platformRefusal, refusalText } from '../errors.js';
 import { apiRequest } from '../transport.js';
 
 /** The web site of an environment: the cells' API hosts live under it (`{cell}.api.{site}`, server config/cells.json). */
@@ -71,7 +71,7 @@ export function expectAuthOk(answer: SulfurAnswer, what: string): Record<string,
 }
 
 /** A GraphQL error of the new backend. */
-type GqlError = { message?: string; extensions?: { code?: string; reason?: string } };
+type GqlError = { message?: string; extensions?: { code?: string; reason?: string; errorInfo?: unknown } };
 
 /** A token refused by the API: the caller renews it once and tries again. */
 export const isTokenRefused = (e: unknown) => e instanceof CliError && e.code === 'TOKEN_REFUSED';
@@ -89,7 +89,9 @@ export async function sulfurGraphql<T>(ctx: Context, base: string, token: string
   if (first) {
     const code = first.extensions?.reason ?? first.extensions?.code ?? 'GRAPHQL_ERROR';
     if (code === 'CREDENTIAL_ACT_REQUIRES_HUMAN') throw platformRefusal(code, 'This session may not do that (a device-code session reaches content only): sign in with the email code (login --email) for account changes');
-    throw platformRefusal(code, first.message && first.message !== code ? first.message : code, { ...(first.extensions?.code ? { kind: first.extensions.code } : {}) });
+    // The facts of the refusal (`extensions.errorInfo`: a bound, a date…) kept for --json, and told when they say more (D-659).
+    const errorInfo = first.extensions?.errorInfo;
+    throw platformRefusal(code, refusalText(code, first.message && first.message !== code ? first.message : code, errorInfo), { ...(first.extensions?.code ? { kind: first.extensions.code } : {}), ...(errorInfo ? { errorInfo } : {}) });
   }
   if (answer.status >= 500) throw networkError('SERVER_ERROR', `The new backend answered ${answer.status}`, { status: answer.status }, 'platform');
   if (answer.status >= 400) throw authRefusal(answer, 'The API');

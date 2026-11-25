@@ -9,6 +9,7 @@ import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
 import { checkImage, uploadImage } from '../media.js';
 import { pageText } from './shared.js';
+import { voteProgress, type VoteRequirement, type VoteStatus } from '../vote-requirement.js';
 
 const u = { universe: 'The universe (%name)', in: 'The universe (%name)', account: 'The account: @handle or its id' };
 type Ref = { handle?: string } | null | undefined;
@@ -190,7 +191,11 @@ export const tiersRenewalOff = renewal(false);
 
 export const residences = apiCommand({
   name: 'universes residences', summary: 'The residences of the account in public universes, the most recent first (myPresences)', kind: 'query', op: 'myPresences',
-  text: pageText((x: { universe?: string; joinedAt?: string; endsAt?: string; canVote?: boolean; canVoteAt?: string | null }) => `${x.universe}  since ${x.joinedAt ?? '-'}  ends ${x.endsAt ?? '-'}  ${x.canVote ? 'votes' : `votes from ${x.canVoteAt ?? '-'}`}`),
+  description: 'Until it votes, the human output tells the vote requirement and where the resident stands, in the largest whole unit (days, else hours, else minutes: "account 0 of 1 day"), nothing for a requirement of 0; --json gives voteRequirement and voteStatus (the minute fields since D-659, null on a backend without them).',
+  text: pageText((x: { universe?: string; joinedAt?: string; endsAt?: string; canVote?: boolean; canVoteAt?: string | null; voteRequirement?: VoteRequirement | null; voteStatus?: VoteStatus | null }) => {
+    const progress = x.canVote ? null : voteProgress(x.voteRequirement, x.voteStatus);
+    return `${x.universe}  since ${x.joinedAt ?? '-'}  ends ${x.endsAt ?? '-'}  ${x.canVote ? 'votes' : `votes from ${x.canVoteAt ?? '-'}`}${progress ? `  (${progress})` : ''}`;
+  }),
   examples: ['breakrocks universes residences'],
 });
 export const subMap = apiCommand({ name: 'universes sub-map', summary: 'The sub-universe map of a universe (subUniverseMap; null when not offered)', kind: 'query', op: 'subUniverseMap', positionals: ['universe'], descriptions: u, examples: ['breakrocks universes sub-map %paris --json'] });
