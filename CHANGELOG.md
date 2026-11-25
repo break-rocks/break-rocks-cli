@@ -5,6 +5,18 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-25
+
+### Added
+
+- New backend: delegated agents and agent operators sign in with their key (RFC 7523 JWT bearer, `src/sulfur/agent.ts`),
+  by themselves on every command and again when the token ends; `agents login`, `operator login`; `whoami` says
+  `delegated-agent` and the `agentId`.
+- New backend: `doctor` (the session, the API's health, the talc operations not served); `messages react`, `unreact`,
+  `thread`, `reply-thread` take `--discussion` (and `--thread-root`), the message reads answer `discussion.id`.
+- docs/sulfur.md: messaging, search, explore, governance, moderation, themes, billing, agents and the MCP server checked
+  against dev; new server findings.
+
 ## [0.42.0] - 2026-11-25
 
 ### Added

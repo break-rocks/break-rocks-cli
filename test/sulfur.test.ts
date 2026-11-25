@@ -101,8 +101,8 @@ describe('the backend switch', () => {
     expect(await h.run('--backend', 'granite', 'whoami', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'BACKEND_INVALID' } });
     // A command of the former backend's own hosts says so; offline ones work as ever.
-    expect(await sulfur('operator', 'login', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND', command: 'operator login' } });
+    expect(await sulfur('operator', 'register', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND', command: 'operator register' } });
     expect(await sulfur('version', '--json')).toBe(0);
     expect(await sulfur('whoami', '--json')).toBe(3);
     expect(last(h)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED' } });

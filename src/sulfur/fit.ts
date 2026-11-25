@@ -194,6 +194,9 @@ export function fitDocument(doc: string, variables: Record<string, unknown>, ser
       kept++;
       fitArgs(item, def[1] ?? {}, `${serverType}.${item.name}`);
       if (item.selection) fitSelection(item.selection, inner, talcDef ? typeRef(talcDef[0]).name : undefined, [...path, item.key]);
+      // A message's discussion is asked with its id (the server names a message by its discussion: 1c, D-628): the answer
+      // then carries discussion.id, which `messages react`, `thread`, `reply-thread` take with --discussion.
+      if (item.selection && inner === 'DiscussionRef' && fieldOf(server, inner, 'id') && !item.selection.items.some((i) => i.kind === 'field' && i.key === 'id')) cuts.push({ start: item.selection.end - 1, end: item.selection.end - 1, text: ' id ' });
     }
     if (!kept) cuts.push({ start: sel.start, end: sel.end, text: '{ __typename }' });
   };

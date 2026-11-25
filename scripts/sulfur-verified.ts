@@ -15,4 +15,12 @@ export const VERIFIED: ReadonlySet<string> = new Set([
   'experiences feats at', 'experiences feats publish',
   'messages groups create', 'messages groups invite', 'messages groups accept', 'messages groups invitations', 'connections request',
   'connections requests', 'connections accept',
+  'messages direct send', 'messages direct read', 'messages inbox', 'messages groups send', 'messages groups read', 'messages react', 'messages thread', 'messages reply-thread',
+  'search', 'explore', 'explore search', 'explore random', 'interests show', 'accounts followers', 'accounts following', 'accounts replies', 'notifications',
+  'universes sub', 'universes members', 'universes favorite list', 'universes favorite add', 'universes history', 'universes visit', 'proposals list', 'polls list', 'governance show',
+  'governance residents', 'moderation log', 'me measures', 'me terms', 'me data requests', 'look themes list', 'look appearance show', 'subscription show',
+  'subscription offer', 'subscription portal', 'gift-codes list', 'gift-codes buy', 'ads campaigns', 'videos list', 'videos history', 'drafts list', 'drafts save', 'routes list', 'map presence',
+  'map live-share list', 'map locatable', 'my-places tags', 'connections list', 'discussions list', 'discussions unread', 'discussions channels create', 'posts clips feed', 'posts reposts',
+  'posts link-preview', 'links shorten', 'me onboarding', 'me tour', 'accounts block', 'accounts unblock', 'accounts mute', 'accounts unmute', 'posts edit', 'posts reply-policy',
+  'posts dislike', 'agents create', 'agents login', 'doctor', 'mcp',
 ]);

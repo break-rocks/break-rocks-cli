@@ -183,3 +183,42 @@ describe('commands through the seam on the new backend', () => {
     expect(h.values.at(-1)).toMatchObject({ address: '@bob', account: { id: 'eu_b', handle: 'bob' } });
   });
 });
+
+describe('an agent on the new backend (RFC 7523)', () => {
+  it('signs an EdDSA assertion: kid the SHA-256 of its raw public key, iss = sub = the agent, aud the token endpoint, 2 minutes', async () => {
+    const { generateKeyPairSync, verify } = await import('node:crypto');
+    const { assertionOf, keyIdOf } = await import('../src/sulfur/agent.js');
+    const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+    const jwt = assertionOf('eu_agent1', privateKey, 'https://eu.api.dev.break.rocks/oauth/token', Date.parse('2026-11-25T10:00:00Z'));
+    const [h, p, sig] = jwt.split('.');
+    const header = JSON.parse(Buffer.from(h, 'base64url').toString()), claims = JSON.parse(Buffer.from(p, 'base64url').toString());
+    const x = (publicKey.export({ format: 'jwk' }) as { x: string }).x;
+    expect(header).toEqual({ alg: 'EdDSA', typ: 'JWT', kid: createHash('sha256').update(Buffer.from(x, 'base64url')).digest('hex') });
+    expect(keyIdOf(privateKey)).toBe(header.kid);
+    expect(claims).toMatchObject({ iss: 'eu_agent1', sub: 'eu_agent1', aud: 'https://eu.api.dev.break.rocks/oauth/token', exp: claims.iat + 120 });
+    expect(typeof claims.jti).toBe('string');
+    expect(verify(null, Buffer.from(`${h}.${p}`), publicKey, Buffer.from(sig, 'base64url'))).toBe(true);
+  });
+
+  it('signs in with the BREAKROCKS_* variables at /oauth/token (jwt-bearer), and acts for its owner', async () => {
+    const { generateKeyPairSync } = await import('node:crypto');
+    const { privateKey } = generateKeyPairSync('ed25519');
+    const pem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+    const sent: { path: string; body: string }[] = [];
+    const token = `${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub: 'eu_owner', act: { sub: 'eu_agent1' } })).toString('base64url')}.s`;
+    const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      sent.push({ path, body: String(init?.body) });
+      if (path === '/oauth/token') return Response.json({ access_token: token, token_type: 'Bearer', expires_in: 900 });
+      return Response.json({ data: { me: { id: 'eu_owner', tier: 'free', card: { handle: 'owner', name: null } } } });
+    }) as typeof globalThis.fetch;
+    const h = harness({ fetch, env: { BREAKROCKS_SULFUR_URL: 'https://sulfur.test', BREAKROCKS_BACKEND: 'sulfur', BREAKROCKS_OPERATOR_ID: 'eu_owner', BREAKROCKS_AGENT_ID: 'eu_agent1', BREAKROCKS_AGENT_KEY: pem } });
+    expect(await h.run('--env', 'dev', 'whoami', '--json')).toBe(0);
+    expect(h.values.at(-1)).toMatchObject({ actor: 'delegated-agent', agentId: 'eu_agent1', account: { id: 'eu_owner' }, session: { method: 'agent' } });
+    const grant = new URLSearchParams(sent[0].body);
+    expect(sent[0].path).toBe('/oauth/token');
+    expect(grant.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
+    expect(JSON.parse(Buffer.from(grant.get('assertion')!.split('.')[1], 'base64url').toString())).toMatchObject({ iss: 'eu_agent1', aud: 'https://eu.api.dev.break.rocks/oauth/token' });
+    expect(h.all()).not.toMatch(/PRIVATE KEY|eyJ/);
+  });
+});

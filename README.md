@@ -987,8 +987,9 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   `isFollowing`, `setBlock`, `setMute`); an operation it does not serve answers `NOT_ON_NEW_BACKEND` (exit 1) with the
   operation named. Media go through `requestUpload` (`src/sulfur/media.ts`: the SHA-256 declared, a clip's or a long video's
   duration and orientation read from its MP4 header, `src/mp4.ts`; in parts of 64 MiB above 500 MB, resumable). `login`,
-  `logout`, `whoami` are the new backend's own; the commands of the former backend's hosts (operator registration and
-  sign-in, `session`, `agents tier`) are refused. **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or
+  `logout`, `whoami`, `doctor`, `agents login`, `operator login` are the new backend's own (agents sign in with their key,
+  RFC 7523: `src/sulfur/agent.ts`); the commands of the former backend's hosts (operator registration, `session`,
+  `agents tier`) are refused. **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or
   not, and the server findings. `--json` outputs are those of the former backend.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
   taken), `whoami`, the profile with its avatar, posts (text, two images in a new universe's sub-level, a vertical clip when
