@@ -5,6 +5,23 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-25
+
+### Added
+
+- Vote requirement in minutes (D-659, revised on 2026-11-26: at the group of friends, an account of 1 day joined 1 day
+  ago, in every environment; the other levels unchanged): `VoteRequirement.accountMinutes`, `presenceMinutes` and
+  `VoteStatus.accountMinutesDone`, `presenceMinutesDone` requested on both backends (dropped where a backend lacks them,
+  null in `--json`; no key removed or renamed). `universes residences` tells, until the resident votes, the requirement
+  and where it stands in the largest whole unit (days, else hours, else minutes: "account 0 of 1 day, residence 0 of
+  1 day"), nothing for a requirement of 0 (none today), in days on a backend without the minute fields. The talc copy
+  (`schema/api-v2/governance.graphql`, its vote requirement types taken from the specs' change) and the sulfur snapshot
+  (`schema/sulfur/server.graphql`) carry the fields until the specs and the server publish them.
+- The refusals of the vote requirement, `VOTE_ACCOUNT_TOO_RECENT` and `VOTE_JOINED_TOO_RECENTLY`, are told from their
+  `errorInfo { days, minutes, at }` ("You can vote here from <at>: an account of 1 day is required"; the recipient of
+  `governance lend-votes` named by `accountId`), on both backends; `--json` keeps the code and `errorInfo`. The new
+  backend's refusals now keep `extensions.errorInfo` as `errorInfo` in `--json`.
+
 ## [0.43.0] - 2026-11-25
 
 ### Added

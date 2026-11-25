@@ -357,7 +357,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes private tiers subscribe` | Subscribe to a tier of a private universe | `breakrocks universes private tiers subscribe %club. <tier id> --interval MONTH --automatic-renewal --no-immediate-access-consent --conditions-version 1` |
 | `universes private tiers renewal on` | Turn a tier renewal on | `breakrocks universes private tiers renewal on %club.` |
 | `universes private tiers renewal off` | Turn a tier renewal off | `breakrocks universes private tiers renewal off %club.` |
-| `universes residences` | Your residences in public universes | `breakrocks universes residences` |
+| `universes residences` | Your residences in public universes; until you vote, the requirement and where you stand ("account 0 of 1 day") | `breakrocks universes residences` |
 | `universes sub-map` | The sub-universe map of a universe | `breakrocks universes sub-map %paris --json` |
 | `universes landing` | The landing page of a universe | `breakrocks universes landing %paris --json` |
 | `universes land` | Mark a landing in a universe | `breakrocks universes land %paris` |

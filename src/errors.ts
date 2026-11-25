@@ -1,3 +1,5 @@
+import { voteRefusalSentence } from './vote-requirement.js';
+
 /**
  * Exit codes (README § Output and exit codes): 0 done; 1 refused, by the platform (the code of
  * the contract) or by a guard of the CLI (a payment cap, a missing key; `source: "cli"`); 2 usage
@@ -38,6 +40,15 @@ export const REFUSAL_SENTENCES: Record<string, string> = {
   PLATFORM_APPEAL_LEADERSHIP_ONLY: 'A measure against a universe is appealed by its leadership only',
 };
 export const refusalSentence = (code: string, message?: string) => (!message || message === code ? REFUSAL_SENTENCES[code] ?? message ?? code : message);
+
+/** The sentence of a platform refusal: from its errorInfo when it tells more (the vote requirement, D-659), else as refusalSentence. */
+export const refusalText = (code: string, message: string | undefined, errorInfo: unknown) => voteRefusalSentence(code, parsedInfo(errorInfo)) ?? refusalSentence(code, message);
+
+/** An errorInfo as an object: talc's AWSJSON may come as a JSON string. */
+function parsedInfo(info: unknown): unknown {
+  if (typeof info !== 'string') return info;
+  try { return JSON.parse(info); } catch { return undefined; }
+}
 
 /** Any thrown value as a CliError (an unexpected one keeps its message, code INTERNAL_ERROR). */
 export function asCliError(error: unknown): CliError {
