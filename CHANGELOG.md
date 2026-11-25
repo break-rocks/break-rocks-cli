@@ -5,6 +5,18 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-11-25
+
+### Added
+
+- Experiences: `experiences kinds` (experienceKinds), `experiences publish` (publishExperience); runs: `experiences runs start`
+  (a challenge, a tournament or a contest; `--discussion`, `--edition`, `--tournament`, `--contest`), `join`, `leave`,
+  `measure` (submitExperienceMeasure), `end`, `show`, `list`, `ranking`, `draw` (drawTournament), `tournament`
+  (actOnTournament), `contest` (actOnContest), `entries` (contestEntries); place feats: `experiences feats list`, `at`,
+  `start`, `end`, `publish` (publishFeat). On both backends.
+- New backend: `my-places save PLACE` adapted (the place's name and point read from its card, deviation 6c-1); events,
+  playlists, my places, placed posts and experiences checked against dev (docs/sulfur.md).
+
 ## [0.41.0] - 2026-11-25
 
 The CLI's commands on the new backend (native-sulfur), which serves the talc schema (API v2) as its starting point (D-612):

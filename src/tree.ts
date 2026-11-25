@@ -341,6 +341,25 @@ experiences prompt | = | The prompt that asks an AI for an experience
 experiences prefill keys | = | The keys of a pre-filled link, per creation template
 experiences prefill build | = | Build a pre-filled link from key=value pairs
 experiences prefill open | = | What a pre-filled link fills; creates nothing
+experiences kinds | = | The kinds of experience the platform runs
+experiences publish | = | Make an experience public or private
+experiences runs start | = | Start a run of an experience
+experiences runs join | = | Join a run
+experiences runs leave | = | Leave a run
+experiences runs measure | = | Record a measure of a run
+experiences runs end | = | End a run
+experiences runs show | = | Show a run
+experiences runs list | = | Your runs
+experiences runs ranking | = | The ranking of a run
+experiences runs draw | = | Draw a tournament
+experiences runs tournament | = | Act on a tournament
+experiences runs contest | = | Act on a contest
+experiences runs entries | = | The entries of a contest
+experiences feats list | = | Your place feats
+experiences feats at | = | The feats of a place
+experiences feats start | = | Start a place feat
+experiences feats end | = | End a place feat
+experiences feats publish | = | Publish a feat as a post
 links shorten | = | Make the short link /go/<code> of a URL
 links resolve | = | The URL a short link stands for
 routes list | = | Your routes
@@ -699,7 +718,7 @@ export const GROUP_SUMMARIES: Record<string, string> = {
   'map nearby': 'Nearby connections', 'map locatable': 'Being locatable', 'map places': 'Places of the map',
   'my-places': 'My places: saved items, tags, sharing', 'my-places tags': 'My places tags',
   routes: 'Routes: saved, GPX, privacy zones, planning', 'routes gpx': 'GPX files', 'routes privacy-zones': 'Privacy zones',
-  events: 'Universe events and relays', experiences: 'Experiences: documents, AI prompt, pre-filled links', 'experiences prefill': 'Pre-filled links of the creation templates', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
+  events: 'Universe events and relays', experiences: 'Experiences: documents, runs, feats, AI prompts', 'experiences prefill': 'Pre-filled links of the creation templates', 'experiences runs': 'Runs: challenges, tournaments, contests', 'experiences feats': 'Place feats', 'events relay': 'Relays of events', 'events relays': 'Relay proposals',
   governance: 'Governance of a universe', proposals: 'Proposals and votes', jury: 'Juries of sanction appeals', moderation: 'Moderation and reports',
   look: 'Themes, appearance, layouts and the studio', 'look themes': 'Themes: catalog, offline tools, publish', 'look personal': 'Your personal theme',
   'look appearance': 'The appearance of a universe: what is applied, the editor', 'look layouts': 'Layouts', 'look studio': 'The drafts of the studio',

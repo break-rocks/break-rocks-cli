@@ -679,6 +679,25 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `experiences prefill keys` | The keys of a pre-filled link, per creation template (offline) | `breakrocks experiences prefill keys tournament` |
 | `experiences prefill build` | Build a pre-filled link from key=value pairs | `breakrocks experiences prefill build tournament entrants.max=24 format=POOLS_THEN_ELIMINATION` |
 | `experiences prefill open` | What a pre-filled link fills; creates nothing | `breakrocks experiences prefill open "https://break.rocks/new/tournament/v/entrants.max=24"` |
+| `experiences kinds` | The kinds of experience the platform runs | `breakrocks experiences kinds` |
+| `experiences publish` | Make an experience public or private | `breakrocks experiences publish <experience id> --visibility PUBLIC` |
+| `experiences runs start` | Start a run of an experience | `breakrocks experiences runs start <experience id>` |
+| `experiences runs join` | Join a run | `breakrocks experiences runs join <run id>` |
+| `experiences runs leave` | Leave a run | `breakrocks experiences runs leave <run id>` |
+| `experiences runs measure` | Record a measure of a run | `breakrocks experiences runs measure <run id> --value 42 --measured-at 2026-11-25T10:00:00Z --final` |
+| `experiences runs end` | End a run | `breakrocks experiences runs end <run id>` |
+| `experiences runs show` | Show a run | `breakrocks experiences runs show <run id> --json` |
+| `experiences runs list` | Your runs | `breakrocks experiences runs list` |
+| `experiences runs ranking` | The ranking of a run | `breakrocks experiences runs ranking <run id>` |
+| `experiences runs draw` | Draw a tournament | `breakrocks experiences runs draw <run id>` |
+| `experiences runs tournament` | Act on a tournament | `breakrocks experiences runs tournament <run id> --act '{"follow":true}'` |
+| `experiences runs contest` | Act on a contest | `breakrocks experiences runs contest <run id> --act '{"follow":true}'` |
+| `experiences runs entries` | The entries of a contest | `breakrocks experiences runs entries <run id>` |
+| `experiences feats list` | Your place feats | `breakrocks experiences feats list --json` |
+| `experiences feats at` | The feats of a place | `breakrocks experiences feats at <place id>` |
+| `experiences feats start` | Start a place feat | `breakrocks experiences feats start <place feat id>` |
+| `experiences feats end` | End a place feat | `breakrocks experiences feats end <instance id> --outcome COMPLETED` |
+| `experiences feats publish` | Publish a feat as a post | `breakrocks experiences feats publish <instance id> --universe %paris --text "Done!" --in-it --people-shown-agreed` |
 
 #### Governance
 
