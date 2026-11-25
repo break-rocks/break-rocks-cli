@@ -19,6 +19,7 @@ The new backend, native-sulfur, behind a backend switch (client port plan Q-5, Q
   `me profile set --name --bio`, `posts feed`, `posts create "text" --in %universe`. Every other command that reaches the
   platform answers `NOT_ON_NEW_BACKEND`.
 - `me profile show` on the former backend too (`me`: handle, display name, bio, links).
+- `npm run e2e:sulfur`: the journey on dev (sign-up by e-mail code, profile, post, timeline, sign-out, sign-in again).
 
 ## [0.39.0] - 2026-11-22
 

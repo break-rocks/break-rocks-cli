@@ -948,6 +948,11 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   the other options of these commands: `NOT_ON_NEW_BACKEND`. Every other command that reaches the platform answers
   `NOT_ON_NEW_BACKEND` (exit 1); the offline ones (help, config, themes checked offline, completion) and `update` work as
   ever. The MCP server follows the backend of its profile or of `BREAKROCKS_BACKEND`.
+- **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): sign-up by e-mail code, `whoami`, profile set
+  and show, a post in `%root`, the timeline (written asynchronously: read again for up to 30 s), a command not served,
+  sign-out, sign-in again. The codes come from the dev e2e mailbox (`*@inbox.dev.break.rocks`) through the server's
+  `tools/e2e-mailbox` (`BREAKROCKS_SERVER_DIR`, default `../server`; `AWS_PROFILE`, default `breakrocks-dev`). Passed on
+  2026-11-25 against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs the web page `/signin/device`.
 
 ### The app tour (0.39.0, specs v158.0.0)
 

@@ -50,6 +50,7 @@
     "update:schema": "node scripts/update-schema.mjs",
     "build:sea": "node scripts/build-sea.mjs",
     "gen:completions": "node scripts/gen-completions.mjs",
+    "e2e:sulfur": "npm run build && node scripts/e2e-sulfur-dev.mjs",
     "prepack": "npm run build && npm run gen:completions"
   },
   "dependencies": {
