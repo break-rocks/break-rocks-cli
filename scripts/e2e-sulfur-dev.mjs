@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 // The journey of the CLI on the new backend (native-sulfur) in dev, by hand or in a host-side check (README § The new
-// backend): sign-up by e-mail code, whoami, profile show and set, a post in %root, the timeline, sign-out, sign-in again.
+// backend): a headless sign-up by e-mail code (the code on stdin, the handle taken), whoami, the profile with its avatar,
+// posts (text, two images in a new universe and its sub-level, a clip when BREAKROCKS_E2E_CLIP names a vertical MP4), a
+// reply, a quote and a repost into %root, a like, the thread, the universe feed, join and leave, follow, delete, the
+// timeline, a command not served, sign-out, sign-in again.
 // The e-mail codes come from the dev e2e mailbox (*@inbox.dev.break.rocks) through the server's helper
 // (tools/e2e-mailbox/cli.ts): BREAKROCKS_SERVER_DIR names the server checkout (default ../server), AWS_PROFILE its
 // credentials (default breakrocks-dev). A fresh configuration folder in the system's temporary folder, the tokens in a file
 // (no keychain), removed at the end. Never run against prod. Usage: npm run build && node scripts/e2e-sulfur-dev.mjs
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +22,8 @@ const env = { ...process.env, BREAKROCKS_CONFIG_DIR: config, BREAKROCKS_KEYCHAIN
 delete env.BREAKROCKS_PROFILE;
 
 function cli(...args) {
-  const r = spawnSync(process.execPath, [join(root, 'bin', 'breakrocks.js'), '--env', 'dev', ...args, '--json'], { env, encoding: 'utf8' });
+  const options = typeof args[0] === 'object' ? args.shift() : {};
+  const r = spawnSync(process.execPath, [join(root, 'bin', 'breakrocks.js'), '--env', 'dev', ...args, '--json'], { env, encoding: 'utf8', input: options.input });
   let out;
   try { out = JSON.parse(r.stdout || 'null'); } catch { out = r.stdout; }
   return { code: r.status, out, err: r.stderr };
@@ -42,23 +47,63 @@ function signIn(step, address, signUp) {
   return expectOk(`${step}: code typed`, cli('login', '--email', address, '--code', mailCode(address, since)), (o) => o?.session?.kind === 'untrusted');
 }
 
-const address = `cli-e2e-${Date.now()}@inbox.dev.break.rocks`;
+/** A PNG of [w]×[h] pixels of one colour (no file in git, no dependency). */
+function png(path, w, h, rgb) {
+  const crc = (buf) => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); } return ~c >>> 0; };
+  const chunk = (type, data) => { const t = Buffer.from(type); const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(Buffer.concat([t, data]))); return Buffer.concat([len, t, data, sum]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: w }, () => rgb).flat())]);
+  writeFileSync(path, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: h }, () => row)))), chunk('IEND', Buffer.alloc(0))]));
+  return path;
+}
+
+const stamp = Date.now();
+const address = `cli-e2e-${stamp}@inbox.dev.break.rocks`;
+const handle = `cli_e2e_${String(stamp).slice(-8)}`;
 const text = `CLI e2e ${new Date().toISOString()}`;
-const account = signIn('sign-up', address, true);
-expectOk('whoami', cli('whoami'), (o) => o.account?.id === account.accountId);
-expectOk('profile set', cli('me', 'profile', 'set', '--name', 'CLI E2E'), (o) => o.name === 'CLI E2E');
-expectOk('profile show', cli('me', 'profile', 'show'), (o) => o.name === 'CLI E2E');
-const post = expectOk('post in %root', cli('posts', 'create', text, '--in', '%root'), (o) => !!o.id);
+const red = png(join(config, 'red.png'), 64, 48, [200, 30, 30]);
+const blue = png(join(config, 'blue.png'), 48, 64, [30, 30, 200]);
+// The sign-up: the code given on the standard input, the handle taken.
+const since = Date.now() - 2000;
+expectOk('sign-up: code sent', cli('login', '--email', address, '--sign-up'), (o) => o?.codeSent === true);
+const account = expectOk('sign-up: code typed (stdin), handle taken', cli({ input: mailCode(address, since) }, 'login', '--email', address, '--code', '-', '--handle', handle), (o) => o?.session?.kind === 'untrusted' && o.handle === handle);
+expectOk('whoami', cli('whoami'), (o) => o.account?.id === account.accountId && o.account.handle === handle);
+expectOk('profile set (name, bio, avatar)', cli('me', 'profile', 'set', '--display-name', 'CLI E2E', '--bio', 'The CLI journey', '--avatar-file', red), (o) => o.displayName === 'CLI E2E' && !!o.avatar?.id);
+expectOk('profile show', cli('me', 'profile', 'show'), (o) => o.displayName === 'CLI E2E' && o.bio === 'The CLI journey');
+const post = expectOk('post in %root', cli('posts', 'create', `${text} #clie2e`, '--in', '%root'), (o) => !!o.id && o.tags?.includes('clie2e'));
+const universe = `%clie2e${String(stamp).slice(-6)}`;
+// A public universe and its levels are created by their first post (a text: a post's media name an existing universe).
+expectOk('a new universe and its sub-level, by a first post', cli('posts', 'create', 'First post', '--in', `${universe}/sub`), (o) => o.universe === `${universe}/sub`);
+const images = expectOk('post with two images in the sub-level', cli('posts', 'create', 'Two images', '--in', `${universe}/sub`, '--image', red, '--alt', 'Red', '--image', blue, '--alt', 'Blue'), (o) => o.images?.length === 2);
+expectOk('the new universe', cli('universes', 'show', universe), (o) => o.universe?.exists === true);
+if (process.env.BREAKROCKS_E2E_CLIP) expectOk('post with a vertical clip', cli('posts', 'create', 'A clip', '--in', universe, '--video', process.env.BREAKROCKS_E2E_CLIP), (o) => !!o.clip?.id);
+expectOk('reply with an image', cli('posts', 'reply', images.id, 'A reply', '--image', blue), (o) => o.parentId === images.id);
+expectOk('quote into %root', cli('posts', 'quote', images.id, 'A quote', '--in', '%root'), (o) => o.universe === '%root');
+expectOk('repost into %root', cli('posts', 'repost', images.id, '--universe', '%root'), (o) => o.universe === '%root');
+expectOk('like', cli('posts', 'like', images.id), (o) => o.likedByMe === true);
+expectOk('thread', cli('posts', 'thread', images.id), (o) => Array.isArray(o.items));
+expectOk('universe feed', cli('posts', 'list', `${universe}/sub`), (o) => o.items?.some((p) => p.id === images.id));
+expectOk('join', cli('universes', 'join', universe), () => true);
+expectOk('leave', cli('universes', 'leave', universe, '--yes'), () => true);
+// Follow an author of %root other than this account (an account, or an account in a universe: a universe alone is not followed).
+const other = (cli('posts', 'list', '%root').out?.items ?? []).map((p) => p.author?.handle).find((h) => h && h !== handle);
+if (other) {
+  expectOk(`follow @${other}`, cli('accounts', 'follow', `@${other}`), (o) => o.address === `@${other}`);
+  expectOk('is following', cli('accounts', 'is-following', `@${other}`), (o) => o === true);
+  expectOk('unfollow', cli('accounts', 'unfollow', `@${other}`), () => true);
+}
+const gone = expectOk('a post to delete', cli('posts', 'create', 'To delete', '--in', '%root'), (o) => !!o.id);
+expectOk('delete', cli('posts', 'delete', gone.id, '--yes'), () => true);
 // The timeline is written after the post (asynchronously): read again for up to 30 s.
-const inFeed = (o) => o?.items?.some((p) => p.id === post.id || p.text === text);
+const inFeed = (o) => o?.items?.some((p) => p.id === post.id);
 let feed = cli('posts', 'feed', '--limit', '20');
 for (let i = 0; i < 15 && feed.code === 0 && !inFeed(feed.out); i++) { spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)']); feed = cli('posts', 'feed', '--limit', '20'); }
 expectOk('timeline', feed, inFeed);
-expectOk('not served there', { ...cli('universes', 'join', '%root'), code: 0 }, (o) => o?.error?.code === 'NOT_ON_NEW_BACKEND');
+expectOk('not served there', { ...cli('look', 'personal', 'saved'), code: 0 }, (o) => o?.error?.code === 'NOT_ON_NEW_BACKEND' && o.error.operation === 'personalThemes');
 expectOk('logout', cli('logout'), (o) => o.signedOut && o.revoked);
 expectOk('signed out', { ...cli('whoami'), code: 0 }, (o) => o?.error?.code === 'SIGN_IN_REQUIRED');
 signIn('sign-in again', address, false);
 expectOk('whoami again', cli('whoami'), (o) => o.account?.id === account.accountId && o.account?.name === 'CLI E2E');
 expectOk('logout again', cli('logout'), (o) => o.signedOut);
 rmSync(config, { recursive: true, force: true });
-console.log(`journey done on dev: ${account.accountId}`);
+console.log(`journey done on dev: ${account.accountId} @${handle}`);

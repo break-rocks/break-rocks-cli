@@ -947,26 +947,40 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
     `login --email <address> --code "1234 5678"` finishes within its 5 minutes (the flow kept 0600 meanwhile); `--sign-up`
     creates the account. No device key in Node (Q-6): the session is untrusted, renewed on its own, ended after 24 hours unused
     or 7 days. Passwords: `NO_PASSWORD`.
+    `--handle <name>` (with the code) takes that handle once signed in (`changeHandle`: a sign-up gets a handle of its own
+    first). For automation the code also comes from the standard input (`--code -`) or `BREAKROCKS_EMAIL_CODE` (used only for
+    a flow this profile started); the first run answers `{ "codeSent": true, "email" }`.
+- **Personas side by side**: one configuration folder each (`BREAKROCKS_CLI_DIR`, an alias of `BREAKROCKS_CONFIG_DIR`); the
+  keychain entry of a folder other than the default one carries a hash of the folder (`sulfur:<profile>@<hash>`), so two
+  folders never share tokens (`BREAKROCKS_KEYCHAIN=off`: the 0600 file of the folder).
 - **Tokens**: in the system keychain (`sulfur:<profile>`) when there is one, else in `sessions/<profile>.sulfur.json` (0600);
   the account, the cell and the dates in that file either way; never printed. The refresh token rotates and a token used twice
   ends the session, so the renewal (an access token ending within a minute, or refused once by the API) is **single-flight**:
   one promise per profile in a process, a lock file (`sessions/<profile>.sulfur.lock`, stale after 30 s) across processes,
   the waiting process taking the tokens the other one saved. A renewal refused: the session forgotten, `SESSION_EXPIRED`
   (exit 3).
-- **Commands served there**: `login`, `logout` (`/oauth/revoke`; `--everywhere`: `endAllSessions`), `whoami`, `me profile
-  show`, `me profile set --name --bio`, `posts feed` (`homeTimeline`, `--clips`, `--after`, `--limit`, `--all`) and
-  `posts create "text" --in %universe` (`publish`, a UUIDv7 id; the universe is required there). Media, links, sources and
-  the other options of these commands: `NOT_ON_NEW_BACKEND`. Every other command that reaches the platform answers
-  `NOT_ON_NEW_BACKEND` (exit 1); the offline ones (help, config, themes checked offline, completion) and `update` work as
-  ever. The MCP server follows the backend of its profile or of `BREAKROCKS_BACKEND`.
-- **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): sign-up by e-mail code, `whoami`, profile set
-  and show, a post in `%root`, the timeline (written asynchronously: read again for up to 30 s), a command not served,
-  sign-out, sign-in again. The codes come from the dev e2e mailbox (`*@inbox.dev.break.rocks`) through the server's
-  `tools/e2e-mailbox` (`BREAKROCKS_SERVER_DIR`, default `../server`; `AWS_PROFILE`, default `breakrocks-dev`). Passed on
-  2026-11-25 against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs the web page `/signin/device`.
-  `npm run e2e:sulfur-browser` (`scripts/e2e-sulfur-browser-dev.mjs`) plays the web page of `login --browser` through the API
-  (web session by e-mail code, `/auth/cli/authorize`, the redirect to `/cb`) and needs the edge exception of D-595 (the
-  loopback address in a request body) to be deployed.
+- **The commands there** (0.41.0): the new backend serves the talc schema, API v2, as its starting point (D-612), so the
+  CLI's own commands run there, their requests going through a seam (`src/session.ts` `api()` → `src/sulfur/talc.ts`): each
+  document is fitted to the server's schema (`src/sulfur/fit.ts`, the schema in `schema/sulfur/server.graphql`, compact in
+  `src/sulfur/schema.generated.ts`: `npm run update:sulfur-schema`): a field the server lacks is left out and answered `null`
+  (`[]` for a list), an argument it does not take is left out when empty and refused when given, the variables take the
+  server's types; an operation the server serves otherwise has an adapter (`me`, `account`, `updateProfile`, `setFollow`,
+  `isFollowing`, `setBlock`, `setMute`); an operation it does not serve answers `NOT_ON_NEW_BACKEND` (exit 1) with the
+  operation named. Media go through `requestUpload` (`src/sulfur/media.ts`: the SHA-256 declared, a clip's or a long video's
+  duration and orientation read from its MP4 header, `src/mp4.ts`; in parts of 64 MiB above 500 MB, resumable). `login`,
+  `logout`, `whoami` are the new backend's own; the commands of the former backend's hosts (operator registration and
+  sign-in, `session`, `agents tier`) are refused. **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or
+  not, and the server findings. `--json` outputs are those of the former backend.
+- **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
+  taken), `whoami`, the profile with its avatar, posts (text, two images in a new universe's sub-level, a vertical clip when
+  `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the
+  universe feed, join and leave, follow and unfollow, delete, the timeline (written asynchronously: read again for up to
+  30 s), a command not served, sign-out, sign-in again. The codes come from the dev e2e mailbox (`*@inbox.dev.break.rocks`)
+  through the server's `tools/e2e-mailbox` (`BREAKROCKS_SERVER_DIR`, default `../server`; `AWS_PROFILE`, default
+  `breakrocks-dev`). Passed on 2026-11-25 against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs
+  the web page `/signin/device`. `npm run e2e:sulfur-browser` (`scripts/e2e-sulfur-browser-dev.mjs`) plays the web page of
+  `login --browser` through the API (web session by e-mail code, `/auth/cli/authorize`, the redirect to `/cb`) and needs the
+  edge exception of D-595 (the loopback address in a request body) to be deployed.
 
 ### The app tour (0.39.0, specs v158.0.0)
 

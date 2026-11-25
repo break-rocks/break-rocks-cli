@@ -138,13 +138,15 @@ const composeOutput = outputSchema('Post', 1);
  * VIDEO_SIZE_INVALID: refused here before anything is sent), counted in the video quota; never with a clip or images.
  */
 export const MAX_LONG_VIDEO_BYTES = 5 * 1024 * 1024 * 1024;
-export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string }, unknown> = {
+export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPolicy?: string; announcement?: boolean; longVideo?: string; point?: string; placeId?: string }, unknown> = {
   name: 'post', summary: 'Publish a post: text, images (4), a clip or a long video (--license: its media license), a link, in an address (createPost)',
   description: 'The images and the clip are checked as the app checks them (an image JPEG, PNG, WebP or GIF of 10 MB at most; a clip MP4, MOV or WebM of 512 MB at most), sent, then the post waits for their processing. --long-video: a horizontal video of 4 hours and 5 GB at most (VIDEO_SIZE_INVALID beyond, before anything is sent), sent in one request up to 500 MB, in parts above (startMultipartUpload: each part sent again alone when it fails, the upload resumed by running the same command again within 24 hours, its state kept in the configuration folder, uploads/), counted in the video quota (videos quota; VIDEO_NOT_HORIZONTAL, LONG_VIDEO_TOO_LONG, VIDEO_QUOTA_EXCEEDED), never with a clip or images. --in is the address of publication (%universe, %universe/sub, %universe#tag); the tags and mentions are those of the text. --dry-run checks and tells, without sending.',
   examples: ['breakrocks posts create "Match tonight #football" --in %test-village-sport', 'breakrocks posts create "The stadium" --in %paris --image stadium.jpg --alt "The stadium at night"', 'breakrocks posts create "The whole match" --in %paris --long-video match.mp4', 'breakrocks posts create "Harbour" --in %paris --video harbour.mp4 --license CC_BY --attribution "Jane Doe, archive.org/details/harbour-1952"', 'echo "Hello" | breakrocks posts create - --in %paris', 'breakrocks posts create --file post.md --in %paris --dry-run'],
-  input: object({ ...composeProps, ...licenseProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours and 5 GB at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)') }),
+  input: object({ ...composeProps, ...licenseProps, longVideo: str('A long video file (MP4, MOV or WebM, horizontal, 4 hours and 5 GB at most), in place of a clip'), in: str('The address of publication (%universe, %universe/sub, %universe#tag)'), replyPolicy: str('Who may reply', { enum: REPLY_POLICIES }), announcement: bool('An announcement of the universe (its leadership)'), point: str('Place the post at this point once created, <lat>,<lon> (setPostPlace; never in the root universe)'), placeId: str('Place the post at a place of the places search once created (setPostPlace)') }),
   output: composeOutput, args: { positionals: ['text'] },
   run: async (ctx, input) => {
+    if (input.point !== undefined && input.placeId !== undefined) throw usageError('INVALID_INPUT', '--point or --place-id, not both');
+    if (input.point !== undefined) pointOf(String(input.point), '--point');
     const long = input.longVideo ? checkVideo(ctx, input.longVideo, MAX_LONG_VIDEO_BYTES, 'VIDEO_SIZE_INVALID') : undefined;
     if (long && (input.video || input.image?.length)) throw usageError('POST_IMAGES_AND_CLIP', 'A long video comes without a clip or images');
     // A post whose only media is a long video needs no text.
@@ -157,6 +159,11 @@ export const post: Command<ComposeInput & LicenseInput & { in?: string; replyPol
     const vars = { text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, announcement: input.announcement ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, longVideo, sources: p.sources ?? null };
     const created = await plainly(() => whileProcessing(ctx, async () => (await api<{ createPost: unknown }>(ctx, `mutation($text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $announcement: Boolean, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $longVideo: ID, $sources: [PostSourceInput!]) { createPost(text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, announcement: $announcement, requestId: $requestId, images: $images, clip: $clip, longVideo: $longVideo, sources: $sources) ${POST} }`, vars)).createPost, long ? { stepMs: 10_000, maxMs: 30 * 60_000 } : wait(p)));
     longUpload?.forget();
+    // The place, once the post exists (setPostPlace): the same on both backends.
+    if (input.point !== undefined || input.placeId !== undefined) {
+      const place = input.point !== undefined ? { point: pointOf(String(input.point), '--point') } : { placeId: input.placeId };
+      return (await api<{ setPostPlace: unknown }>(ctx, `mutation($postId: ID!, $place: PostPlaceInput, $requestId: ID!) { setPostPlace(postId: $postId, place: $place, requestId: $requestId) ${POST} }`, { postId: (created as { id: string }).id, place, requestId: uuidv7(ctx.now()) })).setPostPlace;
+    }
     return created;
   },
   quiet: (r) => (r as { id?: string }).id,
@@ -180,7 +187,7 @@ export const reply: Command<ComposeInput & LicenseInput & { id: string }, unknow
     const p = await plan(ctx, input);
     withLicense(ctx, p, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'replyTo', id: input.id });
-    const media = await sendMedia(ctx, p, { destination: 'POST', address: await universeOfPost(ctx, p, input.id) });
+    const media = await sendMedia(ctx, p, { destination: 'POST', address: await universeOfPost(ctx, p, input.id), post: 'reply' });
     const vars = { postId: input.id, text: p.text, link: p.link ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
     return whileProcessing(ctx, async () => (await api<{ replyTo: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $link: String, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { replyTo(postId: $postId, text: $text, link: $link, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).replyTo, wait(p));
   },
@@ -195,7 +202,7 @@ export const quote: Command<ComposeInput & LicenseInput & { id: string; in?: str
     const p = await plan(ctx, input, true);
     withLicense(ctx, p, input);
     if (input.dryRun) return dryRunOf(p, { operation: 'quote', id: input.id, universe: input.in ?? null });
-    const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? await universeOfPost(ctx, p, input.id) });
+    const media = await sendMedia(ctx, p, { destination: 'POST', address: input.in ?? await universeOfPost(ctx, p, input.id), post: 'quote' });
     const vars = { postId: input.id, text: p.text, universe: input.in ?? null, link: p.link ?? null, replyPolicy: input.replyPolicy ?? null, requestId: p.requestId, images: media.images ?? null, clip: media.clip ?? null, sources: p.sources ?? null };
     return whileProcessing(ctx, async () => (await api<{ quote: unknown }>(ctx, `mutation($postId: ID!, $text: String!, $universe: String, $link: String, $replyPolicy: ReplyPolicy, $requestId: ID!, $images: [ImageAttachmentInput!], $clip: ID, $sources: [PostSourceInput!]) { quote(postId: $postId, text: $text, universe: $universe, link: $link, replyPolicy: $replyPolicy, requestId: $requestId, images: $images, clip: $clip, sources: $sources) ${POST} }`, vars)).quote, wait(p));
   },

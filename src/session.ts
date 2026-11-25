@@ -21,6 +21,7 @@ import { privateKeyFrom, readPrivateKey, signChallenge } from './keys.js';
 import { localAgentKey, requireLocalAgent } from './local-agents.js';
 import { agentsPost, expectOk, graphql, isUnauthorized } from './transport.js';
 import { payExtraUsage } from './x402.js';
+import { sulfurTalc } from './sulfur/talc.js';
 
 /** A session is renewed when it ends within 5 minutes. */
 export const RENEW_BEFORE_MS = 5 * 60 * 1000;
@@ -134,6 +135,8 @@ export async function signIn(ctx: Context, at: Endpoints, credentials: Credentia
  * (same session); [fresh]: open a new one (the token was refused).
  */
 export async function ensureSession(ctx: Context, options: { renew?: boolean; fresh?: boolean } = {}): Promise<{ session: Session; at: Endpoints }> {
+  // The former backend's sessions (Cognito, the agents host) are not those of the new one (src/sulfur/session.ts).
+  if (ctx.backend() === 'sulfur') throw cliRefusal('NOT_ON_NEW_BACKEND', 'This command uses the session of the former backend (its sign-in or its agents host), not yet on the new backend (native-sulfur): --backend legacy', { backend: 'sulfur' });
   const profile = ctx.profile();
   if (profile.kind === 'human') {
     // The BREAKROCKS_* variables would sign a delegated agent into the session file of a human: refused.
@@ -185,6 +188,8 @@ async function ensureHumanSession(ctx: Context, profile: Profile, options: { ren
  * more and tries again, and the sign-in tells why when it is refused.
  */
 export async function api<T = Record<string, unknown>>(ctx: Context, query: string, variables: Record<string, unknown> = {}, options: { partial?: boolean } = {}): Promise<T> {
+  // The new backend (native-sulfur): the same talc request through its seam (src/sulfur/talc.ts).
+  if (ctx.backend() === 'sulfur') return sulfurTalc<T>(ctx, query, variables);
   const { session, at } = await ensureSession(ctx);
   try {
     return await withExtraUsage(ctx, session, (token, extra) => graphql<T>(ctx, at.api, token, query, variables, false, !!options.partial, extra));

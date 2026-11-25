@@ -1,17 +1,16 @@
-// The commands served on the new backend (native-sulfur), under the names of the registry they stand in for: login,
-// logout, whoami, me profile show, me profile set (name, bio), posts feed (the home timeline) and posts create (a text in a
-// universe). Every other command that uses the network answers NOT_ON_NEW_BACKEND there (src/sulfur/dispatch.ts).
+// The commands of the new backend (native-sulfur) itself, under the names of the registry they stand in for: login, logout,
+// whoami (its own sign-in and sessions). Every other command runs the registry's own, its requests through the seam of
+// src/sulfur/talc.ts (src/sulfur/dispatch.ts).
 import { paint } from '../colour.js';
 import type { Environment } from '../config.js';
-import { cliRefusal, usageError } from '../errors.js';
-import { uuidv7 } from '../ids.js';
+import { usageError } from '../errors.js';
 import type { AnyCommand, Command } from '../registry.js';
-import { bool, int, list, object, openObject, str } from '../schema.js';
+import { bool, int, object, openObject, str } from '../schema.js';
 import { browserSignIn, canOpenBrowser } from './browser.js';
 import { codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
-import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, sulfurApi, type SulfurSession } from './session.js';
+import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, saveSulfurSession, sulfurApi, type SulfurSession } from './session.js';
+import type { Context } from '../context.js';
 
-const notYet = (what: string) => cliRefusal('NOT_ON_NEW_BACKEND', `${what} is not yet on the new backend (native-sulfur): --backend legacy for now`, { backend: 'sulfur' });
 
 type SessionView = { kind: string; method: string; signedInAt: string; accessExpiresAt: string; storage: string; note: string };
 const sessionView = (s: SulfurSession): SessionView => ({
@@ -22,16 +21,17 @@ const sessionSchema = openObject({ kind: str('The session kind: untrusted (e-mai
 
 // ---- login / logout ----
 
-type LoginInput = { email?: string; code?: string; cell?: string; signUp?: boolean; browser?: boolean; device?: boolean; open?: boolean; timeout?: number; passwordStdin?: boolean; label?: string };
-type LoginResult = { backend: 'sulfur'; env: string; cell: string; accountId?: string; handle?: string; codeSent?: boolean; session?: SessionView };
+type LoginInput = { email?: string; code?: string; handle?: string; cell?: string; signUp?: boolean; browser?: boolean; device?: boolean; open?: boolean; timeout?: number; passwordStdin?: boolean; label?: string };
+type LoginResult = { backend: 'sulfur'; env: string; cell: string; accountId?: string; handle?: string; codeSent?: boolean; email?: string; session?: SessionView };
 
 export const sulfurLogin: Command<LoginInput, LoginResult> = {
   name: 'login', summary: 'Sign in on the new backend: the browser, a device code, or an e-mail code in the terminal',
   description: 'Without --email, in a terminal with a browser to open (not over SSH, a display on Linux): the browser (--browser): the CLI listens on 127.0.0.1, opens the page /cli/login of the web app, you confirm your e-mail address there with a code, and the browser gives the CLI a code for one use only (PKCE), never a token; the session is renewed on its own and ends after 24 hours unused or 7 days. Without a browser (SSH, no display, no terminal, or --device): a device code (RFC 8628): the CLI writes an address and a code; open the address on a device already signed in, type the code and approve; the session reaches content only and lasts 7 days; a refusal on the other device is DEVICE_CODE_DENIED. --email: a code is sent to the address and typed here (asked in a terminal; else run again with --code: the code lasts 5 minutes). BREAKROCKS_NO_BROWSER=1 chooses the device code, BREAKROCKS_BROWSER=1 the browser. The tokens are kept in the system keychain, else in a file for the user alone (0600), never printed. Not an MCP tool.',
-  examples: ['breakrocks --backend sulfur --env dev login', 'breakrocks --backend sulfur --env dev login --browser --no-open', 'breakrocks --backend sulfur --env dev login --device', 'breakrocks --backend sulfur --env dev login --email me@example.com', 'breakrocks --backend sulfur --env dev login --email me@example.com --code 123456'],
+  examples: ['breakrocks --backend sulfur --env dev login', 'breakrocks --backend sulfur --env dev login --browser --no-open', 'breakrocks --backend sulfur --env dev login --device', 'breakrocks --backend sulfur --env dev login --email me@example.com', 'breakrocks --backend sulfur --env dev login --email me@example.com --code 123456', 'breakrocks --backend sulfur --env dev login --email bot@example.com --sign-up --handle my_bot', 'echo 12345678 | breakrocks --backend sulfur --env dev login --email bot@example.com --handle my_bot --code -'],
   input: object({
     email: str('Sign in with a code sent to this e-mail address'),
-    code: str('The 8-digit code received by e-mail (a second run, without a terminal); spaces allowed', { pattern: '^[0-9][0-9 -]{6,12}[0-9]$' }),
+    code: str('The 8-digit code received by e-mail (a second run, without a terminal); spaces allowed; "-": read from the standard input. BREAKROCKS_EMAIL_CODE gives it too, used only when a code was asked by this profile', { pattern: '^(-|[0-9][0-9 -]{6,12}[0-9])$' }),
+    handle: str('With --email: the handle to take once signed in (a sign-up gets a handle of its own first; changeHandle)', { pattern: '^@?[A-Za-z0-9_.]{1,40}$' }),
     cell: str('The cell to start from (default eu)', { pattern: '^[a-z]{2}$' }),
     signUp: bool('With --email: create the account (the address has none yet)'),
     label: str('With the device code: the name of this device shown on the approval screen'),
@@ -69,25 +69,41 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
     else {
       const email = (i.email as string).trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw usageError('EMAIL_INVALID', `Not an e-mail address: "${i.email}"`);
-      let pending = i.code ? pendingEmail(ctx, email, env) : undefined;
-      if (!pending) {
-        if (i.code) throw usageError('NO_CODE_PENDING', 'No code was asked for this address from this profile in the last 15 minutes: run login --email first');
+      let given = i.code;
+      if (given === '-') {
+        if (!ctx.io.readStdin) throw usageError('CODE_REQUIRED', '"--code -" needs a standard input');
+        given = (await ctx.io.readStdin()).trim();
+      }
+      let pending = pendingEmail(ctx, email, env);
+      // BREAKROCKS_EMAIL_CODE: the code of the flow this profile started (never sent to a flow it did not start).
+      if (!given && pending && ctx.env.BREAKROCKS_EMAIL_CODE?.trim()) given = ctx.env.BREAKROCKS_EMAIL_CODE.trim();
+      if (!given || !pending) {
+        if (given) throw usageError('NO_CODE_PENDING', 'No code was asked for this address from this profile in the last 15 minutes: run login --email first');
         pending = await emailStart(ctx, env, email, { cell: i.cell, signUp: i.signUp });
         ctx.progress(`A code was sent to ${email} (if the address has an account${i.signUp ? '' : '; --sign-up creates one'})`);
       }
-      let code = i.code;
+      let code = given;
       if (!code) {
-        if (!ctx.io.interactive) return { backend: 'sulfur', env, cell: pending.cell, codeSent: true };
+        if (!ctx.io.interactive) return { backend: 'sulfur', env, cell: pending.cell, email, codeSent: true };
         code = (await ctx.io.ask('Code received by e-mail: ')).trim();
         if (!code) { forgetPendingEmail(ctx); throw codeMissing(); }
       }
       session = await emailFinish(ctx, pending, code);
+      if (i.handle) session = await takeHandle(ctx, session, i.handle.replace(/^@/, ''));
     }
+    if (i.handle && mode !== 'email') throw usageError('INVALID_INPUT', '--handle goes with --email');
     return { backend: 'sulfur', env, cell: session.cell, accountId: session.accountId, handle: session.handle, session: sessionView(session) };
   },
   text: (r) => (r.codeSent ? `Code sent: run the same command with --code <code> within 5 minutes ${paint.dim(`(${r.env}, cell ${r.cell})`)}` : `${paint.ok('Signed in')} on the new backend: @${r.handle} ${paint.dim(`(${r.accountId})`)}\n${paint.dim(`${r.env}, cell ${r.cell}`)}\n${r.session?.note}`),
   quiet: (r) => r.accountId,
 };
+
+/** The handle [handle] taken by the account just signed in (changeHandle), the session's handle updated; kept when it is already its. */
+async function takeHandle(ctx: Context, session: SulfurSession, handle: string): Promise<SulfurSession> {
+  if (session.handle?.toLowerCase() === handle.toLowerCase()) return session;
+  const card = (await sulfurApi<{ changeHandle: { handle: string } }>(ctx, 'mutation($h: String!) { changeHandle(handle: $h) { handle } }', { h: handle })).changeHandle;
+  return saveSulfurSession(ctx, { ...session, handle: card.handle });
+}
 
 type LogoutResult = { backend: 'sulfur'; profile: string; signedOut: boolean; everywhere: boolean; revoked: boolean; note?: string };
 export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
@@ -117,9 +133,7 @@ export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
 
 // ---- whoami / profile ----
 
-type Card = { id: string; handle: string; handleSince?: string; name: string | null; bio: string | null; avatar: string | null; accountAt?: string; agent?: boolean; state?: string };
-const CARD = 'id handle handleSince name bio avatar accountAt agent state';
-const cardSchema = openObject({ id: str('The account'), handle: str('Its handle'), name: { type: ['string', 'null'], description: 'Its display name' }, bio: { type: ['string', 'null'], description: 'Its bio' } });
+type Card = { handle: string; name: string | null };
 
 type WhoamiResult = { backend: 'sulfur'; actor: 'human'; profile: string; env: string; cell: string; account: { id: string; handle: string; name: string | null; tier: string }; session: SessionView };
 export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
@@ -136,95 +150,6 @@ export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
   quiet: (r) => r.account.id,
 };
 
-const cardText = (c: Card) => [`${paint.address(`@${c.handle}`)} ${paint.dim(`(${c.id})`)}`, `name ${c.name ?? '—'}`, `bio ${c.bio ?? '—'}`, ...(c.avatar ? [`avatar ${c.avatar}`] : [])].join('\n');
-
-export const sulfurProfileShow: Command<Record<string, never>, Card> = {
-  name: 'me profile show', summary: 'Show the account profile: handle, name, bio',
-  examples: ['breakrocks --backend sulfur me profile show'],
-  input: object({}), output: cardSchema,
-  run: async (ctx) => (await sulfurApi<{ me: { card: Card } }>(ctx, `{ me { card { ${CARD} } } }`)).me.card,
-  text: cardText, quiet: (c) => c.id,
-};
-
-type ProfileSetInput = { name?: string; displayName?: string; bio?: string; avatar?: string; avatarFile?: string; links?: unknown; aiDescription?: string; organizationName?: string; clear?: unknown };
-export const sulfurProfileSet: Command<ProfileSetInput, Card> = {
-  name: 'me profile set', summary: 'Change the account profile: name, bio',
-  examples: ['breakrocks --backend sulfur me profile set --name "Ada L."', 'breakrocks --backend sulfur me profile set --bio "Hello"'],
-  input: object({
-    name: str('The display name'), displayName: str('The display name (as --name)'), bio: str('The bio'),
-    avatar: str('Not yet on the new backend'), avatarFile: str('Not yet on the new backend'), links: str('Not yet on the new backend'), aiDescription: str('Not yet on the new backend'), organizationName: str('Not yet on the new backend'), clear: list('Not yet on the new backend'),
-  }),
-  output: cardSchema,
-  run: async (ctx, i) => {
-    for (const k of ['avatar', 'avatarFile', 'links', 'aiDescription', 'organizationName', 'clear'] as const) if (i[k] !== undefined) throw notYet(`me profile set --${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`);
-    const name = i.name ?? i.displayName;
-    if (name === undefined && i.bio === undefined) throw usageError('NOTHING_TO_CHANGE', 'Nothing to change: --name and/or --bio');
-    const input = { ...(name !== undefined ? { name } : {}), ...(i.bio !== undefined ? { bio: i.bio } : {}) };
-    return (await sulfurApi<{ updateProfile: Card }>(ctx, `mutation($input: ProfileInput!) { updateProfile(input: $input) { ${CARD} } }`, { input })).updateProfile;
-  },
-  text: cardText, quiet: (c) => c.id,
-};
-
-// ---- timeline / post ----
-
-type Post = { id: string; kind: string; author: { id: string; handle: string; name: string; agent: boolean }; text: string | null; address: string | null; state: string; counts: { likes: number; replies: number; reposts: number } | null };
-const POST = 'id kind author { id handle name agent } text address state counts { likes replies reposts }';
-type FeedResult = { items: Post[]; next: string | null };
-
-export const sulfurFeed: Command<{ clips?: boolean; after?: string; limit?: number; all?: boolean; max?: number; new?: boolean; address?: string; watch?: boolean }, FeedResult> = {
-  name: 'posts feed', summary: 'The home timeline of the account, newest first',
-  examples: ['breakrocks --backend sulfur posts feed', 'breakrocks --backend sulfur posts feed --clips --limit 10'],
-  input: object({ clips: bool('The clips only'), after: str('The cursor of the next page'), limit: int('Posts per page', { minimum: 1, maximum: 100 }), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), new: bool('Not yet on the new backend'), address: str('Not yet on the new backend'), watch: bool('Not yet on the new backend') }),
-  output: openObject({ items: list('Posts', openObject({ id: str('The post'), text: { type: ['string', 'null'] } })), next: { type: ['string', 'null'], description: 'The cursor of the next page' } }),
-  run: async (ctx, i) => {
-    if (i.new) throw notYet('posts feed --new');
-    if (i.address) throw notYet('posts feed --address');
-    if (i.watch) throw notYet('posts feed --watch');
-    const items: Post[] = [];
-    let after = i.after ?? null;
-    for (let page = 0; page < (i.all ? i.max ?? 10 : 1); page++) {
-      const out = (await sulfurApi<{ homeTimeline: FeedResult }>(ctx, `query($v: String, $a: String, $l: Int) { homeTimeline(variant: $v, after: $a, limit: $l) { items { ${POST} } next } }`, { v: i.clips ? 'clips' : 'all', a: after, l: i.limit ?? null })).homeTimeline;
-      items.push(...out.items);
-      after = out.next ?? null;
-      if (!after) break;
-    }
-    return { items, next: after };
-  },
-  text: (r) => [...(r.items.length ? r.items.map((p) => `${paint.address(`@${p.author.handle}`)}${p.address ? ` ${paint.address(p.address)}` : ''} ${paint.dim(p.id)}\n  ${(p.text ?? '').replace(/\n/g, '\n  ')}${p.counts ? `\n  ${paint.dim(`${p.counts.likes} likes, ${p.counts.replies} replies, ${p.counts.reposts} reposts`)}` : ''}`) : ['Nothing in the timeline yet']), ...(r.next ? [paint.dim(`next page: --after ${r.next}`)] : [])].join('\n'),
-};
-
-const MEDIA_OPTIONS = ['image', 'alt', 'video', 'longVideo', 'link', 'source', 'license', 'attribution', 'announcement', 'dryRun'] as const;
-type PostInput = { text?: string; in?: string; replyPolicy?: string; file?: string; requestId?: string } & Partial<Record<(typeof MEDIA_OPTIONS)[number], unknown>>;
-
-export const sulfurPost: Command<PostInput, { id: string; state: string; universe: string }> = {
-  name: 'posts create', summary: 'Publish a text post in a universe',
-  details: 'The text is published at --in (%universe, %universe/sub; the missing levels are created as the app does). Images, clips, links and sources are not yet on the new backend.',
-  examples: ['breakrocks --backend sulfur posts create "Hello" --in %paris', 'echo "Hello" | breakrocks --backend sulfur posts create - --in %paris'],
-  input: object({
-    text: str('The text ("-": the standard input)'), in: str('The address of publication (%universe, %universe/sub)'), replyPolicy: str('Who may reply', { enum: ['everyone', 'followed', 'mentioned', 'nobody'] }),
-    requestId: str('The id of the post (a UUIDv7; a repeat after a lost answer is created once)'),
-    image: list('Not yet on the new backend'), alt: list('Not yet on the new backend'), video: str('Not yet on the new backend'), longVideo: str('Not yet on the new backend'), link: str('Not yet on the new backend'), source: list('Not yet on the new backend'), license: str('Not yet on the new backend'), attribution: str('Not yet on the new backend'), announcement: bool('Not yet on the new backend'), dryRun: bool('Not yet on the new backend'), file: str('Not yet on the new backend'),
-  }),
-  output: openObject({ id: str('The post'), state: str('Its state'), universe: str('Where') }),
-  args: { positionals: ['text'] },
-  run: async (ctx, i) => {
-    for (const k of [...MEDIA_OPTIONS, 'file'] as const) if (i[k] !== undefined && !(Array.isArray(i[k]) && !(i[k] as unknown[]).length)) throw notYet(`posts create --${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`);
-    let text = i.text;
-    if (text === '-') {
-      if (!ctx.io.readStdin) throw usageError('TEXT_REQUIRED', '"-" needs a standard input');
-      text = (await ctx.io.readStdin()).replace(/\r?\n$/, '');
-    }
-    if (!text?.trim()) throw usageError('POST_EMPTY', 'A post has a text: breakrocks posts create "…" --in %universe');
-    if (!i.in) throw usageError('ADDRESS_REQUIRED', 'On the new backend a post names its universe: --in %universe');
-    const universe = i.in.startsWith('%') ? i.in : `%${i.in}`;
-    const id = i.requestId ?? uuidv7(ctx.now());
-    const out = (await sulfurApi<{ publish: { id: string; state: string } }>(ctx, 'mutation($input: PublishInput!) { publish(input: $input) { id state } }', { input: { id, universe, text, ...(i.replyPolicy ? { replyPolicy: i.replyPolicy } : {}) } })).publish;
-    return { ...out, universe };
-  },
-  text: (r) => `${paint.ok('Published')} in ${paint.address(r.universe)} ${paint.dim(`${r.id} (${r.state})`)}`,
-  quiet: (r) => r.id,
-};
-
 /** The commands of the new backend, by the registry name they stand in for. */
-export const SULFUR_COMMANDS: ReadonlyMap<string, AnyCommand> = new Map<string, AnyCommand>([sulfurLogin, sulfurLogout, sulfurWhoami, sulfurProfileShow, sulfurProfileSet, sulfurFeed, sulfurPost].map((c) => [c.name, c as AnyCommand]));
+export const SULFUR_COMMANDS: ReadonlyMap<string, AnyCommand> = new Map<string, AnyCommand>([sulfurLogin, sulfurLogout, sulfurWhoami].map((c) => [c.name, c as AnyCommand]));
 

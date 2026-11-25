@@ -12,6 +12,8 @@ import { CliError, networkError, platformRefusal, usageError } from './errors.js
 import { uuidv7 } from './ids.js';
 import { api, readSession } from './session.js';
 import { imageInfo } from './theme/images.js';
+import { notServed } from './sulfur/fit.js';
+import { sulfurUpload, universeIdOf, waitReady, type SulfurDestination, type SulfurKind } from './sulfur/media.js';
 
 export const MAX_POST_IMAGES = 4;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -89,7 +91,31 @@ async function send(ctx: Context, form: Form, file: { path: string; type: string
 }
 
 /** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
-export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null };
+export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null; post?: 'post' | 'reply' | 'quote' };
+
+/** The media destination of [target] on the new backend, and its scope (a post's: the universe's id). */
+async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destination: SulfurDestination; scope: string | null }> {
+  switch (target.destination) {
+    case 'POST': {
+      let scope = await universeIdOf(ctx, target.address);
+      // A universe just made by its first post is read a moment later (its head is written after the post).
+      for (let n = 0; !scope && target.address && n < 6; n++) { await ctx.io.sleep(2000); scope = await universeIdOf(ctx, target.address); }
+      if (!scope) throw usageError('UNIVERSE_REQUIRED', `On the new backend a post's media go to an existing universe: ${target.address ? `${target.address} does not exist yet (publish a text there first)` : 'give --in %universe'}`);
+      return { destination: target.post ?? 'post', scope };
+    }
+    case 'THEME': return { destination: 'theme', scope: null };
+    case 'UNIVERSE_BANNER': return { destination: 'universeBanner', scope: await universeIdOf(ctx, target.address) };
+    case 'UNIVERSE_IMAGE': return { destination: 'universeImage', scope: await universeIdOf(ctx, target.address) };
+    default: throw notServed(`a media of a message (${target.destination})`, 'its discussion is named at upload there');
+  }
+}
+
+/** A media sent to the new backend (src/sulfur/media.ts) for [target]. */
+async function sulfurMedia(ctx: Context, file: { path: string; name: string; type: string; bytes: number }, kind: SulfurKind, target: MediaTarget, choice?: LicenseChoice): Promise<string> {
+  if (choice) throw notServed('a media license (--license)', 'no media license is declared at upload there yet');
+  const { destination, scope } = await sulfurTarget(ctx, target);
+  return sulfurUpload(ctx, file, kind, destination, scope);
+}
 
 // ---- Media licenses (specs v101.8.0, D-309, media-licenses.feature) ----
 
@@ -176,18 +202,26 @@ async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO' | 'LONG_VIDEO
 
 /** Sends an image checked for [target]: its upload id. */
 export async function uploadImage(ctx: Context, image: CheckedImage, target: MediaTarget): Promise<string> {
+  if (ctx.backend() === 'sulfur') return sulfurMedia(ctx, image, 'image', target);
   ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
   return send(ctx, await requestUpload(ctx, 'IMAGE', image, target), image);
 }
 
 /** Sends a video checked for [target], under its media license if one is declared: its upload id (the clip of a post or a message once converted). */
 export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, kind: 'VIDEO' | 'LONG_VIDEO' = 'VIDEO', choice?: LicenseChoice): Promise<string> {
+  if (ctx.backend() === 'sulfur') return sulfurMedia(ctx, video, kind === 'VIDEO' ? 'clip' : 'video', target, choice);
   ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)${choice ? ` under ${licenseLine(choice)}` : ''}…`);
   return send(ctx, await requestUpload(ctx, kind, video, target, choice), video);
 }
 
 /** Sends the avatar of the account (requestAvatarUpload: a JPEG, PNG or WebP image): its upload id, for updateProfile. */
 export async function uploadAvatar(ctx: Context, image: CheckedImage): Promise<string> {
+  if (ctx.backend() === 'sulfur') {
+    // The avatar is set once processed (updateProfile refuses it before: MEDIA_NOT_READY).
+    const id = await sulfurUpload(ctx, image, 'image', 'avatar');
+    await waitReady(ctx, id);
+    return id;
+  }
   ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
   const form = (await api<{ requestAvatarUpload: Form }>(ctx, 'mutation($c: String!, $r: ID!) { requestAvatarUpload(contentType: $c, requestId: $r) { id url fields } }', { c: image.type, r: uuidv7(ctx.now()) })).requestAvatarUpload;
   return send(ctx, form, image);
@@ -207,6 +241,10 @@ export function checkDocument(ctx: Context, path: string): CheckedDocument {
 }
 /** Sends a document checked (requestDocumentUpload; for a course, its playlist): its upload id. */
 export async function uploadDocument(ctx: Context, doc: CheckedDocument, playlistId?: string): Promise<string> {
+  if (ctx.backend() === 'sulfur') {
+    if (!playlistId) throw notServed('a post document', 'a document goes to a playlist there');
+    return sulfurUpload(ctx, doc, 'document', 'playlist', playlistId);
+  }
   ctx.progress(`Sending ${doc.name} (${Math.ceil(doc.bytes / 1024)} KB)…`);
   const input = { contentType: doc.type, size: doc.bytes, ...(playlistId ? { playlistId } : {}) };
   const form = (await api<{ requestDocumentUpload: Form }>(ctx, 'mutation($i: DocumentUploadInput!, $r: ID!) { requestDocumentUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestDocumentUpload;

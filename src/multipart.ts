@@ -121,6 +121,8 @@ export async function uploadMultipart(ctx: Context, video: CheckedVideo, target:
 
 /** A long video sent for [target]: with requestMediaUpload up to 500 MB, in parts above (resumable). */
 export async function uploadLongVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, choice?: LicenseChoice): Promise<LongUpload> {
+  // The new backend: one request up to 500 MB, in parts above (src/sulfur/media.ts, resumable the same way).
+  if (ctx.backend() === 'sulfur') return { id: await uploadVideo(ctx, video, target, 'LONG_VIDEO', choice), forget: () => undefined };
   if (video.bytes <= MULTIPART_MIN_BYTES) return { id: await uploadVideo(ctx, video, target, 'LONG_VIDEO', choice), forget: () => undefined };
   return uploadMultipart(ctx, video, target, choice);
 }
