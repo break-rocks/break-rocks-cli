@@ -5,6 +5,17 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+### Added
+
+- New backend: `login --browser` (the web page `/cli/login`, a loopback redirect `http://127.0.0.1:<port>/cb`, PKCE S256;
+  `--no-open`, `--timeout`), `login --device`; `login` alone is the browser when one can be opened (a terminal, no SSH, a
+  display on Linux) and the device code otherwise; `BREAKROCKS_BROWSER`, `BREAKROCKS_NO_BROWSER`.
+- `BROWSER_LOGIN_DENIED`, `BROWSER_LOGIN_TIMEOUT`, `LOGIN_MODES_CONFLICT`.
+
+### Changed
+
+- The device code refused on the other device (`access_denied`) says so (`DEVICE_CODE_DENIED`, exit 1).
+
 ## [0.40.0] - 2026-11-25
 
 The new backend, native-sulfur, behind a backend switch (client port plan Q-5, Q-6; README § The new backend).

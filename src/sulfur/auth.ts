@@ -8,7 +8,7 @@
 //   (→ an authorization code for `cli`, PKCE S256), `/oauth/token`. No device key in Node (Q-6): the session is untrusted,
 //   24 h idle and 7 days at most. Without a terminal, `login --email` starts and keeps the flow (0600, 15 minutes; the code itself lasts 5), and
 //   `login --email --code` finishes it.
-// The browser sign-in (`/cli/login`, loopback PKCE) waits for the web page of the new backend.
+// - the browser (src/sulfur/browser.ts): the web page `/cli/login`, a loopback redirect `/cb`, PKCE S256.
 import { createHash, randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
@@ -35,7 +35,7 @@ export function claimsOf(token: string): Record<string, unknown> {
 export type SignedIn = { session: SulfurSession; created?: boolean };
 
 /** The account behind fresh tokens (me), the session saved. */
-async function finish(ctx: Context, env: Environment, cell: string, tokens: Record<string, unknown>, method: 'email' | 'device'): Promise<SulfurSession> {
+export async function finish(ctx: Context, env: Environment, cell: string, tokens: Record<string, unknown>, method: 'email' | 'device' | 'browser'): Promise<SulfurSession> {
   const claims = claimsOf(String(tokens.access_token ?? ''));
   const home = typeof claims.cel === 'string' && /^[a-z]{2}$/.test(claims.cel) ? claims.cel : cell;
   const me = (await sulfurGraphql<{ me: { id: string; card: { handle: string } } }>(ctx, sulfurBase(ctx, env, home), String(tokens.access_token), '{ me { id card { handle } } }')).me;
@@ -76,7 +76,7 @@ export async function deviceSignIn(ctx: Context, env: Environment, options: { ce
     if (error === 'authorization_pending') continue;
     if (error === 'slow_down' || answer.status === 429) { interval += 5; continue; }
     if (error === 'expired_token') throw cliRefusal('DEVICE_CODE_EXPIRED', 'The code expired before it was approved: run login again');
-    if (error === 'access_denied') throw platformRefusal('DEVICE_CODE_DENIED', 'The sign-in was refused on the other device');
+    if (error === 'access_denied') throw platformRefusal('DEVICE_CODE_DENIED', 'The sign-in was refused on the other device: nothing was connected, run login again if it was a mistake');
     throw authRefusal(answer, 'The device code');
   }
 }

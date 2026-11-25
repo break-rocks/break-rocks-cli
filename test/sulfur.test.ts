@@ -4,18 +4,20 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeKeychain, harness, last } from './helpers.js';
 import { Context, NO_FLAGS } from '../src/context.js';
+import { canOpenBrowser, loopbackServer } from '../src/sulfur/browser.js';
 import { saveSulfurSession, sulfurApi, readSulfurSession } from '../src/sulfur/session.js';
 
 const BASE = 'https://sulfur.test';
+const AUTH_CODE = 'ac-1-0123456789abcdefghij';
 const ACCOUNT = 'eu-0123456789abcdef';
 const jwt = (claims: Record<string, unknown>) => `${Buffer.from('{"alg":"EdDSA"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
 
 type Call = { path: string; body: Record<string, unknown>; headers: Record<string, string> };
 
-function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; refreshRefused?: boolean } = {}) {
+function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; denied?: boolean; refreshRefused?: boolean } = {}) {
   const calls: Call[] = [];
   let generation = 0;
   let pending = options.pendingPolls ?? 1;
@@ -40,11 +42,12 @@ function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; refreshR
         return json(200, { device_code: 'dc-secret', user_code: 'EU-BCDF-GHJK', verification_uri: 'https://dev.break.rocks/signin/device', expires_in: 600, interval: 5 });
       case '/oauth/token': {
         if (body.grant_type === 'urn:ietf:params:oauth:grant-type:device_code') {
+          if (options.denied) return json(400, { error: 'access_denied' });
           if (pending-- > 0) return json(400, { error: 'authorization_pending' });
           if (options.slowDown) { options.slowDown = false; return json(400, { error: 'slow_down' }); }
           return json(200, tokens('device'));
         }
-        if (body.grant_type === 'authorization_code') return body.code === 'ac-1' && createHash('sha256').update(String(body.code_verifier)).digest('base64url') === state.codeChallenge ? json(200, tokens('untrusted')) : json(400, { error: 'invalid_grant' });
+        if (body.grant_type === 'authorization_code') return body.code === AUTH_CODE && (body.redirect_uri ?? '') === state.redirectUri && createHash('sha256').update(String(body.code_verifier)).digest('base64url') === state.codeChallenge ? json(200, tokens('untrusted')) : json(400, { error: 'invalid_grant' });
         if (body.grant_type === 'refresh_token') return options.refreshRefused || body.refresh_token !== `rt-${generation}-secret` ? json(400, { error: 'invalid_grant' }) : json(200, tokens('untrusted'));
         return json(400, { error: 'unsupported_grant_type' });
       }
@@ -52,7 +55,7 @@ function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; refreshR
       case '/auth/email/start': state.challenge = String(body.challenge); return json(200, { otpCell: 'eu', flowId: 'flow-1' });
       case '/auth/email/verify':
         return body.code === '12345678' && createHash('sha256').update(String(body.verifier)).digest('base64url') === state.challenge ? json(200, { ticket: 'pt-1', cell: 'eu' }) : json(400, { errors: [{ message: 'wrong code', extensions: { code: 'REFUSED', reason: 'CODE_INVALID' } }] });
-      case '/auth/complete': state.codeChallenge = String(body.codeChallenge); return body.clientId === 'cli' ? json(200, { code: 'ac-1', created: false }) : json(400, {});
+      case '/auth/complete': state.codeChallenge = String(body.codeChallenge); return body.clientId === 'cli' ? json(200, { code: AUTH_CODE, created: false }) : json(400, {});
       case '/graphql': {
         const token = headers['x-authorization']?.replace(/^Bearer /, '') ?? '';
         const g = Number(JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString() || '{}').g);
@@ -69,14 +72,14 @@ function fakeCell(options: { pendingPolls?: number; slowDown?: boolean; refreshR
       default: return json(404, {});
     }
   }) as typeof globalThis.fetch;
-  const state = { challenge: '', codeChallenge: '' };
-  return { fetch, calls, card, paths: () => calls.map((c) => c.path), refuseNext: () => { refusedOnce = false; } };
+  const state = { challenge: '', codeChallenge: '', redirectUri: '' };
+  return { fetch, calls, card, state, paths: () => calls.map((c) => c.path), refuseNext: () => { refusedOnce = false; } };
 }
 
-function setup(options: Parameters<typeof fakeCell>[0] & { keychain?: boolean; interactive?: boolean; answers?: string[] } = {}) {
+function setup(options: Parameters<typeof fakeCell>[0] & { keychain?: boolean; interactive?: boolean; answers?: string[]; env?: Record<string, string> } = {}) {
   const cell = fakeCell(options);
   const keychain = fakeKeychain(!!options.keychain);
-  const h = harness({ fetch: cell.fetch, env: { BREAKROCKS_SULFUR_URL: BASE }, keychain, interactive: options.interactive, answers: options.answers });
+  const h = harness({ fetch: cell.fetch, env: { BREAKROCKS_SULFUR_URL: BASE, ...options.env }, keychain, interactive: options.interactive, answers: options.answers });
   const metaFile = join(h.dir, 'config', 'sessions', 'default.sulfur.json');
   return { h, cell, keychain, metaFile, sulfur: (...argv: string[]) => h.run('--backend', 'sulfur', ...argv) };
 }
@@ -147,11 +150,125 @@ describe('sign-in on the new backend', () => {
     expect(last(h)).toMatchObject({ handle: 'ada' });
   });
 
-  it('refuses --browser and passwords there', async () => {
+  it('refuses passwords there, and two modes at once', async () => {
     const { h, sulfur } = setup();
-    expect(await sulfur('login', '--browser', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
     expect(await sulfur('login', '--password-stdin', '--json')).toBe(2);
+    expect(last(h)).toMatchObject({ error: { code: 'NO_PASSWORD' } });
+    expect(await sulfur('login', '--browser', '--device', '--json')).toBe(2);
+    expect(last(h)).toMatchObject({ error: { code: 'LOGIN_MODES_CONFLICT' } });
+    expect(await sulfur('login', '--browser', '--email', 'a@example.com', '--json')).toBe(2);
+  });
+
+  it('a refusal on the other device ends the device poll: DEVICE_CODE_DENIED, exit 1, nothing saved', async () => {
+    const { h, cell, metaFile, sulfur } = setup({ denied: true });
+    expect(await sulfur('--env', 'dev', 'login', '--device', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'DEVICE_CODE_DENIED', source: 'platform' } });
+    expect(cell.paths()).toEqual(['/oauth/device_authorization', '/oauth/token']);
+    expect(existsSync(metaFile)).toBe(false);
+  });
+});
+
+/** What the web page does: opens nothing, takes the address, then lets [visit] play the page's redirect to /cb. */
+function browserSetup(options: Parameters<typeof setup>[0] = {}, visit: (page: URL, cell: ReturnType<typeof fakeCell>) => Promise<void>) {
+  const s = setup(options);
+  const pages: URL[] = [];
+  s.h.io.openUrl = async (url) => {
+    const page = new URL(url);
+    pages.push(page);
+    s.cell.state.codeChallenge = page.searchParams.get('challenge') ?? '';
+    s.cell.state.redirectUri = `http://127.0.0.1:${page.searchParams.get('port')}/cb`;
+    void visit(page, s.cell);
+    return true;
+  };
+  return { ...s, pages };
+}
+const cb = (page: URL, query: Record<string, string>, path = '/cb') => fetch(`http://127.0.0.1:${page.searchParams.get('port')}${path}?${new URLSearchParams(query)}`);
+
+describe('the browser sign-in on the new backend', () => {
+  it('opens /cli/login with port, state and an S256 challenge, takes the code at /cb (state checked), exchanges it with the redirect URI', async () => {
+    const answers: number[] = [];
+    const { h, cell, pages, metaFile, sulfur } = browserSetup({ keychain: false }, async (page) => {
+      const state = page.searchParams.get('state')!;
+      answers.push((await cb(page, { code: AUTH_CODE, state: 'x'.repeat(43) })).status, (await cb(page, { code: AUTH_CODE, state }, '/callback')).status, (await cb(page, { code: 'short', state })).status);
+      answers.push((await cb(page, { code: AUTH_CODE, state })).status);
+    });
+    expect(await sulfur('--env', 'dev', 'login', '--browser', '--json')).toBe(0);
+    await vi.waitFor(() => expect(answers).toEqual([400, 404, 400, 200]));
+    expect(pages).toHaveLength(1);
+    expect(pages[0].origin + pages[0].pathname).toBe('https://dev.break.rocks/cli/login');
+    const port = Number(pages[0].searchParams.get('port'));
+    expect(port).toBeGreaterThan(1023);
+    expect(pages[0].searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(pages[0].searchParams.get('challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(last(h)).toMatchObject({ backend: 'sulfur', env: 'dev', accountId: ACCOUNT, handle: 'ada', session: { kind: 'untrusted', method: 'browser' } });
+    expect(cell.paths()).toEqual(['/oauth/token', '/graphql']);
+    expect(cell.calls[0].body).toMatchObject({ grant_type: 'authorization_code', client_id: 'cli', code: AUTH_CODE, redirect_uri: `http://127.0.0.1:${port}/cb` });
+    expect(h.errors.join('\n')).toContain('https://dev.break.rocks/cli/login?port=');
+    expect(h.all()).not.toMatch(/rt-\d|eyJ|ac-1/);
+    expect(JSON.parse(readFileSync(metaFile, 'utf8'))).toMatchObject({ method: 'browser', storage: 'file' });
+    // The loopback server is closed once the code is taken.
+    await expect(fetch(`http://127.0.0.1:${port}/cb`)).rejects.toThrow();
+    expect(await sulfur('whoami', '--json')).toBe(0);
+  });
+
+  it('a refusal in the browser (error=access_denied) is BROWSER_LOGIN_DENIED, exit 1, nothing exchanged', async () => {
+    const { h, cell, sulfur } = browserSetup({}, async (page) => { await cb(page, { error: 'access_denied', state: page.searchParams.get('state')! }); });
+    expect(await sulfur('--env', 'dev', 'login', '--browser', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'BROWSER_LOGIN_DENIED', source: 'platform' } });
+    expect(cell.calls).toEqual([]);
+  });
+
+  it('a code the platform refuses is its refusal; --no-open writes the address only', async () => {
+    const { h, cell, sulfur } = browserSetup({}, async () => undefined);
+    h.io.openUrl = async () => { throw new Error('must not be opened'); };
+    // No page ever calls /cb: play it here from the address written on stderr.
+    const run = sulfur('--env', 'dev', 'login', '--browser', '--no-open', '--json');
+    let url: URL | undefined;
+    for (let n = 0; n < 200 && !url; n++) { await new Promise((r) => setTimeout(r, 10)); const m = /(https:\/\/dev\.break\.rocks\/cli\/login\?\S+)/.exec(h.errors.join('\n')); if (m) url = new URL(m[1]); }
+    expect(url).toBeDefined();
+    cell.state.codeChallenge = url!.searchParams.get('challenge')!;
+    cell.state.redirectUri = `http://127.0.0.1:${url!.searchParams.get('port')}/cb`;
+    await cb(url!, { code: 'ac-unknown-code-0000', state: url!.searchParams.get('state')! });
+    expect(await run).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'invalid_grant', source: 'platform' } });
+  });
+
+  it('the default of login: the browser when one can be opened (BREAKROCKS_BROWSER), the device code otherwise, the choice forced by --device and BREAKROCKS_NO_BROWSER', async () => {
+    const visit = async (page: URL) => { await cb(page, { code: AUTH_CODE, state: page.searchParams.get('state')! }); };
+    const a = browserSetup({ env: { BREAKROCKS_BROWSER: '1' } }, visit);
+    expect(await a.sulfur('--env', 'dev', 'login', '--json')).toBe(0);
+    expect(last(a.h)).toMatchObject({ session: { method: 'browser' } });
+    const b = browserSetup({ env: { BREAKROCKS_BROWSER: '1' } }, visit);
+    expect(await b.sulfur('--env', 'dev', 'login', '--device', '--json')).toBe(0);
+    expect(last(b.h)).toMatchObject({ session: { method: 'device' } });
+    expect(b.pages).toHaveLength(0);
+    const c = browserSetup({ env: { BREAKROCKS_NO_BROWSER: '1', BREAKROCKS_BROWSER: '1' }, interactive: true }, visit);
+    expect(await c.sulfur('--env', 'dev', 'login', '--json')).toBe(0);
+    expect(last(c.h)).toMatchObject({ session: { method: 'device' } });
+    // No terminal and no variable: the device code (scripts, CI).
+    const d = browserSetup({}, visit);
+    expect(await d.sulfur('--env', 'dev', 'login', '--json')).toBe(0);
+    expect(last(d.h)).toMatchObject({ session: { method: 'device' } });
+  });
+
+  it('canOpenBrowser: a terminal, no SSH, a display on Linux', () => {
+    const ctx = (env: Record<string, string>, interactive = true) => new Context({ ...harness({ env, interactive }).io }, NO_FLAGS);
+    expect(canOpenBrowser(ctx({}), 'darwin')).toBe(true);
+    expect(canOpenBrowser(ctx({}), 'win32')).toBe(true);
+    expect(canOpenBrowser(ctx({}, false), 'darwin')).toBe(false);
+    expect(canOpenBrowser(ctx({ SSH_CONNECTION: '1.2.3.4 1 5.6.7.8 22' }), 'darwin')).toBe(false);
+    expect(canOpenBrowser(ctx({ SSH_TTY: '/dev/pts/0' }), 'linux')).toBe(false);
+    expect(canOpenBrowser(ctx({}), 'linux')).toBe(false);
+    expect(canOpenBrowser(ctx({ DISPLAY: ':0' }), 'linux')).toBe(true);
+    expect(canOpenBrowser(ctx({ WAYLAND_DISPLAY: 'wayland-0' }), 'linux')).toBe(true);
+    expect(canOpenBrowser(ctx({ BREAKROCKS_NO_BROWSER: '1' }), 'darwin')).toBe(false);
+    expect(canOpenBrowser(ctx({ BREAKROCKS_BROWSER: '1', SSH_TTY: 'x' }, false), 'linux')).toBe(true);
+  });
+
+  it('the wait is bounded: BROWSER_LOGIN_TIMEOUT (exit 3), and the port is released', async () => {
+    const server = await loopbackServer({ state: 's'.repeat(43), timeoutMs: 40 });
+    await expect(server.result).rejects.toMatchObject({ code: 'BROWSER_LOGIN_TIMEOUT', exit: 3 });
+    await expect(fetch(`http://127.0.0.1:${server.port}/cb`)).rejects.toThrow();
   });
 });
 

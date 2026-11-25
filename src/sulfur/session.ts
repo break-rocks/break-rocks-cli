@@ -34,7 +34,7 @@ export type SulfurMeta = {
   /** The session kind the token endpoint gave (untrusted: e-mail code; device: device code). */
   kind: SessionKind;
   /** How it was signed in: email or device. */
-  method: 'email' | 'device';
+  method: 'email' | 'device' | 'browser';
   signedInAt: string;
   /** When the access token ends. */
   accessExpiresAt: string;

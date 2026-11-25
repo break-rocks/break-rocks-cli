@@ -7,6 +7,7 @@ import { cliRefusal, usageError } from '../errors.js';
 import { uuidv7 } from '../ids.js';
 import type { AnyCommand, Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
+import { browserSignIn, canOpenBrowser } from './browser.js';
 import { codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
 import { ensureSulfurSession, forgetSulfurSession, readSulfurSession, sulfurApi, type SulfurSession } from './session.js';
 
@@ -21,20 +22,23 @@ const sessionSchema = openObject({ kind: str('The session kind: untrusted (e-mai
 
 // ---- login / logout ----
 
-type LoginInput = { email?: string; code?: string; cell?: string; signUp?: boolean; browser?: boolean; passwordStdin?: boolean; label?: string };
+type LoginInput = { email?: string; code?: string; cell?: string; signUp?: boolean; browser?: boolean; device?: boolean; open?: boolean; timeout?: number; passwordStdin?: boolean; label?: string };
 type LoginResult = { backend: 'sulfur'; env: string; cell: string; accountId?: string; handle?: string; codeSent?: boolean; session?: SessionView };
 
 export const sulfurLogin: Command<LoginInput, LoginResult> = {
-  name: 'login', summary: 'Sign in on the new backend: a device code, or an e-mail code in the terminal',
-  description: 'Without --email: a device code (RFC 8628). The CLI writes an address and a code; open the address on a device already signed in, type the code and approve; the session reaches content only and lasts 7 days. --email: a code is sent to the address and typed here (asked in a terminal; else run again with --code: the code lasts 5 minutes); the session is renewed on its own and ends after 24 hours unused or 7 days. The tokens are kept in the system keychain, else in a file for the user alone (0600), never printed. Not an MCP tool.',
-  examples: ['breakrocks --backend sulfur --env dev login', 'breakrocks --backend sulfur --env dev login --email me@example.com', 'breakrocks --backend sulfur --env dev login --email me@example.com --code 123456'],
+  name: 'login', summary: 'Sign in on the new backend: the browser, a device code, or an e-mail code in the terminal',
+  description: 'Without --email, in a terminal with a browser to open (not over SSH, a display on Linux): the browser (--browser): the CLI listens on 127.0.0.1, opens the page /cli/login of the web app, you confirm your e-mail address there with a code, and the browser gives the CLI a code for one use only (PKCE), never a token; the session is renewed on its own and ends after 24 hours unused or 7 days. Without a browser (SSH, no display, no terminal, or --device): a device code (RFC 8628): the CLI writes an address and a code; open the address on a device already signed in, type the code and approve; the session reaches content only and lasts 7 days; a refusal on the other device is DEVICE_CODE_DENIED. --email: a code is sent to the address and typed here (asked in a terminal; else run again with --code: the code lasts 5 minutes). BREAKROCKS_NO_BROWSER=1 chooses the device code, BREAKROCKS_BROWSER=1 the browser. The tokens are kept in the system keychain, else in a file for the user alone (0600), never printed. Not an MCP tool.',
+  examples: ['breakrocks --backend sulfur --env dev login', 'breakrocks --backend sulfur --env dev login --browser --no-open', 'breakrocks --backend sulfur --env dev login --device', 'breakrocks --backend sulfur --env dev login --email me@example.com', 'breakrocks --backend sulfur --env dev login --email me@example.com --code 123456'],
   input: object({
     email: str('Sign in with a code sent to this e-mail address'),
     code: str('The 8-digit code received by e-mail (a second run, without a terminal); spaces allowed', { pattern: '^[0-9][0-9 -]{6,12}[0-9]$' }),
     cell: str('The cell to start from (default eu)', { pattern: '^[a-z]{2}$' }),
     signUp: bool('With --email: create the account (the address has none yet)'),
     label: str('With the device code: the name of this device shown on the approval screen'),
-    browser: bool('The browser sign-in (not yet on the new backend)'),
+    browser: bool('Sign in through the web app (the default in a terminal with a browser)'),
+    device: bool('Sign in with a device code (the default without a browser: SSH, no display)'),
+    open: bool('With the browser: open it (--no-open: write the address only)', { default: true }),
+    timeout: int('With the browser: seconds to wait for the confirmation (default 300)', { minimum: 30, maximum: 900 }),
     passwordStdin: bool('A password (none on the new backend)'),
   }),
   output: openObject({ backend: str('sulfur'), env: str('Environment'), cell: str('Home cell'), accountId: str('The account'), handle: str('Its handle'), codeSent: bool('The e-mail code was sent: run again with --code'), session: sessionSchema }),
@@ -42,13 +46,28 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
   run: async (ctx, i) => {
     const profile = ctx.profile();
     const env = profile.env as Environment;
-    if (i.browser) throw notYet('login --browser (the web page /cli/login of the new backend)');
     if (i.passwordStdin) throw usageError('NO_PASSWORD', 'The new backend has no password: login (device code) or login --email');
     // A profile saved with its environment, so that the next commands find it without --env.
     if (!ctx.store.profile(ctx.profileName) && !ctx.agentName) ctx.saveProfile({ env });
+    if ([i.email !== undefined, !!i.browser, !!i.device].filter(Boolean).length > 1) throw usageError('LOGIN_MODES_CONFLICT', 'Choose one: --email, --browser or --device');
+    const device = () => deviceSignIn(ctx, env, {
+      cell: i.cell, label: i.label,
+      onCode: (s) => ctx.notice(`To sign in, open ${s.verification_uri} on a device already signed in and type the code ${paint.bold(s.user_code)} (valid ${Math.round(s.expires_in / 60)} minutes)`),
+    });
     let session: SulfurSession;
-    if (i.email !== undefined) {
-      const email = i.email.trim();
+    // The default: the browser when one can be opened here, else the device code.
+    const mode: 'email' | 'browser' | 'device' = i.email !== undefined ? 'email' : i.browser ? 'browser' : i.device ? 'device' : canOpenBrowser(ctx) ? 'browser' : 'device';
+    const explicit = i.email !== undefined || i.browser || i.device;
+    if (mode === 'browser') {
+      try { session = await browserSignIn(ctx, env, { cell: i.cell, open: i.open, timeoutSeconds: i.timeout }); }
+      catch (e) {
+        if (explicit || (e as { code?: string }).code !== 'PORT_UNAVAILABLE') throw e;
+        ctx.notice('The browser sign-in could not listen on this computer: using a device code');
+        session = await device();
+      }
+    } else if (mode === 'device') session = await device();
+    else {
+      const email = (i.email as string).trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw usageError('EMAIL_INVALID', `Not an e-mail address: "${i.email}"`);
       let pending = i.code ? pendingEmail(ctx, email, env) : undefined;
       if (!pending) {
@@ -63,11 +82,6 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
         if (!code) { forgetPendingEmail(ctx); throw codeMissing(); }
       }
       session = await emailFinish(ctx, pending, code);
-    } else {
-      session = await deviceSignIn(ctx, env, {
-        cell: i.cell, label: i.label,
-        onCode: (s) => ctx.notice(`To sign in, open ${s.verification_uri} on a device already signed in and type the code ${paint.bold(s.user_code)} (valid ${Math.round(s.expires_in / 60)} minutes)`),
-      });
     }
     return { backend: 'sulfur', env, cell: session.cell, accountId: session.accountId, handle: session.handle, session: sessionView(session) };
   },

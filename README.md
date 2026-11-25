@@ -928,14 +928,25 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   `eu.api.break.rocks`) serving `/graphql`, `/auth/*` and `/oauth/*`; `BREAKROCKS_SULFUR_URL` replaces it (a cell not on its
   custom domain yet: its CloudFront address). Every POST carries `x-amz-content-sha256` (the SHA-256 of the exact bytes:
   CloudFront's origin access control) and the token goes in `x-authorization: Bearer …`.
-- **Sign-in** as the client `cli`, no password: `login` alone is the **device code** (RFC 8628): the CLI writes an address and
-  a code (`EU-XXXX-XXXX`, never a prefilled link), the person types it on a device already signed in and approves, the CLI
-  polls every 5 s (10 s more after a `slow_down`); the session is fixed 7 days and reaches content only (no account change).
-  `login --email <address>` is the **e-mail code** in the terminal (`/auth/email/start`, `/auth/email/verify`,
-  `/auth/complete` at the home cell with PKCE S256, `/oauth/token`): asked in a terminal, else the first run sends it and
-  `login --email <address> --code "1234 5678"` finishes within its 5 minutes (the flow kept 0600 meanwhile); `--sign-up`
-  creates the account. No device key in Node (Q-6): the session is untrusted, renewed on its own, ended after 24 hours unused
-  or 7 days. `login --browser` (the `/cli/login` page of the new backend) and passwords: `NOT_ON_NEW_BACKEND`, `NO_PASSWORD`.
+- **Sign-in** as the client `cli`, no password. `login` alone is the **browser** when one can be opened (a terminal, not over
+  SSH, a display on Linux; `BREAKROCKS_BROWSER=1` / `BREAKROCKS_NO_BROWSER=1` force the choice), else the **device code**
+  (SSH, no display, no terminal, CI). `--browser`, `--device` and `--email` choose one (naming two: `LOGIN_MODES_CONFLICT`, exit 2).
+  - **Browser** (`--browser`; `--no-open` writes the address only; `--timeout <s>`, default 300): the CLI listens on
+    `127.0.0.1` (a random port), opens `<web>/cli/login?port=&state=&challenge=` (`BREAKROCKS_WEB_URL` replaces the web
+    origin), and the page, once the person has confirmed, sends the browser to `http://127.0.0.1:<port>/cb?code=&state=` (the
+    path is exactly `/cb`); the CLI checks the state, then exchanges the code (60 s, one use) at `/oauth/token` with its PKCE
+    S256 verifier and that redirect URI. `access_denied` on the page: `BROWSER_LOGIN_DENIED` (exit 1); no answer in time:
+    `BROWSER_LOGIN_TIMEOUT` (exit 3); the session is the e-mail one (untrusted, renewed on its own, 24 hours unused or 7 days).
+    `src/sulfur/browser.ts`.
+  - **Device code** (RFC 8628, `--device`): the CLI writes an address and a code (`EU-XXXX-XXXX`, never a prefilled link), the
+    person types it on a device already signed in and approves, the CLI polls every 5 s (10 s more after a `slow_down`); the
+    session is fixed 7 days and reaches content only (no account change). Refused on the other device: `DEVICE_CODE_DENIED`
+    (exit 1); expired: `DEVICE_CODE_EXPIRED`.
+  - **E-mail code** (`login --email <address>`) in the terminal (`/auth/email/start`, `/auth/email/verify`, `/auth/complete`
+    at the home cell with PKCE S256, `/oauth/token`): asked in a terminal, else the first run sends it and
+    `login --email <address> --code "1234 5678"` finishes within its 5 minutes (the flow kept 0600 meanwhile); `--sign-up`
+    creates the account. No device key in Node (Q-6): the session is untrusted, renewed on its own, ended after 24 hours unused
+    or 7 days. Passwords: `NO_PASSWORD`.
 - **Tokens**: in the system keychain (`sulfur:<profile>`) when there is one, else in `sessions/<profile>.sulfur.json` (0600);
   the account, the cell and the dates in that file either way; never printed. The refresh token rotates and a token used twice
   ends the session, so the renewal (an access token ending within a minute, or refused once by the API) is **single-flight**:
@@ -953,6 +964,9 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   sign-out, sign-in again. The codes come from the dev e2e mailbox (`*@inbox.dev.break.rocks`) through the server's
   `tools/e2e-mailbox` (`BREAKROCKS_SERVER_DIR`, default `../server`; `AWS_PROFILE`, default `breakrocks-dev`). Passed on
   2026-11-25 against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs the web page `/signin/device`.
+  `npm run e2e:sulfur-browser` (`scripts/e2e-sulfur-browser-dev.mjs`) plays the web page of `login --browser` through the API
+  (web session by e-mail code, `/auth/cli/authorize`, the redirect to `/cb`) and needs the edge exception of D-595 (the
+  loopback address in a request body) to be deployed.
 
 ### The app tour (0.39.0, specs v158.0.0)
 
