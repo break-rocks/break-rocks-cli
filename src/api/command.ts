@@ -16,7 +16,7 @@ import { documentOf, fieldsOf, inputSchema, isInputType, operation, outputSchema
 /** What the arguments of the contract mean, when their name says it. */
 export const ARG_DESCRIPTIONS: Record<string, string> = {
   universe: 'The universe (%name, %name/sub)', address: 'The address (%universe, %universe/sub, %universe#tag, #tag, @handle)', id: 'The id',
-  accountId: 'The account: its id, or @handle', accountIds: 'The accounts: ids or @handles', after: 'The cursor of the next page (the "next" of an answer)',
+  accountId: 'The account: its id, or @handle', accountIds: 'The accounts: ids or @handles', after: 'The cursor of the next page (the "next" of an answer; opaque: a refused one, CURSOR_INVALID, means starting again)',
   text: 'The text', name: 'The name', channel: 'The channel (%universe&name)', limit: 'How many at most', postId: 'The id of the post',
   reason: 'The reason', article: 'The article of the rules or the charter', requestId: 'An idempotency key (a UUIDv7): a request sent again with it is done once (one is made when absent)',
   replyPolicy: 'Who may reply', images: 'Images: [{ "id": <upload id>, "alt": <text> }]', link: 'A link (https)', clip: 'The id of an uploaded video (requestMediaUpload VIDEO)',

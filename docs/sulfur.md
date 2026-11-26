@@ -87,21 +87,21 @@ The session is renewed on its own (single-flight across processes); it ends afte
 
 ## Server findings
 
-What the server refused or answered otherwise while the CLI was run against dev (2026-11-25, server at `e6d0f0da` for the
-schema). None is worked around in the CLI.
+What the server refused or answered otherwise while the CLI was run against dev (2026-11-25, server at `e6d0f0da`; the rows
+of the media, the place feats and billing revised on 2026-11-26 for the server at `3e3a9fba`). None is worked around in the CLI.
 
 | Operation | What happens | Code | Note |
 |---|---|---|---|
-| `requestUpload(destination: post, scope: <universe id>)` | A post's media name the id of an existing universe, so the first post of a new universe (or sub-level) cannot carry media: the CLI says so (`UNIVERSE_REQUIRED`) and the text post creates it | (CLI guard) | Publish a text first, then the media post. Clients that create a universe by its first post with an image need a scope for a universe not created yet. |
+| `requestUpload(destination: post \| reply \| quote, address)` | A post's media name its posting address (talc's `MediaUploadInput.address`; `scope` and `address` together are `BAD_DESTINATION`): no universe is looked up, so the first post of a new universe (or sub-level) carries its images, its clip or its video. The universe is placed when the media are processed (a moment later: `universes show` answers `UNIVERSE_NOT_FOUND` until then) | — | Works: the CLI sends the address as given (`%` added when missing); `UNIVERSE_REQUIRED` is gone. A universe's image or banner still names the universe's id (`scope`). |
 | `requestUpload(kind: video)` | A long video is refused to a free account | `SUBSCRIPTION_REQUIRED` | By design (D-454); billing is dormant, so no account of dev can post one: the long video path (single and in parts) is checked with a clip sent in parts. |
 | `follow(address: "%universe")` | A universe alone cannot be followed | `UNIVERSE_ALONE` | By design: one joins a universe; `accounts follow @handle` and `@handle%universe` work. |
 | `createPost` → `Post.author.displayName` | `""` for an account without a display name, where `Account.displayName` falls back to the handle (talc-deviations 1d) | — | Cosmetic. |
 | `createUniverseEvent` | Refused to a member who cannot vote yet: `RESIDENTS_ONLY` before joining, then, since the server's D-659 revision, `VOTE_ACCOUNT_TOO_RECENT` or `VOTE_JOINED_TOO_RECENTLY` with `errorInfo { days, minutes, at }` (at the first level, the group of friends, an account of 1 day and a membership of 1 day, in every environment; it was 3 days and 1 day) | `VOTE_ACCOUNT_TOO_RECENT`, `VOTE_JOINED_TOO_RECENTLY` | By design (governance levels). The CLI tells "You can vote here from <at>: …" and keeps the code and `errorInfo` in `--json`; `universes residences` tells where the resident stands ("account 0 of 1 day"). |
-| `startPlaceFeatRun`, `endPlaceFeatRun`, `publishFeat` | No place feat on dev (they are seeded by the back office): `placeFeats` and `mapPlaceFeats` answer `[]`, `publishFeat` of a challenge run `EXPERIENCE_INSTANCE_NOT_FOUND` | — | Not verifiable on dev until place feats are seeded. A challenge's run, its measures and its feat flag work. |
+| `startPlaceFeatRun`, `endPlaceFeatRun`, `publishFeat` | Place feats are seeded on dev (the five landmarks of Paris, the server's `tools/place-feats/seed.ts`): `mapPlaceFeats` answers them (checked on 2026-11-26 with `map place-feats --cells 861fb4677ffffff`); `publishFeat` of a challenge run still answers `EXPERIENCE_INSTANCE_NOT_FOUND` | — | Reads work. The journey does not start a place feat run yet (it needs a position near the place). A challenge's run, its measures and its feat flag work. |
 | `startExperienceRun` (tournament, contest) | A tournament or a judged contest is run in a group instance only (`EXPERIENCE_RUN_PLACE_INVALID`) and names an edition (`EDITION_NAME_INVALID`) | — | `experiences runs start <id> --discussion '{"groupChatId":"…"}' --edition <name>`; by design. |
 | `createPost` (and every post) with an agent's token (RFC 7523, `act.sub` = the agent) | The post is created, but its `author` is a tombstone (`handle: ""`, `deleted: true`) and it carries no agent mark (`via: null`, `ai: false`, `automated: false`) | — | Server bug: an agent's post must show its owner's card with the agent mark. |
 | `reactToMessage(discussionId: <group chat>)` | A message of a group chat answers `MESSAGE_NOT_FOUND` | `MESSAGE_NOT_FOUND` | Reactions and threads are for universe discussions (talc; `replyInThread` says so with `THREAD_NOT_ALLOWED`); a clearer refusal than "not found" would help. Universe discussions are opened by the governance (`LEADERSHIP_ONLY`), so not verifiable with new accounts on dev. |
-| `buyGiftCode`, `billingPortal` | Answer a payment page (the Stripe sandbox of dev): billing is not dormant there | — | The CLI opens nothing without `--yes`; no payment was made. |
+| `buyGiftCode`, `billingPortal`, `startSubscription` and the other sales | Billing is gated: while the cell's Stripe webhook secret (`native-stripe-webhook`) is absent, as in dev ("Stripe sales closed in this cell"), they are refused before any Stripe call (server talc-deviations 5a, `syncedCatalog`) | `PROVIDER_NOT_AVAILABLE` | The CLI tells "Not available yet: payments are closed on this platform until its payment provider is set up" and keeps the code. Never run by the journey (no payment, no gift code). |
 | Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_ON_NEW_BACKEND`; an operator with a key signs in by RFC 7523 (`operator login`). |
 | (posts) emoji reactions | Neither talc nor the server has a reaction on a post (likes and dislikes only); reactions are on messages | — | `posts like` / `posts dislike`; `messages react` for messages. |
 
@@ -113,7 +113,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-648 commands: 554 work as they are, 30 through an adapter, 4 partly, 34 not available, 26 offline; 129 run against dev.
+648 commands: 555 work as they are, 30 through an adapter, 4 partly, 33 not available, 26 offline; 131 run against dev.
 
 #### account
 
@@ -429,7 +429,7 @@ deviations), which the command then reports with the server's code.
 | `messages groups unmute` | works |  | setGroupChatMuted |  |
 | `messages edit` | works |  | changeMessage |  |
 | `messages typing` | works |  | typing |  |
-| `messages changes` | works |  | messageChanges |  |
+| `messages changes` | works | yes | messageChanges |  |
 | `messages pinned` | works |  | pinnedMessages |  |
 | `messages pin` | works |  | setPinnedMessage |  |
 | `messages unpin` | works |  | setPinnedMessage |  |
@@ -740,7 +740,7 @@ deviations), which the command then reports with the server's code.
 | `explore mute` | works |  | muteUniverseDiscovery |  |
 | `explore unmute` | works |  | unmuteUniverseDiscovery |  |
 | `explore reset` | works |  | resetRecommendations |  |
-| `explore resolve` | not available |  | resolveAddress | not served: resolveAddress |
+| `explore resolve` | works | yes | resolveAddress |  |
 | `search` | works | yes | search |  |
 | `interests show` | works | yes | myInterestProfile |  |
 | `interests add` | works |  | addInterests |  |

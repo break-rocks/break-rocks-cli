@@ -93,19 +93,16 @@ async function send(ctx: Context, form: Form, file: { path: string; type: string
 /** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
 export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null; post?: 'post' | 'reply' | 'quote' };
 
-/** The media destination of [target] on the new backend, and its scope (a post's: the universe's id). */
-async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destination: SulfurDestination; scope: string | null }> {
+/** The media destination of [target] on the new backend, and its scope (a universe's id) or its posting address (a post's: no lookup, the universe need not exist). */
+async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destination: SulfurDestination; scope: string | null; address: string | null }> {
   switch (target.destination) {
     case 'POST': {
-      let scope = await universeIdOf(ctx, target.address);
-      // A universe just made by its first post is read a moment later (its head is written after the post).
-      for (let n = 0; !scope && target.address && n < 6; n++) { await ctx.io.sleep(2000); scope = await universeIdOf(ctx, target.address); }
-      if (!scope) throw usageError('UNIVERSE_REQUIRED', `On the new backend a post's media go to an existing universe: ${target.address ? `${target.address} does not exist yet (publish a text there first)` : 'give --in %universe'}`);
-      return { destination: target.post ?? 'post', scope };
+      const address = target.address?.trim();
+      return { destination: target.post ?? 'post', scope: null, address: address ? (/^[%@]/.test(address) ? address : `%${address}`) : null };
     }
-    case 'THEME': return { destination: 'theme', scope: null };
-    case 'UNIVERSE_BANNER': return { destination: 'universeBanner', scope: await universeIdOf(ctx, target.address) };
-    case 'UNIVERSE_IMAGE': return { destination: 'universeImage', scope: await universeIdOf(ctx, target.address) };
+    case 'THEME': return { destination: 'theme', scope: null, address: null };
+    case 'UNIVERSE_BANNER': return { destination: 'universeBanner', scope: await universeIdOf(ctx, target.address), address: null };
+    case 'UNIVERSE_IMAGE': return { destination: 'universeImage', scope: await universeIdOf(ctx, target.address), address: null };
     default: throw notServed(`a media of a message (${target.destination})`, 'its discussion is named at upload there');
   }
 }
@@ -113,8 +110,8 @@ async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destin
 /** A media sent to the new backend (src/sulfur/media.ts) for [target]. */
 async function sulfurMedia(ctx: Context, file: { path: string; name: string; type: string; bytes: number }, kind: SulfurKind, target: MediaTarget, choice?: LicenseChoice): Promise<string> {
   if (choice) throw notServed('a media license (--license)', 'no media license is declared at upload there yet');
-  const { destination, scope } = await sulfurTarget(ctx, target);
-  return sulfurUpload(ctx, file, kind, destination, scope);
+  const { destination, scope, address } = await sulfurTarget(ctx, target);
+  return sulfurUpload(ctx, file, kind, destination, scope, address);
 }
 
 // ---- Media licenses (specs v101.8.0, D-309, media-licenses.feature) ----

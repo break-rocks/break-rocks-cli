@@ -5,6 +5,38 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-26
+
+The server's client-visible changes of the dev audit fixes and the scalability audit of 2026-11-26 (server `3e3a9fba`,
+`docs/talc-deviations.md`, column "Client change"), on the new backend.
+
+### Added
+
+- New backend: `messages changes` follows `next` to the end by default (up to `--max` pages, 100 by default; `--after`
+  continues from a cursor): `messageChanges` is paged and answers the new messages as well as the changed and deleted ones,
+  from a few seconds before `--since` (a message near it may come twice: merge by id). `--json` keeps its shape
+  (`items`, `next`).
+- The new refusals are told for people, their code, `kind` and `errorInfo` kept in `--json`: `ACCOUNT_IN_OTHER_CELL`,
+  `UNIVERSE_IN_OTHER_CELL`, `CROSS_CELL_NOT_SUPPORTED` ("served from another region", `errorInfo.cell`), `FOLLOWING_LIMIT`
+  (`errorInfo.max`), `AUDIENCE_QUOTA` (`THROTTLED`: "try again later"), `PROVIDER_NOT_AVAILABLE` (payments closed while the
+  payment provider is not wired), `MESSAGE_ID_INVALID` and `CURSOR_INVALID` ("start again from the first page").
+- New backend: a message refused `MESSAGE_ID_INVALID` (`messages direct send`, `groups send`, `discussions send`,
+  `connections request`, `messages reply-thread`, `messages quick-poll`) is sent again once with a new id dated now (an id made
+  before a long media upload or a slow turn, or from a skewed clock); refused again, it is told to check the clock. A message
+  stored already is answered whatever the age of its id, so nothing is made twice.
+- `explore resolve` works on the new backend (`resolveAddress` is served), and the snapshot of the server's schema
+  (`schema/sulfur/server.graphql`) is refreshed to `3e3a9fba` (`UploadInput.address`, `creationTemplates`).
+
+### Changed
+
+- New backend: a post's, reply's or quote's media are uploaded with the posting `address` (no `universe(name)` lookup, no
+  wait): the first post of a new universe or sub-level carries its images, its clip or its video. The `UNIVERSE_REQUIRED`
+  guard is removed; `scope` stays for the image or the banner of a universe. The universe appears once the media are
+  processed, a moment after the post.
+- The help of every `--after` says the cursor is opaque (a refused one means starting again).
+- docs/sulfur.md: the findings of the media upload, the place feats (seeded on dev) and billing (gated, `PROVIDER_NOT_AVAILABLE`)
+  are revised; `npm run e2e:sulfur` covers the first post with images, `explore resolve` and the catch-up.
+
 ## [0.44.0] - 2026-11-26
 
 ### Added

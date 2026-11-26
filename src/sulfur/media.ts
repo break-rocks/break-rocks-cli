@@ -1,6 +1,6 @@
 // Media sent to the new backend (native-sulfur, server src/api/media.ts): `requestUpload` declares the kind (image, clip,
-// video, document), the content type, the size, the media destination (post, reply, quote, avatar, theme…, scoped by the
-// universe's id for a post) and the SHA-256 of the file; a clip or a long video also its duration and its orientation, read
+// video, document), the content type, the size, the media destination (post, reply, quote, avatar, theme…; a post's media name its
+// posting address, no lookup: the first post of a new universe carries its media) and the SHA-256 of the file; a clip or a long video also its duration and its orientation, read
 // from the file's header (src/mp4.ts). Up to 500 MB: the signed form (S3 checks the SHA-256 the policy fixes). Above, or when
 // BREAKROCKS_MULTIPART_ABOVE (bytes) says so: in parts of 64 MiB, each PUT with its own SHA-256 (`x-amz-checksum-sha256`),
 // tried again alone when it fails, then `completeUpload` with the ETags; the parts done are kept in uploads/<key>.json
@@ -133,10 +133,14 @@ async function multipart(ctx: Context, file: SulfurFile, input: Record<string, u
   return mediaId;
 }
 
-/** Sends [file] as a media of [kind] for [destination] ([scope]: the universe's id of a post…): its media id. */
-export async function sulfurUpload(ctx: Context, file: SulfurFile, kind: SulfurKind, destination: SulfurDestination, scope?: string | null): Promise<string> {
+/**
+ * Sends [file] as a media of [kind] for [destination]: its media id. [scope] is the id of the universe (an image or a banner
+ * of a universe…) or of the discussion or playlist; [address] the posting address of a post, a reply or a quote (the
+ * universe need not exist yet: its first post carries its media). Both together are refused by the server (BAD_DESTINATION).
+ */
+export async function sulfurUpload(ctx: Context, file: SulfurFile, kind: SulfurKind, destination: SulfurDestination, scope?: string | null, address?: string | null): Promise<string> {
   const video = kind === 'clip' || kind === 'video' ? videoFacts(file) : undefined;
-  const input: Record<string, unknown> = { kind, type: file.type, size: file.bytes, destination, ...(scope ? { scope } : {}), ...(video ? { durationSec: video.durationSec, orientation: video.orientation } : {}) };
+  const input: Record<string, unknown> = { kind, type: file.type, size: file.bytes, destination, ...(scope ? { scope } : address ? { address } : {}), ...(video ? { durationSec: video.durationSec, orientation: video.orientation } : {}) };
   if (file.bytes > multipartAbove(ctx)) return multipart(ctx, file, input);
   ctx.progress(`Sending ${file.name} (${file.bytes >= 1048576 ? `${Math.ceil(file.bytes / 1048576)} MB` : `${Math.ceil(file.bytes / 1024)} KB`})…`);
   const grant = (await sulfurApi<{ requestUpload: Grant }>(ctx, `mutation($i: UploadInput!) { requestUpload(input: $i) { ${GRANT} } }`, { i: { ...input, sha256: sha256Of(file.path) } })).requestUpload;
@@ -145,7 +149,7 @@ export async function sulfurUpload(ctx: Context, file: SulfurFile, kind: SulfurK
   return grant.mediaId;
 }
 
-/** The id of the universe at [address] (%name, %name/sub), the scope of a post's media; null when it does not exist yet. */
+/** The id of the universe at [address] (%name, %name/sub), the scope of a universe's image or banner; null when it does not exist yet. */
 export async function universeIdOf(ctx: Context, address: string | null | undefined): Promise<string | null> {
   if (!address) return null;
   const name = address.split('#')[0];

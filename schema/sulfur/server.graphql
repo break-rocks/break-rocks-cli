@@ -830,6 +830,16 @@ type Query {
 
   """The experience kinds of the registry (D-301)."""
   experienceKinds: [ExperienceKind!]
+
+  """
+  Since D-473: the catalogue of the creation templates served (creation-templates.schema.json). EXPERIENCES_NOT_OPEN, SIGN_IN_REQUIRED.
+  """
+  creationTemplates: AWSJSON
+
+  """
+  An address resolved: its parameters, its canonical address and URL, the object it names (talc's ResolvedAddress).
+  """
+  resolveAddress(address: String!): ResolvedAddress
 }
 
 type Health {
@@ -927,7 +937,7 @@ type AccountRef {
   kind: AccountKind!
 
   """
-  The display name (native-sulfur's first name of displayName, kept for its CLI and app).
+  The display name, else the handle (native-sulfur's first name of displayName, kept for its CLI and app).
   """
   name: String!
 
@@ -1287,7 +1297,7 @@ type Mutation {
   setPresenceVisibility(universe: String, visibility: PresenceVisibility!, requestId: ID): PresenceVisibility!
 
   """
-  talc: I am typing in this discussion — published to its live readers where its messages go (not on a polled discussion); at most once every 3 s per discussion, 30 a minute per account (false when dropped).
+  talc: I am typing in this discussion — published to its live readers where its messages go: a DM, a group, a private channel of at most 20 members (never a public channel nor a debate, nor a polled discussion); at most once every 3 s per discussion, 30 a minute per account (false when dropped).
   """
   typing(discussion: DiscussionRefInput!): Boolean
   setPinnedMessage(discussion: DiscussionRefInput!, messageId: ID!, pinned: Boolean!, requestId: ID): [Message!]!
@@ -2508,7 +2518,16 @@ input UploadInput {
   type: String!
   size: Float!
   destination: String!
+
+  """
+  The universe's id (a post, reply or quote; a universe image or banner, an event cover, a page image), or the discussion's or playlist's id.
+  """
   scope: String
+
+  """
+  A post's, reply's or quote's posting address (talc's MediaUploadInput.address, the rise mark allowed), instead of scope: the universe need not exist yet (its first post carries the media). Neither: %root.
+  """
+  address: String
   durationSec: Float
   orientation: String
   sha256: String
@@ -9584,4 +9603,24 @@ input ContestSignalInput {
 input ContestVoteInput {
   cast: Boolean!
   entryId: ID!
+}
+
+type ResolvedAddress {
+  address: String!
+  parameters: [AddressParameter!]!
+  playlist: Playlist
+  experienceKind: ExperienceKind
+  universeEvent: UniverseEvent
+  mapRoute: MapRoute
+  placeFeat: PlaceFeat
+  featAccount: AccountRef
+  experienceInstance: ExperienceInstance
+  experience: Experience
+  experienceReuse: ExperienceReuse
+  experienceRun: ExperienceRun
+  url: String!
+}
+
+type ExperienceReuse {
+  values: [ExperienceParameterValue!]!
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // The journey of the CLI on the new backend (native-sulfur) in dev, by hand or in a host-side check (README § The new
 // backend): a headless sign-up by e-mail code (the code on stdin, the handle taken), whoami, the profile with its avatar,
-// posts (text, two images in a new universe and its sub-level, a clip when BREAKROCKS_E2E_CLIP names a vertical MP4), a
+// posts (two images in the first post of a new universe and its sub-level, a clip when BREAKROCKS_E2E_CLIP names a vertical MP4), a
 // reply, a quote and a repost into %root, a like, the thread, the universe feed, join and leave (read back), follow and
-// unfollow (read back), a group and a quick poll, delete (read back), another environment refused, the timeline, a
+// unfollow (read back), a group and a quick poll, its changes (catch-up), delete (read back), another environment refused, the timeline, a
 // command not served, sign-out, sign-in again.
 // The e-mail codes come from the dev e2e mailbox (*@inbox.dev.break.rocks) through the server's helper
 // (tools/e2e-mailbox/cli.ts): BREAKROCKS_SERVER_DIR names the server checkout (default ../server), AWS_PROFILE its
@@ -73,13 +73,17 @@ expectOk('profile set (name, bio, avatar)', cli('me', 'profile', 'set', '--displ
 expectOk('profile show', cli('me', 'profile', 'show'), (o) => o.displayName === 'CLI E2E' && o.bio === 'The CLI journey');
 const post = expectOk('post in %root', cli('posts', 'create', `${text} #clie2e`, '--in', '%root'), (o) => !!o.id && o.tags?.includes('clie2e'));
 const universe = `%clie2e${String(stamp).slice(-6)}`;
-// A public universe and its levels are created by their first post (a text: a post's media name an existing universe).
-expectOk('a new universe and its sub-level, by a first post', cli('posts', 'create', 'First post', '--in', `${universe}/sub`), (o) => o.universe === `${universe}/sub`);
-const images = expectOk('post with two images in the sub-level', cli('posts', 'create', 'Two images', '--in', `${universe}/sub`, '--image', red, '--alt', 'Red', '--image', blue, '--alt', 'Blue'), (o) => o.images?.length === 2);
-expectOk('the new universe', cli('universes', 'show', universe), (o) => o.universe?.exists === true);
+// A public universe and its levels are created by their first post, which carries its images (the upload names the posting
+// address, no universe is looked up).
+const images = expectOk('a new universe and its sub-level, by a first post with two images', cli('posts', 'create', 'Two images', '--in', `${universe}/sub`, '--image', red, '--alt', 'Red', '--image', blue, '--alt', 'Blue'), (o) => o.universe === `${universe}/sub` && o.images?.length === 2);
+expectOk('resolve an address (resolveAddress)', cli('explore', 'resolve', `${universe}/sub`), (o) => typeof o?.address === 'string' && typeof o.url === 'string');
 if (process.env.BREAKROCKS_E2E_CLIP) expectOk('post with a vertical clip', cli('posts', 'create', 'A clip', '--in', universe, '--video', process.env.BREAKROCKS_E2E_CLIP), (o) => !!o.clip?.id);
 // A post is published once its media are processed (server D-422): replies wait for it (NOT_PUBLISHED meanwhile).
 const pause = () => spawnSync(process.execPath, ['-e', 'setTimeout(() => {}, 2000)']);
+// The first post carried images: its universe is placed once the media are processed (server D-422), a moment later.
+let made = cli('universes', 'show', universe);
+for (let i = 0; i < 30 && made.out?.universe?.exists !== true; i++) { pause(); made = cli('universes', 'show', universe); }
+expectOk('the new universe (placed when its first post is published)', made, (o) => o.universe?.exists === true);
 let reply = cli('posts', 'reply', images.id, 'A reply', '--image', blue);
 for (let i = 0; i < 30 && reply.out?.error?.code === 'NOT_PUBLISHED'; i++) { pause(); reply = cli('posts', 'reply', images.id, 'A reply', '--image', blue); }
 expectOk('reply with an image (once the post is published)', reply, (o) => o.parentId === images.id);
@@ -104,6 +108,12 @@ if (other) {
   // without partial answers yet, left out).
   const group = expectOk('a group with an account not connected', cli('messages', 'groups', 'create', `CLI e2e ${stamp}`, `@${other}`), (o) => !!o?.group?.id && Array.isArray(o.refused) && o.refused.every((r) => r.accountId && r.code));
   expectOk('a quick poll in the group (its discussion by its id)', cli('messages', 'quick-poll', 'Ride on Sunday?', '--choices', 'yes,no', '--group', group.group.id), (o) => !!o?.id);
+  const said = expectOk('a message in the group', cli('messages', 'groups', 'send', group.group.id, 'Catching up'), (o) => !!o?.id);
+  // The catch-up: the new messages since a time, the pages followed to the end (messageChanges; its index lags a moment).
+  const sinceHour = new Date(Date.now() - 3600_000).toISOString();
+  let changes = cli('messages', 'changes', '--group', group.group.id, '--since', sinceHour);
+  for (let i = 0; i < 10 && changes.code === 0 && !changes.out?.items?.length; i++) { pause(); changes = cli('messages', 'changes', '--group', group.group.id, '--since', sinceHour); }
+  expectOk('the changes of the group since an hour (the catch-up)', changes, (o) => o?.items?.some((m) => m.id === said.id) && !o.next);
 }
 const gone = expectOk('a post to delete', cli('posts', 'create', 'To delete', '--in', '%root'), (o) => !!o.id);
 expectOk('delete', cli('posts', 'delete', gone.id, '--yes'), (o) => o?.id === gone.id && o.deleted === true);

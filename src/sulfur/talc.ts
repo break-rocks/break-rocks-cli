@@ -6,7 +6,8 @@
 // - neither: NOT_ON_NEW_BACKEND, the operation named.
 // Image paths the server answers relative to the cell's media domain are left as they are (the CLI prints them).
 import type { Context } from '../context.js';
-import { platformRefusal, usageError } from '../errors.js';
+import { CliError, platformRefusal, usageError } from '../errors.js';
+import { uuidv7 } from '../ids.js';
 import { notServed, fillLeftOut, fitDocument, parseOperations } from './fit.js';
 import { readSulfurSession, sulfurApi } from './session.js';
 import { SERVER } from './schema.generated.js';
@@ -250,8 +251,35 @@ async function runServed(ctx: Context, query: string, variables: Json, options: 
   return fillLeftOut(data, fitted.left);
 }
 
-/** A talc request (a document of the CLI and its variables) on the new backend: its talc data. */
+/** The operations that send a message: their requestId is its id, a UUIDv7 the server dates (MESSAGE_ID_INVALID beyond a minute). */
+const MESSAGE_SENDS = new Set(['sendMessage', 'requestConnection', 'replyInThread', 'sendQuickPoll']);
+
+/**
+ * A talc request (a document of the CLI and its variables) on the new backend: its talc data. A message refused
+ * `MESSAGE_ID_INVALID` (its id, made before a long media upload or a slow turn, is dated more than a minute off) is sent
+ * again once with an id of now: the server answers a message stored already whatever the age of its id, so a refused one
+ * was never stored and nothing is made twice.
+ */
 export async function sulfurTalc<T>(ctx: Context, query: string, variables: Json = {}, options: { partial?: boolean } = {}): Promise<T> {
+  try { return await sulfurTalcOnce<T>(ctx, query, variables, options); } catch (error) {
+    if (!(error instanceof CliError) || error.code !== 'MESSAGE_ID_INVALID') throw error;
+    const name = redatable(query);
+    if (!name) throw error;
+    ctx.progress('The identifier of the message is too old for the platform: sending it again with a new one');
+    return sulfurTalcOnce<T>(ctx, query, { ...variables, [name]: uuidv7(ctx.now()) }, options);
+  }
+}
+
+/** The variable that carries the requestId of the message send of [query] (one root field of MESSAGE_SENDS), else undefined. */
+function redatable(query: string): string | undefined {
+  try {
+    const ops = parseOperations(query);
+    const field = ops.length === 1 && ops[0].kind === 'mutation' ? ops[0].selection.items.find((i) => i.kind === 'field' && MESSAGE_SENDS.has(i.name)) : undefined;
+    return field && field.kind === 'field' ? field.args.find((a) => a.name === 'requestId')?.variable : undefined;
+  } catch { return undefined; }
+}
+
+async function sulfurTalcOnce<T>(ctx: Context, query: string, variables: Json = {}, options: { partial?: boolean } = {}): Promise<T> {
   const ops = parseOperations(query);
   if (ops.length !== 1) throw notServed('a document of several operations');
   const op = ops[0];

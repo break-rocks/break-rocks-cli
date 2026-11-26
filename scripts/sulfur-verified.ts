@@ -22,5 +22,5 @@ export const VERIFIED: ReadonlySet<string> = new Set([
   'subscription offer', 'subscription portal', 'gift-codes list', 'gift-codes buy', 'ads campaigns', 'videos list', 'videos history', 'drafts list', 'drafts save', 'routes list', 'map presence',
   'map live-share list', 'map locatable', 'my-places tags', 'connections list', 'discussions list', 'discussions unread', 'discussions channels create', 'posts clips feed', 'posts reposts',
   'posts link-preview', 'links shorten', 'me onboarding', 'me tour', 'accounts block', 'accounts unblock', 'accounts mute', 'accounts unmute', 'posts edit', 'posts reply-policy',
-  'posts dislike', 'agents create', 'agents login', 'doctor', 'mcp',
+  'posts dislike', 'explore resolve', 'messages changes', 'agents create', 'agents login', 'doctor', 'mcp',
 ]);
