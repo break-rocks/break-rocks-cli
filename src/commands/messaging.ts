@@ -39,7 +39,7 @@ type InboxItem = { kind: string; account?: { id: string } | null; group?: { id: 
 export const inbox: Command<{ unread?: boolean; after?: string; all?: boolean; max?: number } & WatchInput, unknown> = {
   name: 'inbox', summary: 'The conversations and group chats, the unread first (--unread; --watch)',
   examples: ['breakrocks messages inbox', 'breakrocks messages inbox --unread --json', 'breakrocks messages inbox --watch --jsonl'],
-  input: object({ unread: bool('Only those with an unread message'), after: str('The cursor of the next page'), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES }),
+  input: object({ unread: bool('Only those with an unread message'), after: str('The cursor of the next page (the "next" of an answer; opaque: a refused one, CURSOR_INVALID, means starting again)'), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES }),
   output: outputSchema('InboxPage', 2),
   run: async (ctx, i) => {
     const read = async (after: string | null) => (await api<{ inbox: Page<InboxItem> }>(ctx, `query($after: String) { inbox(after: $after) ${selection('InboxPage', 2)} }`, { after })).inbox;
@@ -76,7 +76,7 @@ export const dm: Command<DmInput, unknown> = {
 };
 
 type ReadInput = { since?: string; after?: string; all?: boolean; max?: number; limit?: number; top?: boolean } & WatchInput;
-const readProps = { since: str('Only the messages after this: a duration (2h, 30m, 7d) or a date'), after: str('The cursor of the next page'), limit: int('Messages per page', { minimum: 1, maximum: 100 }), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES };
+const readProps = { since: str('Only the messages after this: a duration (2h, 30m, 7d) or a date'), after: str('The cursor of the next page (the "next" of an answer; opaque: a refused one, CURSOR_INVALID, means starting again)'), limit: int('Messages per page', { minimum: 1, maximum: 100 }), all: bool('Follow the pages'), max: int('Pages at most with --all', { minimum: 1, maximum: 100, default: 10 }), ...WATCH_PROPERTIES };
 
 /** Pages of messages (newest first), --since applied. */
 async function readMessages<T extends Item>(ctx: Context, read: (after: string | null) => Promise<Page<T>>, i: ReadInput) {

@@ -996,14 +996,23 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   never signed into a human's session: the BREAKROCKS_* variables (or an agent's key) beside a human's profile or session
   are `PROFILE_HOLDS_HUMAN`; an agent's session keeps its agent id, and another agent signs in again. `breakrocks --backend
   sulfur mcp` serves its tools on the new backend; `batch` runs each line on the backend of its run.
+- **The server's scalability changes** (0.45.0, server 3e3a9fba): `messages changes` is the catch-up of a discussion: the new,
+  changed and deleted messages since a time, the pages followed to the end by default (`--max`, `--after`; merge by message
+  id: a message near `--since` may come twice). A cursor is opaque: `CURSOR_INVALID` means starting again without `--after`.
+  The new refusals are told for people and keep their code, kind and `errorInfo` in `--json`: `ACCOUNT_IN_OTHER_CELL`,
+  `UNIVERSE_IN_OTHER_CELL`, `CROSS_CELL_NOT_SUPPORTED` (`errorInfo.cell`), `FOLLOWING_LIMIT` (`errorInfo.max`), `AUDIENCE_QUOTA`
+  (`THROTTLED`), `PROVIDER_NOT_AVAILABLE` (payments closed while Stripe is not wired), `MESSAGE_ID_INVALID`. A message
+  (`sendMessage`, `requestConnection`, `replyInThread`, a quick poll) refused `MESSAGE_ID_INVALID` is sent again once with an id
+  of now (the server answers a stored message whatever the age of its id, so nothing is made twice). A post's, reply's or
+  quote's media name the posting address at upload: no universe lookup, the first post of a new universe carries its images.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
-  taken), `whoami`, the profile with its avatar, posts (text, two images in a new universe's sub-level, a vertical clip when
+  taken), `whoami`, the profile with its avatar, posts (two images in the first post of a new universe's sub-level, a vertical clip when
   `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the
   universe feed, join and leave (the reader's role read back), follow and unfollow (read back), a group with an account not
-  connected and a quick poll in it, delete (read back), another environment refused, the timeline (written asynchronously:
+  connected, a quick poll and a message in it, its changes (the catch-up), delete (read back), another environment refused, the timeline (written asynchronously:
   read again for up to 30 s), a command not served, sign-out, sign-in again. The codes come from the dev e2e mailbox (`*@inbox.dev.break.rocks`)
   through the server's `tools/e2e-mailbox` (`BREAKROCKS_SERVER_DIR`, default `../server`; `AWS_PROFILE`, default
-  `breakrocks-dev`). Passed on 2026-11-26 against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs
+  `breakrocks-dev`). Passed on 2026-11-26 (0.45.0) against `eu.api.dev.break.rocks`. The device code is not in it: its approval needs
   the web page `/signin/device`. `npm run e2e:sulfur-browser` (`scripts/e2e-sulfur-browser-dev.mjs`) plays the web page of
   `login --browser` through the API (web session by e-mail code, `/auth/cli/authorize`, the redirect to `/cb`) and needs the
   edge exception of D-595 (the loopback address in a request body) to be deployed.

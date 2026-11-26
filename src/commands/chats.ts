@@ -81,8 +81,10 @@ export const messagesTyping = apiCommand({
   kind: 'mutation', op: 'typing', ...inDiscussion, text: doneText, examples: ['breakrocks messages typing --with @alice'],
 });
 export const messagesChanges = apiCommand({
-  name: 'messages changes', summary: 'Catch up: the messages of a discussion changed or deleted since a time, at most 30 days back (messageChanges)', description: targetHelp,
+  name: 'messages changes', summary: 'Catch up: the new, changed or deleted messages of a discussion since a time, at most 30 days back (messageChanges)',
+  description: `${targetHelp} The pages are followed to the end (at most --max, 100 by default; \`next\` is the cursor to go on with --after). The platform reads from a few seconds before --since, so a message near it may come again: merge the answers by message id. A cursor is opaque; one refused (CURSOR_INVALID) means starting again without --after.`,
   kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when (ISO 8601)' }, select: `{ items ${MESSAGE} next }`,
+  prepare: (i) => { const o = oneDiscussion(i); return { ...o, all: o.all ?? true, max: o.max ?? 100 }; },
   text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z'],
 });
 export const messagesPinned = apiCommand({
