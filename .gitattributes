@@ -1,0 +1,3 @@
+docs/sulfur.md text eol=lf
+src/sulfur/schema.generated.ts text eol=lf
+schema/sulfur/server.graphql text eol=lf
