@@ -11,6 +11,7 @@ import { pageText } from './shared.js';
 import type { Command } from '../registry.js';
 import { object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
+import { sulfurHint } from '../sulfur/talc.js';
 
 const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -85,13 +86,17 @@ export const mePassword = apiCommand({
 
 export const meEmailChange = apiCommand({
   name: 'me email change', summary: 'Ask to change the email address: a code is sent to the new one (requestEmailChange)', kind: 'mutation', op: 'requestEmailChange', positionals: ['email'],
+  description: 'On the new backend (native-sulfur): a fresh sign-in (within 10 minutes) is needed; an account signed in by e-mail gets a second code at its former address (me email confirm --former-code).',
   descriptions: { email: 'The new email address', challenge: 'The answer to a challenge, when the platform asks for one', locale: 'The language of the email (BCP 47)' },
   text: (r) => (r === true ? 'code sent: breakrocks me email confirm <code>' : 'nothing changed'),
   examples: ['breakrocks me email change new@example.com'],
 });
 export const meEmailConfirm = apiCommand({
   name: 'me email confirm', summary: 'Confirm the change of the email address with the code received (confirmEmailChange)', kind: 'mutation', op: 'confirmEmailChange', positionals: ['code'], descriptions: { code: 'The code received at the new address' },
-  text: (r) => (r === true ? 'email address changed' : 'nothing changed'), examples: ['breakrocks me email confirm 123456'],
+  description: 'On the new backend (native-sulfur): the change started by me email change from this profile within 10 minutes, on a fresh sign-in; an account signed in by e-mail gets a second code at its former address: --former-code.',
+  extra: { formerCode: { type: 'string', description: 'The new backend: the code sent to the former address, when the change asks for it' } },
+  prepare: (i, ctx: Context) => { const { formerCode, ...rest } = i; sulfurHint(ctx, 'codeOld', typeof formerCode === 'string' ? formerCode.trim() : undefined); return rest; },
+  text: (r) => (r === true ? 'email address changed' : 'nothing changed'), examples: ['breakrocks me email confirm 123456', 'breakrocks me email confirm 12345678 --former-code 87654321'],
 });
 
 export const meDelete = apiCommand({
@@ -106,6 +111,7 @@ export const meDelete = apiCommand({
 });
 export const meDeleteConfirm = apiCommand({
   name: 'me delete confirm', summary: 'Delete the account with the token of the confirmation email (confirmAccountDeletion)', kind: 'mutation', op: 'confirmAccountDeletion', positionals: ['token'], descriptions: { token: 'The token of the confirmation email' },
+  description: 'On the new backend (native-sulfur) there is no e-mailed token: me delete on a fresh sign-in is the deletion itself; this reads it back (when it takes effect), the token ignored.',
   confirm: () => 'Delete the account? It disappears after the grace period.',
   text: (r) => { const d = r as { deletedAt?: string; disappearsAt?: string } | null; return d ? `deleted ${d.deletedAt}, disappears ${d.disappearsAt}` : '(none)'; },
   examples: ['breakrocks me delete confirm <token> --yes'],

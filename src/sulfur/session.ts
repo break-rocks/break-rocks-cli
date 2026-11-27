@@ -13,7 +13,7 @@ import type { Context } from '../context.js';
 import { configDir, readJson, writePrivate } from '../config.js';
 import { systemKeychain } from '../keychain.js';
 import { CliError, EXIT, networkError, usageError } from '../errors.js';
-import { isTokenRefused, sulfurBase, sulfurGraphql, sulfurPost } from './http.js';
+import { expectAuthOk, isTokenRefused, sulfurBase, sulfurGraphql, sulfurPost } from './http.js';
 
 export const CLIENT_ID = 'cli';
 /** An access token is renewed when it ends within this. */
@@ -215,6 +215,19 @@ export async function sulfurApi<T>(ctx: Context, query: string, variables: Recor
       throw again;
     }
   }
+}
+
+/**
+ * A POST to an auth route of the profile's cell with its session (`/auth/email/change/*`): its body, or the refusal it
+ * answered; a token refused (401) renews the session once and tries again. [what] names the act in a refusal.
+ */
+export async function sulfurAuthPost(ctx: Context, path: string, body: Record<string, unknown>, what: string): Promise<Record<string, unknown>> {
+  const session = await ensureSulfurSession(ctx);
+  const base = sulfurBase(ctx, session.env as never, session.cell);
+  let answer = await sulfurPost(ctx, base, path, body, { token: session.access });
+  if (answer.status === 401) answer = await sulfurPost(ctx, base, path, body, { token: (await ensureSulfurSession(ctx, { renew: true })).access });
+  if (answer.status === 401) throw sessionEnded(ctx, 'the token was refused again');
+  return expectAuthOk(answer, what);
 }
 
 /** Whether a session file exists (for doctor-like checks). */

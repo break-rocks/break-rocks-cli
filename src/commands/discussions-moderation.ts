@@ -7,6 +7,8 @@ import { apiCommand } from '../api/command.js';
 import type { Context } from '../context.js';
 import { discussionIdOf } from './discussions.js';
 import { listText } from './shared.js';
+import { str } from '../schema.js';
+import { sulfurHint } from '../sulfur/talc.js';
 
 const ID = { id: 'The universe discussion: its address (%paris&general) or its id' };
 const u = { universe: 'The universe (%name)', account: 'The account: @handle or its id' };
@@ -81,6 +83,9 @@ export const discussionsBan = writingBan(true);
 export const discussionsUnban = writingBan(false);
 export const discussionsRemoveMessage = apiCommand({
   name: 'discussions remove-message', summary: 'Remove a message of a universe discussion as a moderator, citing an article (removeUniverseDiscussionMessage)', kind: 'mutation', op: 'removeUniverseDiscussionMessage', ...onDiscussion, positionals: ['id', 'messageId'],
+  description: 'On the new backend (native-sulfur): deleteMessage by a moderator (no entry of the moderation log yet; the article is not recorded); a reply of a thread is named with --thread-root.',
+  extra: { threadRoot: str('New backend: the root message of the thread that holds the message') },
+  prepare: async (i, ctx) => { const { threadRoot, ...rest } = i; sulfurHint(ctx, 'threadRoot', threadRoot); return byAddress('id')(rest, ctx); },
   descriptions: { ...ID, messageId: 'The message' }, confirm: (i) => `Remove the message ${String(i.messageId)}?`, examples: ['breakrocks discussions remove-message %paris&general <message id> --article 3 --yes'],
 });
 export const discussionsDelete = apiCommand({

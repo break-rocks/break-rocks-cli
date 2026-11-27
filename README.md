@@ -1005,6 +1005,14 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   (`sendMessage`, `requestConnection`, `replyInThread`, a quick poll) refused `MESSAGE_ID_INVALID` is sent again once with an id
   of now (the server answers a stored message whatever the age of its id, so nothing is made twice). A post's, reply's or
   quote's media name the posting address at upload: no universe lookup, the first post of a new universe carries its images.
+- **The schema resynced** (0.46.0, server b822c90a): ten commands come back as the server now serves their operations
+  (`universes agent-posts`, `discussions channels levels`, `discussions place set` and `remove`, `discussions move`,
+  `governance ask`, `answer`, `pin`, `like-question`, `unlike-question`), and five more go through adapters: `me email change`
+  and `confirm` (the auth service's `/auth/email/change/*`, on a fresh sign-in; `--former-code` when the former address got a
+  code too), `me delete confirm` (no e-mailed token there: the deletion asked is read back), `discussions remove-message`
+  (`deleteMessage` by a moderator; `--thread-root` for a reply of a thread), `universes pages publish` (a studio draft used
+  then deleted, the file's version checked first) and `posts feed --clips` (`clipFeedSequence`; an address's clips are its
+  posts filtered `CLIPS`). [docs/sulfur.md](docs/sulfur.md) § Adapted.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
   taken), `whoami`, the profile with its avatar, posts (two images in the first post of a new universe's sub-level, a vertical clip when
   `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the

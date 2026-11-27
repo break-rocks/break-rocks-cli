@@ -6,6 +6,11 @@ type Query {
   handleAvailable(handle: String!): HandleAvailability!
   handleSuggestions(prefix: String!): [HandleSuggestion!]!
   mySessions(after: String, limit: Int): SessionPage!
+
+  """
+  The signed-in account's own current e-mail address (Me › Account), opened by the e-mail sender for this session's token only; null when none is kept. A human's own session (not an agent, not a delegated agent).
+  """
+  myEmail: String
   relations(ids: [ID!]!): [Relation!]!
   followers(accountId: ID!, after: String, limit: Int): AccountPage!
   following(accountId: ID!, after: String, limit: Int): FollowingPage!
@@ -40,6 +45,11 @@ type Query {
   The sub-universes of a universe: most recently posted first, or by name (order name, startsWith); posts orders as recent (D-536).
   """
   subUniverses(name: String!, order: SubUniverseOrder, startsWith: String, after: String, limit: Int): SubUniversePage!
+
+  """
+  talc (D-300): the levels where a channel proposal may open a channel — a public first level, then its sub-universes by recent activity (≤ 49; D-673 (decided 2026-11-26)); [] for a private universe.
+  """
+  channelProposalLevels(universe: String!): [String!]
 
   """The 20 most recently posted public universes (first levels excluded)."""
   recentUniverses: [SubUniverse!]!
@@ -318,9 +328,9 @@ type Query {
   approvedTypefaces: [Typeface!]!
   imagePalette(mediaId: ID!): ImagePalette
   layout(universe: String!, name: String!): Layout
-  layoutCatalog(universe: String, collection: String, order: ThemeCatalogOrder, query: String, limit: Int, after: String): LayoutCatalogPage
-  appearanceLooks(collection: String): [AppearanceLook!]
-  themeCatalog(universe: String, order: ThemeCatalogOrder, query: String, collection: String, group: ThemeCatalogGroup, withImage: Boolean, creator: ID, highContrast: Boolean, use: String, variant: ThemeVariant, limit: Int, after: String): ThemeCatalogPage
+  layoutCatalog(universe: String, collection: UniverseField, order: ThemeCatalogOrder, query: String, limit: Int, after: String): LayoutCatalogPage
+  appearanceLooks(collection: UniverseField): [AppearanceLook!]
+  themeCatalog(universe: String, order: ThemeCatalogOrder, query: String, collection: UniverseField, group: ThemeCatalogGroup, withImage: Boolean, creator: ID, highContrast: Boolean, use: ThemeUse, variant: ThemeVariant, limit: Int, after: String): ThemeCatalogPage
   universeAppearanceHistory(universe: String!): [UniverseAppearanceHistoryEntry!]
   buildUniverseAppearance(universe: String!, input: UniverseAppearanceInput!): UniverseAppearanceBuild
   pageOfUniverse(universe: String!, name: String!): PageOfUniverse
@@ -462,7 +472,7 @@ type Query {
   followedPlaylists(after: String, limit: Int): PlaylistPage
 
   """
-  Long videos: of an address (a universe, an account), else of my timeline (tab FOLLOWING). FOR_YOU and query: refused until Explore and search serve them.
+  Long videos: of an address (a universe, an account), else of my timeline (tab FOLLOWING), or the newest of my favorite universes (tab FOR_YOU, one page). query: refused until search serves it.
   """
   longVideos(address: String, query: String, after: String, limit: Int, tab: LongVideosTab, filter: LongVideoSearchFilter): PostPage
 
@@ -816,6 +826,11 @@ type Query {
   experienceRunRanking(runId: ID!): [ExperienceRankingEntry!]
   contestEntries(after: String, category: String, limit: Int, runId: ID!): ContestEntryPage
   contestVoteSignals(after: String, limit: Int, runId: ID!): ContestVoteSignalPage
+
+  """
+  Backlog 5 (the menu of the editions, contracts/layouts.md): the tournament or contest editions of an experience, newest first (1 to 20, 10), each as its edition visibility allows. EXPERIENCES_NOT_OPEN, SIGN_IN_REQUIRED, EXPERIENCE_RATE_LIMITED.
+  """
+  experienceEditions(after: String, experienceId: ID!, limit: Int): ExperienceEditionPage
 
   """
   The experiences of the map in the map cells of resolution 6 of the area shown.
@@ -1206,9 +1221,9 @@ type Mutation {
   publish(input: PublishInput!): Published!
 
   """
-  clip, longVideo (port line 2c): a processed media id (requestUpload kind clip or video); a long video is a subscriber's (D-454). place (port line 6d): placed on the map.
+  clip, longVideo (port line 2c): a processed media id (requestUpload kind clip or video); a long video is a subscriber's (D-454). place (port line 6d): placed on the map. document (talc D-269): a document uploaded for the post (requestUpload kind document), alone beside the text. announcement: an announcement of the leadership (a public universe of the first level; governance's, server backlog 6).
   """
-  createPost(requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID, longVideo: ID, place: PostPlaceInput): Post
+  createPost(requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID, longVideo: ID, place: PostPlaceInput, document: PostDocumentInput, announcement: Boolean): Post
   replyTo(postId: ID!, requestId: ID!, text: String!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], clip: ID): Post
   quote(postId: ID!, requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID): Post
   repost(postId: ID!, requestId: ID!, universe: String): Post
@@ -1334,6 +1349,11 @@ type Mutation {
   Changes some of my choices of direct messages; the others stay. requests: everyone, follows, followers, nobody; agents: answer, auto, silent; groups: connected.
   """
   setDmSettings(requests: String, auto: Boolean, silent: Boolean, agents: String, groups: String): DmSettings!
+
+  """
+  The whole list of pinned channels (≤ 5, in order, by id; [] unpins every one): a private universe's owner and admins, a public universe's leadership. Answers the universe.
+  """
+  setPinnedUniverseDiscussions(ids: [ID!]!, universe: String!, requestId: ID!): Universe
   lendVote(universeId: ID!, to: ID!): Boolean!
   withdrawVote(universeId: ID!): Boolean!
   refuseVotes(universeId: ID!, refuse: Boolean!): Boolean!
@@ -1350,6 +1370,26 @@ type Mutation {
   decideAppeal(universeId: ID!, sanctionId: ID!, decision: String!, reasons: String!, days: Int): Boolean!
   announce(universeId: ID!, text: String!): ID!
   setShowcase(universeId: ID!, postIds: [ID!]!): Boolean!
+
+  """
+  talc (D-232): agents forbidden (true) or allowed (false) for posts in a universe's tree: a public universe's first level by its leadership (UNIVERSE_GOVERNED otherwise), a private universe by its owner or an admin.
+  """
+  setUniverseAgentPosts(universe: String!, forbidden: Boolean!, requestId: ID!): Universe
+
+  """
+  talc: a question to the leadership of a governed universe (a resident; ≤ 3 open; its request id a UUIDv7, the same on a repeat).
+  """
+  askLeadership(universe: String!, text: String!, requestId: ID!): LeadershipQuestion!
+
+  """
+  talc: the leadership's answer (≤ 2,000 characters), changed during 1 hour after it was given.
+  """
+  answerLeadershipQuestion(questionId: ID!, text: String!, requestId: ID!): LeadershipQuestion!
+
+  """
+  talc: a resident's like of an open question, or its withdrawal; the count follows within seconds.
+  """
+  setLeadershipQuestionLike(questionId: ID!, liked: Boolean!, requestId: ID!): LeadershipQuestion!
   fileProposal(input: FileProposalInput!, requestId: ID!): Proposal!
   withdrawProposal(proposalId: ID!, requestId: ID): Proposal!
   changeProposal(proposalId: ID!, text: String, requestId: ID): Proposal!
@@ -1427,6 +1467,16 @@ type Mutation {
   setUniverseEventShown(eventId: ID!, shown: Boolean!, requestId: ID): UniverseEvent
   relayUniverseEvent(eventId: ID!, universe: String!, requestId: ID): EventRelay
   removeEventRelay(relayId: ID!, requestId: ID): Boolean
+
+  """
+  The leadership sets, changes or removes a public channel's place: a point or a zone with its name (1 to 100 characters); neither removes it.
+  """
+  setUniverseDiscussionPlace(id: ID!, name: String, point: PointInput, zone: ZoneInput, requestId: ID!): UniverseDiscussion
+
+  """
+  Server backlog 7 (talc): the leadership moves a public universe's permanent channel before another of the same universe (before), or last; &general stays first.
+  """
+  moveUniverseDiscussion(before: ID, id: ID!, requestId: ID!): UniverseDiscussion
   checkTheme(document: String!): String!
   applyAppearance(universeId: ID!, draft: AppearanceInput!): Look!
   restoreAppearance(universeId: ID!, at: String!, undo: Boolean): Look!
@@ -1799,6 +1849,11 @@ type Mutation {
   actOnTournament(act: TournamentActInput!, requestId: ID!, runId: ID!): ExperienceRun
   requestProofCode(match: String, requestId: ID!, runId: ID!): ProofCode
   setUniverseTournamentSettings(requestId: ID!, settings: UniverseTournamentSettingsInput!, universe: String!): Universe
+
+  """
+  D-682 (contracts/layouts.md § The tournament appearance): the tournament appearance of a tournament or judged contest experience (breakrocks.tournament-appearance/1), set whole by who may change it; answers it as served. TOURNAMENT_PAGES_NOT_OPEN while the tournament pages are not open (tournaments.pages off); TOURNAMENT_ACCENT_CONTRAST, TOURNAMENT_ACCENT_RESERVED, TOURNAMENT_COLUMN_REQUIRED, TOURNAMENT_THEME_LOCKED, TOURNAMENT_NEEDS_PLUS, THEME_TYPEFACE_NOT_APPROVED, LAYOUT_*.
+  """
+  setTournamentAppearance(experienceId: ID!, appearance: AWSJSON!, requestId: ID!): AWSJSON
   actOnContest(act: ContestActInput!, requestId: ID!, runId: ID!): ExperienceRun
 }
 
@@ -1831,6 +1886,27 @@ input ProfileInput {
   name: String
   bio: String
   avatar: ID
+
+  """
+  The profile links, in order, replacing the former ones (talc ProfileUpdateInput.links: ≤ 5, https, a label ≤ 32); null or [] removes them.
+  """
+  links: [ProfileLinkInput!]
+}
+
+"""
+A link of a profile: an https address (≤ 256 characters) and its label (≤ 32 visible characters), talc's.
+"""
+input ProfileLinkInput {
+  label: String
+  url: String!
+}
+
+"""
+A link of a profile (talc's): its label, null when none (a known platform's name when it was given none), and its URL.
+"""
+type ProfileLink {
+  label: String
+  url: String!
 }
 
 type Me {
@@ -1838,6 +1914,16 @@ type Me {
   card: Card!
   tier: String!
   deletion: AccountDeletion
+
+  """
+  The legal space of the sign-up's country when one is open (fra, usa); null where none is open, and before the check (talc AccountOwn.legalSpace).
+  """
+  legalSpace: String
+
+  """
+  The day (YYYY-MM-DD, UTC) the minimum age was checked at sign-up, never the date of birth; null before the check (talc AccountOwn.minimumAgeCheckedAt).
+  """
+  minimumAgeCheckedAt: String
   own: AccountOwn
 }
 
@@ -1848,6 +1934,9 @@ type Card {
   name: String
   bio: String
   avatar: String
+
+  """The profile links, in order (≤ 5); empty when none."""
+  links: [ProfileLink!]!
   accountAt: String!
   agent: Boolean!
   state: String!
@@ -1962,11 +2051,6 @@ type AccountAvatar {
   """
   The CDN path of its small rendition (≤ 400 px), under the cell's media domain.
   """
-  url: String!
-}
-
-type ProfileLink {
-  label: String
   url: String!
 }
 
@@ -2147,6 +2231,11 @@ type Universe {
   news: UniverseNews
 
   """
+  The pinned channels of the universe's first level (≤ 5, in the order set): a private universe's for its members only ([] otherwise); a public universe's for everyone, its &general for its residents only. An archived or deleted channel leaves the list.
+  """
+  pinnedChannels: [UniverseDiscussion!]!
+
+  """
   The upcoming cards of the next 7 days (approximate counts); null when the client's version is current.
   """
   upcoming(ifNot: Int): Agenda
@@ -2168,6 +2257,11 @@ type Universe {
   talc: the proposals of its first level waiting for supports (votes, projects, polls), ≤ 100 counted; null for a private universe.
   """
   proposalsWaitingSupport: Int
+
+  """
+  talc (D-232): delegated agents refused for posts, replies, quotes and reposts in this universe's tree (its first level's or its private universe's setting); false by default and for the root universe.
+  """
+  agentPostsForbidden: Boolean!
 
   """
   talc: a private universe's pinned posts (its members only), a public universe's showcase (≤ 5, in order).
@@ -2688,6 +2782,39 @@ type PostOriginal {
   automated: Boolean!
   deleted: Boolean!
   unavailable: Boolean!
+
+  """
+  The original's own counts and my like (native-sulfur, D-P13: a repost row shows its original's), read with the page's counters (one batch, 2 s); 0 and false when unavailable.
+  """
+  likeCount: Int!
+  likedByMe: Boolean!
+  replyCount: Int!
+
+  """Its reposts and quotes, as Post.repostCount."""
+  repostCount: Int!
+}
+
+"""
+talc PostDocumentInput (D-269): uploadId, the media id of a document uploaded for the post (requestUpload kind document, destination post); rightsConfirmed true (DOCUMENT_RIGHTS_REQUIRED); title, 1 to 80 visible characters (INVALID_REQUEST).
+"""
+input PostDocumentInput {
+  rightsConfirmed: Boolean!
+  title: String!
+  uploadId: ID!
+}
+
+"""
+talc PostDocument: format PDF or MARKDOWN; status CHECKING, READY or REFUSED (its author only sees the two others); url signed for the caller, 1 hour, null until READY.
+"""
+type PostDocument {
+  bytes: Int!
+  format: String!
+  pageCount: Int
+  status: String!
+  title: String!
+  updatedAt: AWSDateTime!
+  url: String
+  urlExpiresAt: AWSDateTime
 }
 
 type Post {
@@ -2739,6 +2866,11 @@ type Post {
   replyCount: Int!
   repostCount: Int!
   hiddenReplyCount: Int!
+
+  """
+  Its document (talc D-269, post-documents.feature); null when none, and for another reader until it is READY.
+  """
+  document: PostDocument
 
   """talc's ReportKind values (OFF_CHARTER, PLATFORM) of my reports on it."""
   reportedByMe: [String!]!
@@ -3038,6 +3170,7 @@ type PlatformMeasure {
   automatedDetection: Boolean!
   cancelled: Boolean!
   countedWithin90Days: Int!
+  countries: [String!]
   days: Int
   endsAt: String
   ground: String
@@ -3050,6 +3183,7 @@ type PlatformMeasure {
   ruleNumber: String!
   ruleTitle: String!
   rulesVersion: String!
+  scope: String
   snippet: String
   startsAt: String!
   statement: String!
@@ -3140,6 +3274,11 @@ input SendMessageInput {
   """A voice message: its media id."""
   voice: ID
 
+  """
+  A clip (talc SendMessageInput.clip): its media id, uploaded for the discussion's destination; alone or with a text, never with images or a voice (MEDIA_SHAPE).
+  """
+  clip: ID
+
   """Lift my block of the other account first (a conversation)."""
   unblock: Boolean
   authorship: AgentAuthorship
@@ -3151,6 +3290,11 @@ input SendMessageInput {
   Port line 3d (DM2): a meet-up, in a conversation or a group chat (a human sends it).
   """
   meetUp: MeetUpInput
+
+  """
+  The link card (talc): the text's first link (LINK_NOT_IN_TEXT otherwise), its preview as linkPreview built it; ignored beside images, a clip, a voice message or a meet-up.
+  """
+  link: String
 }
 
 enum MeetUpAnswerKind {
@@ -3374,6 +3518,18 @@ type Voice {
   peaks: [Float!]!
 }
 
+"""
+A message's clip (talc Message.clip: Clip, its playable fields): its 720p rendition (else its largest) and its poster, by their CDN paths when open, else by signed URLs (empty while none is signed).
+"""
+type MessageClip {
+  id: ID!
+  url: String!
+  posterUrl: String!
+  durationMs: Int!
+  width: Int!
+  height: Int!
+}
+
 type Message {
   id: ID!
   author: AccountRef!
@@ -3383,6 +3539,7 @@ type Message {
   display: String!
   images: [Image!]!
   voice: Voice
+  clip: MessageClip
   respondsTo: ID
   createdAt: AWSDateTime!
   changedAt: AWSDateTime
@@ -3416,6 +3573,11 @@ type Message {
   Port line 6a: the live share this message marks (talc LiveShareMarker).
   """
   liveShare: LiveShareMarker
+
+  """
+  The link card (talc): the preview of the text's first link, kept while the text keeps that link.
+  """
+  link: LinkPreview
 }
 
 """
@@ -3565,6 +3727,11 @@ type UniverseDiscussion {
   moderator: Boolean!
   presentCount: Int!
   supportedByMe: Boolean!
+
+  """
+  A public channel's place (its name, a point or a zone); null without one.
+  """
+  place: UniverseDiscussionPlace
 }
 
 type UniverseDiscussionPage {
@@ -5043,6 +5210,12 @@ input UniverseEventChangeInput {
   zone: ZoneInput
 }
 
+type UniverseDiscussionPlace {
+  name: String!
+  point: Point
+  zone: Zone
+}
+
 type LookTheme {
   id: ID!
   version: Int!
@@ -5102,6 +5275,11 @@ type Theme {
   version: Int!
   path: String!
   universeId: ID
+
+  """
+  Its name as shown (never null): a country theme's primary universe name as written (France, Belgique), another platform theme's title in the app's language (Accept-Language, else English: Cosmos, Stade for universel-cosmos, sport-stade), another theme's name.
+  """
+  title: String
   universe: String
   description: String
   official: Boolean!
@@ -5198,6 +5376,11 @@ A theme as a universe or an account refers to it: a platform theme by its name i
 type ThemeRef {
   universe: String
   name: String!
+
+  """
+  Its name as shown (never null): a country theme's primary universe name as written (France, Belgique), another platform theme's title in the app's language (Accept-Language, else English: Cosmos, Stade for universel-cosmos, sport-stade), another theme's name.
+  """
+  title: String
   version: Int
   deleted: Boolean!
   id: ID
@@ -5451,6 +5634,11 @@ What an account keeps of its own (talc AccountOwn): the fields of each line.
 """
 type AccountOwn {
   personalTheme: PersonalTheme
+
+  """
+  talc AccountOwn.identityVerified: whether the account's identity as a seller was verified by the payment provider (its Stripe connected account; a private universe joined by subscription, J-29).
+  """
+  identityVerified: Boolean!
 }
 
 enum FrameMode {
@@ -5523,6 +5711,16 @@ type Settings {
   talc: my presence visibility everywhere in the discussions (messaging's setPresenceVisibility without a universe); null while never chosen.
   """
   presenceVisibility: String
+
+  """
+  talc (D-224): the language of the slash commands, a language code; null: the language of the app.
+  """
+  commandLanguage: String
+
+  """
+  The settings of direct messages, group chats and the universe discussions in Messages (talc Settings.messaging).
+  """
+  messaging: MessagingSettings!
   notifications: NotificationSettings!
 
   """My map display settings (talc Settings.map)."""
@@ -5536,6 +5734,7 @@ type Settings {
 }
 
 enum SettingsPart {
+  COMMAND_LANGUAGE
   DEVICE_FRAME_MODE
   FRAME
   DO_NOT_DISTURB
@@ -5548,6 +5747,12 @@ input SettingsInput {
   navigation: NavigationSettingsInput
   privateAnalysisConsent: Boolean
   shareActivityWithCloseOnes: Boolean
+
+  """
+  talc (D-224): the language of the slash commands (a language code); clear COMMAND_LANGUAGE goes back to the app's.
+  """
+  commandLanguage: String
+  messaging: MessagingSettingsInput
   notifications: NotificationSettingsInput
 
   """talc: the parts cleared, inside the input (also accepted beside it)."""
@@ -5592,6 +5797,21 @@ type NavigationSettings {
 
 input NavigationSettingsInput {
   centerButtonOpens: ExperiencesView
+}
+
+input MessagingSettingsInput {
+  requestPolicy: RequestPolicy
+  autoAccept: Boolean
+  agentRequests: AgentRequests
+  silentDecline: Boolean
+
+  """Only connections (D-545)."""
+  invitePolicy: InvitePolicy
+  readReceipts: Boolean
+  universeDiscussions: UniverseDiscussionsInMessages
+
+  """The universes kept with SOME, replacing them (≤ 50, by address)."""
+  universesInMessages: [String!]
 }
 
 type NotificationCategorySetting {
@@ -5744,7 +5964,16 @@ type AppearanceLook {
   character: AppearanceCharacter!
   collection: String!
   layout: String!
+
+  """
+  Its name in English (talc's, the test keys'); its title is the one shown.
+  """
   name: String!
+
+  """
+  Its name as shown, its theme's title in the app's language (Accept-Language, else English; never null).
+  """
+  title: String
   screenshots: Screenshots!
   theme: ThemeRef!
 }
@@ -5780,6 +6009,12 @@ enum ThemeCatalogGroup {
   LOOK
   OFFICIAL
   UNIVERSAL
+}
+
+"""talc's argument type (accepted, unused: every theme serves both uses)."""
+enum ThemeUse {
+  PERSONAL
+  UNIVERSE
 }
 
 type ThemeCatalogItem {
@@ -6054,6 +6289,16 @@ type ExploreResult {
 
   """A universe event (kind EVENT), as any reader sees it."""
   event: UniverseEvent
+
+  """
+  Backlog 5: PLACE, the place with a place experience as mapPlaceFeats answers it; null otherwise.
+  """
+  place: MapPlaceFeats
+
+  """
+  Backlog 5: EXPERIENCE or EXPERIENCE_RUN, the experience in its light form as mapExperiences answers it (run for EXPERIENCE_RUN); null otherwise.
+  """
+  experience: MapExperience
 }
 
 type ExploreDensity {
@@ -6559,20 +6804,6 @@ type PostDraftPlace {
   atMs: Int
 }
 
-"""
-A document attached to a post (talc): not served by the new model yet (always null).
-"""
-type PostDocument {
-  title: String!
-  format: String!
-  bytes: Int!
-  pageCount: Int
-  status: String!
-  updatedAt: AWSDateTime!
-  url: String
-  urlExpiresAt: AWSDateTime
-}
-
 type PostDraft {
   id: ID!
   text: String!
@@ -6590,6 +6821,10 @@ type PostDraft {
   sources: [PostSource!]!
   place: PostDraftPlace
   failure: PostDraftFailure
+
+  """
+  A draft's document: not kept yet (always null; PostDocument is the posts schema's).
+  """
   document: PostDocument
 }
 
@@ -8970,6 +9205,15 @@ enum TournamentSideState {
 }
 
 type ContestState {
+  """
+  D-682 (contracts/layouts.md § The tournament appearance, the page contest): the appearance of the judged contest (breakrocks.tournament-appearance/1), shared by its editions, as ExperienceRun.tournament.appearance: absent while the tournament pages are not open (tournaments.pages off), null when it cannot be read, seen within 15 seconds of a change.
+  """
+  appearance: AWSJSON
+
+  """
+  Backlog 5: the block contest of the experience template the edition started with (definition.schema.json $defs/contest): its forms, categories, entries, winners, jury and criteria, public vote, juryWeight, entriesShown, datedProof, hours — to every reader of the edition.
+  """
+  setup: AWSJSON
   categories: [ContestCategoryState!]!
   followed: Boolean!
   judgingEndAt: AWSDateTime!
@@ -9310,6 +9554,30 @@ type DocumentProblem {
 
 type ExperienceRunPage {
   items: [ExperienceRun!]!
+  next: String
+}
+
+"""
+Backlog 5: one edition of an experience in the menu of the editions (its instance by experienceRun(id) or its address).
+"""
+type ExperienceEdition {
+  """
+  Server backlog 6: an ended edition's winner, as its card was when it ended (null without one, or for an edition ended before it was kept).
+  """
+  winner: AccountRef
+  address: String!
+  edition: String!
+  endsAt: AWSDateTime!
+  engine: ExperienceEngineName!
+  id: ID!
+  startsAt: AWSDateTime!
+  state: ExperienceRunState!
+  url: String!
+  visibility: ExperienceVisibility!
+}
+
+type ExperienceEditionPage {
+  items: [ExperienceEdition!]!
   next: String
 }
 
