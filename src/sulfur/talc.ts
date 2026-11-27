@@ -5,11 +5,14 @@
 //   server's operation and answers the talc shape;
 // - neither: NOT_ON_NEW_BACKEND, the operation named.
 // Image paths the server answers relative to the cell's media domain are left as they are (the CLI prints them).
+import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import type { Context } from '../context.js';
+import { readJson, writePrivate } from '../config.js';
 import { CliError, platformRefusal, usageError } from '../errors.js';
 import { uuidv7 } from '../ids.js';
 import { notServed, fillLeftOut, fitDocument, parseOperations } from './fit.js';
-import { readSulfurSession, sulfurApi } from './session.js';
+import { readSulfurSession, sulfurApi, sulfurAuthPost } from './session.js';
 import { SERVER } from './schema.generated.js';
 
 type Json = Record<string, unknown>;
@@ -138,11 +141,95 @@ const connectionState = (r: { blocked: boolean; blockedBy: boolean; muted: boole
   accountId: accountIdValue, state: r?.connected ? 'CONNECTED' : 'NONE', blocked: !!r?.blocked, blockedMe: !!r?.blockedBy, muted: !!r?.muted,
 });
 
+// ---- The e-mail change (deviation 1d: the auth service's REST routes, talc's were Cognito's) ----
+
+/** The change started by this profile (`me email change`), for `me email confirm`: the server keeps one pending 10 minutes. */
+type PendingChange = { email: string; accountId: string; startedAt: number; confirmFormer: boolean };
+const EMAIL_CHANGE_MS = 10 * 60_000;
+const changeFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur-email-change.json`);
+
+/** A page's format on the new backend (server src/features/themes/document.ts PAGE_FORMAT). */
+const PAGE_FORMAT = 'break-rocks-page/1';
+
 /**
  * The talc root fields the server serves otherwise (server docs/talc-deviations.md), by their talc name: each answers the
  * talc value of its field.
  */
 export const ADAPTERS: Record<string, Adapter> = {
+  // 1d: `POST /auth/email/change/start` on a fresh sign-in (≤ 10 minutes); the code goes to the new address, and a second
+  // one to the former address when the account signed in by e-mail only (`confirmFormer`).
+  requestEmailChange: async (ctx, call) => {
+    if (call.args.challenge !== undefined && call.args.challenge !== null) throw notServed('requestEmailChange(challenge)');
+    const email = String(call.args.email ?? '').trim();
+    const out = await sulfurAuthPost(ctx, '/auth/email/change/start', { newEmail: email }, 'The change of the e-mail address');
+    const confirmFormer = out.confirmFormer === true;
+    writePrivate(changeFile(ctx), JSON.stringify({ email, accountId: myId(ctx), startedAt: ctx.now(), confirmFormer } satisfies PendingChange));
+    if (confirmFormer) ctx.progress('A second code was sent to the former address: breakrocks me email confirm <code> --former-code <code of the former address>');
+    return true;
+  },
+  // 1d: `POST /auth/email/change/verify` with the address of the change this profile started; talc's "<code>.<verifier>" read
+  // as the code; the former address's code (`--former-code`) when the start asked for it.
+  confirmEmailChange: async (ctx, call) => {
+    const pending = readJson<PendingChange>(changeFile(ctx));
+    if (!pending || pending.accountId !== myId(ctx) || ctx.now() - pending.startedAt > EMAIL_CHANGE_MS) throw usageError('EMAIL_CHANGE_NOT_STARTED', 'No change of the e-mail address started by this profile within 10 minutes: breakrocks me email change <new address>');
+    const codeOld = hinted(ctx, 'codeOld');
+    if (pending.confirmFormer && !codeOld) throw usageError('FORMER_CODE_REQUIRED', 'The former address got a code too: breakrocks me email confirm <code> --former-code <code of the former address>');
+    await sulfurAuthPost(ctx, '/auth/email/change/verify', { newEmail: pending.email, codeNew: String(call.args.code ?? '').trim().split('.')[0], ...(codeOld ? { codeOld } : {}) }, 'The confirmation of the e-mail address');
+    rmSync(changeFile(ctx), { force: true });
+    return true;
+  },
+  // 1d (TO-CONFIRM D-558 on the server): no e-mailed token; the request on a fresh sign-in (`me delete`) is the deletion, in
+  // its recovery window until `effectiveAt`. Nothing is sent: the deletion asked is read back (`me.deletion`).
+  confirmAccountDeletion: async (ctx) => {
+    const deletion = (await sulfurApi<{ me: { deletion: { requestedAt: string; effectiveAt: string } | null } }>(ctx, 'query { me { deletion { requestedAt effectiveAt } } }')).me.deletion;
+    if (!deletion) throw platformRefusal('ACCOUNT_DELETION_NOT_REQUESTED', 'No deletion asked: on the new backend breakrocks me delete <handle> (on a fresh sign-in) is the deletion itself, with no e-mailed token');
+    ctx.progress(`On the new backend the deletion asked at ${deletion.requestedAt} needs no token: it takes effect at ${deletion.effectiveAt}`);
+    return { deletedAt: deletion.effectiveAt, disappearsAt: null };
+  },
+  // 1c: a moderator removes a message of a universe discussion with `deleteMessage` (no moderation log entry yet, 4a): the
+  // talc entry drawn from what was asked.
+  removeUniverseDiscussionMessage: async (ctx, call) => {
+    const id = String(call.args.id ?? '');
+    const messageId = String(call.args.messageId ?? '');
+    const threadRoot = hinted(ctx, 'threadRoot');
+    await sulfurApi(ctx, 'mutation($d: DiscussionRefInput!, $m: ID!, $t: ID, $r: ID) { deleteMessage(discussion: $d, messageId: $m, threadRoot: $t, requestId: $r) { id } }',
+      { d: id.startsWith('%') ? { channel: id } : { id }, m: messageId, t: threadRoot ?? null, r: call.args.requestId ?? null });
+    return { id: `${id}:${messageId}`, kind: 'CHANNEL_MESSAGE_REMOVAL', articles: typeof call.args.article === 'number' ? [call.args.article] : [], createdAt: new Date(ctx.now()).toISOString(), channel: null };
+  },
+  // 3e: a page is published from a studio draft (`saveStudioDraft` of kind PAGE, then `useStudioDraft`: its next version
+  // when the universe has a page of its name, else a new page); a talc page (its canvases) is sent as a page document of
+  // the new backend with its canvases beside no block. The version the file holds is checked first (PAGE_VERSION_CONFLICT).
+  publishUniversePage: async (ctx, call) => {
+    let page: Json;
+    try { page = typeof call.args.page === 'string' ? JSON.parse(call.args.page) as Json : (call.args.page ?? {}) as Json; } catch { throw usageError('INVALID_INPUT', 'The page is not JSON'); }
+    const { version, ...rest } = page;
+    const universe = String(call.args.universe ?? '');
+    if (typeof version === 'number') {
+      const current = (await runServed(ctx, 'query($u: String!, $n: String!) { pageOfUniverse(universe: $u, name: $n) { version } }', { u: universe, n: String(page.name ?? '') })).pageOfUniverse as { version?: number | null } | null;
+      if ((current?.version ?? 0) !== version) throw platformRefusal('PAGE_VERSION_CONFLICT', `The page "${String(page.name)}" is at version ${current?.version ?? 0}, the file at ${version}: read it again (universes pages get)`, { errorInfo: { version: current?.version ?? 0 } });
+    }
+    const document = { ...rest, format: PAGE_FORMAT, blocks: Array.isArray(rest.blocks) ? rest.blocks : [] };
+    const requestId = typeof call.args.requestId === 'string' ? call.args.requestId : uuidv7(ctx.now());
+    const draft = (await sulfurApi<{ saveStudioDraft: { id: string } | null }>(ctx, 'mutation($u: String, $d: AWSJSON!, $r: ID) { saveStudioDraft(kind: PAGE, universe: $u, document: $d, requestId: $r) { id } }', { u: universe, d: JSON.stringify(document), r: requestId })).saveStudioDraft;
+    if (!draft?.id) throw platformRefusal('STUDIO_DRAFT_NOT_SAVED', 'The page was not saved as a draft');
+    try {
+      const used = (await runServed(ctx, `mutation($id: ID!, $r: ID) { useStudioDraft(draftId: $id, requestId: $r) { page ${call.selection || '{ name }'} } }`, { id: draft.id, r: requestId })).useStudioDraft as { page?: unknown } | null;
+      return used?.page ?? null;
+    } finally {
+      // The draft has done its work (published, or refused): never left behind in the studio.
+      await sulfurApi(ctx, 'mutation($id: ID!) { deleteStudioDraft(draftId: $id) }', { id: draft.id }).catch(() => undefined);
+    }
+  },
+  // P4: the clips of an address are its posts filtered CLIPS (line 1a); the account's clips are For You's sequence
+  // (`clipFeedSequence`, its items' posts; `language` und).
+  clipFeed: async (ctx, call) => {
+    const postSelection = subSelection(call.selection, 'items') || '{ id }';
+    if (call.args.address) {
+      return (await runServed(ctx, `query($a: String!, $after: String, $l: Int) { posts(address: $a, filter: CLIPS, after: $after, limit: $l) ${call.selection || '{ items { id } next }'} }`, { a: call.args.address, after: call.args.after ?? null, l: call.args.limit ?? null })).posts;
+    }
+    const page = (await runServed(ctx, `query($after: String, $l: Int) { clipFeedSequence(after: $after, limit: $l) { items { post ${postSelection} } next } }`, { after: call.args.after ?? null, l: call.args.limit ?? null })).clipFeedSequence as { items: { post: unknown }[]; next: string | null } | null;
+    return { items: (page?.items ?? []).map((i) => i.post), next: page?.next ?? null, reason: null };
+  },
   // 1d: `me` is the new `Me`; the talc account under `accounts([my id])`.
   me: (ctx, call) => talcAccount(ctx, myId(ctx), call.selection),
   // 1d: `account(id)` is the new `Card`; the talc account under `accounts([id])`.

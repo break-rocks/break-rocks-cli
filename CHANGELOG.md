@@ -5,6 +5,29 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-27
+
+The new backend's schema resynced (`schema/sulfur`, server `b822c90a`) and the operations it serves otherwise adapted in the
+seam (`src/sulfur/talc.ts`, docs/sulfur.md § Adapted).
+
+### Added
+
+- New backend: `me email change` and `me email confirm` over the auth service's `/auth/email/change/start` and `/verify`
+  (on a fresh sign-in); `me email confirm --former-code <code>` when the former address got a code too.
+- New backend: `me delete confirm` reads the deletion asked back (`me.deletion`): there is no e-mailed token, `me delete` on a
+  fresh sign-in is the deletion itself (`ACCOUNT_DELETION_NOT_REQUESTED` when none was asked).
+- New backend: `discussions remove-message` is `deleteMessage` by a moderator; `--thread-root` names the thread of a reply.
+- New backend: `universes pages publish` saves the page as a studio draft, uses it (the next version of the page of its name,
+  or a new page) and deletes the draft; the version the file holds is checked first (`PAGE_VERSION_CONFLICT`).
+- New backend: `posts feed --clips` reads For You's clip sequence (`clipFeedSequence`); with `--address`, the address's posts
+  filtered `CLIPS`.
+
+### Changed
+
+- New backend: the schema resynced at server `b822c90a`: `universes agent-posts`, `discussions channels levels`,
+  `discussions place set` / `remove`, `discussions move`, `governance ask`, `answer`, `pin`, `like-question`,
+  `unlike-question` are served again; `posts create --announcement` is sent.
+
 ## [0.45.0] - 2026-11-26
 
 The server's client-visible changes of the dev audit fixes and the scalability audit of 2026-11-26 (server `3e3a9fba`,
