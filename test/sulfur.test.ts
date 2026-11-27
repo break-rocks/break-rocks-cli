@@ -301,7 +301,7 @@ describe('the commands on the new backend', () => {
     // createPost's talc arguments the server does not take, left empty: not sent.
     const sent = String(cell.calls.at(-1)!.body.query);
     expect(sent).toContain('createPost(');
-    expect(sent).not.toMatch(/announcement|longVideo: \$longVideo, sources: \$sources\) \{.*\$announcement/);
+    expect(sent).not.toMatch(/authorship/);
     expect(await sulfur('posts', 'feed', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ items: [{ text: 'Hello sulfur', author: { handle: 'ada' } }], next: null });
     expect(cell.calls.every((c) => c.path !== '/graphql' || /^Bearer /.test(c.headers['x-authorization']))).toBe(true);

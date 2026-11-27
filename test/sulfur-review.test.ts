@@ -275,10 +275,12 @@ describe('the adapters of the review', () => {
 
 describe('the fit of a document (review)', () => {
   it('false and "" are values: refused where the server takes no such argument; null is none', () => {
-    const doc = 'mutation($t: String!, $a: Boolean, $r: ID!) { createPost(text: $t, announcement: $a, requestId: $r) { id } }';
+    // createPost's `authorship` (talc's, not the server's: every Boolean argument talc had is served since server b822c90a).
+    const doc = 'mutation($t: String!, $a: AgentAuthorship, $r: ID!) { createPost(text: $t, authorship: $a, requestId: $r) { id } }';
     expect(() => fitDocument(doc, { t: 'x', a: false, r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
+    expect(() => fitDocument(doc, { t: 'x', a: '', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
     expect(fitDocument(doc, { t: 'x', a: null, r: 'r1' }).variables).toEqual({ t: 'x', r: 'r1' });
-    expect(() => fitDocument('mutation($t: String!, $r: ID!) { createPost(text: $t, announcement: false, requestId: $r) { id } }', { t: 'x', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
+    expect(() => fitDocument('mutation($t: String!, $r: ID!) { createPost(text: $t, authorship: false, requestId: $r) { id } }', { t: 'x', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
   });
 
   it('a universe\'s image: its shown Image; my universe\'s: the Image of its media id', () => {
