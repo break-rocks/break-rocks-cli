@@ -24,6 +24,11 @@ The new backend's schema resynced (`schema/sulfur`, server `6bd5daf1`: the messa
   `studioDraftId`, `playlistAction`, `channelAction`, `local`, `foldingCoefficient`) and a showcase clearing anything but
   `LOGO`, saying why and naming the kinds filed there (`NOT_ON_NEW_BACKEND`).
 
+### Fixed
+
+- `messages changes --since` takes a duration back from now (`30m`, `2h`, `7d`) as well as a date, and sends it as an ISO 8601
+  instant: `--since 1h` was sent as is and refused `BAD_TIME`.
+
 ### Changed
 
 - New backend: the schema resynced at server `6bd5daf1`: `me invite-exceptions add|remove`, `governance field` and

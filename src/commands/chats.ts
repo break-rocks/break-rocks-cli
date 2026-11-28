@@ -6,6 +6,7 @@
 import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
 import { usageError } from '../errors.js';
+import { instantOf } from './read.js';
 import { discussionTarget, doneText, listText, oneDiscussion, pageText, pointOf } from './shared.js';
 
 const MESSAGE = selection('Message', 1);
@@ -97,9 +98,9 @@ export const messagesTyping = apiCommand({
 export const messagesChanges = apiCommand({
   name: 'messages changes', summary: 'Catch up: the new, changed or deleted messages of a discussion since a time, at most 30 days back (messageChanges)',
   description: `${targetHelp} The pages are followed to the end (at most --max, 100 by default; \`next\` is the cursor to go on with --after). The platform reads from a few seconds before --since, so a message near it may come again: merge the answers by message id. A cursor is opaque; one refused (CURSOR_INVALID) means starting again without --after.`,
-  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when (ISO 8601)' }, select: `{ items ${MESSAGE} next }`,
-  prepare: (i) => { const o = oneDiscussion(i); return { ...o, all: o.all ?? true, max: o.max ?? 100 }; },
-  text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z'],
+  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when: a duration back from now (30m, 2h, 7d) or a date (ISO 8601); sent as an ISO 8601 instant' }, select: `{ items ${MESSAGE} next }`,
+  prepare: (i, ctx) => { const o = oneDiscussion(i); return { ...o, ...(typeof o.since === 'string' ? { since: new Date(instantOf(o.since, ctx.now())).toISOString() } : {}), all: o.all ?? true, max: o.max ?? 100 }; },
+  text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z', 'breakrocks messages changes --with @alice --since 1h'],
 });
 export const messagesPinned = apiCommand({
   name: 'messages pinned', summary: 'The pinned messages of a group chat or a universe discussion, the most recent first, 3 at most (pinnedMessages)', description: targetHelp,

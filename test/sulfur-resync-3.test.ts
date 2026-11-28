@@ -135,3 +135,19 @@ describe('the proposals the new backend does not file', () => {
     expect(JSON.stringify(sent[0].variables)).toContain('"field":"PLACES"');
   });
 });
+
+describe('messages changes --since', () => {
+  it('sends a duration back from now as an ISO 8601 instant, a date as an instant, and refuses anything else', async () => {
+    const { h, sent } = cell((q) => (q.includes('messageChanges') ? { messageChanges: { items: [], next: null } } : null));
+    expect(await h.run('messages', 'changes', '--group', 'eu_g1', '--since', '1h', '--json')).toBe(0);
+    const since = (v: Record<string, unknown>) => Object.values(v).find((x) => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(x)) as string;
+    const first = since(sent.at(-1)!.variables);
+    expect(first).toBe(new Date(h.clock.now - 3_600_000).toISOString());
+    expect(await h.run('messages', 'changes', '--group', 'eu_g1', '--since', '2026-11-07T00:00:00+01:00', '--json')).toBe(0);
+    expect(since(sent.at(-1)!.variables)).toBe('2026-11-06T23:00:00.000Z');
+    const before = sent.length;
+    expect(await h.run('messages', 'changes', '--group', 'eu_g1', '--since', 'yesterday', '--json')).toBe(2);
+    expect(last(h)).toMatchObject({ error: { code: 'INVALID_INPUT' } });
+    expect(sent.length).toBe(before);
+  });
+});
