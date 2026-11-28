@@ -13,13 +13,13 @@ import { DOMAINS } from '../src/tree.js';
 
 /** The commands of native-sulfur's own auth (src/sulfur/commands.ts). */
 const OWN_AUTH = new Set(['login', 'logout', 'whoami', 'doctor', 'me session', 'operator login', 'agents login']);
+/** The commands of the operators' REST routes (src/sulfur/operators.ts), and the route of each. */
+const REST: ReadonlyMap<string, string> = new Map([
+  ['operator register', 'POST /v1/operators/registrations, then its payment (x402)'], ['operator renew', 'POST /v1/operators/renewal (x402)'],
+  ['operator recover', 'POST /v1/operators/recovery'], ['operator recovery-key set', 'POST /v1/operators/recovery-key'], ['operator delete', 'POST /v1/operators/deletion'],
+]);
 /** The commands kept that answer NOT_AVAILABLE (their service is not ported to the CLI, or not served), and why. */
 const NOT_PORTED: ReadonlyMap<string, string> = new Map([
-  ['operator register', 'native-sulfur\'s REST route (a JWT proof, x402 or a plan) not ported to the CLI yet'],
-  ['operator renew', 'native-sulfur\'s REST route (x402) not ported to the CLI yet'],
-  ['operator recover', 'native-sulfur\'s REST route not ported to the CLI yet'],
-  ['operator recovery-key set', 'native-sulfur\'s REST route not ported to the CLI yet'],
-  ['operator delete', 'native-sulfur\'s REST route not ported to the CLI yet'],
   ['agents tier', 'the paid tier of a delegated agent is not sold by native-sulfur yet'],
 ]);
 import { ADAPTERS } from '../src/sulfur/talc.js';
@@ -67,6 +67,7 @@ type Row = { command: string; state: 'works' | 'adapted' | 'partly' | 'not avail
 function classify(c: AnyCommand, scan: Map<string, string[]>): Row {
   const verified = VERIFIED.has(c.name);
   if (OWN_AUTH.has(c.name)) return { command: c.name, state: 'works', ops: '(own: auth, me)', note: 'native-sulfur\'s own auth', verified };
+  if (REST.has(c.name)) return { command: c.name, state: 'works', ops: '(REST)', note: REST.get(c.name)!, verified };
   if (NOT_PORTED.has(c.name)) return { command: c.name, state: 'not available', ops: '', note: NOT_PORTED.get(c.name)!, verified };
   if (c.offline || ['help', 'version', 'schema', 'completion', 'update', 'mcp'].includes(c.name) || c.name.startsWith('config ') || c.name.startsWith('profile ')) return { command: c.name, state: 'offline', ops: '', note: 'no platform request', verified };
   const sources = [c.name, ...(c.aliases ?? [])];

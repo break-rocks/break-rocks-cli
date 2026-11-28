@@ -161,7 +161,7 @@ describe('batch on the new backend', () => {
   it('runs each line with the command of the backend (its stand-in, its refusal)', async () => {
     const { h } = cell((q) => (q.includes('me {') || q.includes('tier') ? { me: { id: 'eu_a', tier: 'free', card: { handle: 'ada', name: null } } } : null));
     const file = join(h.dir, 'lines.jsonl');
-    writeFileSync(file, `${JSON.stringify({ command: 'whoami' })}\n${JSON.stringify({ command: 'operator register', input: { country: 'FR' } })}\n`);
+    writeFileSync(file, `${JSON.stringify({ command: 'whoami' })}\n${JSON.stringify({ command: 'agents tier', input: { agent: 'herald', tier: 'X10' } })}\n`);
     expect(await h.run('batch', '--file', file, '--continue', '--json')).toBe(1);
     const r = last<{ results: { ok: boolean; result?: Record<string, unknown>; error?: { code: string } }[] }>(h);
     expect(r.results[0]).toMatchObject({ ok: true, result: { backend: 'sulfur', account: { id: 'eu_a' } } });

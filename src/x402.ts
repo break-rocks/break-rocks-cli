@@ -162,3 +162,34 @@ export async function signPayment(ctx: Context, required: PaymentRequired, optio
   writeLedger(ctx, [...readLedger(ctx), record]);
   return { headers, record, usd, network, accept };
 }
+
+/** The ledger told how a signed payment ended, and the payment made (from PAYMENT-RESPONSE). */
+function settled(ctx: Context, signed: Signed, ok: boolean, settlement: Record<string, unknown> | undefined): Payment {
+  const s = settlement as { success?: boolean; transaction?: string; payer?: string } | undefined;
+  const ledger = readLedger(ctx);
+  const mine = ledger.findLast((r) => r.at === signed.record.at && r.what === signed.record.what);
+  if (mine) { mine.status = ok ? 'settled' : 'refused'; if (s?.transaction) mine.transaction = s.transaction; writeLedger(ctx, ledger); }
+  return {
+    usd: signed.usd, network: signed.network.id, networkName: signed.network.name, payTo: signed.accept.payTo, success: s?.success ?? ok,
+    ...(s?.transaction ? { transaction: s.transaction, explorer: `${signed.network.explorer}${s.transaction}` } : {}),
+    ...(s?.payer ? { payer: s.payer } : {}),
+  };
+}
+
+/**
+ * A request that may ask to pay (402) — [send] with no payment header first: its 402 paid with the wallet of the profile
+ * within [maxUsd] and the cap of the day, after a confirmation naming [what] and the amount, then [send] again with
+ * PAYMENT-SIGNATURE. The answer ([refusal]: a 402 carrying an error code is a refusal, not a price), and the payment made.
+ */
+export async function paidRequest(ctx: Context, send: (headers: Record<string, string>) => Promise<HttpAnswer>, options: { maxUsd?: number; what: string; refusal: (answer: HttpAnswer) => Error }): Promise<{ answer: HttpAnswer; payment?: Payment }> {
+  const first = await send({});
+  if (first.status !== 402) return { answer: first };
+  if ((first.json.error as { code?: string } | undefined)?.code) throw options.refusal(first);
+  const signed = await signPayment(ctx, requirementsOf(first), { maxUsd: options.maxUsd, what: options.what });
+  ctx.progress(`Paying ${signed.usd} USDC on ${signed.network.name}…`);
+  const answer = await send(signed.headers);
+  const ok = answer.status >= 200 && answer.status < 300;
+  const payment = settled(ctx, signed, ok, headerJson(answer.headers, 'payment-response'));
+  if (!ok) throw options.refusal(answer);
+  return { answer, payment };
+}

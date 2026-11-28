@@ -2,7 +2,7 @@
 // (an agent or an agent operator signs in with an assertion signed with its key, RFC 7523: the signature verified with the
 // public key it was given) and a small GraphQL API (me, myUsage, the delegated agents, approvedTypefaces, the plans of
 // delegated agents paid by card). An access token is a JWT the fake reads back: `sub` the operator, `act.sub` an agent.
-import { createPublicKey, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, randomUUID, verify } from 'node:crypto';
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
 const b64url = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64url');
@@ -10,7 +10,7 @@ const claimsOf = (token: string): Record<string, unknown> => { try { return JSON
 
 export const USDC_SEPOLIA = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
-type Operator = { id: string; publicKey: string; paidUntil: string; handle: string };
+type Operator = { id: string; publicKey: string; recoveryKey?: string; paidUntil: string; handle: string; recoveryKeyRequired?: boolean; deleted?: boolean };
 type Agent = { id: string; operatorId: string; name: string; publicKey: string; status: string; interactions: string[] | null; universes: string[] | null; createdAt: string };
 type Plan = { automaticRenewal: boolean; delegatedAgents: number; interval: string; nextDelegatedAgents: number | null; nextFrom: string | null; paidUntil: string; payerId: string; provider: string; status: string };
 /** The prices of the plans (the minor unit: 4000 USD = 40.00 USD), as the catalog of dev holds them. */
@@ -26,6 +26,81 @@ export function fakePlatform(options: { now: () => number }) {
   const checkouts: { operatorId: string; delegatedAgents: number; interval: string; url: string }[] = [];
   const state = { failNextGraphql401: false };
 
+  // ---- The operators' REST routes (/v1/operators/*): the proofs verified with the keys, the payments with x402 ----
+  const registrations = new Map<string, { publicKey: string; recoveryKey: string; paid: boolean; country: string }>();
+  const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString('base64');
+  const refuse = (status: number, code: string) => json(status, { error: { code, message: code } });
+  const required = (url: string) => ({ x402Version: 2, resource: { url, description: 'plan', mimeType: 'application/json' }, accepts: [{ scheme: 'exact', network: 'eip155:84532', amount: '10000', asset: USDC_SEPOLIA, payTo: '0x00000000000000000000000000000000000000aa', maxTimeoutSeconds: 300, extra: { name: 'USDC', version: '2' } }] });
+  const ask402 = (url: string) => json(402, required(url), { 'payment-required': b64(required(url)) });
+  const settled = { 'payment-response': b64({ success: true, transaction: '0xfeed', network: 'eip155:84532', payer: '0xpayer' }) };
+  const AUD = 'https://eu.api.dev.break.rocks';
+  const fp = (pem: string) => createHash('sha256').update(Buffer.from((createPublicKey(pem).export({ format: 'jwk' }) as { x: string }).x, 'base64url')).digest('hex');
+  const jtis = new Set<string>();
+  /** A proof checked as the server checks it: the key's kid, its signature, iss = sub, the route's audience, 5 minutes, a jti once. */
+  function proved(proof: unknown, pem: string, issuer: string, path: string): Record<string, unknown> | undefined {
+    if (typeof proof !== 'string') return undefined;
+    const [h, p, sig] = proof.split('.');
+    const header = claimsOf(`x.${h}.x`), claims = claimsOf(proof);
+    if (header.kid !== fp(pem) || !verify(null, Buffer.from(`${h}.${p}`), createPublicKey(pem), Buffer.from(sig ?? '', 'base64url'))) return undefined;
+    const now = options.now() / 1000;
+    if (claims.iss !== issuer || claims.sub !== issuer || claims.aud !== `${AUD}${path}` || Number(claims.exp) < now || Number(claims.exp) - Number(claims.iat) > 300 || jtis.has(String(claims.jti))) return undefined;
+    jtis.add(String(claims.jti));
+    return claims;
+  }
+  function operatorsRoute(path: string, body: Record<string, unknown>, headers: Record<string, string>): Response {
+    const pay = /^\/v1\/operators\/registrations\/([^/]+)\/payment$/.exec(path);
+    if (pay) {
+      const reg = registrations.get(pay[1]);
+      if (!reg) return refuse(410, 'REGISTRATION_ABANDONED');
+      if (reg.paid) return refuse(409, 'REGISTRATION_ALREADY_PAID');
+      if (!headers['payment-signature']) return ask402(`${AUD}${path}`);
+      reg.paid = true;
+      operators.set(pay[1], { id: pay[1], publicKey: reg.publicKey, recoveryKey: reg.recoveryKey, paidUntil: new Date(options.now() + 30 * 86400_000).toISOString(), handle: `user-${pay[1].slice(3, 9)}` });
+      return json(201, { operatorId: pay[1], paidUntil: operators.get(pay[1])!.paidUntil, delegatedAgentAllowance: body.delegatedAgents, signInUrl: `${AUD}/oauth/token` }, settled);
+    }
+    if (path === '/v1/operators/registrations') {
+      if (body.algorithm !== 'Ed25519' || body.recoveryAlgorithm !== 'Ed25519') return refuse(400, 'KEY_INVALID');
+      if (body.fullAge !== true) return refuse(400, 'FULL_AGE_REQUIRED');
+      const claims = proved(body.proof, String(body.publicKey), 'registration', path);
+      if (!claims) return refuse(401, 'SIGNATURE_INVALID');
+      if (claims.rk !== fp(String(body.recoveryKey))) return refuse(400, 'PROOF_INVALID');
+      const id = `eu_${randomUUID().replace(/-/g, '')}`;
+      registrations.set(id, { publicKey: String(body.publicKey), recoveryKey: String(body.recoveryKey), paid: false, country: String(body.country) });
+      return json(200, { registration: { id, expiresAt: new Date(options.now() + 3600_000).toISOString(), payUrl: `${AUD}/v1/operators/registrations/${id}/payment` }, minimum: { months: 1, delegatedAgents: 1, price: '$0.01' } });
+    }
+    const op = operators.get(String(body.operatorId));
+    if (!op || op.deleted) return refuse(401, 'SIGNATURE_INVALID');
+    switch (path) {
+      case '/v1/operators/renewal': {
+        if (!proved(body.proof, op.publicKey, op.id, path)) return refuse(401, 'SIGNATURE_INVALID');
+        if (op.recoveryKeyRequired) return refuse(403, 'RECOVERY_KEY_REQUIRED');
+        if (!headers['payment-signature']) return ask402(`${AUD}${path}`);
+        op.paidUntil = new Date(Date.parse(op.paidUntil) + 30 * 86400_000).toISOString();
+        return json(200, { operatorId: op.id, paidUntil: op.paidUntil }, settled);
+      }
+      case '/v1/operators/recovery': {
+        const claims = proved(body.proof, op.recoveryKey!, op.id, path);
+        if (!claims) return refuse(401, 'SIGNATURE_INVALID');
+        if (claims.npk !== fp(String(body.publicKey))) return refuse(400, 'PROOF_INVALID');
+        Object.assign(op, { publicKey: String(body.publicKey), recoveryKeyRequired: true });
+        return json(200, { operatorId: op.id, recoveryKeyRequired: true, signInUrl: `${AUD}/oauth/token` });
+      }
+      case '/v1/operators/recovery-key': {
+        const claims = proved(body.proof, op.recoveryKey!, op.id, path);
+        if (!claims) return refuse(401, 'SIGNATURE_INVALID');
+        if (claims.nrk !== fp(String(body.recoveryKey))) return refuse(400, 'PROOF_INVALID');
+        Object.assign(op, { recoveryKey: String(body.recoveryKey), recoveryKeyRequired: undefined });
+        return json(200, { recoveryKeyReplaced: true });
+      }
+      case '/v1/operators/deletion': {
+        if (!proved(body.proof, op.publicKey, op.id, path)) return refuse(401, 'SIGNATURE_INVALID');
+        op.deleted = true;
+        return json(200, { deleted: true, deletedAt: new Date(options.now()).toISOString() });
+      }
+      default: return refuse(404, 'NOT_FOUND');
+    }
+  }
+
   /** The token endpoint: an assertion of an agent or an operator, signed with its key (its `iss`), for a token of an hour. */
   function token(form: Record<string, string>): Response {
     if (form.grant_type !== 'urn:ietf:params:oauth:grant-type:jwt-bearer') return json(400, { error: 'unsupported_grant_type' });
@@ -33,6 +108,7 @@ export function fakePlatform(options: { now: () => number }) {
     const claims = claimsOf(String(form.assertion));
     const iss = String(claims.iss);
     const agent = agents.get(iss), operator = operators.get(iss);
+    if (operator?.deleted) return json(400, { error: 'invalid_grant', error_description: 'ACCOUNT_DELETED' });
     const pem = agent?.publicKey ?? operator?.publicKey;
     if (!pem || !verify(null, Buffer.from(`${h}.${p}`), createPublicKey(pem), Buffer.from(sig ?? '', 'base64url'))) return json(400, { error: 'invalid_grant', error_description: 'ASSERTION_INVALID' });
     if (agent && agent.status === 'suspended') return json(400, { error: 'invalid_grant', error_description: 'DELEGATED_AGENT_SUSPENDED' });
@@ -133,6 +209,7 @@ export function fakePlatform(options: { now: () => number }) {
     if (url.host !== 'api.test') throw new TypeError(`fetch failed: ${url.host}`);
     if (url.pathname === '/oauth/token') return token(body ?? {});
     if (url.pathname === '/graphql') return graphql(body, headers);
+    if (url.pathname.startsWith('/v1/operators/')) return operatorsRoute(url.pathname, body ?? {}, headers);
     return json(404, { error: 'not_found' });
   };
 
@@ -148,8 +225,11 @@ export function fakePlatform(options: { now: () => number }) {
     plans.set(c.operatorId, { automaticRenewal: true, delegatedAgents: c.delegatedAgents, interval: c.interval, nextDelegatedAgents: null, nextFrom: null, paidUntil: until, payerId: c.operatorId, provider: 'stripe', status: 'ACTIVE' });
   };
 
-  return { fetch, calls, operators, agents, state, plans, checkouts, payCheckout, addOperator };
+  return { fetch, calls, operators, agents, registrations, state, plans, checkouts, payCheckout, addOperator };
 }
+
+/** A payer that signs nothing: the header the fake platform takes. */
+export const fakePayer = async () => ({ 'PAYMENT-SIGNATURE': 'signed' });
 
 /** A harness whose network is a fake of native-sulfur on the clock of the harness. */
 export async function onPlatform(options: Parameters<typeof import('./helpers.js').harness>[0] = {}) {
