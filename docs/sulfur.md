@@ -100,6 +100,31 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   `playlistCard`, `routeCard`; `event` stays `null`, TO-CONFIRM D-712 on the server) in `--json` and in plain text; the
   one-line form (`messages changes`, `pinned`, `edit`, `quick-poll`) adds the place, the arrival, the stance, my vote, the
   quick poll (its choices, `*` mine, the totals once shown), the agent (`via`) and the language.
+- **Universe direction and layouts** (server `cc3f09f9`): `universes profile set %u` (`setUniverseProfile`)
+  sets the first focus (`--first-focus POSTS|CLIPS|MAP|DEBATES`), the universe strip (`--no-universe-strip`), the default
+  layout (`--layout %u/name`) and the governance page's (`--governance-layout`), and clears them (`--clear FIRST_FOCUS`,
+  `LAYOUT`, `GOVERNANCE_LAYOUT`); the theme stays `look themes apply`. `look layouts publish`, `publish-version`, `copy` and
+  `delete` are served; `look layouts list` reads the catalog without the layouts' documents (the server reads an account
+  layout's document only when asked: `look layouts show` reads one), `--query` is a name prefix. `universes show` prints the
+  new `Universe` fields: `url`, `field` (and `fieldSuggested`, always false there), `residentCount`, `firstFocus`,
+  `universeStrip`, `governanceLayoutRef`, `joinRefusal` with `canJoinAt`. `universes join` during the rejoin delay is
+  refused `REJOIN_WAIT` (the server's message is the instant one may join again; `Universe.joinRefusal` says
+  `REJOIN_TOO_SOON`): told "You left this universe recently: you can join it again from <instant>". Run against dev on
+  2026-11-28 (a fresh account, deleted after): a copy kept as a studio draft then deleted, a copy published in `%paris`, its
+  document read, its next version published, the catalog by prefix, the layout deleted; the strip and a layout of a private
+  universe set, read back and cleared (`%paris` refused `UNIVERSE_GOVERNED`); join, leave and `REJOIN_WAIT`.
+- **Posts, events and settings** (server `0c747737`): the post reads answer `authorRole` (`LEADERSHIP`, `MODERATOR`: posts of
+  a public universe and their threads), `viewCount` (the clips of a public universe, `posts feed --clips --address`),
+  `moment` / `momentData`, `projectOf` and `digestOf` (none written yet); `posts list` prints the role beside the handle,
+  the views and the moment. `events create` and `events change` draw a route (`--route-points "<lat>,<lon>;…"` with
+  `--route-mode`, FOOT by default; or `--route`, the RouteInput JSON): the server keeps it as the creator's unlisted route,
+  the event's `routeId`. `events support` answers the universe event (`WAITING_SUPPORT` with its supports, `SCHEDULED` once
+  made; an adopted proposal may still answer `WAITING_SUPPORT` 5/5 for a few seconds) and `events relay support` the relay.
+  `me tour`, `me tour skip` and `me tour set` are served (`Settings.tour`); `me tips` reads the gesture tips shown
+  (`Settings.tips`; the apps mark them). `quote(document)` is served, but the CLI attaches no document to a post yet. Run
+  against dev on 2026-11-28 (a fresh account, deleted after): `me tips`, `me tour`, `me tour set`, the new post fields asked
+  (none of the posts of `%paris`, `%root`, `%france`, `%gaming` carried a role, a moment or views), `events create` with a
+  drawn route reaching the server (`RESIDENTS_ONLY`, then `VOTE_ACCOUNT_TOO_RECENT` for an account of less than a day).
 - **Invitations to group chats**: `messages settings set --invite-policy connections|nobody|except` (`setSettings.messaging`)
   and `me invite-exceptions add|remove @handle` (`setInviteException`, 1,000 at most) are served. An invitation the policy
   refuses is declined silently: the inviter gets its invitation, the invitee never sees it (checked on dev on 2026-11-28).
@@ -148,6 +173,7 @@ of the media, the place feats and billing revised on 2026-11-26 for the server a
 | Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_ON_NEW_BACKEND`; an operator with a key signs in by RFC 7523 (`operator login`). |
 | `sendMessage(place \| arrival)` (server `6bd5daf1`, 2026-11-28) | A place or an arrival sent alone is stored and read back (`place.name`, `arrival.zoneName`), but its `kind` is `message` and its `text` `""` | — | talc's description names "a message of kind ARRIVAL"; the CLI shows the place or the arrival whatever the kind. |
 | `connectionStates` → `canInvite` (2026-11-28) | `true` for an account whose invite policy is `nobody`, or `except` with the caller excepted, though the invitation is then declined silently | — | talc: "whether the caller can invite it (its invitePolicy and its exceptions)". |
+| `setUniverseProfile(governanceLayoutRef)` on a private universe (server `cc3f09f9`, 2026-11-28) | Answers the universe with `governanceLayoutRef: null`, no refusal: nothing is set | — | A private universe has no governance page; a refusal would say so. The private universe's `firstFocus` is refused `UNIVERSE_FOCUS_NOT_OFFERED`, a layout other than `feed-first`, `village-square` or `hud` `UNIVERSE_LAYOUT_NOT_OFFERED`. |
 | `Message.language` (2026-11-28) | `null` for a short French sentence ("Bonjour à tous, voici https://break.rocks") | — | By design when unsure (detection at read). |
 | (posts) emoji reactions | Neither talc nor the server has a reaction on a post (likes and dislikes only); reactions are on messages | — | `posts like` / `posts dislike`; `messages react` for messages. |
 
@@ -159,7 +185,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-648 commands: 568 work as they are, 37 through an adapter, 3 partly, 14 not available, 26 offline; 154 run against dev.
+650 commands: 574 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 166 run against dev.
 
 #### account
 
@@ -212,7 +238,8 @@ deviations), which the command then reports with the server's code.
 | `me privacy share-activity set` | works |  | setSettings |  |
 | `me tour` | works | yes | mySettings |  |
 | `me tour skip` | works |  | setSettings |  |
-| `me tour set` | works |  | setSettings |  |
+| `me tour set` | works | yes | setSettings |  |
+| `me tips` | works | yes | mySettings |  |
 
 #### agents
 
@@ -288,7 +315,7 @@ deviations), which the command then reports with the server's code.
 | `universes private admins remove` | works |  | setUniverseAdmin |  |
 | `universes private transfer accept` | works |  | answerUniverseTransfer |  |
 | `universes private transfer decline` | works |  | answerUniverseTransfer |  |
-| `universes private delete` | works |  | deletePrivateUniverse |  |
+| `universes private delete` | works | yes | deletePrivateUniverse |  |
 | `universes private delete-cancel` | works |  | cancelUniverseDeletion |  |
 | `universes private set` | works |  | changePrivateUniverse |  |
 | `universes private domains` | works |  | pendingDomains |  |
@@ -339,6 +366,7 @@ deviations), which the command then reports with the server's code.
 | `universes history clear` | works |  | clearRecentUniverses |  |
 | `universes history visit` | works |  | recordUniverseVisit |  |
 | `universes history pause` | works |  | setSettings |  |
+| `universes profile set` | works | yes | setUniverseProfile |  |
 
 #### content
 
@@ -403,7 +431,7 @@ deviations), which the command then reports with the server's code.
 | `posts subtitles correct` | works |  | correctSubtitles |  |
 | `posts create` | adapted | yes | createPost, setPostPlace, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): createPost(authorship) |
 | `posts reply` | adapted | yes | replyTo, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): replyTo(authorship) |
-| `posts quote` | adapted | yes | quote, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): quote(authorship, document) |
+| `posts quote` | adapted | yes | quote, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): quote(authorship) |
 | `posts repost` | works | yes | repost | arguments not taken (refused when given): repost(authorship) |
 | `posts like` | works | yes | setLike |  |
 | `posts unlike` | works |  | setLike |  |
@@ -749,18 +777,18 @@ deviations), which the command then reports with the server's code.
 | `look themes export` | partly |  | themeCatalog, (former hosts) | not served: the former backend's session or agents host |
 | `look themes shots` | works |  | themeCatalog |  |
 | `look themes delete` | adapted |  | deleteTheme | adapted: deleteTheme |
-| `look layouts list` | works |  | layoutCatalog |  |
-| `look layouts show` | works |  | layout |  |
-| `look layouts check` | works |  | checkLayout, themeCatalog |  |
-| `look layouts publish` | partly |  | publishLayout, themeCatalog | not served: publishLayout |
-| `look layouts publish-version` | partly |  | publishLayout, themeCatalog | not served: publishLayout |
+| `look layouts list` | works | yes | layoutCatalog, themeCatalog |  |
+| `look layouts show` | works | yes | layout |  |
+| `look layouts check` | works | yes | checkLayout, themeCatalog |  |
+| `look layouts publish` | works | yes | publishLayout, themeCatalog |  |
+| `look layouts publish-version` | works |  | publishLayout, themeCatalog |  |
 | `look layouts apply` | works |  | setUniverseProfile |  |
-| `look layouts copy` | not available |  | copyLayout | not served: copyLayout |
-| `look layouts delete` | not available |  | deleteLayout | not served: deleteLayout |
-| `look studio drafts` | works |  | studioDrafts |  |
+| `look layouts copy` | works | yes | copyLayout |  |
+| `look layouts delete` | works | yes | deleteLayout |  |
+| `look studio drafts` | works | yes | studioDrafts |  |
 | `look studio show` | works |  | studioDraft |  |
 | `look studio save` | works |  | saveStudioDraft, themeCatalog |  |
-| `look studio delete` | works |  | deleteStudioDraft |  |
+| `look studio delete` | works | yes | deleteStudioDraft |  |
 | `look studio use` | works |  | useStudioDraft |  |
 | `look studio make-theme` | works |  | useStudioDraft |  |
 | `look studio try` | works |  | startUniverseThemeTrial |  |

@@ -252,6 +252,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me tour` | The app tour of the account and its preferences | `breakrocks me tour` |
 | `me tour skip` | Skip the app tour of the account | `breakrocks me tour skip` |
 | `me tour set` | Choose the tour mode, voice language or auto move on | `breakrocks me tour set --mode LISTEN` |
+| `me tips` | The gesture tips already shown | `breakrocks me tips` |
 | `me privacy share-activity` | Whether your close ones see your activity | `breakrocks me privacy share-activity` |
 | `me privacy share-activity set` | Share your activity with your close ones, or stop | `breakrocks me privacy share-activity set on` |
 | `me notifications` | Your notifications | `breakrocks me notifications --unread` |
@@ -351,6 +352,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes private reputation set` | Turn the reputation on or off | `breakrocks universes private reputation set %club. --turned-on --folding-coefficient 1.5` |
 | `universes search-words` | Set the search words of a universe | `breakrocks universes search-words %paris velo bike cycling` |
 | `universes identity` | Set the banner, logo and watermark | `breakrocks universes identity %club. --banner-file ./banner.jpg` |
+| `universes profile set` | Set the first focus, strip and layouts of a universe | `breakrocks universes profile set %paris --first-focus MAP` |
 | `universes private tiers offer` | Offer a subscription tier | `breakrocks universes private tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS` |
 | `universes private tiers change` | Change a subscription tier | `breakrocks universes private tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE` |
 | `universes private tiers withdraw` | Withdraw a subscription tier (confirmation: `--yes`) | `breakrocks universes private tiers withdraw %club. <tier id> --yes` |
@@ -810,7 +812,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `look themes export` | Export a theme | `breakrocks look themes export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `look themes shots` | Download the screenshots of a theme | `breakrocks look themes shots %paris/stade-nuit --out shots/` |
 | `look themes delete` | Delete a theme you published (confirmation: `--yes`) | `breakrocks look themes delete %paris/stade-nuit --yes` |
-| `look layouts list` | The layout catalog | `breakrocks look layouts list --field SPORT` |
+| `look layouts list` | The layout catalog (without the documents) | `breakrocks look layouts list --field SPORT` |
 | `look layouts show` | Show a layout | `breakrocks look layouts show %root/feed-first` |
 | `look layouts check` | Check a layout document | `breakrocks look layouts check @layout.json` |
 | `look layouts publish` | Publish a layout in a universe | `breakrocks look layouts publish @layout.json --in %paris` |
@@ -1021,6 +1023,11 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   prints them; `proposals file` refuses before sending the kinds and changes the new backend does not file (`THEME`,
   `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`, `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`,
   `SECOND_ROUND`; `watermark`, `appearance`, `channelAction`…). [docs/sulfur.md](docs/sulfur.md) § Messages, § Proposals.
+- **The schema resynced at server cc3f09f9 and 0c747737** (0.48.0): `universes profile set` (first focus, universe strip,
+  default and governance layouts), `look layouts publish|copy|delete` back, the catalog read without documents, the new
+  `Universe` fields in `universes show`, `REJOIN_WAIT` told with its date; the author role, views and moment of a post in
+  `posts list`; `events create|change --route-points` (a drawn route); `events support` answering the event; `me tips`.
+  [docs/sulfur.md](docs/sulfur.md) § Universe direction and layouts, § Posts, events and settings.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
   taken), `whoami`, the profile with its avatar, posts (two images in the first post of a new universe's sub-level, a vertical clip when
   `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the

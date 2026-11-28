@@ -27,4 +27,7 @@ export const VERIFIED: ReadonlySet<string> = new Set([
   'universes private create', 'discussions send', 'discussions channels levels', 'moderation report',
   'me invite-exceptions add', 'me invite-exceptions remove', 'messages settings', 'messages settings set', 'governance field', 'governance display',
   'proposals file', 'governance news', 'connections state', 'connections remove', 'messages groups leave', 'messages groups decline',
+  'universes profile set', 'look layouts copy', 'look layouts show', 'look layouts publish', 'look layouts list', 'look layouts delete', 'look layouts check',
+  'look studio drafts', 'look studio delete', 'universes private delete',
+  'me tips', 'me tour set', 'events create',
 ]);

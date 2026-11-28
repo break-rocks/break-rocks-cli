@@ -7,7 +7,7 @@
 // agent removed; the sanctions of the account and their appeal, and the jury of an appeal.
 import { apiCommand } from '../api/command.js';
 import { usageError } from '../errors.js';
-import { exploreMapFlag, exploreMapPrepare, pageText } from './shared.js';
+import { eventFlags, eventPrepare, pageText } from './shared.js';
 
 const u = { universe: 'The universe (%name)', in: 'The universe (%name)', account: 'The account: @handle or its id' };
 type Ref = { handle?: string } | null | undefined;
@@ -61,10 +61,10 @@ const onEvent = { positionals: ['eventId'], rename: { eventId: 'id' }, descripti
 export const eventsSupport = apiCommand({ name: 'events support', summary: 'Support a universe event proposed by a resident (supportUniverseEvent; a resident who can vote)', kind: 'mutation', op: 'supportUniverseEvent', ...onEvent, depth: 1, text: eventText, examples: ['breakrocks events support <id>'] });
 export const eventsChange = apiCommand({
   name: 'events change', summary: 'Change a universe event: title, start, length, place, link, tags, its point, zone or route (changeUniverseEvent; the attendees are told)',
-  description: 'Only what is given changes. --point { "lat", "lon" }, --zone, --route (JSON); --clear POINT,ZONE,ROUTE removes them; --explore-map shown|kept|by-type (specs v122.0.0: EVENT_EXPLORE_MAP_NOT_ALLOWED, EVENT_EXPLORE_MAP_LIMIT). The leadership, or whoever asked for it.',
+  description: 'Only what is given changes. --point { "lat", "lon" }, --zone, --route (JSON) or --route-points "<lat>,<lon>;…" with --route-mode (a route drawn anew, saved as your own unlisted route); --clear POINT,ZONE,ROUTE removes them; --explore-map shown|kept|by-type (specs v122.0.0: EVENT_EXPLORE_MAP_NOT_ALLOWED, EVENT_EXPLORE_MAP_LIMIT). The leadership, or whoever asked for it.',
   kind: 'mutation', op: 'changeUniverseEvent', positionals: ['input.eventId'], rename: { 'input.eventId': 'id' }, dry: true, descriptions: { id: 'The event', discussion: 'With a discussion of its own' }, depth: 1, text: eventText,
-  ...exploreMapFlag, prepare: exploreMapPrepare,
-  examples: ['breakrocks events change <id> --title "Night ride" --starts-at 2026-11-20T19:00:00Z', 'breakrocks events change <id> --explore-map kept'],
+  ...eventFlags, prepare: eventPrepare,
+  examples: ['breakrocks events change <id> --title "Night ride" --starts-at 2026-11-20T19:00:00Z', 'breakrocks events change <id> --explore-map kept', 'breakrocks events change <id> --route-points "48.8721,2.3654;48.8840,2.3710" --route-mode BICYCLE'],
 });
 export const eventsDelete = apiCommand({
   name: 'events delete', summary: 'Delete a universe event (deleteUniverseEvent)', kind: 'mutation', op: 'deleteUniverseEvent', ...onEvent, confirm: (i) => `Delete the event ${String(i.id)}?`,

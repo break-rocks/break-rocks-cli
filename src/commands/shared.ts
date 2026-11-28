@@ -72,6 +72,24 @@ export const exploreMapFlag = {
   hide: ['input.exploreMapChoice'],
   extra: { exploreMap: { type: 'string', enum: [...EXPLORE_MAP_CHOICES], description: 'The Map view of Experiences (Explore): shown (beyond its universe, 3 upcoming at most per universe), kept (in its universe only), by-type (as its event type says; the default)' } as JsonSchema },
 };
+/** The flags of a universe event: its Map view of Experiences, and a route drawn point by point (--route-points, --route-mode). */
+export const eventFlags = {
+  hide: exploreMapFlag.hide,
+  extra: {
+    ...exploreMapFlag.extra,
+    routePoints: { type: 'string', description: 'A route drawn for the event, its points in order: "<lat>,<lon>;<lat>,<lon>;…" (2 at least), saved as your own unlisted route; never with --route-id, --point or --zone' } as JsonSchema,
+    routeMode: { type: 'string', description: 'The mode of the route drawn (FOOT, HIKE, BICYCLE…; FOOT by default)' } as JsonSchema,
+  },
+};
+/** The event's input with its Map view choice and its route drawn (RouteInput { mode, points }). */
+export function eventPrepare(input: Record<string, unknown>): Record<string, unknown> {
+  const { routePoints, routeMode, ...rest } = exploreMapPrepare(input);
+  if (routePoints === undefined) { if (routeMode !== undefined) throw usageError('INVALID_INPUT', '--route-mode goes with --route-points'); return rest; }
+  if (rest.route !== undefined) throw usageError('INVALID_INPUT', '--route-points or --route, not both');
+  const points = pointsOf(String(routePoints), '--route-points');
+  if (points.length < 2) throw usageError('INVALID_INPUT', '--route-points: 2 points at least, "<lat>,<lon>;<lat>,<lon>"');
+  return { ...rest, route: { mode: String(routeMode ?? 'FOOT').toUpperCase(), points } };
+}
 export function exploreMapPrepare(input: Record<string, unknown>): Record<string, unknown> {
   const { exploreMap, ...rest } = input;
   return exploreMap === undefined ? rest : { ...rest, 'input.exploreMapChoice': String(exploreMap).toUpperCase().replace(/-/g, '_') };

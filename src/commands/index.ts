@@ -47,7 +47,7 @@ import { privateUniverseCommands } from './private-universes.js';
 import { civicCommands, civicGovernanceCommands } from './civic.js';
 import { discussionModerationCommands } from './discussions-moderation.js';
 import { eventRelayCommands } from './event-relays.js';
-import { layoutCommands, studioCommands, themeApply, themeDelete, themeExport, themePersonalClear, themePersonalSaved, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
+import { layoutCommands, studioCommands, themeApply, universeProfileSet, themeDelete, themeExport, themePersonalClear, themePersonalSaved, themePersonalSet, themePublish, themeShots, themesList, themesShow } from './themes-online.js';
 
 register(
   help, version, schema, completion, update,
@@ -102,7 +102,7 @@ register(
   appearance.universesTagsConventions, appearance.universesTagsSuggestions, appearance.universesTagsView,
   history.universesHistory, history.universesHistoryRemove, history.universesHistoryClear, history.universesVisit, history.settingsHistoryPause, ...navigationCommands, ...tourCommands,
   themePromptCommand, themeCheck, themePack, themeUnpack, themeTypefaces,
-  themePublish, themeApply, themePersonalSet, themePersonalClear, themePersonalSaved, themeExport, themeShots, themeDelete,
+  themePublish, themeApply, universeProfileSet, themePersonalSet, themePersonalClear, themePersonalSaved, themeExport, themeShots, themeDelete,
   ...layoutCommands, ...studioCommands, pages.studioMakePage,
   measures.adsCampaigns, measures.adsShow, measures.adsCreate, measures.adsUpdate, measures.adsSubmit, measures.adsPause, measures.adsResume, measures.adsEnd, measures.adsPay,
   measures.adsSuggest, measures.adsGroup, measures.adsRepository, measures.adsWhy, measures.adsInterests, measures.adsInterestsSet,

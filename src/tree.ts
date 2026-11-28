@@ -98,6 +98,7 @@ me navigation set | = | Choose what the center button opens
 me tour | = | The app tour of the account and its preferences
 me tour skip | = | Skip the app tour of the account
 me tour set | = | Choose the tour mode, voice language or auto move on
+me tips | = | The gesture tips already shown
 me privacy share-activity | = | Whether your close ones see your activity
 me privacy share-activity set | = | Share your activity with your close ones, or stop
 subscription show | = | The paid tier subscription of the account
@@ -233,6 +234,7 @@ universes reputation | universes private reputation | The reputation of a privat
 universes reputation set | universes private reputation set | Turn the reputation on or off
 universes search-words | = | Set the search words of a universe
 universes identity | = | Set the banner, logo and watermark
+universes profile set | = | Set the first focus, strip and layouts of a universe
 universes tiers offer | universes private tiers offer | Offer a subscription tier
 universes tiers change | universes private tiers change | Change a subscription tier
 universes tiers withdraw | universes private tiers withdraw | Withdraw a subscription tier

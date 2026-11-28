@@ -70,4 +70,15 @@ export const tourSet = apiCommand({
   examples: ['breakrocks me tour set --mode LISTEN', 'breakrocks me tour set --voice-language fr --auto-advance --dry-run'],
 });
 
-export const tourCommands = [tourShow, tourSkip, tourSet];
+// The gesture tips of the apps (Settings.tips, contracts/layouts.md § Gesture tips): which were already shown. The apps mark them;
+// the CLI reads them only (a tip shown is never shown again, so marking one from a terminal would hide it in the apps).
+type Tips = { homeGestures?: boolean; universeGestures?: boolean; authorSwipe?: boolean };
+const TIPS: Record<string, string> = { homeGestures: 'the gestures of the home', universeGestures: 'the gestures of a universe', authorSwipe: 'the swipe to the author of a clip or a post' };
+export const tipsShow = apiCommand({
+  name: 'me tips', summary: 'The gesture tips of the apps already shown to the account (mySettings.tips)',
+  kind: 'query', op: 'mySettings', select: '{ tips { homeGestures universeGestures authorSwipe } }',
+  text: (r) => { const t = (r as { tips?: Tips | null } | null)?.tips; return t ? Object.entries(TIPS).map(([k, label]) => `${label}: ${t[k as keyof Tips] ? 'shown' : 'not shown yet'}`).join('\n') : 'No gesture tips for this account.'; },
+  examples: ['breakrocks me tips', 'breakrocks me tips --json'],
+});
+
+export const tourCommands = [tourShow, tourSkip, tourSet, tipsShow];
