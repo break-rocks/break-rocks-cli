@@ -1920,9 +1920,16 @@ them (`GROUP_INVITATIONS_REFUSED`, each account with its code).
 
 ### Real time
 
-The real-time updates were the former backend's (its AppSync Event API, its Cognito identity token) and were retired with
-it; native-sulfur's Event APIs are not wired in the CLI yet: `--watch` reads again every `--interval` seconds (`--realtime`
-is still taken and says so once).
+`--watch` on `messages inbox`, `messages direct read`, `messages groups read` and `discussions read` subscribes to native-sulfur's
+real time (0.51.0, `src/realtime.ts`, `src/sulfur/live.ts`): the account's channel (`accountChannel`: its conversations and
+its inbox) or the discussion's (`liveMode`: a public discussion's `/m/d/<id>`, a group's or a private channel's at its epoch),
+on the cell's Event API that holds the subject (the cell map `client/cells.json`, its `realtimeApis` chosen by rendezvous
+hashing as the server does; `BREAKROCKS_SULFUR_CELLS` replaces the map's address), with our own access token
+(`aws-appsync-event-ws`, `header-…` with the Event API's host and `Authorization: Bearer …`). Each event of the channel calls
+for a read; an epoch, a mode or a generation moved (`epoch`, `mode`, `gen`) opens the subscription again; a lost connection is
+opened again (3 tries), then the watch reads again every `--interval` seconds, saying so once. A discussion the platform serves
+by its tail (poll mode), a cell map missing or a refused connection: read again from the start. `--realtime off` reads again
+only. `feed`, `posts list` and `me notifications` have no channel there: they read again.
 
 ### Binaries (preparation)
 

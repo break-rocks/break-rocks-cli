@@ -5,6 +5,15 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-28
+
+### Added
+
+- `--watch` in real time on native-sulfur (`messages inbox`, `messages direct read`, `messages groups read`, `discussions read`):
+  the account's or the discussion's channel (`accountChannel`, `liveMode`) on the cell's Event API (the cell map's
+  `realtimeApis`, rendezvous hashing; `BREAKROCKS_SULFUR_CELLS`), our own token; a read on each event, a resubscription on an
+  `epoch`, `mode` or `gen` event, and reading again every `--interval` seconds when the real time is not there.
+
 ## [0.50.0] - 2026-11-28
 
 ### Added

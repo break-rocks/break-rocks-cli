@@ -16,7 +16,9 @@ import { api } from '../session.js';
 import { WATCH_PROPERTIES, watchItems, type WatchInput } from '../watch.js';
 import { pointOf } from './geo.js';
 import { composeProps, dryRunOf, plan, sendMedia, wait, type ComposeInput, type Plan } from './publish.js';
-import { accountChannel, instantOf, liveOf } from './read.js';
+import { instantOf } from './read.js';
+import { accountLive, discussionLive } from '../sulfur/live.js';
+import { sulfurApi } from '../sulfur/session.js';
 
 const MESSAGE = selection('Message', 1);
 const MESSAGE_PAGE = selection('MessagePage', 2);
@@ -28,13 +30,6 @@ const key = (m: Item) => `${m.id}@${m.changedAt ?? m.createdAt}`;
 
 /** A discussion of API v2: a conversation with an account, a group chat, or a channel (exactly one). */
 export type Discussion = { accountId: string } | { groupChatId: string } | { channel: string };
-/** The event of a discussion of the real time (discussion.message) is the one of [d]. */
-const sameDiscussion = (d: Discussion) => (e: Record<string, unknown>) => {
-  const ref = (e.discussion ?? {}) as { account?: { id?: string } | null; groupChat?: { id?: string } | null; channel?: string | null };
-  if ('accountId' in d) return ref.account?.id === d.accountId;
-  if ('groupChatId' in d) return ref.groupChat?.id === d.groupChatId;
-  return true; // a channel: its Event API channel is already the channel's
-};
 
 type InboxItem = { kind: string; account?: { id: string } | null; group?: { id: string } | null; lastAt: string; unread: boolean };
 export const inbox: Command<{ unread?: boolean; after?: string; all?: boolean; max?: number } & WatchInput, unknown> = {
@@ -45,7 +40,7 @@ export const inbox: Command<{ unread?: boolean; after?: string; all?: boolean; m
   run: async (ctx, i) => {
     const read = async (after: string | null) => (await api<{ inbox: Page<InboxItem> }>(ctx, `query($after: String) { inbox(after: $after) ${selection('InboxPage', 2)} }`, { after })).inbox;
     const keep = (x: InboxItem) => !i.unread || x.unread;
-    if (i.watch) return watchItems(ctx, i, async () => (await read(null)).items.filter(keep), (x) => `${x.kind}:${x.account?.id ?? x.group?.id}@${x.lastAt}`, accountChannel(['inbox', 'discussion.message', 'dm.request', 'group.invitation']));
+    if (i.watch) return watchItems(ctx, i, async () => (await read(null)).items.filter(keep), (x) => `${x.kind}:${x.account?.id ?? x.group?.id}@${x.lastAt}`, accountLive(ctx));
     const items: InboxItem[] = [];
     let next: string | null = i.after ?? null, rest: Record<string, unknown> = {};
     for (let p = 0; p < (i.all ? i.max ?? 10 : 1); p++) { const r = await read(next); const { items: got, next: n, ...more } = r; rest = more; items.push(...got); next = n; if (!next) break; }
@@ -110,14 +105,18 @@ async function readMessages<T extends Item>(ctx: Context, read: (after: string |
   return { ...rest, items, next };
 }
 
-/** The messages of a discussion (messages), --watch in real time: the account's channel, or the lease of a channel (watch). */
+/** The messages of a discussion (messages), --watch in real time: the account's channel, or the discussion's (liveMode). */
 async function readDiscussion(ctx: Context, discussion: Discussion, i: ReadInput) {
   const read = async (after: string | null) => (await api<{ messages: Page<Item> }>(ctx, `query($d: DiscussionRefInput!, $after: String, $limit: Int${i.top ? ', $order: MessageOrder' : ''}) { messages(discussion: $d, after: $after, limit: $limit${i.top ? ', order: $order' : ''}) ${MESSAGE_PAGE} }`, { d: discussion, after, limit: i.limit ?? null, ...(i.top ? { order: 'TOP' } : {}) })).messages;
   if (i.top && (i.watch || i.since)) throw usageError('INVALID_INPUT', '--top reads the best contributions first: without --watch nor --since');
   if (i.watch) {
-    const live = 'channel' in discussion
-      ? liveOf(ctx, { channel: discussion.channel }, ['discussion.message', 'discussion.messages'])
-      : accountChannel(['discussion.message'], sameDiscussion(discussion));
+    // A conversation's messages come on the account's channel; a group's and a universe discussion's on their own.
+    const live = 'accountId' in discussion ? accountLive(ctx, ['msgs']) : discussionLive(ctx, async () => {
+      if ('groupChatId' in discussion) return discussion.groupChatId;
+      const d = (await sulfurApi<{ universeDiscussion: { id: string } | null }>(ctx, 'query($a: String) { universeDiscussion(address: $a) { id } }', { a: discussion.channel })).universeDiscussion;
+      if (!d) throw usageError('DISCUSSION_NOT_FOUND', `No discussion ${discussion.channel}`, { channel: discussion.channel });
+      return d.id;
+    });
     return watchItems(ctx, i, async () => (await read(null)).items, key, live);
   }
   return readMessages(ctx, read, i);

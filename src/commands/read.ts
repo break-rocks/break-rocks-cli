@@ -16,15 +16,8 @@ import { bool, int, list, object, openObject, str } from '../schema.js';
 import { uuidv7 } from '../ids.js';
 import { api } from '../session.js';
 import { describeTerritory } from './geo.js';
-import { WATCH_PROPERTIES, watchItems, type LiveSource, type WatchInput } from '../watch.js';
+import { WATCH_PROPERTIES, watchItems, type WatchInput } from '../watch.js';
 
-/** The Event API channels of a reading, from watch (its lease: 10 minutes, renewed by --watch): an address, or a channel of a private universe. */
-export const liveOf = (ctx: Context, target: { address?: string | null; channel?: string }, types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({
-  channels: async () => ((await api<{ watch: { eventChannels: { eventChannel: string }[] } | null }>(ctx, 'mutation($a: String, $c: String) { watch(address: $a, channel: $c) { eventChannels { eventChannel shard } until } }', { a: target.address ?? null, c: target.channel ?? null })).watch?.eventChannels ?? []).map((c) => c.eventChannel),
-  matches: (e) => types.includes(e.type) && match(e),
-});
-/** The channel of the account: /users/<account id>. */
-export const accountChannel = (types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({ channels: async (id) => [`/users/${id}`], matches: (e) => types.includes(e.type) && match(e) });
 
 type MediaOfPost = { url?: string; license?: string | null; attribution?: string | null } | null;
 type Post = { id: string; createdAt: string; kind: string; authorRole?: string | null; viewCount?: number | null; moment?: string | null; projectOf?: { id: string; title?: string } | null; digestOf?: string | null; language?: string | null; clip?: MediaOfPost; longVideo?: MediaOfPost; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
@@ -88,7 +81,7 @@ export const postsList: Command<ListInput, unknown> = {
   output: postsOutput, args: { positionals: ['address'] },
   run: async (ctx, input) => {
     const read = async (after: string | null) => (await api<{ posts: Page<Post> }>(ctx, `query($a: String!, $after: String, $f: PostsFilter, $l: Int) { posts(address: $a, after: $after, filter: $f, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address, after, f: input.filter ?? null, l: input.limit ?? null })).posts;
-    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id, liveOf(ctx, { address: input.address }, ['posts.new']));
+    if (input.watch) return watchItems(ctx, input, async () => (await readPosts(ctx, read, { ...input, after: undefined, all: false })).items, (p) => p.id);
     return readPosts(ctx, read, input);
   },
   text: (r) => renderPosts(r),
@@ -145,7 +138,7 @@ export const feed: Command<FeedInput, unknown> = {
     const read = input.clips
       ? async (after: string | null) => (await api<{ clipFeed: Page<Post> }>(ctx, `query($a: String, $after: String, $l: Int) { clipFeed(address: $a, after: $after, limit: $l) ${PAGE_OF_POSTS} }`, { a: input.address ?? null, after, l: input.limit ?? null })).clipFeed
       : async (after: string | null) => (await api<{ timeline: Page<Post> }>(ctx, `query($after: String) { timeline(after: $after) ${PAGE_OF_POSTS} }`, { after })).timeline;
-    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id, input.clips ? liveOf(ctx, { address: input.address ?? null }, ['posts.new']) : liveOf(ctx, {}, ['timeline.new']));
+    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items, (p) => p.id);
     return readPosts(ctx, read, input);
   },
   text: (r) => ((r as { count?: number }).count !== undefined ? `${(r as { count: number }).count} new post(s)` : renderPosts(r)),
@@ -312,7 +305,7 @@ export const notifications: Command<{ unread?: boolean; markRead?: boolean; afte
   output: openObject({ items: list('Notifications', outputSchema('Notification', 1)), next: { type: ['string', 'null'] }, unread: int('Unread'), marked: int('Marked as read') }),
   run: async (ctx, input) => {
     const read = async (after: string | null) => (await api<{ notifications: Page<Notification> & { unread: number } }>(ctx, `query($after: String) { notifications(after: $after) ${selection('NotificationPage', 2)} }`, { after })).notifications;
-    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items.filter((n) => !input.unread || !n.read), (n) => `${n.id}@${n.updatedAt}`, accountChannel(['notification']));
+    if (input.watch) return watchItems(ctx, input, async () => (await read(null)).items.filter((n) => !input.unread || !n.read), (n) => `${n.id}@${n.updatedAt}`);
     const items: Notification[] = [];
     let next: string | null = input.after ?? null, unread = 0;
     for (let page = 0; page < (input.all ? input.max ?? 10 : 1); page++) {

@@ -7,8 +7,10 @@
 import { spawn } from 'node:child_process';
 import type { Context } from './context.js';
 import { CliError, usageError } from './errors.js';
-import type { RealtimeEvent, RealtimeMode } from './realtime.js';
+import { connect, type Connection, type RealtimeMode } from './realtime.js';
 import { renderText } from './render.js';
+import { ensureSulfurSession } from './sulfur/session.js';
+import { apiFor, realtimeApis, RESUBSCRIBE, type LiveSource } from './sulfur/live.js';
 import type { JsonSchema } from './schema.js';
 
 export const MIN_INTERVAL = 15;
@@ -18,12 +20,13 @@ export const WATCH_PROPERTIES: Record<string, JsonSchema> = {
   duration: { type: 'integer', minimum: 1, maximum: 7 * 86400, description: 'Stop watching after so many seconds (default: until Ctrl-C)' },
   jsonl: { type: 'boolean', description: 'With --watch: one JSON line per new item' },
   exec: { type: 'string', description: 'With --watch: a program run for each new item (no shell; the item as JSON on its stdin and in BREAKROCKS_ITEM)' },
-  realtime: { type: 'string', enum: ['auto', 'on', 'off'], default: 'auto', description: 'With --watch: the real-time updates (not available on native-sulfur yet: a watch reads again)' },
+  realtime: { type: 'string', enum: ['auto', 'on', 'off'], default: 'auto', description: 'With --watch: the real-time updates (auto and on: the Event API of the cell, reading again when it fails; off: read again only)' },
 };
 export type WatchInput = { watch?: boolean; interval?: number; duration?: number; jsonl?: boolean; exec?: string; realtime?: RealtimeMode };
 
-/** What a command watches in real time: its Event API channels (the account's, or those leased by watch) and the events that call for a read. */
-export type LiveSource = { channels: (accountId: string) => Promise<string[]>; matches: (event: RealtimeEvent) => boolean };
+export type { LiveSource };
+/** A silent connection is checked by a read every 5 minutes (and the channels asked again: an epoch may have moved). */
+export const RENEW_MS = 5 * 60_000;
 const STOPPING = new Set(['RATE_LIMITED', 'QUOTA_EXCEEDED', 'PAYMENT_REQUIRED', 'SIGN_IN_REQUIRED', 'SESSION_EXPIRED', 'Unauthorized']);
 
 /** A command line split into its words, quotes kept together ("node handler.js 'a b'"). */
@@ -96,20 +99,63 @@ export async function watchItems<T>(ctx: Context, input: WatchInput, read: () =>
     reads++;
     return emit(items, first);
   };
-  const mode: WatchSummary['mode'] = 'polling';
-  const events = 0;
+  let mode: WatchSummary['mode'] = 'polling';
+  let events = 0;
   try {
     const now = await readOnce(true);
-    // The real-time updates were the former backend's (its Event API and its Cognito tokens): native-sulfur's are not wired
-    // in the CLI yet, so a watch reads again.
-    if (live) ctx.notice(`Real time not used (${input.realtime === 'off' ? 'off (--realtime off)' : 'not available on native-sulfur yet'}): reading again every ${interval} s`);
-    else ctx.progress(`Watching: ${now} item(s) now; a read every ${interval} s${input.duration ? ` for ${input.duration} s` : ', Ctrl-C to stop'}`);
-    while (!stop) {
-      const left = deadline - ctx.now();
-      if (left <= 0) break;
-      await ctx.io.sleep(Math.min(interval * 1000, left));
-      if (stop) break;
-      await readOnce();
+    // The real-time updates first, when the reading has a channel: an event calls for a read; a lost connection is opened
+    // again (3 tries), then the watch reads again every --interval seconds.
+    let connection: Connection | undefined;
+    let woken = false, lost = false;
+    let channels: string[] = [];
+    const open = async (): Promise<string | undefined> => {
+      if (input.realtime === 'off') return 'off (--realtime off)';
+      const target = await live!.resolve();
+      if (!target.channels.length) return 'why' in target ? target.why : 'nothing to subscribe to';
+      channels = target.channels;
+      const session = await ensureSulfurSession(ctx);
+      const api = apiFor('subject' in target ? target.subject : '', await realtimeApis(ctx, session.env as never, session.cell));
+      connection = await connect(ctx, { realtimeUrl: api.realtime, httpUrl: api.events, token: session.access, channels, onEvent: (e) => {
+        if (!live!.matches(e)) return;
+        events++; woken = true;
+        if (e.ev && RESUBSCRIBE.has(e.ev)) { connection?.close(); }
+      } });
+      lost = false;
+      const mine = connection;
+      void mine.closed.then((reason) => { if (connection === mine) { lost = true; if (reason !== 'closed') ctx.progress(`Real time lost (${reason})`); } });
+      return undefined;
+    };
+    if (live) {
+      let why: string | undefined;
+      try { why = await open(); } catch (error) { why = error instanceof CliError ? `${error.code}: ${error.message}` : String(error); }
+      if (why) ctx.notice(`Real time not used (${why}): reading again every ${interval} s`);
+      else { mode = 'realtime'; ctx.progress(`Watching in real time (${channels.join(', ')}): ${now} item(s) now${input.duration ? ` for ${input.duration} s` : ', Ctrl-C to stop'}`); }
+    } else ctx.progress(`Watching: ${now} item(s) now; a read every ${interval} s${input.duration ? ` for ${input.duration} s` : ', Ctrl-C to stop'}`);
+    if (mode === 'realtime') {
+      let renewAt = ctx.now() + RENEW_MS, retries = 0;
+      while (!stop && ctx.now() < deadline) {
+        await ctx.io.sleep(Math.min(1000, Math.max(0, deadline - ctx.now())));
+        if (woken) { woken = false; await readOnce(); }
+        if (lost) {
+          connection = undefined;
+          if (++retries > 3) { mode = 'polling'; ctx.notice(`Real time lost: reading again every ${interval} s`); break; }
+          await ctx.io.sleep(Math.min(10_000, 1000 * 2 ** retries));
+          try { const why = await open(); if (!why) { retries = 0; await readOnce(); } else { mode = 'polling'; ctx.notice(`Real time not used (${why}): reading again every ${interval} s`); break; } } catch { /* tried again below */ }
+        }
+        if (ctx.now() >= renewAt) { renewAt = ctx.now() + RENEW_MS; await readOnce(); }
+      }
+      const last = connection as Connection | undefined;
+      connection = undefined;
+      last?.close();
+    }
+    if (mode === 'polling') {
+      while (!stop) {
+        const left = deadline - ctx.now();
+        if (left <= 0) break;
+        await ctx.io.sleep(Math.min(interval * 1000, left));
+        if (stop) break;
+        await readOnce();
+      }
     }
     if (stop) stoppedBy = 'signal';
   } finally { process.removeListener('SIGINT', onSignal); }

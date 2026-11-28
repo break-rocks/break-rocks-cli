@@ -474,7 +474,7 @@ deviations), which the command then reports with the server's code.
 | `discussions read` | works |  |  | no API operation found by the scan: not checked |
 | `discussions channels levels` | works | yes | channelProposalLevels |  |
 | `messages inbox` | adapted | yes | inbox, sendMessage, (media upload) | adapted: media upload (requestUpload) |
-| `messages direct send` | works | yes | messages |  |
+| `messages direct send` | works | yes | universeDiscussion, messages |  |
 | `messages direct read` | works | yes | deleteMessage |  |
 | `messages direct delete` | works |  |  | no API operation found by the scan: not checked |
 | `messages direct ephemeral` | works |  | setConversationEphemeral |  |
