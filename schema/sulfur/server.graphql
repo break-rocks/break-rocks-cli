@@ -114,7 +114,9 @@ type Query {
   postsByIds(ids: [ID!]!): [Post]!
 
   """
-  The posts of an address — a universe, an account, a tag, or a universe with an account or tags — newest first.
+  The posts of an address — a universe, an account, a tag, or a universe with an account or tags — newest first. The feed
+  filters LEADERSHIP, SUB_UNIVERSES, PROJECTS, IMAGES (newest first) and DISCUSSED (the last 7 days, the most replied first)
+  take a public universe alone.
   """
   posts(address: String!, filter: PostsFilter, after: String, limit: Int, since: AWSDateTime): PostPage!
 
@@ -332,6 +334,11 @@ type Query {
   appearanceLooks(collection: UniverseField): [AppearanceLook!]
   themeCatalog(universe: String, order: ThemeCatalogOrder, query: String, collection: UniverseField, group: ThemeCatalogGroup, withImage: Boolean, creator: ID, highContrast: Boolean, use: ThemeUse, variant: ThemeVariant, limit: Int, after: String): ThemeCatalogPage
   universeAppearanceHistory(universe: String!): [UniverseAppearanceHistoryEntry!]
+
+  """
+  D-759: the theme versions of a universe (read as the appearance history: its members, its residents).
+  """
+  universeThemeVersions(universe: String!): UniverseThemeVersions
   buildUniverseAppearance(universe: String!, input: UniverseAppearanceInput!): UniverseAppearanceBuild
   pageOfUniverse(universe: String!, name: String!): PageOfUniverse
   checkLayout(universe: String!, document: AWSJSON!): LayoutCheck
@@ -427,6 +434,11 @@ type Query {
 
   """Explore's lists of a language, filtered for me (native-sulfur)."""
   explore(language: String!): ExploreLists!
+
+  """
+  The onboarding's suggestions (D-745): popular universes (my country's first, its first preselected) and tags of a language and country (defaults: the app's language, the connection's country).
+  """
+  onboardingSuggestions(language: String, country: String): OnboardingSuggestions!
 
   """
   Where the accounts I follow post (the latest 200 entries of my timeline), cached 1 hour.
@@ -1522,6 +1534,16 @@ type Mutation {
   setSettings(input: SettingsInput!, clear: [SettingsPart!], requestId: ID): Settings
   applyUniverseAppearance(universe: String!, input: UniverseAppearanceInput!, propose: Boolean, title: String, text: String, requestId: ID): UniverseAppearanceUse
   restoreUniverseAppearance(universe: String!, entryId: ID!, propose: Boolean, text: String, requestId: ID): UniverseAppearanceUse
+
+  """
+  D-759: a theme version (number ≥ 2) or the base theme (1) put in force by who applies at once; with propose (a resident, or the leadership), a proposal of the kind APPEARANCE. THEME_VERSION_NOT_FOUND.
+  """
+  useUniverseThemeVersion(universe: String!, number: Int!, propose: Boolean, text: String, requestId: ID): UniverseAppearanceUse
+
+  """
+  D-759: a theme version not in force deleted by who applies at once; with propose, a proposal of the kind APPEARANCE. THEME_VERSION_NOT_FOUND, THEME_VERSION_IN_USE.
+  """
+  deleteUniverseThemeVersion(universe: String!, number: Int!, propose: Boolean, text: String, requestId: ID): UniverseAppearanceUse
   setUniversePageHidden(universe: String!, name: String!, hidden: Boolean!, requestId: ID): PageOfUniverse
   moveUniversePage(universe: String!, name: String!, before: String, requestId: ID): [PageOfUniverse!]
   deleteUniversePage(universe: String!, name: String!, requestId: ID): PageOfUniverse
@@ -3319,6 +3341,21 @@ type PlatformMeasurePage {
   next: String
 }
 
+"""
+talc's ThemeReportPart: the theme itself, or one of its images, its stickers.
+"""
+enum ThemeReportPart {
+  BACKGROUND
+  BANNER
+  CHANNEL_HEADER
+  PATTERN
+  STICKERS
+  TEXTURE
+  THEME
+  TIME_COLUMN
+  WORDMARK
+}
+
 enum ReportReason {
   CHARTER_ARTICLE
   COUNTERFEIT_DOCUMENT
@@ -3359,6 +3396,11 @@ type Report {
   article: Int
   sentTo: ReportDestination!
   snippet: String
+
+  """
+  The media of the content reported, as counts; null when it had none or is gone.
+  """
+  media: ContentMedia
   status: ReportStatus!
   createdAt: AWSDateTime!
   decidedAt: AWSDateTime
@@ -3465,7 +3507,7 @@ type QuickPoll {
 }
 
 """
-An event of a group chat's timeline (talc); none is written yet (TO-CONFIRM(D-712)).
+An event of a group chat's timeline (talc): created, joined, left, removed, renamed; actorId the message's author, target the account removed (D-757, decided by the user on 2026-11-28).
 """
 type GroupEvent {
   actorId: ID!
@@ -3797,12 +3839,12 @@ type Message {
   quickPoll: QuickPoll
 
   """
-  talc: the universe discussion of the first discussion address or URL of its text, as any reader sees it (TO-CONFIRM(D-711)); null when none, unreadable, gone, with images or a clip.
+  talc: the universe discussion of the first discussion address or URL of its text, as any reader sees it (D-711, decided by the user on 2026-11-28); null when none, unreadable, gone, with images or a clip.
   """
   discussionCard: UniverseDiscussion
 
   """
-  talc: the event of a group chat's timeline, for kind event; null otherwise (none is written yet, TO-CONFIRM(D-712)).
+  talc: the event of a group chat's timeline, for kind event (never unread, never a preview, never notified: D-757 (decided by the user on 2026-11-28)); null otherwise.
   """
   event: GroupEvent
 
@@ -4465,6 +4507,11 @@ input ProposalChangeInput {
   searchWords: [String!]
   tagConventions: [String!]
   pinnedChannels: [String!]
+
+  """
+  SHOWCASE (D-718, D-759): the watermark it sets (clear WATERMARK removes it); adopted, the themes make a theme version of the theme in force carrying it.
+  """
+  watermark: WatermarkSettingInput
   clear: [UniverseIdentityPart!]
 }
 
@@ -4486,6 +4533,47 @@ input ReportTargetInput {
   """A thread reply's root message (port 1c: a reply lives in its thread)."""
   threadRoot: ID
   playlistId: ID
+
+  """
+  Server branch 5: PLATFORM_AGENT_TEXT, which text (AUTOMATIC_ALT with postId and imageId; PROPOSAL_SUMMARY, VOTE_MINUTES: none is written here, D-634).
+  """
+  agentText: PlatformAgentText
+  proposalId: ID
+  imageId: ID
+
+  """
+  THEME: the theme's id; LAYOUT: the layout's name; UNIVERSE_PAGE: the custom page's name (or id).
+  """
+  name: String
+
+  """THEME: its part (THEME by default)."""
+  themePart: ThemeReportPart
+
+  """
+  UNIVERSE_PAGE: one of its free blocks by its id; none for the whole page.
+  """
+  block: String
+
+  """PLATFORM_SEARCH_WORD (not reported here yet)."""
+  word: String
+
+  """
+  PLAYLIST_ITEM: a course link or a course document (with playlistId); with postId instead, the post itself.
+  """
+  itemId: ID
+  routeId: ID
+  experienceId: ID
+
+  """
+  EXPERIENCE: the version the reporter read (D-432); absent, the current one.
+  """
+  experienceVersion: String
+
+  """
+  EXPERIENCE_RESULT (with accountId), CONTEST_ENTRY (with entryId): the experience instance.
+  """
+  runId: ID
+  entryId: ID
 }
 
 type UniverseGovernance {
@@ -4661,6 +4749,11 @@ type Proposal {
   participation: VoteParticipation
   result: ProposalResult
   project: Project
+
+  """
+  An action proposal's project post (projects.feature), once its check passed: open it with post(id) or thread(id); null otherwise.
+  """
+  projectPost: PostRef
   refusal: ProposalRefusal
   reviewPending: Boolean!
   candidates: [Account!]
@@ -4701,6 +4794,11 @@ type ProposalChange {
 
   """The pinned channels it sets, in their order (addresses)."""
   pinnedChannels: [String!]
+
+  """
+  The watermark it sets (SHOWCASE); null with clear WATERMARK, or when it sets none.
+  """
+  watermark: Watermark
   clear: [UniverseIdentityPart!]!
 }
 
@@ -4903,6 +5001,22 @@ type ReportTargetRef {
   universe: String
   accountId: ID
   playlistId: ID
+
+  """A message's or a group chat's discussion, as the reporter sees it."""
+  discussion: DiscussionRef
+  agentText: PlatformAgentText
+  proposalId: ID
+  imageId: ID
+  name: String
+  themePart: ThemeReportPart
+  block: String
+  word: String
+  itemId: ID
+  routeId: ID
+  experienceId: ID
+  experienceVersion: String
+  runId: ID
+  entryId: ID
 }
 
 type ReportReasonCount {
@@ -6325,6 +6439,37 @@ type UniverseAppearanceHistoryEntry {
   theme: ThemeRef!
 }
 
+"""
+D-759: a theme version of a universe (number ≥ 2: a frozen copy of the theme a proposal adopted), or its base theme (number 1).
+"""
+type UniverseThemeVersion {
+  number: Int!
+
+  """
+  The theme's name for the base theme; <theme>-v<number> for a theme version.
+  """
+  name: String!
+  base: Boolean!
+  live: Boolean!
+  adoptedAt: AWSDateTime
+  proposalId: ID
+
+  """
+  The theme it shows: a theme version's frozen version, the base theme's current one.
+  """
+  theme: ThemeRef!
+  accent: String!
+  accentName: String!
+}
+
+"""
+D-759: the theme versions of a universe, the most recent first, then its base theme (number 1); at most max (20) theme versions.
+"""
+type UniverseThemeVersions {
+  items: [UniverseThemeVersion!]!
+  max: Int!
+}
+
 enum ThemeCatalogOrder {
   COUNTRY
   GALLERY
@@ -6762,6 +6907,41 @@ type Recommendation {
   reason: RecommendationReason!
   tag: String
   universe: String
+
+  """
+  Where the post came from (D-744): followed, universe, tag, interest, trending, country, platform, popular-in:<address>, exploration.
+  """
+  source: String!
+
+  """
+  The country of a country trending post (source country): TERRITORY's ISO code.
+  """
+  country: String
+}
+
+type OnboardingSuggestions {
+  """
+  Popular universes: the country's universes first (the first preselected), then the language's most active.
+  """
+  universes: [OnboardingUniverse!]!
+
+  """Tags used by the most accounts in 24 hours (of the language)."""
+  tags: [ExploreTag!]!
+  language: String!
+  country: String
+}
+
+type OnboardingUniverse {
+  universe: String!
+  universeId: ID!
+  description: String
+  image: Image
+
+  """
+  country (a universe of the country), active (the most active of the language), language (in the language).
+  """
+  reason: String!
+  preselected: Boolean!
 }
 
 type RecommendationExplanation {
@@ -8114,6 +8294,8 @@ type DataRequestPage {
 }
 
 type DataRequestRectification {
+  """The platform team's answer, once the request is answered (DONE)."""
+  answer: String
   comment: String
   field: RectificationField!
   text: String
