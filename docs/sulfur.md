@@ -109,7 +109,10 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   new `Universe` fields: `url`, `field` (and `fieldSuggested`, always false there), `residentCount`, `firstFocus`,
   `universeStrip`, `governanceLayoutRef`, `joinRefusal` with `canJoinAt`. `universes join` during the rejoin delay is
   refused `REJOIN_WAIT` (the server's message is the instant one may join again; `Universe.joinRefusal` says
-  `REJOIN_TOO_SOON`): told "You left this universe recently: you can join it again from <instant>".
+  `REJOIN_TOO_SOON`): told "You left this universe recently: you can join it again from <instant>". Run against dev on
+  2026-11-28 (a fresh account, deleted after): a copy kept as a studio draft then deleted, a copy published in `%paris`, its
+  document read, its next version published, the catalog by prefix, the layout deleted; the strip and a layout of a private
+  universe set, read back and cleared (`%paris` refused `UNIVERSE_GOVERNED`); join, leave and `REJOIN_WAIT`.
 - **Invitations to group chats**: `messages settings set --invite-policy connections|nobody|except` (`setSettings.messaging`)
   and `me invite-exceptions add|remove @handle` (`setInviteException`, 1,000 at most) are served. An invitation the policy
   refuses is declined silently: the inviter gets its invitation, the invitee never sees it (checked on dev on 2026-11-28).
@@ -158,6 +161,7 @@ of the media, the place feats and billing revised on 2026-11-26 for the server a
 | Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_ON_NEW_BACKEND`; an operator with a key signs in by RFC 7523 (`operator login`). |
 | `sendMessage(place \| arrival)` (server `6bd5daf1`, 2026-11-28) | A place or an arrival sent alone is stored and read back (`place.name`, `arrival.zoneName`), but its `kind` is `message` and its `text` `""` | — | talc's description names "a message of kind ARRIVAL"; the CLI shows the place or the arrival whatever the kind. |
 | `connectionStates` → `canInvite` (2026-11-28) | `true` for an account whose invite policy is `nobody`, or `except` with the caller excepted, though the invitation is then declined silently | — | talc: "whether the caller can invite it (its invitePolicy and its exceptions)". |
+| `setUniverseProfile(governanceLayoutRef)` on a private universe (server `cc3f09f9`, 2026-11-28) | Answers the universe with `governanceLayoutRef: null`, no refusal: nothing is set | — | A private universe has no governance page; a refusal would say so. The private universe's `firstFocus` is refused `UNIVERSE_FOCUS_NOT_OFFERED`, a layout other than `feed-first`, `village-square` or `hud` `UNIVERSE_LAYOUT_NOT_OFFERED`. |
 | `Message.language` (2026-11-28) | `null` for a short French sentence ("Bonjour à tous, voici https://break.rocks") | — | By design when unsure (detection at read). |
 | (posts) emoji reactions | Neither talc nor the server has a reaction on a post (likes and dislikes only); reactions are on messages | — | `posts like` / `posts dislike`; `messages react` for messages. |
 
@@ -169,7 +173,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-649 commands: 573 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 154 run against dev.
+649 commands: 573 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 164 run against dev.
 
 #### account
 
@@ -298,7 +302,7 @@ deviations), which the command then reports with the server's code.
 | `universes private admins remove` | works |  | setUniverseAdmin |  |
 | `universes private transfer accept` | works |  | answerUniverseTransfer |  |
 | `universes private transfer decline` | works |  | answerUniverseTransfer |  |
-| `universes private delete` | works |  | deletePrivateUniverse |  |
+| `universes private delete` | works | yes | deletePrivateUniverse |  |
 | `universes private delete-cancel` | works |  | cancelUniverseDeletion |  |
 | `universes private set` | works |  | changePrivateUniverse |  |
 | `universes private domains` | works |  | pendingDomains |  |
@@ -349,7 +353,7 @@ deviations), which the command then reports with the server's code.
 | `universes history clear` | works |  | clearRecentUniverses |  |
 | `universes history visit` | works |  | recordUniverseVisit |  |
 | `universes history pause` | works |  | setSettings |  |
-| `universes profile set` | works |  | setUniverseProfile |  |
+| `universes profile set` | works | yes | setUniverseProfile |  |
 
 #### content
 
@@ -760,18 +764,18 @@ deviations), which the command then reports with the server's code.
 | `look themes export` | partly |  | themeCatalog, (former hosts) | not served: the former backend's session or agents host |
 | `look themes shots` | works |  | themeCatalog |  |
 | `look themes delete` | adapted |  | deleteTheme | adapted: deleteTheme |
-| `look layouts list` | works |  | layoutCatalog, themeCatalog |  |
-| `look layouts show` | works |  | layout |  |
-| `look layouts check` | works |  | checkLayout, themeCatalog |  |
-| `look layouts publish` | works |  | publishLayout, themeCatalog |  |
+| `look layouts list` | works | yes | layoutCatalog, themeCatalog |  |
+| `look layouts show` | works | yes | layout |  |
+| `look layouts check` | works | yes | checkLayout, themeCatalog |  |
+| `look layouts publish` | works | yes | publishLayout, themeCatalog |  |
 | `look layouts publish-version` | works |  | publishLayout, themeCatalog |  |
 | `look layouts apply` | works |  | setUniverseProfile |  |
-| `look layouts copy` | works |  | copyLayout |  |
-| `look layouts delete` | works |  | deleteLayout |  |
-| `look studio drafts` | works |  | studioDrafts |  |
+| `look layouts copy` | works | yes | copyLayout |  |
+| `look layouts delete` | works | yes | deleteLayout |  |
+| `look studio drafts` | works | yes | studioDrafts |  |
 | `look studio show` | works |  | studioDraft |  |
 | `look studio save` | works |  | saveStudioDraft, themeCatalog |  |
-| `look studio delete` | works |  | deleteStudioDraft |  |
+| `look studio delete` | works | yes | deleteStudioDraft |  |
 | `look studio use` | works |  | useStudioDraft |  |
 | `look studio make-theme` | works |  | useStudioDraft |  |
 | `look studio try` | works |  | startUniverseThemeTrial |  |
