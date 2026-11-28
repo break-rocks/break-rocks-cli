@@ -1,6 +1,6 @@
 // The commands run against dev on the new backend (native-sulfur), by scripts/e2e-sulfur-dev.mjs or by hand, with the
 // date of the last run: read by scripts/sulfur-table.ts (docs/sulfur.md, column Dev).
-export const VERIFIED_ON = '2026-11-27';
+export const VERIFIED_ON = '2026-11-28';
 export const VERIFIED: ReadonlySet<string> = new Set([
   'login', 'logout', 'whoami', 'me profile show', 'me profile set',
   'posts create', 'posts reply', 'posts quote', 'posts repost', 'posts like', 'posts delete', 'posts thread', 'posts list', 'posts feed', 'posts show', 'posts place',
@@ -25,4 +25,6 @@ export const VERIFIED: ReadonlySet<string> = new Set([
   'posts dislike', 'explore resolve', 'messages changes', 'agents create', 'agents login', 'doctor', 'mcp',
   'me email change', 'me email confirm', 'me delete', 'me delete confirm', 'discussions remove-message', 'universes pages publish', 'universes pages get',
   'universes private create', 'discussions send', 'discussions channels levels', 'moderation report',
+  'me invite-exceptions add', 'me invite-exceptions remove', 'messages settings', 'messages settings set', 'governance field', 'governance display',
+  'proposals file', 'governance news', 'connections state', 'connections remove', 'messages groups leave', 'messages groups decline',
 ]);

@@ -44,7 +44,9 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
     page of its name, or a new page), the draft deleted after; the version the file holds is checked first against
     `pageOfUniverse` (`PAGE_VERSION_CONFLICT`, `errorInfo.version`);
   - `clipFeed` (P4): the account's clips are For You's sequence (`clipFeedSequence`, its items' posts; `reason` `null`), an
-    address's are its posts filtered `CLIPS` (`posts(address, filter: CLIPS)`).
+    address's are its posts filtered `CLIPS` (`posts(address, filter: CLIPS)`);
+  - since 0.47.0, `setUniverseDisplay` (§ Proposal changes of the server): the server answers `true` where talc answers the
+    universe, so the universe is read after it (`universe(name)`) with the command's selection.
 - **isFollowing**: the server's `relations` tells `follows` (any follow) and `universes`, the path keys of the scoped
   follows (no `%`; each level case-folded and mapped through the Unicode confusables: `games` is `garnes`), never the
   everywhere follow. So `accounts is-following @bob` is `true` when Bob is followed and no universe is listed, `@bob%paris`
@@ -89,6 +91,30 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
 - **Messages**: the server names a message by its discussion (D-628): `messages react`, `unreact`, `thread`,
   `reply-thread`, `vote` and `unvote` take `--discussion <id>` there (and `--thread-root`); the answers of the message
   reads carry `discussion.id`. `messages quick-poll` names its discussion as everywhere (`--with`, `--group`, `--channel`).
+  Since 0.47.0 (server `6bd5daf1`): `messages direct send`, `messages groups send` and `discussions send` send a place alone
+  (`--place-point <lat>,<lon> --place-name <name>`: `SendMessageInput.place`), the first two an arrival notice alone
+  (`--arrival <zone name>`), and `discussions send --stance FOR|AGAINST|QUESTION` its stance (a temporary universe
+  discussion only: `STANCE_NOT_ALLOWED` elsewhere); a place or an arrival beside a text, a file, media or a link is refused
+  before anything is sent. The message reads answer the server's new `Message` fields (`place`, `arrival`, `stance`,
+  `spans`, `display`, `language`, `via`, `myVote`, `quickPoll` and the cards `discussionCard`, `voteCard`, `eventCard`,
+  `playlistCard`, `routeCard`; `event` stays `null`, TO-CONFIRM D-712 on the server) in `--json` and in plain text; the
+  one-line form (`messages changes`, `pinned`, `edit`, `quick-poll`) adds the place, the arrival, the stance, my vote, the
+  quick poll (its choices, `*` mine, the totals once shown), the agent (`via`) and the language.
+- **Invitations to group chats**: `messages settings set --invite-policy connections|nobody|except` (`setSettings.messaging`)
+  and `me invite-exceptions add|remove @handle` (`setInviteException`, 1,000 at most) are served. An invitation the policy
+  refuses is declined silently: the inviter gets its invitation, the invitee never sees it (checked on dev on 2026-11-28).
+- **Proposals** (`proposals file`): the server files the kinds `ACTION`, `OTHER`, `CHARTER` (with `--max-moderators`),
+  `MANIFESTO`, `MODERATION_RULES`, `MODERATOR_ELECTION`, `MODERATOR_REVOCATION`, `RECALL`, `PROPOSAL_SUMMARIES`, `SHOWCASE`,
+  `DISPLAY_CASE`, `FIELD`, `DAILY_DIGEST`, `CONVERSATION_STARTERS`, `VOTING_METHOD` (`DELEGATED` only),
+  `SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL` and `PINNED_CHANNELS`; the CLI refuses the others before anything is sent
+  (`NOT_ON_NEW_BACKEND`, with why and the kinds filed there: `THEME`, `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`,
+  `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`, `SECOND_ROUND`), and so the changes the server does not take
+  (`watermark`, `territory`, `theme`, `layoutRef`, `restoreLayoutVersion`, `appearance`, `studioDraftId`,
+  `playlistAction`, `channelAction`, `local`, `foldingCoefficient`) and a showcase clearing anything but its image (`LOGO`)
+  (`src/sulfur/talc.ts` `GUARDS`). `governance field` (`setUniverseField`) and `governance display` (adapted, above) are the
+  leadership's (`ONLY_LEADERSHIP_SETS_FIELD`, `LEADERSHIP_ONLY`; without leadership, a proposal of kind `FIELD` or
+  `DISPLAY_CASE`). `Proposal.discussion` and `notApplied`, `UniverseNews.decisions` and `LiveLine.vote` / `poll` are
+  answered.
 
 ## For automation (several personas)
 
@@ -120,17 +146,20 @@ of the media, the place feats and billing revised on 2026-11-26 for the server a
 | `reactToMessage(discussionId: <group chat>)` | A message of a group chat answers `MESSAGE_NOT_FOUND` | `MESSAGE_NOT_FOUND` | Reactions and threads are for universe discussions (talc; `replyInThread` says so with `THREAD_NOT_ALLOWED`); a clearer refusal than "not found" would help. Universe discussions are opened by the governance (`LEADERSHIP_ONLY`), so not verifiable with new accounts on dev. |
 | `buyGiftCode`, `billingPortal`, `startSubscription` and the other sales | Billing is gated: while the cell's Stripe webhook secret (`native-stripe-webhook`) is absent, as in dev ("Stripe sales closed in this cell"), they are refused before any Stripe call (server talc-deviations 5a, `syncedCatalog`) | `PROVIDER_NOT_AVAILABLE` | The CLI tells "Not available yet: payments are closed on this platform until its payment provider is set up" and keeps the code. Never run by the journey (no payment, no gift code). |
 | Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_ON_NEW_BACKEND`; an operator with a key signs in by RFC 7523 (`operator login`). |
+| `sendMessage(place \| arrival)` (server `6bd5daf1`, 2026-11-28) | A place or an arrival sent alone is stored and read back (`place.name`, `arrival.zoneName`), but its `kind` is `message` and its `text` `""` | — | talc's description names "a message of kind ARRIVAL"; the CLI shows the place or the arrival whatever the kind. |
+| `connectionStates` → `canInvite` (2026-11-28) | `true` for an account whose invite policy is `nobody`, or `except` with the caller excepted, though the invitation is then declined silently | — | talc: "whether the caller can invite it (its invitePolicy and its exceptions)". |
+| `Message.language` (2026-11-28) | `null` for a short French sentence ("Bonjour à tous, voici https://break.rocks") | — | By design when unsure (detection at read). |
 | (posts) emoji reactions | Neither talc nor the server has a reaction on a post (likes and dislikes only); reactions are on messages | — | `posts like` / `posts dislike`; `messages react` for messages. |
 
 ## Commands
 
 Generated by `npx tsx scripts/sulfur-table.ts --write` from the code (the operations each command sends, checked against
-the server's schema and the adapters); **Dev** marks the commands run against dev (last on 2026-11-27, `scripts/sulfur-verified.ts`): they did what they say, or met a refusal of the server listed above. "works"
+the server's schema and the adapters); **Dev** marks the commands run against dev (last on 2026-11-28, `scripts/sulfur-verified.ts`): they did what they say, or met a refusal of the server listed above. "works"
 means the server serves every operation the command sends under its talc name: the server may still refuse a case (its
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-648 commands: 565 work as they are, 36 through an adapter, 3 partly, 18 not available, 26 offline; 142 run against dev.
+648 commands: 568 work as they are, 37 through an adapter, 3 partly, 14 not available, 26 offline; 154 run against dev.
 
 #### account
 
@@ -171,8 +200,8 @@ deviations), which the command then reports with the server's code.
 | `me interactions` | works |  | myInteractions |  |
 | `me posts` | works |  | myPosts |  |
 | `me reports` | works |  | myReports |  |
-| `me invite-exceptions add` | not available |  | setInviteException | not served: setInviteException |
-| `me invite-exceptions remove` | not available |  | setInviteException | not served: setInviteException |
+| `me invite-exceptions add` | works | yes | setInviteException |  |
+| `me invite-exceptions remove` | works | yes | setInviteException |  |
 | `me notifications` | works |  | notifications, markRead |  |
 | `me sanctions` | works |  | mySanctions |  |
 | `me sanctions appeal` | works |  | appealSanction |  |
@@ -426,7 +455,7 @@ deviations), which the command then reports with the server's code.
 | `messages groups send` | works | yes |  | no talc operation found by the scan: not checked |
 | `messages groups read` | works | yes |  | no talc operation found by the scan: not checked |
 | `messages groups invite` | works | yes | inviteToGroupChat |  |
-| `messages groups leave` | works |  | leaveGroupChat |  |
+| `messages groups leave` | works | yes | leaveGroupChat |  |
 | `messages groups members` | works |  | groupChatMembers |  |
 | `messages groups admins` | works |  | groupChatMembers |  |
 | `messages groups admin-add` | works |  | setGroupChatAdmin |  |
@@ -434,9 +463,9 @@ deviations), which the command then reports with the server's code.
 | `messages groups ephemeral` | works |  | setGroupChatEphemeral |  |
 | `messages groups invitations` | works | yes | groupChatInvitations |  |
 | `messages groups accept` | works | yes | answerGroupChatInvitation |  |
-| `messages groups decline` | works |  | answerGroupChatInvitation |  |
-| `messages settings` | works |  | mySettings |  |
-| `messages settings set` | works |  | setSettings |  |
+| `messages groups decline` | works | yes | answerGroupChatInvitation |  |
+| `messages settings` | works | yes | mySettings |  |
+| `messages settings set` | works | yes | setSettings |  |
 | `messages direct delete-conversation` | works |  | deleteConversation |  |
 | `messages groups edit` | works |  | changeGroupChat |  |
 | `messages groups remove` | works |  | removeGroupChatMember |  |
@@ -620,7 +649,7 @@ deviations), which the command then reports with the server's code.
 | `moderation report` | works | yes | report |  |
 | `proposals list` | works | yes | proposals |  |
 | `proposals show` | works |  | proposal |  |
-| `proposals file` | works |  | fileProposal |  |
+| `proposals file` | works | yes | fileProposal |  |
 | `proposals support` | works |  | supportProposal |  |
 | `proposals vote` | works |  | voteOnProposal |  |
 | `proposals withdraw` | works |  | withdrawProposal |  |
@@ -662,8 +691,8 @@ deviations), which the command then reports with the server's code.
 | `governance manifesto-set` | works |  | setUniverseManifesto |  |
 | `governance successors` | works |  | setUniverseSuccessors |  |
 | `governance transfer` | works |  | transferUniverse |  |
-| `governance field` | not available |  | setUniverseField | not served: setUniverseField |
-| `governance display` | not available |  | setUniverseDisplay | not served: setUniverseDisplay |
+| `governance field` | works | yes | setUniverseField |  |
+| `governance display` | adapted | yes | setUniverseDisplay | adapted: setUniverseDisplay |
 | `governance territory` | works |  | setUniverseTerritory |  |
 | `governance my-vote` | works |  | myStandingIn |  |
 | `governance lend-votes` | works |  | lendVotes |  |
@@ -677,7 +706,7 @@ deviations), which the command then reports with the server's code.
 | `governance residents` | works | yes | universeResidents |  |
 | `governance welcome-wall` | works |  | welcomeWall |  |
 | `governance welcome` | works |  | welcomeResident |  |
-| `governance news` | works |  | universeNews |  |
+| `governance news` | works | yes | universeNews |  |
 | `governance pulse` | works |  | universePulse |  |
 | `governance manifesto-versions` | works |  | universeManifestoVersions |  |
 | `governance sub-governance` | works |  | giveSubUniverseGovernance |  |
@@ -777,10 +806,10 @@ deviations), which the command then reports with the server's code.
 | `connections request` | works | yes | requestConnection |  |
 | `connections accept` | works | yes | answerConnectionRequest |  |
 | `connections decline` | works |  | answerConnectionRequest |  |
-| `connections remove` | works |  | removeConnection |  |
+| `connections remove` | works | yes | removeConnection |  |
 | `connections list` | works | yes | myAccounts |  |
 | `connections requests` | works | yes | connectionRequests |  |
-| `connections state` | works |  | connectionStates |  |
+| `connections state` | works | yes | connectionStates |  |
 | `connections mine` | works |  | myConnections |  |
 
 #### money

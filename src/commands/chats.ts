@@ -6,11 +6,26 @@
 import { apiCommand } from '../api/command.js';
 import { selection } from '../api/graphql.js';
 import { usageError } from '../errors.js';
+import { instantOf } from './read.js';
 import { discussionTarget, doneText, listText, oneDiscussion, pageText, pointOf } from './shared.js';
 
 const MESSAGE = selection('Message', 1);
-type Message = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; deleted?: boolean };
-const messageLine = (m: Message) => `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${m.deleted ? '(deleted)' : m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ')}`;
+type Message = {
+  id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; deleted?: boolean;
+  place?: { name?: string | null } | null; arrival?: { zoneName?: string | null } | null; stance?: string | null; language?: string | null; via?: { agentName?: string | null } | null;
+  quickPoll?: { question?: string; choices?: string[]; totals?: number[] | null; myChoice?: number | null } | null; myVote?: string | null;
+};
+/** What a message carries beside its text: its place, arrival, stance, quick poll, agent and language. */
+const messageExtras = (m: Message) => [
+  m.place?.name ? `place: ${m.place.name}` : '', m.arrival?.zoneName ? `arrived: ${m.arrival.zoneName}` : '', m.stance ? `stance: ${m.stance}` : '', m.myVote ? `my vote: ${m.myVote}` : '',
+  m.quickPoll ? `poll: ${m.quickPoll.question ?? ''} [${(m.quickPoll.choices ?? []).map((c, n) => `${n === m.quickPoll?.myChoice ? '*' : ''}${c}${m.quickPoll?.totals ? ` ${m.quickPoll.totals[n] ?? 0}` : ''}`).join(' | ')}]` : '',
+  m.via?.agentName ? `via ${m.via.agentName}` : '', m.language ? `(${m.language})` : '',
+].filter(Boolean).join('  ');
+const messageLine = (m: Message) => {
+  const body = m.deleted ? '(deleted)' : m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ');
+  const extras = m.deleted || m.deletedForMe ? '' : messageExtras(m);
+  return `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${body}${extras ? `${body ? '  ' : ''}${extras}` : ''}`;
+};
 const messageText = (r: unknown) => (r ? messageLine(r as Message) : '(none)');
 const targetHelp = 'Name the discussion with exactly one of --with (a conversation: @handle or its id), --group (a group chat id) or --channel (a universe discussion: %paris&general).';
 const inDiscussion = { ...discussionTarget, prepare: oneDiscussion };
@@ -83,9 +98,9 @@ export const messagesTyping = apiCommand({
 export const messagesChanges = apiCommand({
   name: 'messages changes', summary: 'Catch up: the new, changed or deleted messages of a discussion since a time, at most 30 days back (messageChanges)',
   description: `${targetHelp} The pages are followed to the end (at most --max, 100 by default; \`next\` is the cursor to go on with --after). The platform reads from a few seconds before --since, so a message near it may come again: merge the answers by message id. A cursor is opaque; one refused (CURSOR_INVALID) means starting again without --after.`,
-  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when (ISO 8601)' }, select: `{ items ${MESSAGE} next }`,
-  prepare: (i) => { const o = oneDiscussion(i); return { ...o, all: o.all ?? true, max: o.max ?? 100 }; },
-  text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z'],
+  kind: 'query', op: 'messageChanges', ...inDiscussion, descriptions: { ...discussionTarget.descriptions, since: 'Since when: a duration back from now (30m, 2h, 7d) or a date (ISO 8601); sent as an ISO 8601 instant' }, select: `{ items ${MESSAGE} next }`,
+  prepare: (i, ctx) => { const o = oneDiscussion(i); return { ...o, ...(typeof o.since === 'string' ? { since: new Date(instantOf(o.since, ctx.now())).toISOString() } : {}), all: o.all ?? true, max: o.max ?? 100 }; },
+  text: pageText(messageLine), examples: ['breakrocks messages changes --group <group id> --since 2026-11-07T00:00:00Z', 'breakrocks messages changes --with @alice --since 1h'],
 });
 export const messagesPinned = apiCommand({
   name: 'messages pinned', summary: 'The pinned messages of a group chat or a universe discussion, the most recent first, 3 at most (pinnedMessages)', description: targetHelp,

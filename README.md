@@ -494,18 +494,18 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `discussions channels create` | Open a channel | `breakrocks discussions channels create %paris velo` |
 | `discussions channels join` | Join a channel | `breakrocks discussions channels join %paris&velo` |
 | `discussions channels leave` | Leave a channel | `breakrocks discussions channels leave %paris&velo` |
-| `discussions send` | Send a message in a discussion | `breakrocks discussions send %paris&velo "See you at 6 pm"` |
+| `discussions send` | Send a message in a discussion (a stance, or a place alone) | `breakrocks discussions send %paris&velo "See you at 6 pm"` |
 | `discussions read` | Read the messages of a discussion | `breakrocks discussions read %paris&velo --json` |
 | `discussions channels levels` | Where a channel proposal may open | `breakrocks discussions channels levels %paris` |
 | `messages inbox` | Your conversations and group chats | `breakrocks messages inbox` |
-| `messages direct send` | Send a direct message | `breakrocks messages direct send @alice "Hello!"` |
+| `messages direct send` | Send a direct message (or a place or an arrival alone) | `breakrocks messages direct send @alice "Hello!"` |
 | `messages direct read` | Read a conversation | `breakrocks messages direct read @alice` |
 | `messages direct delete` | Delete a direct message (confirmation: `--yes`) | `breakrocks messages direct delete <message id> --with @alice --yes` |
 | `messages direct ephemeral` | Make a conversation disappear | `breakrocks messages direct ephemeral @alice 24h` |
 | `messages groups create` | Create a group chat | `breakrocks messages groups create "The cycling friends" @alice @bob` |
 | `messages groups` | Your group chats | `breakrocks messages groups --json` |
 | `messages groups show` | Show a group chat | `breakrocks messages groups show <group id>` |
-| `messages groups send` | Send a message in a group chat | `breakrocks messages groups send <group id> "See you at 6 pm"` |
+| `messages groups send` | Send a message in a group chat (or a place or an arrival alone) | `breakrocks messages groups send <group id> "See you at 6 pm"` |
 | `messages groups read` | Read a group chat | `breakrocks messages groups read <group id>` |
 | `messages groups invite` | Invite someone to a group chat | `breakrocks messages groups invite <group id> @alice` |
 | `messages groups leave` | Leave a group chat (confirmation: `--yes`) | `breakrocks messages groups leave <group id> --yes` |
@@ -518,7 +518,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `messages groups accept` | Accept a group chat invitation | `breakrocks messages groups accept <group id>` |
 | `messages groups decline` | Decline a group chat invitation | `breakrocks messages groups decline <group id> --openly --reason "No time"` |
 | `messages settings` | The settings of the messages | `breakrocks messages settings` |
-| `messages settings set` | Change the settings of the messages | `breakrocks messages settings set --read-receipts false` |
+| `messages settings set` | Change the settings of the messages (who may invite: `--invite-policy`) | `breakrocks messages settings set --read-receipts false` |
 | `messages direct delete-conversation` | Delete a conversation for yourself (confirmation: `--yes`) | `breakrocks messages direct delete-conversation @alice --yes` |
 | `messages groups edit` | Change a group chat | `breakrocks messages groups edit <group id> --name "Club ride" --members-can-invite` |
 | `messages groups remove` | Remove a member from a group chat (confirmation: `--yes`) | `breakrocks messages groups remove <group id> @bob --yes` |
@@ -1013,6 +1013,14 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   (`deleteMessage` by a moderator; `--thread-root` for a reply of a thread), `universes pages publish` (a studio draft used
   then deleted, the file's version checked first) and `posts feed --clips` (`clipFeedSequence`; an address's clips are its
   posts filtered `CLIPS`). [docs/sulfur.md](docs/sulfur.md) § Adapted.
+- **The schema resynced again** (0.47.0, server 6bd5daf1): `me invite-exceptions add|remove`, `governance field` and
+  `governance display` (adapted: the universe read after it) come back; `messages settings set --invite-policy
+  connections|nobody|except`; `messages direct send` and `messages groups send` send a place (`--place-point`,
+  `--place-name`) or an arrival (`--arrival`) alone, `discussions send` a place alone or a stance; the message reads answer
+  the new `Message` fields (place, arrival, stance, spans, language, via, my vote, quick poll, cards), the one-line form
+  prints them; `proposals file` refuses before sending the kinds and changes the new backend does not file (`THEME`,
+  `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`, `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`,
+  `SECOND_ROUND`; `watermark`, `appearance`, `channelAction`…). [docs/sulfur.md](docs/sulfur.md) § Messages, § Proposals.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
   taken), `whoami`, the profile with its avatar, posts (two images in the first post of a new universe's sub-level, a vertical clip when
   `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the
