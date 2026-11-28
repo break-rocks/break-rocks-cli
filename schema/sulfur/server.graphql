@@ -1530,6 +1530,21 @@ type Mutation {
   The talc form (universe, editor) or the provisional one (universeId, on); answers the universe with its pageEditors.
   """
   setPageEditor(universe: String, universeId: ID, accountId: ID!, editor: Boolean, on: Boolean, requestId: ID): Universe
+
+  """
+  talc C-12: a layout published in a universe where the caller can post, or the next version of the caller's layout of that name.
+  """
+  publishLayout(universe: String!, document: AWSJSON!, requestId: ID): Layout
+
+  """
+  talc: a copy of a layout of the catalog under a new name, published in targetUniverse, or kept as a studio draft.
+  """
+  copyLayout(as: String!, name: String!, targetUniverse: String, universe: String!, requestId: ID): LayoutCopy
+
+  """
+  talc: a layout deleted by its creator: out of the catalog, still applied where it is (deleted).
+  """
+  deleteLayout(name: String!, universe: String!, requestId: ID): Layout
   sendPriorityInvitation(email: String!, requestId: ID!): Boolean!
   createShortLink(url: String!, requestId: ID!): ShortLink!
 
@@ -2233,6 +2248,16 @@ type Universe {
 
   """When I may join again after leaving (the rejoin delay), or null."""
   canJoinAt: String
+
+  """
+  talc: the code joinUniverse answers now (REJOIN_TOO_SOON: the rejoin delay runs), null when I can join now.
+  """
+  joinRefusal: String
+
+  """
+  talc: the residents of its first level (the root's members count, AGG's sharded counter folded, cached 60 s); null for a private universe and the root universe.
+  """
+  residentCount: Int
   myJoinRequest: MyJoinRequest
 
   """
@@ -2259,11 +2284,6 @@ type Universe {
   talc: the reader's role in a public universe (LEADERSHIP, MODERATOR, RESIDENT, VISITOR); null for a private one.
   """
   myReaderRole: String
-
-  """
-  talc (universe-layouts.feature): the layouts' first focus — not kept by the new model yet (null: the page's default).
-  """
-  firstFocus: String
 
   """talc: a public universe's rules post (its first level's, by @system)."""
   rulesPost: Post
@@ -2334,9 +2354,32 @@ type Universe {
   pageEditors: [AccountRef!]
 
   """
-  talc (universe-strip.feature): whether its posts carry the universe strip, its first level's choice — on (no switch served yet).
+  talc (universe-strip.feature): whether its posts carry the universe strip, its first level's choice (setUniverseProfile universeStrip); true by default.
   """
   universeStrip: Boolean
+
+  """
+  talc (universe-layouts.feature): its first focus, its own or its nearest universe above's (POSTS, CLIPS, MAP, DEBATES); null: its field's, else posts; null for a private universe and the root universe.
+  """
+  firstFocus: UniverseFocus
+
+  """
+  talc (D-318, governance-page.feature): the account layout of its governance page its leadership chose; null: the platform layout.
+  """
+  governanceLayoutRef: LayoutRef
+
+  """
+  talc: the field of its first level (null: none, a private universe, the root universe).
+  """
+  field: UniverseField
+
+  """
+  talc: whether its field is only suggested — never (no suggested field is kept): false (null when the universe cannot be read).
+  """
+  fieldSuggested: Boolean
+
+  """talc (contracts/urls.md): its canonical web URL."""
+  url: String
 
   """Its search words (a private universe's: its members only)."""
   searchWords: [String!]!
@@ -2600,6 +2643,10 @@ input UniverseProfileInput {
   description: String
   image: UniverseImageInput
   clear: [UniverseProfilePart!]
+  firstFocus: UniverseFocus
+  universeStrip: Boolean
+  layoutRef: LayoutRefInput
+  governanceLayoutRef: LayoutRefInput
 }
 
 type SubUniversePage {
@@ -5689,7 +5736,11 @@ type Layout {
   version: Int!
   platform: Boolean!
   registryVersion: Int!
-  document: AWSJSON!
+
+  """
+  Its document as served (an account layout's read only when asked; null only if its version is gone meanwhile).
+  """
+  document: AWSJSON
   deleted: Boolean!
   starred: Boolean!
   universeCount: Int!
@@ -6295,6 +6346,28 @@ type StudioDraftUse {
   layout: Layout
   page: PageOfUniverse
   proposal: ProposalRef
+}
+
+"""
+talc's focus of a universe page: since D-217 only POSTS, CLIPS, MAP and DEBATES are focus (the others refused as a first focus).
+"""
+enum UniverseFocus {
+  AGENDA
+  CLIPS
+  DEBATES
+  GOVERNANCE
+  MAP
+  POSTS
+  SHOWCASE
+  SUB_UNIVERSES
+}
+
+"""
+talc copyLayout: the layout published in the target universe, or the studio draft made.
+"""
+type LayoutCopy {
+  layout: Layout
+  draft: StudioDraft
 }
 
 type ShortLink {
