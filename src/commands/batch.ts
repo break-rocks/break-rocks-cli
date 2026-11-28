@@ -7,7 +7,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Context } from '../context.js';
 import { asCliError, usageError } from '../errors.js';
-import { forBackend } from '../sulfur/dispatch.js';
 import { MAX_WORDS, deprecationNotice, execute, findCommand, type Command } from '../registry.js';
 import { bool, int, list, object, openObject, parseCommandLine, str } from '../schema.js';
 
@@ -50,10 +49,9 @@ export const batch: Command<{ file: string; continue?: boolean }, BatchResult> =
         if (input.watch) throw usageError('INVALID_INPUT', `line ${n}: --watch is not an action`);
         let requestId: string | undefined;
         if (command.input.properties.requestId) { requestId = (line.requestId ?? input.requestId ?? randomUUID()) as string; input.requestId = requestId; }
-        // Each line on a context of its own (what a command keeps for its run, a hint, a degraded document, stays there),
-        // and the command of the backend of this run (its stand-in on the new one, or its refusal there).
+        // Each line on a context of its own (what a command keeps for its run, a hint, stays there).
         const lineCtx = new Context(ctx.io, ctx.flags);
-        const result = await execute(lineCtx, forBackend(lineCtx, command), input);
+        const result = await execute(lineCtx, command, input);
         results.push({ line: n, command: name, ok: true, ...(requestId ? { requestId } : {}), result });
       } catch (error) {
         failed++;

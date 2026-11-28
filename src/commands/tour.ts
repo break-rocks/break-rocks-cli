@@ -7,14 +7,14 @@
 import { apiCommand } from '../api/command.js';
 import { cliRefusal, usageError } from '../errors.js';
 import type { Context } from '../context.js';
-import { readSession } from '../session.js';
+import { sessionKind } from '../session.js';
 import { settingsBut } from './navigation.js';
 
 const TOUR = '{ tour { state step mode voiceLanguage autoAdvance resumeCardClosed newNavigationCardDismissed gestures { gesture outcome } } }';
 
 /** The session of an agent operator account (its key signs in): it has no app tour. A delegated agent acts for its operator, the API says. */
 function notForOperator(ctx: Context): void {
-  if ((readSession(ctx)?.kind ?? ctx.profile().kind) === 'operator') throw cliRefusal('NO_APP_TOUR_FOR_AGENT_OPERATOR', 'An agent operator has no app tour (D-515): the app tour is for the account of a human, played in the mobile apps');
+  if ((sessionKind(ctx) ?? ctx.profile().kind) === 'operator') throw cliRefusal('NO_APP_TOUR_FOR_AGENT_OPERATOR', 'An agent operator has no app tour (D-515): the app tour is for the account of a human, played in the mobile apps');
 }
 
 type Tour = { state: string; step?: number | null; mode?: string | null; voiceLanguage?: string | null; autoAdvance?: boolean; resumeCardClosed?: boolean; newNavigationCardDismissed?: boolean; gestures?: { gesture: string; outcome: string }[] };

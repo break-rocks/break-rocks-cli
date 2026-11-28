@@ -1,4 +1,4 @@
-// The transport of the new backend (native-sulfur, client port plan § GraphQL transport): one host per cell
+// The transport of native-sulfur (native-sulfur, client port plan § GraphQL transport): one host per cell
 // (`<cell>.api.<site>`) serving `/graphql`, `/auth/*` and `/oauth/*` behind CloudFront with origin access control, so every
 // POST carries `x-amz-content-sha256` (the SHA-256 of the exact bytes sent) and the token travels in `x-authorization`
 // (the function URL's own `Authorization` is CloudFront's signature). BREAKROCKS_SULFUR_URL replaces the host (a cell not
@@ -35,7 +35,7 @@ async function bodyOf(res: Response): Promise<Record<string, unknown>> {
   } catch { return { raw: text.slice(0, 300) }; }
 }
 
-/** A POST to the new backend: JSON, or a form for `/oauth/*` ([form]); its answer whatever its status. */
+/** A POST to native-sulfur: JSON, or a form for `/oauth/*` ([form]); its answer whatever its status. */
 export async function sulfurPost(ctx: Context, base: string, path: string, payload: Record<string, string | undefined> | Record<string, unknown>, options: { form?: boolean; token?: string } = {}): Promise<SulfurAnswer> {
   const body = options.form
     ? new URLSearchParams(Object.entries(payload).filter((e): e is [string, string] => typeof e[1] === 'string')).toString()
@@ -59,8 +59,8 @@ export function authRefusal(answer: SulfurAnswer, what: string): CliError {
   if (answer.status === 429) return platformRefusal('TOO_MANY_REQUESTS', `${what}: too many requests, try again later`, { status: 429 });
   const e = j.errors?.[0];
   const code = e?.extensions?.reason ?? e?.extensions?.code ?? j.reason ?? (typeof j.error === 'string' ? (j.error_description && /^[A-Z_]+$/.test(j.error_description) ? j.error_description : j.error) : undefined) ?? j.code;
-  if (answer.status >= 500 && !code) return networkError('SERVER_ERROR', `${what}: the new backend answered ${answer.status}`, { status: answer.status }, 'platform');
-  if (answer.status === 403 && !code) return networkError('FORBIDDEN', `${what}: the new backend refused the request (403; its edge or its origin access)`, { status: 403 }, 'platform');
+  if (answer.status >= 500 && !code) return networkError('SERVER_ERROR', `${what}: native-sulfur answered ${answer.status}`, { status: answer.status }, 'platform');
+  if (answer.status === 403 && !code) return networkError('FORBIDDEN', `${what}: native-sulfur refused the request (403; its edge or its origin access)`, { status: 403 }, 'platform');
   return platformRefusal(code ?? `HTTP_${answer.status}`, `${what}: ${e?.message ?? j.message ?? j.error_description ?? code ?? `HTTP ${answer.status}`}`, { status: answer.status });
 }
 
@@ -70,7 +70,7 @@ export function expectAuthOk(answer: SulfurAnswer, what: string): Record<string,
   return answer.json;
 }
 
-/** A GraphQL error of the new backend. */
+/** A GraphQL error of native-sulfur. */
 type GqlError = { message?: string; path?: unknown; extensions?: { code?: string; reason?: string; errorInfo?: unknown; partial?: boolean } };
 
 /** A token refused by the API: the caller renews it once and tries again. */
@@ -99,7 +99,7 @@ export async function sulfurGraphql<T>(ctx: Context, base: string, token: string
     const errorInfo = first.extensions?.errorInfo;
     throw platformRefusal(code, refusalText(code, first.message && first.message !== code ? first.message : code, errorInfo), { ...(first.extensions?.code ? { kind: first.extensions.code } : {}), ...(errorInfo ? { errorInfo } : {}) });
   }
-  if (answer.status >= 500) throw networkError('SERVER_ERROR', `The new backend answered ${answer.status}`, { status: answer.status }, 'platform');
+  if (answer.status >= 500) throw networkError('SERVER_ERROR', `native-sulfur answered ${answer.status}`, { status: answer.status }, 'platform');
   if (answer.status >= 400) throw authRefusal(answer, 'The API');
   return (body.data ?? {}) as T;
 }

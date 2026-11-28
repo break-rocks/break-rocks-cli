@@ -87,24 +87,20 @@ function setup(options: Parameters<typeof fakeCell>[0] & { keychain?: boolean; i
   return { h, cell, keychain, metaFile, sulfur: (...argv: string[]) => h.run('--backend', 'sulfur', ...argv) };
 }
 
-describe('the backend switch', () => {
-  it('is the former backend by default; --backend, BREAKROCKS_BACKEND and the profile choose the new one', async () => {
+describe('the backend', () => {
+  it('is native-sulfur only: --backend sulfur and BREAKROCKS_BACKEND=sulfur still taken, legacy refused', async () => {
     const { h, sulfur } = setup();
-    expect(new Context(h.io, NO_FLAGS).backend()).toBe('legacy');
-    expect(await h.run('config', 'set', 'backend', 'sulfur', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ backend: 'sulfur' });
-    expect(new Context(h.io, NO_FLAGS).backend()).toBe('sulfur');
-    expect(new Context({ ...h.io, env: { ...h.io.env, BREAKROCKS_BACKEND: 'legacy' } }, NO_FLAGS).backend()).toBe('legacy');
-    expect(new Context(h.io, { ...NO_FLAGS, backend: 'legacy' }).backend()).toBe('legacy');
-    expect(await h.run('config', 'unset', 'backend')).toBe(0);
-    expect(new Context(h.io, NO_FLAGS).backend()).toBe('legacy');
-    expect(await h.run('--backend', 'granite', 'whoami', '--json')).toBe(2);
-    expect(last(h)).toMatchObject({ error: { code: 'BACKEND_INVALID' } });
-    // A command of the former backend's own hosts says so; offline ones work as ever.
-    expect(await sulfur('operator', 'register', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND', command: 'operator register' } });
     expect(await sulfur('version', '--json')).toBe(0);
-    expect(await sulfur('whoami', '--json')).toBe(3);
+    expect(await h.run('--backend', 'legacy', 'whoami', '--json')).toBe(2);
+    expect(last(h)).toMatchObject({ error: { code: 'BACKEND_REMOVED' } });
+    const legacyEnv = harness({ env: { BREAKROCKS_BACKEND: 'legacy' } });
+    expect(await legacyEnv.run('whoami', '--json')).toBe(2);
+    expect(last(legacyEnv)).toMatchObject({ error: { code: 'BACKEND_REMOVED' } });
+    expect(await h.run('config', 'set', 'backend', 'sulfur', '--json')).toBe(2);
+    // A command whose service is not ported yet says so; offline ones work as ever.
+    expect(await h.run('operator', 'register', '--country', 'FR', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE', command: 'operator register' } });
+    expect(await h.run('whoami', '--json')).toBe(3);
     expect(last(h)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED' } });
   });
 });
@@ -295,7 +291,7 @@ describe('the commands on the new backend', () => {
     expect(last(h)).toMatchObject({ displayName: 'Ada L.', bio: 'Hi' });
     expect(cell.calls.find((c) => String(c.body.query).includes('updateProfile'))!.body).toMatchObject({ variables: { input: { name: 'Ada L.', bio: 'Hi' } } });
     expect(await sulfur('me', 'profile', 'set', '--ai-description', 'x', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE' } });
     expect(await sulfur('posts', 'create', 'Hello sulfur', '--in', '%paris', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ id: 'eu_post1', universe: '%paris', text: 'Hello sulfur' });
     // createPost's talc arguments the server does not take, left empty: not sent.

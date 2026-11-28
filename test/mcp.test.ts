@@ -2,12 +2,11 @@
 // refusal of a tool that asks a confirmation without "yes", its resources and its prompt.
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createServer } from '../src/mcp/server.js';
 import { commands } from '../src/registry.js';
-import { fakePayer, onPlatform } from './fake-platform.js';
+import { operatorOnPlatform } from './fake-platform.js';
 import { harness } from './helpers.js';
 import { scripted } from './scripted.js';
 
@@ -26,10 +25,10 @@ describe('the MCP server', () => {
     const client = await connected(harness());
     const { tools } = await client.listTools();
     // Every command but the server itself, the completion of the shells, the update of the CLI, the
-    // sign-in and sign-out of a human, the change of its password, and the change of the current profile.
-    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'config set', 'config unset', 'config use', 'login', 'logout', 'mcp', 'me password', 'update']);
+    // sign-in and sign-out of a human, and the change of the current profile.
+    expect(commands().filter((c) => c.mcp === false).map((c) => c.name).sort()).toEqual(['completion', 'config set', 'config unset', 'config use', 'login', 'logout', 'mcp', 'update']);
     // One tool per command, and the former tool names still served (deprecated): breakrocks_explore_search.
-    expect(tools.length).toBe(commands().length - 9 + commands().reduce((n, c) => n + (c.formerTools?.length ?? 0), 0));
+    expect(tools.length).toBe(commands().length - 8 + commands().reduce((n, c) => n + (c.formerTools?.length ?? 0), 0));
     const names = tools.map((t) => t.name);
     expect(names).toEqual(expect.arrayContaining(['breakrocks_whoami', 'breakrocks_me_capabilities', 'breakrocks_agents_create', 'breakrocks_operator_register', 'breakrocks_look_themes_prompt', 'breakrocks_agents_login', 'breakrocks_config_list']));
     for (const name of ['breakrocks_mcp', 'breakrocks_completion', 'breakrocks_login', 'breakrocks_logout', 'breakrocks_config_use', 'breakrocks_update']) expect(names).not.toContain(name);
@@ -98,20 +97,16 @@ describe('the MCP server', () => {
     expect(extra.isError).toBe(true);
   });
   it('signs in a delegated agent from its variables and answers whoami, as a tool and as a resource', async () => {
-    const { h, platform } = await onPlatform({ payer: fakePayer });
-    writeFileSync(join(h.dir, 'w.key'), '44'.repeat(32));
-    await h.run('--env', 'dev', 'operator', 'keygen', '--json');
-    await h.run('--env', 'dev', 'wallet', 'set', '--key', join(h.dir, 'w.key'), '--json');
-    await h.run('--env', 'dev', 'operator', 'register', '--country', 'FR', '--full-age', '--yes', '--json');
+    const { h, platform } = await operatorOnPlatform();
     const out = join(h.dir, 'a.pem');
     await h.run('agents', 'create', 'relay', '--out', out, '--json');
     const created = h.values[h.values.length - 1] as { agentId: string; operatorId: string };
     const { readFileSync } = await import('node:fs');
-    const agent = harness({ fetch: platform.fetch, env: { BREAKROCKS_OPERATOR_ID: created.operatorId, BREAKROCKS_AGENT_ID: created.agentId, BREAKROCKS_AGENT_KEY: readFileSync(out, 'utf8') } });
+    const agent = harness({ fetch: platform.fetch, env: { BREAKROCKS_SULFUR_URL: 'https://api.test', BREAKROCKS_OPERATOR_ID: created.operatorId, BREAKROCKS_AGENT_ID: created.agentId, BREAKROCKS_AGENT_KEY: readFileSync(out, 'utf8') } });
     agent.clock.now = h.clock.now;
     const client = await connected(agent, { env: 'dev' });
     const login = await client.callTool({ name: 'breakrocks_agents_login', arguments: {} });
-    expect(textOf(login)).toMatchObject({ agentId: created.agentId, keySource: 'env' });
+    expect(textOf(login)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId });
     const who = await client.callTool({ name: 'breakrocks_whoami', arguments: {} });
     expect(textOf(who)).toMatchObject({ actor: 'delegated-agent', agentId: created.agentId, account: { id: created.operatorId } });
     const { resources } = await client.listResources();

@@ -1,4 +1,4 @@
-// The browser sign-in on the new backend (client `cli`, RFC 8252 loopback + PKCE S256; server core/auth/cli-handoff.ts):
+// The browser sign-in on native-sulfur (client `cli`, RFC 8252 loopback + PKCE S256; server core/auth/cli-handoff.ts):
 // the CLI listens on 127.0.0.1 (a random port), opens the web page `/cli/login?port=&state=&challenge=` of the environment;
 // the person confirms there, the page asks `POST /auth/cli/authorize` for an authorization code and sends the browser to
 // `http://127.0.0.1:<port>/cb?code=&state=` (the path is exactly `/cb`); the CLI checks the state and exchanges the code at
@@ -8,7 +8,7 @@ import { createServer, type ServerResponse } from 'node:http';
 import type { Context } from '../context.js';
 import type { Environment } from '../config.js';
 import { CliError, EXIT, cliRefusal, platformRefusal } from '../errors.js';
-import { openInBrowser } from '../browser-login.js';
+import { openInBrowser } from '../open-browser.js';
 import { authRefusal, SULFUR_DEFAULT_CELL, SULFUR_SITES, sulfurBase, sulfurPost } from './http.js';
 import { finish } from './auth.js';
 import { CLIENT_ID, type SulfurSession } from './session.js';

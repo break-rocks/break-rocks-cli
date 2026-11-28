@@ -1,11 +1,10 @@
-// whoami, usage and capabilities: who the profile is, what it used, what it may do.
+// usage and capabilities: what the profile used, what it may do (whoami: src/sulfur/commands.ts).
 import { selection } from '../api/graphql.js';
-import { paint } from '../colour.js';
 import type { Context } from '../context.js';
 import { CliError } from '../errors.js';
 import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
-import { agentFromEnv, api, ensureSession, readSession, type Session } from '../session.js';
+import { api } from '../session.js';
 import { DEFAULT_MAX_USD_PER_DAY, formatUsdc, networkOf, spentToday } from '../x402.js';
 import { ensureSulfurSession, sulfurActorOf } from '../sulfur/session.js';
 
@@ -14,16 +13,12 @@ import { ensureSulfurSession, sulfurActorOf } from '../sulfur/session.js';
 const OWN = 'own { legalSpace paidTier paidUntil fullAgeConfirmedAt minimumAgeCheckedAt }';
 const ME = `{ me { id kind handle displayName organizationName ${OWN} } }`;
 type Me = { id: string; kind: string; handle: string; displayName: string; organizationName: string | null; legalSpace: string | null; paidTier: string | null; paidUntil: string | null; fullAgeConfirmedAt: string | null; minimumAgeCheckedAt?: string | null };
-/** What a human reads of itself: its account (minimum age checked, legal space), its subscription, the universes it resides in. */
-const HUMAN_ME = `{ me { id kind handle displayName ${OWN} } mySubscription { tier status interval paidUntil automaticRenewal provider } myPresences { items { universe joinedAt endsAt canVote } next } }`;
 type MeAnswer = Omit<Me, 'legalSpace' | 'paidTier' | 'paidUntil' | 'fullAgeConfirmedAt' | 'minimumAgeCheckedAt'> & { own?: Partial<Me> | null };
 /** The account of me with its own fields (Account.own) beside the others. */
 const flat = (me: MeAnswer | null): Me => {
   const { own, ...rest } = (me ?? {}) as MeAnswer;
   return { legalSpace: null, paidTier: null, paidUntil: null, fullAgeConfirmedAt: null, ...rest, ...(own ?? {}) } as Me;
 };
-type Subscription = { tier: string; status: string; interval: string; paidUntil: string; automaticRenewal: boolean; provider: string };
-type Presence = { universe: string; joinedAt: string; endsAt: string; canVote: boolean };
 type Window = { used: number; limit: number; resetAt: string };
 type Usage = { minute: Window; hour: Window; quota: Window | null; tier: string | null; byCategory: { category: string; hour: number; quota: number | null }[] };
 type Allowance = { allowance: number; operated: number; createdLast24Hours: number };
@@ -32,68 +27,19 @@ const USAGE = '{ myUsage { minute { used limit resetAt } hour { used limit reset
 const meSchema = openObject({ id: str('The account id'), kind: str('human, operator or system'), handle: str('Its handle'), displayName: str('Its display name'), paidUntil: { type: ['string', 'null'], description: 'End of the paid period (an operator)' } });
 const windowSchema = openObject({ used: int('Units used'), limit: int('Limit'), remaining: int('Units left'), resetAt: str('When the window resets') });
 
-/** Who acts: a human, a delegated agent (its token acts as its operator, `me` is the operator's account) or the operator. */
-function actorOf(ctx: Context): 'human' | 'delegated-agent' | 'operator' | 'unknown' {
-  if (agentFromEnv(ctx.env)) return 'delegated-agent';
-  const kind = readSession(ctx)?.kind ?? ctx.profile().kind;
-  return kind === 'agent' ? 'delegated-agent' : kind === 'operator' ? 'operator' : kind === 'human' ? 'human' : 'unknown';
-}
+/** Who acts, as capabilities reads it: its kind, the account (an agent acts for its operator's), the delegated agent. */
+type ActorSession = { kind: 'human' | 'operator' | 'agent'; accountId: string; operatorId?: string; agentId?: string; recoveryKeyRequired?: boolean };
 /**
- * Who acts on the new backend, from its session (signed in, or signed in now with an agent's key): a human, a delegated
- * agent (its token's `act.sub`) or an agent operator; and the session as the former backend's code reads it (its kind,
- * the account an agent acts for as its operator).
+ * Who acts, from the session (signed in, or signed in now with an agent's key): a human, a delegated agent (its token's
+ * `act.sub`) or an agent operator.
  */
-async function sulfurActor(ctx: Context): Promise<{ actor: 'human' | 'delegated-agent' | 'operator'; session: Session }> {
+async function sulfurActor(ctx: Context): Promise<{ actor: 'human' | 'delegated-agent' | 'operator'; session: ActorSession }> {
   const s = await ensureSulfurSession(ctx);
   const { actor, agentId } = sulfurActorOf(s);
   const kind = actor === 'human' ? 'human' : actor === 'operator' ? 'operator' : 'agent';
-  return { actor, session: { kind, token: '', sessionId: '', expiresAt: s.accessExpiresAt, accountId: s.accountId, ...(kind === 'human' ? {} : { operatorId: s.accountId }), ...(agentId ? { agentId } : {}) } };
+  return { actor, session: { kind, accountId: s.accountId, ...(kind === 'human' ? {} : { operatorId: s.accountId }), ...(agentId ? { agentId } : {}) } };
 }
 const remaining = (w: Window | null) => (w ? { ...w, remaining: Math.max(0, w.limit - w.used) } : null);
-
-type WhoamiResult = {
-  actor: string; profile: string; env: string; cell: string; account: Me; agentId?: string;
-  subscription?: Subscription | null; residences?: Presence[]; notes?: string[];
-  session: { sessionId: string; expiresAt: string; signInAgainBy?: string };
-};
-
-export const whoami: Command<Record<string, never>, WhoamiResult> = {
-  name: 'whoami', summary: 'The account signed in (me): handle, kind, paid period; the delegated agent acting; a human\'s subscription and residences',
-  description: 'A delegated agent acts as its operator: me is the operator\'s account, and agentId says which agent acts. A human: its account (minimum age checked, legal space), its subscription (mySubscription) and the universes it resides in (myPresences, the first page).',
-  examples: ['breakrocks whoami', 'breakrocks whoami --json --fields account.handle,actor'],
-  input: object({}),
-  output: openObject({
-    actor: str('human, operator or delegated-agent'), profile: str('The profile'), env: str('Environment'), cell: str('Home cell'), account: meSchema, agentId: str('The delegated agent acting'),
-    subscription: { type: ['object', 'null'], description: 'A human: its paid subscription (mySubscription), null on the free tier' },
-    residences: list('A human: the universes it resides in (myPresences)', openObject({ universe: str('The universe'), endsAt: str('When the residence ends'), canVote: bool('It may vote there') })),
-    notes: list('What could not be read'),
-    session: openObject({ sessionId: str('Session'), expiresAt: str('When its token ends'), signInAgainBy: str('A human: when the session ends (7 days after the sign-in)') }),
-  }),
-  run: async (ctx) => {
-    const { session, at } = await ensureSession(ctx);
-    if (session.kind === 'human') {
-      const data = await api<{ me: MeAnswer; mySubscription: Subscription | null; myPresences: { items: Presence[] } | null; _errors?: { errorType?: string; path?: unknown }[] }>(ctx, HUMAN_ME, {}, { partial: true });
-      const current = readSession(ctx) ?? session;
-      const notes = (data._errors ?? []).map((e) => `${Array.isArray(e.path) ? e.path.join('.') : 'the API'}: ${e.errorType ?? 'refused'}`);
-      return {
-        actor: 'human', profile: ctx.profileName, env: at.env, cell: at.cell, account: flat(data.me), subscription: data.mySubscription ?? null, residences: data.myPresences?.items ?? [],
-        ...(notes.length ? { notes } : {}), session: { sessionId: current.sessionId, expiresAt: current.expiresAt, ...(current.signInAgainBy ? { signInAgainBy: current.signInAgainBy } : {}) },
-      };
-    }
-    const me = flat((await api<{ me: MeAnswer }>(ctx, ME)).me);
-    const current = readSession(ctx) ?? session;
-    return { actor: current.kind === 'agent' ? 'delegated-agent' : 'operator', profile: ctx.profileName, env: at.env, cell: at.cell, account: me, ...(current.agentId ? { agentId: current.agentId } : {}), session: { sessionId: current.sessionId, expiresAt: current.expiresAt } };
-  },
-  text: (r) => [
-    `${r.actor === 'delegated-agent' ? `delegated agent ${paint.dim(String(r.agentId))} of ` : ''}${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.kind}, ${r.account.id})`)}`,
-    paint.dim(`${r.env}, cell ${r.cell}, profile ${r.profile}`),
-    ...(r.actor === 'human' ? [`plan ${r.subscription ? `${r.subscription.tier} (${r.subscription.status}) until ${r.subscription.paidUntil}` : r.account.paidTier ?? 'free'}`, r.residences?.length ? `resident of ${r.residences.map((p) => p.universe).join(', ')}` : 'resident of no universe'] : []),
-    ...(r.account.paidUntil && r.actor !== 'human' ? [`paid until ${r.account.paidUntil}`] : []),
-    `session until ${r.session.expiresAt}${r.session.signInAgainBy ? ` (renewed on its own), sign in again by ${r.session.signInAgainBy}` : ''}`,
-    ...(r.notes ?? []),
-  ].join('\n'),
-  quiet: (r) => r.account.id,
-};
 
 type UsageResult = { actor: string; tier: string | null; minute: ReturnType<typeof remaining>; hour: ReturnType<typeof remaining>; quota: ReturnType<typeof remaining>; byCategory: Usage['byCategory']; allowance?: Allowance };
 
@@ -104,8 +50,8 @@ export const usage: Command<Record<string, never>, UsageResult> = {
   input: object({}),
   output: openObject({ actor: str('human, operator or delegated-agent'), tier: { type: ['string', 'null'], description: 'Usage tier' }, minute: windowSchema, hour: windowSchema, quota: windowSchema, byCategory: list('Units by category', openObject({ category: str('Category'), hour: int('This hour'), quota: { type: ['integer', 'null'] } })), allowance: openObject({ allowance: int('Delegated agents allowed'), operated: int('Operated'), createdLast24Hours: int('Created in 24 hours') }) }),
   run: async (ctx) => {
-    // The new backend: the session of its own (src/sulfur/session.ts) tells who acts; the usage through the seam.
-    const actor = ctx.backend() === 'sulfur' ? (await sulfurActor(ctx)).actor : (await ensureSession(ctx), actorOf(ctx));
+    // native-sulfur: the session of its own (src/sulfur/session.ts) tells who acts; the usage through the seam.
+    const { actor } = await sulfurActor(ctx);
     const { myUsage } = await api<{ myUsage: Usage }>(ctx, USAGE);
     let allowance: Allowance | undefined;
     if (actor === 'operator') allowance = (await api<{ delegatedAgentAllowance: Allowance | null }>(ctx, '{ delegatedAgentAllowance { allowance operated createdLast24Hours } }')).delegatedAgentAllowance ?? undefined;
@@ -159,10 +105,9 @@ export const capabilities: Command<{ universe?: string }, Capabilities> = {
     notes: list('What else to know'),
   }),
   run: async (ctx, { universe }) => {
-    // The new backend: the session of its own (src/sulfur/session.ts) tells who acts (a human, a delegated agent, an operator).
-    const sulfur = ctx.backend() === 'sulfur' ? await sulfurActor(ctx) : undefined;
-    const { session, at } = sulfur ? { session: sulfur.session, at: { env: ctx.profile().env } } : await ensureSession(ctx);
-    const actor = sulfur ? sulfur.actor : actorOf(ctx);
+    // native-sulfur: the session of its own (src/sulfur/session.ts) tells who acts (a human, a delegated agent, an operator).
+    const { actor, session } = await sulfurActor(ctx);
+    const at = { env: ctx.profile().env };
     const notes: string[] = [];
     if (session.kind === 'human') {
       // A human: no operator, no delegated agent to manage, no x402 wallet (its payments are in the app).

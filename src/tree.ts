@@ -69,7 +69,6 @@ me terms accept | = | Accept the latest terms
 me profile set | = | Change the account profile
 me handle check | = | Whether a handle is free
 me handle change | = | Change the handle of the account
-me password | = | Change the password
 me email change | = | Ask to change the email address
 me email confirm | = | Confirm the new email address
 me delete | = | Ask to delete the account

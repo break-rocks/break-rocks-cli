@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copies the schema the new backend serves (the server's API_SDL, src/api/sdl.ts of a native-sulfur checkout) into
+// Copies the schema native-sulfur serves (the server's API_SDL, src/api/sdl.ts of a native-sulfur checkout) into
 // schema/sulfur/server.graphql, with the server's commit in schema/sulfur/VERSION, then regenerates
 // src/sulfur/schema.generated.ts. Usage: npm run update:sulfur-schema [-- <server checkout>] (default ../server)
 import { execFileSync } from 'node:child_process';

@@ -1,22 +1,22 @@
-// A document of the CLI (API v2, the talc schema) fitted to what the new backend serves (native-sulfur, D-612: the talc
+// A document of the CLI (API v2, the talc schema) fitted to what native-sulfur serves (native-sulfur, D-612: the talc
 // operations under their names, without the fields of the features not ported yet; server docs/talc-deviations.md), as the
 // web app's seam does (frontends/react src/sulfur/talc/fit.ts), with the CLI's own small reader of documents (no runtime
 // dependency, D-91):
-// - a root field the server does not serve: NOT_ON_NEW_BACKEND (the operation named);
+// - a root field the server does not serve: NOT_AVAILABLE (the operation named);
 // - a field (or an inline fragment) the server's type lacks: left out, answered null afterwards ([] for a talc list);
-// - an argument the server does not take: left out when the command gave it no value, else NOT_ON_NEW_BACKEND (never sent
-//   without it: an image, a place…); an argument the server requires and the document lacks: NOT_ON_NEW_BACKEND;
+// - an argument the server does not take: left out when the command gave it no value, else NOT_AVAILABLE (never sent
+//   without it: an image, a place…); an argument the server requires and the document lacks: NOT_AVAILABLE;
 // - a variable declared with the talc type: declared with the server's type of the argument it goes to (an enum the
 //   server takes as a String, an ID made optional…); a variable no longer used: dropped;
 // - the fields of an input variable the server's input type lacks: left out when empty, refused when filled.
-import { tokenize, type Token } from '../api/degrade.js';
+import { tokenize, type Token } from '../api/tokens.js';
 import { CONTRACT, typeRef } from '../api/graphql.js';
 import type { Sdl } from '../api/sdl.js';
 import { cliRefusal, type CliError } from '../errors.js';
 import { SERVER } from './schema.generated.js';
 
-/** An operation (or one of its arguments, fields) the new backend does not serve. */
-export const notServed = (what: string, detail?: string): CliError => cliRefusal('NOT_ON_NEW_BACKEND', `${what} is not served by the new backend (native-sulfur)${detail ? `: ${detail}` : ''}: --backend legacy, or wait for its port`, { operation: what, backend: 'sulfur' });
+/** An operation (or one of its arguments, fields) native-sulfur does not serve yet: NOT_AVAILABLE. */
+export const notServed = (what: string, detail?: string): CliError => cliRefusal('NOT_AVAILABLE', `${what} is not available yet: native-sulfur does not serve it${detail ? ` (${detail})` : ''}`, { operation: what, backend: 'sulfur' });
 
 type Arg = { name: string; start: number; end: number; variable?: string; inner: string[]; empty: boolean };
 type Field = { kind: 'field'; key: string; name: string; nameStart: number; nameEnd: number; start: number; end: number; args: Arg[]; argsStart?: number; argsEnd?: number; selection?: Selection };
@@ -158,7 +158,7 @@ const fieldOf = (s: Sdl, type: string, name: string) => (type === 'Query' ? s.qu
 const isLeaf = (s: Sdl, type: string) => { const k = s.types[type]?.k; return !k || k === 'e' || k === 's'; };
 
 /**
- * [doc] as the new backend serves it. Throws NOT_ON_NEW_BACKEND for a root field it does not serve, an argument it does
+ * [doc] as native-sulfur serves it. Throws NOT_AVAILABLE for a root field it does not serve, an argument it does
  * not take given a value, an argument it requires missing, or an input field it lacks given a value.
  */
 export function fitDocument(doc: string, variables: Record<string, unknown>, server: Sdl = SERVER, talc: Sdl = CONTRACT): Fitted {

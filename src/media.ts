@@ -5,12 +5,11 @@
 // universe, a message, a theme) and the presigned POST of S3 (its fields, then the file). The platform
 // processes them afterwards: the post waits for it (IMAGE_NOT_READY, CLIP_NOT_READY: the same request sent
 // again with the same requestId).
-import { closeSync, existsSync, openAsBlob, openSync, readFileSync, readSync, statSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { basename, extname, resolve } from 'node:path';
 import type { Context } from './context.js';
-import { CliError, networkError, platformRefusal, usageError } from './errors.js';
-import { uuidv7 } from './ids.js';
-import { api, readSession } from './session.js';
+import { CliError, platformRefusal, usageError } from './errors.js';
+import { sessionKind } from './session.js';
 import { imageInfo } from './theme/images.js';
 import { notServed } from './sulfur/fit.js';
 import { sulfurUpload, universeIdOf, waitReady, type SulfurDestination, type SulfurKind } from './sulfur/media.js';
@@ -77,23 +76,10 @@ export function checkText(text: string): string {
   return text;
 }
 
-type Form = { id: string; url: string; fields: string | Record<string, string> };
-
-async function send(ctx: Context, form: Form, file: { path: string; type: string; name: string }): Promise<string> {
-  const fields = (typeof form.fields === 'string' ? JSON.parse(form.fields) : form.fields) as Record<string, string>;
-  const body = new FormData();
-  for (const [key, value] of Object.entries(fields)) body.append(key, value);
-  body.append('file', await openAsBlob(file.path, { type: file.type }), file.name);
-  let res: Response;
-  try { res = await ctx.io.fetch(form.url, { method: 'POST', body }); } catch (e) { throw networkError('UPLOAD_FAILED', `${file.name}: ${(e as Error).message}`); }
-  if (!res.ok) throw networkError('UPLOAD_FAILED', `${file.name}: the storage answered ${res.status}`, { status: res.status });
-  return form.id;
-}
-
 /** Where a media goes (MediaDestination), and for a post the universe of its posting address (none: the personal space). */
 export type MediaTarget = { destination: 'POST' | 'DIRECT_MESSAGE' | 'GROUP_MESSAGE' | 'CHANNEL_MESSAGE' | 'THEME' | 'UNIVERSE_BANNER' | 'UNIVERSE_IMAGE'; address?: string | null; post?: 'post' | 'reply' | 'quote' };
 
-/** The media destination of [target] on the new backend, and its scope (a universe's id) or its posting address (a post's: no lookup, the universe need not exist). */
+/** The media destination of [target] on native-sulfur, and its scope (a universe's id) or its posting address (a post's: no lookup, the universe need not exist). */
 async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destination: SulfurDestination; scope: string | null; address: string | null }> {
   switch (target.destination) {
     case 'POST': {
@@ -107,7 +93,7 @@ async function sulfurTarget(ctx: Context, target: MediaTarget): Promise<{ destin
   }
 }
 
-/** A media sent to the new backend (src/sulfur/media.ts) for [target]. */
+/** A media sent to native-sulfur (src/sulfur/media.ts) for [target]. */
 async function sulfurMedia(ctx: Context, file: { path: string; name: string; type: string; bytes: number }, kind: SulfurKind, target: MediaTarget, choice?: LicenseChoice): Promise<string> {
   if (choice) throw notServed('a media license (--license)', 'no media license is declared at upload there yet');
   const { destination, scope, address } = await sulfurTarget(ctx, target);
@@ -143,23 +129,21 @@ export function actsAsDelegatedAgent(ctx: Context): boolean {
   if (ctx.env.BREAKROCKS_OPERATOR_ID?.trim() && ctx.env.BREAKROCKS_AGENT_ID?.trim() && ctx.env.BREAKROCKS_AGENT_KEY) return true;
   const profile = ctx.profile();
   if (profile.kind === 'agent' || profile.localAgent) return true;
-  return readSession(ctx)?.kind === 'agent';
+  return sessionKind(ctx) === 'agent';
 }
 
 /**
  * --license and --attribution checked as the platform checks them, before anything is sent: a media license for
  * the video of a post, a reply or a quote only, an attribution with a media license only (MEDIA_LICENSE_NOT_ALLOWED);
  * at most 200 visible characters (MEDIA_ATTRIBUTION_TOO_LONG); required for CC BY and CC BY-SA
- * (MEDIA_ATTRIBUTION_REQUIRED); and from a delegated agent, a media license for every video (MEDIA_LICENSE_REQUIRED), on the
- * former backend only: the new one takes no license at upload yet.
+ * (MEDIA_ATTRIBUTION_REQUIRED). A delegated agent's video needs none: native-sulfur takes no license at upload yet.
  */
-export function checkLicense(ctx: Context, given: { license?: string; attribution?: string }, hasVideo: boolean): LicenseChoice | undefined {
+export function checkLicense(_ctx: Context, given: { license?: string; attribution?: string }, hasVideo: boolean): LicenseChoice | undefined {
   const attribution = given.attribution?.trim() || undefined;
   if (given.license === undefined) {
     if (attribution) throw usageError('MEDIA_LICENSE_NOT_ALLOWED', 'An attribution goes with a media license: give --license too');
-    // The new backend takes no media license at upload yet (sulfurMedia refuses one): a delegated agent posts its video
+    // native-sulfur takes no media license at upload yet (sulfurMedia refuses one): a delegated agent posts its video
     // without it there, or it could post none (docs/sulfur.md § Agents).
-    if (hasVideo && ctx.backend() !== 'sulfur' && actsAsDelegatedAgent(ctx)) throw usageError('MEDIA_LICENSE_REQUIRED', `A delegated agent declares the media license of every video it posts: --license ${MEDIA_LICENSES.join('|')} (with --attribution "<author, source>" for CC_BY and CC_BY_SA)`);
     return undefined;
   }
   const license = licenseOf(given.license);
@@ -193,38 +177,22 @@ export function plainRefusal(error: unknown): unknown {
   return error;
 }
 
-async function requestUpload(ctx: Context, kind: 'IMAGE' | 'VIDEO' | 'LONG_VIDEO', file: { type: string; bytes: number }, target: MediaTarget, choice?: LicenseChoice): Promise<Form> {
-  const input = { kind, contentType: file.type, size: file.bytes, destination: target.destination, ...(target.destination === 'POST' && target.address ? { address: target.address } : {}), ...(choice ? { license: choice.license, ...(choice.attribution ? { attribution: choice.attribution } : {}) } : {}) };
-  try {
-    return (await api<{ requestMediaUpload: Form }>(ctx, 'mutation($i: MediaUploadInput!, $r: ID!) { requestMediaUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestMediaUpload;
-  } catch (error) { throw plainRefusal(error); }
-}
-
 /** Sends an image checked for [target]: its upload id. */
 export async function uploadImage(ctx: Context, image: CheckedImage, target: MediaTarget): Promise<string> {
-  if (ctx.backend() === 'sulfur') return sulfurMedia(ctx, image, 'image', target);
-  ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
-  return send(ctx, await requestUpload(ctx, 'IMAGE', image, target), image);
+  return sulfurMedia(ctx, image, 'image', target);
 }
 
 /** Sends a video checked for [target], under its media license if one is declared: its upload id (the clip of a post or a message once converted). */
 export async function uploadVideo(ctx: Context, video: CheckedVideo, target: MediaTarget, kind: 'VIDEO' | 'LONG_VIDEO' = 'VIDEO', choice?: LicenseChoice): Promise<string> {
-  if (ctx.backend() === 'sulfur') return sulfurMedia(ctx, video, kind === 'VIDEO' ? 'clip' : 'video', target, choice);
-  ctx.progress(`Sending ${video.name} (${Math.ceil(video.bytes / 1048576)} MB)${choice ? ` under ${licenseLine(choice)}` : ''}…`);
-  return send(ctx, await requestUpload(ctx, kind, video, target, choice), video);
+  return sulfurMedia(ctx, video, kind === 'VIDEO' ? 'clip' : 'video', target, choice);
 }
 
 /** Sends the avatar of the account (requestAvatarUpload: a JPEG, PNG or WebP image): its upload id, for updateProfile. */
 export async function uploadAvatar(ctx: Context, image: CheckedImage): Promise<string> {
-  if (ctx.backend() === 'sulfur') {
-    // The avatar is set once processed (updateProfile refuses it before: MEDIA_NOT_READY).
-    const id = await sulfurUpload(ctx, image, 'image', 'avatar');
-    await waitReady(ctx, id);
-    return id;
-  }
-  ctx.progress(`Sending ${image.name} (${Math.ceil(image.bytes / 1024)} KB)…`);
-  const form = (await api<{ requestAvatarUpload: Form }>(ctx, 'mutation($c: String!, $r: ID!) { requestAvatarUpload(contentType: $c, requestId: $r) { id url fields } }', { c: image.type, r: uuidv7(ctx.now()) })).requestAvatarUpload;
-  return send(ctx, form, image);
+  // The avatar is set once processed (updateProfile refuses it before: MEDIA_NOT_READY).
+  const id = await sulfurUpload(ctx, image, 'image', 'avatar');
+  await waitReady(ctx, id);
+  return id;
 }
 
 /** A course document or a post document (specs v87.5.0, D-268): a PDF of 20 MB at most, or a markdown text of 200 KB at most. */
@@ -241,14 +209,8 @@ export function checkDocument(ctx: Context, path: string): CheckedDocument {
 }
 /** Sends a document checked (requestDocumentUpload; for a course, its playlist): its upload id. */
 export async function uploadDocument(ctx: Context, doc: CheckedDocument, playlistId?: string): Promise<string> {
-  if (ctx.backend() === 'sulfur') {
-    if (!playlistId) throw notServed('a post document', 'a document goes to a playlist there');
-    return sulfurUpload(ctx, doc, 'document', 'playlist', playlistId);
-  }
-  ctx.progress(`Sending ${doc.name} (${Math.ceil(doc.bytes / 1024)} KB)…`);
-  const input = { contentType: doc.type, size: doc.bytes, ...(playlistId ? { playlistId } : {}) };
-  const form = (await api<{ requestDocumentUpload: Form }>(ctx, 'mutation($i: DocumentUploadInput!, $r: ID!) { requestDocumentUpload(input: $i, requestId: $r) { id url fields } }', { i: input, r: uuidv7(ctx.now()) })).requestDocumentUpload;
-  return send(ctx, form, doc);
+  if (!playlistId) throw notServed('a post document', 'a document goes to a playlist there');
+  return sulfurUpload(ctx, doc, 'document', 'playlist', playlistId);
 }
 
 /**

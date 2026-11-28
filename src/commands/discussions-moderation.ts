@@ -83,7 +83,7 @@ export const discussionsBan = writingBan(true);
 export const discussionsUnban = writingBan(false);
 export const discussionsRemoveMessage = apiCommand({
   name: 'discussions remove-message', summary: 'Remove a message of a universe discussion as a moderator, citing an article (removeUniverseDiscussionMessage)', kind: 'mutation', op: 'removeUniverseDiscussionMessage', ...onDiscussion, positionals: ['id', 'messageId'],
-  description: 'On the new backend (native-sulfur): deleteMessage by a moderator (no entry of the moderation log yet; the article is not recorded); a reply of a thread is named with --thread-root.',
+  description: 'On native-sulfur: deleteMessage by a moderator (no entry of the moderation log yet; the article is not recorded); a reply of a thread is named with --thread-root.',
   extra: { threadRoot: str('New backend: the root message of the thread that holds the message') },
   prepare: async (i, ctx) => { const { threadRoot, ...rest } = i; sulfurHint(ctx, 'threadRoot', threadRoot); return byAddress('id')(rest, ctx); },
   descriptions: { ...ID, messageId: 'The message' }, confirm: (i) => `Remove the message ${String(i.messageId)}?`, examples: ['breakrocks discussions remove-message %paris&general <message id> --article 3 --yes'],

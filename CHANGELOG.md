@@ -5,6 +5,38 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-28
+
+The former backend (talc, `legacy`) is retired (talc removal, phase B): native-sulfur is the only backend. Its schema resynced
+at server `e1dab637`.
+
+### Removed
+
+- The backend switch: `--backend legacy`, `BREAKROCKS_BACKEND=legacy` and `config set|unset backend` (a profile's `backend`
+  key is ignored). `--backend sulfur` and `BREAKROCKS_BACKEND=sulfur` are still taken (deprecated); `legacy` is refused
+  `BACKEND_REMOVED` (exit 2).
+- The former backend's sign-in and sessions: the Cognito user pools (password and SRP, MFA code, `login --browser` through
+  `CUSTOM_AUTH`; `src/cognito.ts`, `src/srp.ts`, `src/browser-login.ts`), the agents host's challenges and sessions, the cell
+  map of `apps.<env>.break.rocks` and the directory; `BREAKROCKS_API_URL`, `BREAKROCKS_AGENTS_URL`, `BREAKROCKS_DIRECTORY_URL`,
+  `BREAKROCKS_REALTIME_URL`, `BREAKROCKS_EVENTS_URL`. Sign in again with `login` (sessions of the former backend are not read).
+- `me password` (no password on native-sulfur).
+- The former backend's transport and its degraded documents (`src/api/degrade.ts`), its multipart upload
+  (`startMultipartUpload`; native-sulfur's uploads in parts stay), its real time (the AppSync Event API: `--watch` reads again,
+  `--realtime` is still taken), the extra usage of a delegated agent paid with x402 on the former API, and the
+  `MEDIA_LICENSE_REQUIRED` check of a delegated agent's video.
+
+### Changed
+
+- `login`, `logout`, `whoami`, `doctor`, `operator login` and `agents login` are native-sulfur's (they stood in for the former
+  ones on `--backend sulfur`); `me session` shows native-sulfur's session (`--renew`). `doctor` checks the proxy and the
+  reach of the cell too.
+- The refusal of what native-sulfur does not serve is `NOT_AVAILABLE` (was `NOT_ON_NEW_BACKEND`). Kept and answering it:
+  `operator register`, `operator renew`, `operator recover`, `operator recovery-key set`, `operator delete` (native-sulfur's
+  REST routes, not ported to the CLI yet), `agents tier`; and, the server not serving their operation,
+  `universes private declare`, `universes private reputation`, `universes private reputation set`, `look personal saved`
+  (docs/sulfur.md).
+- `agents forget` forgets the local agent's session of native-sulfur too (its keychain entry included).
+
 ## [0.48.0] - 2026-11-28
 
 The new backend's schema resynced at server `cc3f09f9` (universe direction, account layouts) then `0c747737` (posts, events,

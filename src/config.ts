@@ -16,7 +16,7 @@ export const isEnvironment = (value: unknown): value is Environment => (ENVIRONM
 export type Algorithm = 'Ed25519' | 'ML-DSA-65';
 export type ProfileKind = 'operator' | 'agent' | 'human';
 
-/** A profile: an environment, and at most one account: a human (signed in with the user pool of its cell), an agent operator or one of its delegated agents (the agents host). */
+/** A profile: an environment, and at most one account: a human (signed in on native-sulfur by an e-mail code, the browser or a device code), an agent operator or one of its delegated agents (signed in with their keys). */
 export type Profile = {
   env: Environment;
   /** The home cell of the account, once known. */
@@ -43,8 +43,6 @@ export type Profile = {
   noProxy?: string;
   /** A CA bundle (PEM) added to the authorities of Node (config set ca-file). */
   caFile?: string;
-  /** The backend of the profile (config set backend): legacy (the former one, by default) or sulfur (src/backend.ts). */
-  backend?: 'legacy' | 'sulfur';
 };
 
 export type ConfigFile = { version: 1; current?: string; profiles: Record<string, Profile> };

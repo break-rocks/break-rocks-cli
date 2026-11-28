@@ -1,4 +1,4 @@
-// The commands run against dev on the new backend (native-sulfur), by scripts/e2e-sulfur-dev.mjs or by hand, with the
+// The commands run against dev on native-sulfur, by scripts/e2e-sulfur-dev.mjs or by hand, with the
 // date of the last run: read by scripts/sulfur-table.ts (docs/sulfur.md, column Dev).
 export const VERIFIED_ON = '2026-11-28';
 export const VERIFIED: ReadonlySet<string> = new Set([

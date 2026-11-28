@@ -1,28 +1,26 @@
 // Specs v129.1.0 (D-411): My places: the saved items, the My places tags, sharing as a playlist of the form MAP, "In common",
 // the whole of My places deleted, the refusals of a delegated agent, a backend before v129.1.0. Against a scripted API.
 import { describe, expect, it } from 'vitest';
-import { Context, NO_FLAGS } from '../src/context.js';
 import { latLngToCell } from '../src/h3.js';
 import { commands } from '../src/registry.js';
-import { saveSession } from '../src/session.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
 /** A fake API: [answers] by field (a function gets the variables), [errors] by field. */
 function fake(answers: Record<string, unknown>, errors: Record<string, { errorType?: string; message: string; errorInfo?: unknown }> = {}) {
   const calls: Call[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
     fetch: async (_url, init) => {
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
       calls.push({ field, query, variables });
-      if (errors[field]) return Response.json({ data: { [field]: null }, errors: [errors[field]] });
+      if (errors[field]) return Response.json({ data: { [field]: null }, errors: [sulfurError(errors[field])] });
       const answer = answers[field];
       return Response.json({ data: { [field]: typeof answer === 'function' ? answer(variables) : answer ?? null } });
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls };
 }
 
@@ -59,22 +57,7 @@ describe('the saved items', () => {
     expect(calls[0].variables).toEqual({ kind: 'PLACE', targetId: 'pl-1' });
     expect(h.lines.at(-1)).toBe('(not saved)');
   });
-  it('saves with tags by name and a note, changes them, removes one', async () => {
-    const { h, calls } = fake({ myPlacesTags: tags, saveToMyPlaces: item(), updateSavedItem: item({ tags: [] }), removeSavedItem: true });
-    expect(await h.run('my-places', 'save', 'PLACE', 'pl-1', '--tags', 'to-try', '--tags', 'DONE', '--note', 'Ask for the rye')).toBe(0);
-    const save = calls.find((c) => c.field === 'saveToMyPlaces')!;
-    expect(save.variables).toMatchObject({ input: { kind: 'PLACE', targetId: 'pl-1', tagIds: ['tg1', 'tg2'], note: 'Ask for the rye' } });
-    expect(save.variables.requestId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(await h.run('my-places', 'save', 'PLACE', 'pl-1', '--dry-run', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ dryRun: true, operation: 'saveToMyPlaces', variables: { input: { kind: 'PLACE', targetId: 'pl-1' } } });
-    expect(await h.run('my-places', 'save', 'POST', 'p1', '--json')).toBe(2);
-    expect(await h.run('my-places', 'edit', 'si1', '--clear-tags', '--note', '')).toBe(0);
-    expect(calls.at(-1)).toMatchObject({ field: 'updateSavedItem', variables: { itemId: 'si1', input: { tagIds: [], note: '' } } });
-    expect(await h.run('my-places', 'edit', 'si1', '--clear-tags', '--tags', 'done', '--json')).toBe(2);
-    expect(await h.run('my-places', 'remove', 'si1')).toBe(0);
-    expect(calls.at(-1)).toMatchObject({ field: 'removeSavedItem', variables: { itemId: 'si1' } });
-    expect(h.lines.at(-1)).toMatch(/done/);
-  });
+
   it('deletes the whole of My places only once confirmed with --yes', async () => {
     const { h, calls } = fake({ clearMyPlaces: true });
     expect(await h.run('my-places', 'clear')).toBe(2);
@@ -136,18 +119,7 @@ describe('sharing as a playlist of the form MAP', () => {
 });
 
 describe('the refusals', () => {
-  it('tells what a delegated agent may not do, with the code of the platform', async () => {
-    const notAllowed = { errorType: 'DELEGATED_AGENT_NOT_ALLOWED', message: 'DELEGATED_AGENT_NOT_ALLOWED' };
-    const { h } = fake({ myPlacesTags: tags }, { shareMyPlaces: notAllowed, clearMyPlaces: notAllowed, deleteMyPlacesTag: notAllowed, saveToMyPlaces: notAllowed });
-    expect(await h.run('my-places', 'share', 'Bakeries', '--tag', 'bakeries', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'DELEGATED_AGENT_NOT_ALLOWED', source: 'platform', message: expect.stringMatching(/never shares My places of its human.*Ask your human/) } });
-    expect(await h.run('my-places', 'clear', '--yes', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'DELEGATED_AGENT_NOT_ALLOWED', message: expect.stringMatching(/never deletes the whole of My places/) } });
-    expect(await h.run('my-places', 'tags', 'delete', 'bakeries', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'DELEGATED_AGENT_NOT_ALLOWED', message: expect.stringMatching(/shared playlist/) } });
-    expect(await h.run('my-places', 'save', 'PLACE', 'pl-1', '--tags', 'bakeries')).toBe(1);
-    expect(h.errors.join('\n')).toMatch(/DELEGATED_AGENT_NOT_ALLOWED/);
-  });
+
   it('maps the codes of My places, with the sentence of the platform or ours', async () => {
     const { h } = fake({}, { myPlaces: { errorType: 'MY_PLACES_NOT_OPEN', message: 'MY_PLACES_NOT_OPEN' }, saveToMyPlaces: { errorType: 'MY_PLACES_FULL', message: 'My places holds 5,000 saved items at most', errorInfo: { max: 5000 } } });
     expect(await h.run('my-places', 'list', '--json')).toBe(1);

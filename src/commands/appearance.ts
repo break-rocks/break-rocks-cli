@@ -11,7 +11,6 @@ import { checkImage, uploadImage, whileProcessing } from '../media.js';
 import type { Command } from '../registry.js';
 import { bool, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
-import { unservedInRun } from '../transport.js';
 import { appearanceText, resolveAppearance, type AppearanceReads, type ResolvedAppearance, type ServedTheme, type ServedUniverse } from '../theme/appearance.js';
 import { SIGNED_LINKS, SIGNED_LINKS_HELP } from '../theme/media-links.js';
 import { listText, pageText, universeAndTag } from './shared.js';
@@ -112,7 +111,6 @@ export const appearanceShow: Command<{ universe: string; signedLinks?: boolean }
     const base = await api<{ universe: ServedUniverse | null }>(ctx, `query($n: String!) { universe(name: $n) { name exists private field themeRef { universe name version deleted } themeOf themeHeldVersion appearanceApplied { appliedAt appliedBy { handle deleted } proposalId } layoutRef { universe name version } layoutOf image { url widths } imageOf } }`, { n: universe });
     const u = base.universe;
     // A backend before v126.1.0 does not serve appearanceApplied: its null then says nothing (undefined: inferred below).
-    if (u && unservedInRun(ctx, 'Universe.appearanceApplied')) delete u.appearanceApplied;
     if (!u || u.exists === false) throw usageError('UNIVERSE_NOT_FOUND', `No universe ${universe}`, { universe });
     const name = u.name;
     const ref = u.themeRef && !u.themeRef.deleted ? u.themeRef : null;
@@ -127,7 +125,6 @@ export const appearanceShow: Command<{ universe: string; signedLinks?: boolean }
         `query($u: String!, $k: ProposalKind) { proposals(universe: $u, kind: $k, limit: 50) { items { id title status kind endsAt createdAt author { handle } } } }`, { u: name, k: kind })).proposals?.items ?? []))),
     ]);
     const trial = trials?.universe?.themeTrial ?? null;
-    if (trial && unservedInRun(ctx, 'UniverseThemeTrial.imageSlots')) delete trial.imageSlots;
     const reads: AppearanceReads = {
       universe: { ...u, themeTrial: trial ? { ...trial, layout: trialLayout?.universe?.themeTrial?.layout ?? null } : null, myDraftPreview: trials?.universe?.myDraftPreview ?? null },
       theme: theme?.theme ?? null, socle: socle?.theme ?? null, appliedLayout: appliedLayout?.appliedLayout ?? null,

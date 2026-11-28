@@ -29,6 +29,8 @@ export class CliError extends Error {
 export const usageError = (code: string, message: string, details: Record<string, unknown> = {}) => new CliError(code, message, EXIT.USAGE, details);
 export const cliRefusal = (code: string, message: string, details: Record<string, unknown> = {}) => new CliError(code, message, EXIT.REFUSED, details);
 export const platformRefusal = (code: string, message: string, details: Record<string, unknown> = {}) => new CliError(code, message, EXIT.REFUSED, details, 'platform');
+/** A command the CLI keeps whose service native-sulfur does not serve yet, or the CLI does not reach yet: NOT_AVAILABLE (exit 1). */
+export const commandNotAvailable = (command: string, why: string) => cliRefusal('NOT_AVAILABLE', `"breakrocks ${command}" is not available yet: ${why}`, { command, backend: 'sulfur' });
 export const networkError = (code: string, message: string, details: Record<string, unknown> = {}, source: ErrorSource = 'cli') => new CliError(code, message, EXIT.NETWORK, details, source);
 
 /** The sentence of a platform code the API answers without one (its message empty or the code itself). */
@@ -65,7 +67,7 @@ export function refusalTold(code: string, errorInfo: unknown): string | undefine
 }
 
 /**
- * A rejoin refused while the delay after leaving runs (the new backend's joinUniverse answers REJOIN_WAIT with the instant
+ * A rejoin refused while the delay after leaving runs (native-sulfur's joinUniverse answers REJOIN_WAIT with the instant
  * one may join again as its message; Universe.joinRefusal says REJOIN_TOO_SOON, as talc): told with that instant.
  */
 function rejoinSentence(code: string, message: string | undefined, errorInfo: unknown): string | undefined {

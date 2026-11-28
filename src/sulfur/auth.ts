@@ -1,4 +1,4 @@
-// Signing in on the new backend (server src/core/auth; contracts/auth.md), as the client `cli`, without a browser on this
+// Signing in on native-sulfur (server src/core/auth; contracts/auth.md), as the client `cli`, without a browser on this
 // device:
 // - the device code (RFC 8628, H-9): the CLI asks a code, writes the address and the code (never a prefilled link), the
 //   person types the code on a device already signed in, the CLI polls every 5 s (slower when told); the session is fixed
@@ -98,7 +98,7 @@ export async function emailStart(ctx: Context, env: Environment, email: string, 
     cell = out.otpCell;
     out = expectAuthOk(await sulfurPost(ctx, sulfurBase(ctx, env, cell), '/auth/email/start', body), 'Sending the code') as { otpCell?: string; flowId?: string };
   }
-  if (!out.flowId) throw networkError('EMAIL_START_FAILED', 'The new backend did not start the e-mail code', {}, 'platform');
+  if (!out.flowId) throw networkError('EMAIL_START_FAILED', 'native-sulfur did not start the e-mail code', {}, 'platform');
   const pending: PendingEmail = { email, cell, env, flowId: out.flowId, verifier, startedAt: ctx.now() };
   writePrivate(pendingFile(ctx), JSON.stringify(pending));
   return pending;
@@ -124,7 +124,7 @@ export async function emailFinish(ctx: Context, pending: PendingEmail, typed: st
   const completed = expectAuthOk(await sulfurPost(ctx, sulfurBase(ctx, pending.env, home), '/auth/complete', { ticket: verified.ticket, verifier: pending.verifier, clientId: CLIENT_ID, codeChallenge: s256(codeVerifier), locale: 'en' }), 'The sign-in') as { code?: string; status?: string };
   forgetPendingEmail(ctx);
   if (completed.status === 'GRANT_REQUIRED') throw platformRefusal('GRANT_REQUIRED', 'The sign-up waits on the waiting list: it goes on once admitted (in the app)');
-  if (!completed.code) throw networkError('SIGN_IN_FAILED', 'The new backend gave no authorization code', {}, 'platform');
+  if (!completed.code) throw networkError('SIGN_IN_FAILED', 'native-sulfur gave no authorization code', {}, 'platform');
   const tokens = await sulfurPost(ctx, sulfurBase(ctx, pending.env, home), '/oauth/token', { grant_type: 'authorization_code', client_id: CLIENT_ID, code: completed.code, code_verifier: codeVerifier }, { form: true });
   if (tokens.status !== 200) throw authRefusal(tokens, 'The token');
   return finish(ctx, pending.env, home, tokens.json, 'email');

@@ -1,10 +1,9 @@
-// The commands of the new backend (native-sulfur) itself, under the names of the registry they stand in for: login, logout,
-// whoami (its own sign-in and sessions). Every other command runs the registry's own, its requests through the seam of
-// src/sulfur/talc.ts (src/sulfur/dispatch.ts).
+// The commands of the sign-in and the sessions (native-sulfur's own auth): login, logout, whoami, doctor, operator login and
+// agent login. Every other command sends its requests through the seam of src/sulfur/talc.ts (src/session.ts api()).
 import { paint } from '../colour.js';
 import type { Environment } from '../config.js';
 import { usageError } from '../errors.js';
-import type { AnyCommand, Command } from '../registry.js';
+import type { Command } from '../registry.js';
 import { bool, int, object, openObject, str } from '../schema.js';
 import { browserSignIn, canOpenBrowser } from './browser.js';
 import { codeMissing, deviceSignIn, emailFinish, emailStart, forgetPendingEmail, pendingEmail, revoke } from './auth.js';
@@ -14,6 +13,8 @@ import type { Context } from '../context.js';
 import { CONTRACT } from '../api/graphql.js';
 import { VERSION } from '../version.js';
 import { sulfurBase } from './http.js';
+import { describeNetwork, proxyFor, redactUrl, type NetworkSettings } from '../network.js';
+import { apiRequest } from '../transport.js';
 import { SERVER } from './schema.generated.js';
 import { ADAPTERS } from './talc.js';
 
@@ -30,10 +31,10 @@ const sessionSchema = openObject({ kind: str('The session kind: untrusted (e-mai
 type LoginInput = { email?: string; code?: string; handle?: string; cell?: string; signUp?: boolean; browser?: boolean; device?: boolean; open?: boolean; timeout?: number; passwordStdin?: boolean; label?: string };
 type LoginResult = { backend: 'sulfur'; env: string; cell: string; accountId?: string; handle?: string; codeSent?: boolean; email?: string; session?: SessionView };
 
-export const sulfurLogin: Command<LoginInput, LoginResult> = {
-  name: 'login', summary: 'Sign in on the new backend: the browser, a device code, or an e-mail code in the terminal',
+export const login: Command<LoginInput, LoginResult> = {
+  name: 'login', summary: 'Sign in on native-sulfur: the browser, a device code, or an e-mail code in the terminal',
   description: 'Without --email, in a terminal with a browser to open (not over SSH, a display on Linux): the browser (--browser): the CLI listens on 127.0.0.1, opens the page /cli/login of the web app, you confirm your e-mail address there with a code, and the browser gives the CLI a code for one use only (PKCE), never a token; the session is renewed on its own and ends after 24 hours unused or 7 days. Without a browser (SSH, no display, no terminal, or --device): a device code (RFC 8628): the CLI writes an address and a code; open the address on a device already signed in, type the code and approve; the session reaches content only and lasts 7 days; a refusal on the other device is DEVICE_CODE_DENIED. --email: a code is sent to the address and typed here (asked in a terminal; else run again with --code: the code lasts 5 minutes). BREAKROCKS_NO_BROWSER=1 chooses the device code, BREAKROCKS_BROWSER=1 the browser. The tokens are kept in the system keychain, else in a file for the user alone (0600), never printed. Not an MCP tool.',
-  examples: ['breakrocks --backend sulfur --env dev login', 'breakrocks --backend sulfur --env dev login --browser --no-open', 'breakrocks --backend sulfur --env dev login --device', 'breakrocks --backend sulfur --env dev login --email me@example.com', 'breakrocks --backend sulfur --env dev login --email me@example.com --code 123456', 'breakrocks --backend sulfur --env dev login --email bot@example.com --sign-up --handle my_bot', 'echo 12345678 | breakrocks --backend sulfur --env dev login --email bot@example.com --handle my_bot --code -'],
+  examples: ['breakrocks --env dev login', 'breakrocks --env dev login --browser --no-open', 'breakrocks --env dev login --device', 'breakrocks --env dev login --email me@example.com', 'breakrocks --env dev login --email me@example.com --code 123456', 'breakrocks --env dev login --email bot@example.com --sign-up --handle my_bot', 'echo 12345678 | breakrocks --env dev login --email bot@example.com --handle my_bot --code -'],
   input: object({
     email: str('Sign in with a code sent to this e-mail address'),
     code: str('The 8-digit code received by e-mail (a second run, without a terminal); spaces allowed; "-": read from the standard input. BREAKROCKS_EMAIL_CODE gives it too, used only when a code was asked by this profile', { pattern: '^(-|[0-9][0-9 -]{6,12}[0-9])$' }),
@@ -45,21 +46,21 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
     device: bool('Sign in with a device code (the default without a browser: SSH, no display)'),
     open: bool('With the browser: open it (--no-open: write the address only)', { default: true }),
     timeout: int('With the browser: seconds to wait for the confirmation (default 300)', { minimum: 30, maximum: 900 }),
-    passwordStdin: bool('A password (none on the new backend)'),
+    passwordStdin: bool('A password (none on native-sulfur)'),
   }),
   output: openObject({ backend: str('sulfur'), env: str('Environment'), cell: str('Home cell'), accountId: str('The account'), handle: str('Its handle'), codeSent: bool('The e-mail code was sent: run again with --code'), session: sessionSchema }),
   mcp: false,
   run: async (ctx, i) => {
     const profile = ctx.profile();
     const env = profile.env as Environment;
-    if (i.passwordStdin) throw usageError('NO_PASSWORD', 'The new backend has no password: login (device code) or login --email');
+    if (i.passwordStdin) throw usageError('NO_PASSWORD', 'native-sulfur has no password: login (device code) or login --email');
     if ([i.email !== undefined, !!i.browser, !!i.device].filter(Boolean).length > 1) throw usageError('LOGIN_MODES_CONFLICT', 'Choose one: --email, --browser or --device');
     // Everything checked before a browser opens, a code is asked or an e-mail sent.
     if (i.handle !== undefined && i.email === undefined) throw usageError('INVALID_INPUT', '--handle goes with --email');
     // A person signs in here: never into the profile of an agent, never with an agent's credentials set (they would sign
     // the agent into the person's session file next).
-    if (ctx.agentName || profile.kind === 'operator' || profile.kind === 'agent') throw usageError('PROFILE_HOLDS_AGENT_ACCOUNT', `The profile "${ctx.profileName}" holds ${profile.kind === 'operator' ? 'an agent operator' : 'a delegated agent'}: an agent signs in with its key (breakrocks --backend sulfur agents login); sign the person in another profile (--profile <name>)`, { profile: ctx.profileName });
-    if (agentFromEnv(ctx.env)) throw usageError('PROFILE_HOLDS_HUMAN', `BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set: a person signs in without them, an agent with breakrocks --backend sulfur agents login`, { profile: ctx.profileName });
+    if (ctx.agentName || profile.kind === 'operator' || profile.kind === 'agent') throw usageError('PROFILE_HOLDS_AGENT_ACCOUNT', `The profile "${ctx.profileName}" holds ${profile.kind === 'operator' ? 'an agent operator' : 'a delegated agent'}: an agent signs in with its key (breakrocks agents login); sign the person in another profile (--profile <name>)`, { profile: ctx.profileName });
+    if (agentFromEnv(ctx.env)) throw usageError('PROFILE_HOLDS_HUMAN', `BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set: a person signs in without them, an agent with breakrocks agents login`, { profile: ctx.profileName });
     // A profile saved with its environment, so that the next commands find it without --env.
     if (!ctx.store.profile(ctx.profileName)) ctx.saveProfile({ env });
     const device = () => deviceSignIn(ctx, env, {
@@ -107,7 +108,7 @@ export const sulfurLogin: Command<LoginInput, LoginResult> = {
     ctx.saveProfile({ ...ctx.store.profile(ctx.profileName), env, kind: 'human' });
     return { backend: 'sulfur', env, cell: session.cell, accountId: session.accountId, handle: session.handle, session: sessionView(session) };
   },
-  text: (r) => (r.codeSent ? `Code sent: run the same command with --code <code> within 5 minutes ${paint.dim(`(${r.env}, cell ${r.cell})`)}` : `${paint.ok('Signed in')} on the new backend: @${r.handle} ${paint.dim(`(${r.accountId})`)}\n${paint.dim(`${r.env}, cell ${r.cell}`)}\n${r.session?.note}`),
+  text: (r) => (r.codeSent ? `Code sent: run the same command with --code <code> within 5 minutes ${paint.dim(`(${r.env}, cell ${r.cell})`)}` : `${paint.ok('Signed in')} on native-sulfur: @${r.handle} ${paint.dim(`(${r.accountId})`)}\n${paint.dim(`${r.env}, cell ${r.cell}`)}\n${r.session?.note}`),
   quiet: (r) => r.accountId,
 };
 
@@ -119,9 +120,9 @@ async function takeHandle(ctx: Context, session: SulfurSession, handle: string):
 }
 
 type LogoutResult = { backend: 'sulfur'; profile: string; signedOut: boolean; everywhere: boolean; revoked: boolean; note?: string };
-export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
-  name: 'logout', summary: 'Sign out of the new backend on this device, or everywhere',
-  examples: ['breakrocks --backend sulfur logout', 'breakrocks --backend sulfur logout --everywhere'],
+export const logout: Command<{ everywhere?: boolean }, LogoutResult> = {
+  name: 'logout', summary: 'Sign out of native-sulfur on this device, or everywhere',
+  examples: ['breakrocks logout', 'breakrocks logout --everywhere'],
   input: object({ everywhere: bool('End every session of the account (endAllSessions)') }),
   output: openObject({ backend: str('sulfur'), profile: str('The profile'), signedOut: bool('A session was closed here'), everywhere: bool('Every session ended'), revoked: bool('The platform ended the session'), note: str('What to know') }),
   mcp: false,
@@ -141,7 +142,7 @@ export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
     forgetSulfurSession(ctx);
     return { backend: 'sulfur', profile: ctx.profileName, signedOut: true, everywhere: false, revoked, ...(note ? { note } : {}) };
   },
-  text: (r) => (r.signedOut ? `${paint.ok(`Signed out${r.everywhere ? ' everywhere' : ''}`)} ${paint.dim(`(new backend, profile ${r.profile})`)}${r.note ? `\n${r.note}` : ''}` : `${r.note} (profile ${r.profile})`),
+  text: (r) => (r.signedOut ? `${paint.ok(`Signed out${r.everywhere ? ' everywhere' : ''}`)} ${paint.dim(`(profile ${r.profile})`)}${r.note ? `\n${r.note}` : ''}` : `${r.note} (profile ${r.profile})`),
 };
 
 // ---- whoami / profile ----
@@ -149,9 +150,9 @@ export const sulfurLogout: Command<{ everywhere?: boolean }, LogoutResult> = {
 type Card = { handle: string; name: string | null };
 
 type WhoamiResult = { backend: 'sulfur'; actor: 'human' | 'delegated-agent' | 'operator'; agentId?: string; profile: string; env: string; cell: string; account: { id: string; handle: string; name: string | null; tier: string }; session: SessionView };
-export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
-  name: 'whoami', summary: 'The account signed in on the new backend',
-  examples: ['breakrocks --backend sulfur whoami', 'breakrocks --backend sulfur whoami --json'],
+export const whoami: Command<Record<string, never>, WhoamiResult> = {
+  name: 'whoami', summary: 'The account signed in on native-sulfur',
+  examples: ['breakrocks whoami', 'breakrocks whoami --json'],
   input: object({}),
   output: openObject({ backend: str('sulfur'), actor: str('human'), profile: str('The profile'), env: str('Environment'), cell: str('Home cell'), account: openObject({ id: str('The account'), handle: str('Its handle'), name: { type: ['string', 'null'] }, tier: str('Its tier') }), session: sessionSchema }),
   run: async (ctx) => {
@@ -161,19 +162,38 @@ export const sulfurWhoami: Command<Record<string, never>, WhoamiResult> = {
     const { actor, agentId } = sulfurActorOf(s);
     return { backend: 'sulfur', actor, ...(agentId ? { agentId } : {}), profile: ctx.profileName, env: s.env, cell: s.cell, account: { id: me.id, handle: me.card.handle, name: me.card.name, tier: me.tier }, session: sessionView(s) };
   },
-  text: (r) => [`${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.id})`)}${r.account.name ? ` ${r.account.name}` : ''}`, paint.dim(`new backend, ${r.env}, cell ${r.cell}, profile ${r.profile}`), `tier ${r.account.tier}`, `session ${r.session.kind}: ${r.session.note}`].join('\n'),
+  text: (r) => [`${paint.address(`@${r.account.handle}`)} ${paint.dim(`(${r.account.id})`)}${r.account.name ? ` ${r.account.name}` : ''}`, paint.dim(`${r.env}, cell ${r.cell}, profile ${r.profile}`), `tier ${r.account.tier}`, `session ${r.session.kind}: ${r.session.note}`].join('\n'),
   quiet: (r) => r.account.id,
+};
+
+// ---- session ----
+
+type SessionResult = { profile: string; signedIn: boolean; actor?: string; accountId?: string; agentId?: string; cell?: string; session?: SessionView };
+export const sessionCommand: Command<{ renew?: boolean }, SessionResult> = {
+  name: 'session', summary: 'Show the session of the profile and when its token ends (--renew: renew it now)',
+  description: 'The session of the profile on this device: who it acts as, how it was signed in, when its access token ends (every command renews it on its own) and where its tokens are kept. Never shows a token. --renew renews it now (an agent signs a new assertion with its key).',
+  examples: ['breakrocks me session', 'breakrocks me session --renew --json'],
+  input: object({ renew: bool('Renew the session now') }),
+  output: openObject({ profile: str('The profile'), signedIn: bool('A session is open'), actor: str('human, operator or delegated-agent'), accountId: str('The account it acts as'), agentId: str('The delegated agent'), cell: str('Home cell'), session: sessionSchema }),
+  run: async (ctx, { renew }) => {
+    const s = renew ? await ensureSulfurSession(ctx, { renew: true }) : readSulfurSession(ctx);
+    if (!s) return { profile: ctx.profileName, signedIn: false };
+    const { actor, agentId } = sulfurActorOf(s);
+    return { profile: ctx.profileName, signedIn: true, actor, accountId: s.accountId, ...(agentId ? { agentId } : {}), cell: s.cell, session: sessionView(s) };
+  },
+  text: (r) => (r.signedIn ? `${r.actor} ${r.accountId}${r.agentId ? ` (agent ${r.agentId})` : ''}, cell ${r.cell}
+token until ${r.session?.accessExpiresAt} (${r.session?.storage}): ${r.session?.note}` : `Not signed in (profile ${r.profile})`),
+  quiet: (r) => r.accountId,
 };
 
 // ---- operator login / agents login ----
 
 type AgentLoginResult = { backend: 'sulfur'; actor: string; accountId: string; agentId?: string; session: SessionView };
-const agentLogin = (name: 'operator login' | 'agents login'): Command<Record<string, never>, AgentLoginResult> => ({
-  name, summary: name === 'operator login' ? 'Sign the agent operator in on the new backend with its key (RFC 7523)' : 'Sign a delegated agent in on the new backend with its key (RFC 7523)',
+const agentLogin = (name: 'operator login' | 'agent login'): Command<Record<string, never>, AgentLoginResult> => ({
+  name, summary: name === 'operator login' ? 'Sign the agent operator in on native-sulfur with its key (RFC 7523)' : 'Sign a delegated agent in on native-sulfur with its key (RFC 7523)',
   description: 'The key of the profile (or of --agent, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID, BREAKROCKS_AGENT_KEY) signs an assertion exchanged at the cell\'s token endpoint for an access token; a new assertion renews it whenever it ends (no refresh token). Every command signs in this way by itself: this one only checks it.',
-  examples: [`breakrocks --backend sulfur ${name}`, 'breakrocks --backend sulfur --agent herald whoami'],
+  examples: [`breakrocks ${name}`, 'breakrocks --agent herald whoami'],
   input: object({}), output: openObject({ backend: str('sulfur'), actor: str('delegated-agent or operator'), accountId: str('The account it acts as'), agentId: str('The delegated agent'), session: sessionSchema }),
-  mcp: false,
   run: async (ctx) => {
     const { agentCredentials, agentSignIn } = await import('./agent.js');
     const creds = agentCredentials(ctx);
@@ -182,7 +202,7 @@ const agentLogin = (name: 'operator login' | 'agents login'): Command<Record<str
     const { actor, agentId } = sulfurActorOf(s);
     return { backend: 'sulfur', actor, accountId: s.accountId, ...(agentId ? { agentId } : {}), session: sessionView(s) };
   },
-  text: (r) => `${paint.ok('Signed in')} on the new backend as ${r.actor}${r.agentId ? ` ${r.agentId}` : ''} for ${r.accountId}`,
+  text: (r) => `${paint.ok('Signed in')} on native-sulfur as ${r.actor}${r.agentId ? ` ${r.agentId}` : ''} for ${r.accountId}`,
   quiet: (r) => r.accountId,
 });
 
@@ -191,17 +211,35 @@ const agentLogin = (name: 'operator login' | 'agents login'): Command<Record<str
 type Check = { name: string; status: 'ok' | 'warn' | 'fail' | 'skip'; detail: string; code?: string };
 type DoctorResult = { ok: boolean; version: string; backend: 'sulfur'; serverSchema?: string; profile: string; env: string; checks: Check[]; missingFields: string[]; missingDeprecatedFields: string[]; missingOperations: string[] };
 
-export const sulfurDoctor: Command<Record<string, never>, DoctorResult> = {
-  name: 'doctor', summary: 'Check what keeps the CLI from working on the new backend: the profile, the session, the API, the operations it serves',
-  examples: ['breakrocks --backend sulfur doctor', 'breakrocks --backend sulfur doctor --json'],
+export const doctor: Command<Record<string, never>, DoctorResult> = {
+  name: 'doctor', summary: 'Check what keeps the CLI from working: the profile, the network, the session, the API, the operations it serves',
+  examples: ['breakrocks doctor', 'breakrocks doctor --json'],
   input: object({}),
-  output: openObject({ ok: bool('Nothing fails'), version: str('The CLI'), backend: str('sulfur'), serverSchema: str('The server commit of the schema the CLI fits its requests to'), profile: str('The profile'), env: str('Environment'), checks: { type: 'array', items: openObject({ name: str('What'), status: str('ok, warn, fail or skip'), detail: str('Why') }) }, missingOperations: { type: 'array', items: { type: 'string' }, description: 'Talc operations the new backend does not serve (NOT_ON_NEW_BACKEND)' } }),
+  output: openObject({ ok: bool('Nothing fails'), version: str('The CLI'), backend: str('sulfur'), serverSchema: str('The server commit of the schema the CLI fits its requests to'), profile: str('The profile'), env: str('Environment'), checks: { type: 'array', items: openObject({ name: str('What'), status: str('ok, warn, fail or skip'), detail: str('Why') }) }, missingOperations: { type: 'array', items: { type: 'string' }, description: 'Operations of the API v2 contract native-sulfur does not serve yet (NOT_AVAILABLE)' } }),
   run: async (ctx) => {
     const checks: Check[] = [];
     const profile = ctx.profile();
     const env = profile.env as Environment;
     checks.push({ name: 'backend', status: 'ok', detail: `sulfur (${sulfurBase(ctx, env)})` });
     checks.push({ name: 'configuration', status: 'ok', detail: ctx.store.dir });
+    // The network: the proxy and the CA bundle in effect (credentials hidden), then whether the cell answers through them.
+    let network: NetworkSettings | undefined;
+    try {
+      network = ctx.network();
+      const d = describeNetwork(network);
+      const ca = d.caFile ? `; CA bundle ${d.caFile} (${d.caSource})` : '';
+      checks.push(d.proxy || d.httpProxy ? { name: 'proxy', status: 'ok', detail: `${[d.proxy && `https through ${d.proxy}`, d.httpProxy && `http through ${d.httpProxy}`].filter(Boolean).join(', ')} (${d.proxySource})${d.noProxy ? `; directly: ${d.noProxy}` : ''}${ca}` }
+        : { name: 'proxy', status: d.caFile ? 'ok' : 'skip', detail: `no proxy (--proxy, config set proxy, HTTPS_PROXY)${ca}` });
+    } catch (e) { checks.push({ name: 'proxy', status: 'fail', code: (e as { code?: string }).code, detail: (e as Error).message }); }
+    const graphqlUrl = `${sulfurBase(ctx, env)}/graphql`;
+    const proxy = network && proxyFor(network, graphqlUrl);
+    const via = proxy ? ` through the proxy ${redactUrl(proxy)}` : '';
+    try {
+      const res = await apiRequest(ctx, graphqlUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{ __typename }' }) });
+      checks.push(res.status < 500 ? { name: 'reach', status: 'ok', detail: `${new URL(graphqlUrl).host} answers (${res.status})${via}` } : { name: 'reach', status: 'fail', code: 'SERVER_ERROR', detail: `${new URL(graphqlUrl).host} answered ${res.status}${via}` });
+    } catch (e) {
+      checks.push({ name: 'reach', status: 'fail', code: (e as { code?: string }).code, detail: `${(e as Error).message}${via}${proxy ? ': check the proxy (breakrocks config show)' : ''}` });
+    }
     // An agent (a local agent, a profile of an operator or a delegated agent, the BREAKROCKS_* variables) has no session
     // file before its first command: it signs in with its key here, as every command does.
     let session = readSulfurSession(ctx);
@@ -214,7 +252,7 @@ export const sulfurDoctor: Command<Record<string, never>, DoctorResult> = {
         checks.push({ name: 'agent', status: 'fail', code: (e as { code?: string }).code, detail: (e as Error).message });
       }
     }
-    if (!session) checks.push({ name: 'session', status: 'fail', code: 'SIGN_IN_REQUIRED', detail: mayActAsAgent(ctx, profile) ? 'the agent could not sign in (above)' : 'not signed in: breakrocks --backend sulfur login' });
+    if (!session) checks.push({ name: 'session', status: 'fail', code: 'SIGN_IN_REQUIRED', detail: mayActAsAgent(ctx, profile) ? 'the agent could not sign in (above)' : 'not signed in: breakrocks login' });
     else checks.push({ name: 'session', status: 'ok', detail: `@${session.handle ?? '?'} (${session.accountId}), ${session.method}, ${session.kind}, cell ${session.cell}, token until ${session.accessExpiresAt} (${session.storage})` });
     if (session) {
       try {
@@ -225,13 +263,12 @@ export const sulfurDoctor: Command<Record<string, never>, DoctorResult> = {
       }
     } else checks.push({ name: 'api', status: 'skip', detail: 'no session' });
     const missing = [...Object.keys(CONTRACT.query).filter((q) => !SERVER.query[q] && !ADAPTERS[q]).map((q) => `Query.${q}`), ...Object.keys(CONTRACT.mutation).filter((m) => !SERVER.mutation[m] && !ADAPTERS[m]).map((m) => `Mutation.${m}`)];
-    checks.push({ name: 'operations', status: missing.length ? 'warn' : 'ok', detail: `${missing.length} talc operations not served by the new backend (schema of ${SERVER.version ?? '?'}): their commands answer NOT_ON_NEW_BACKEND (docs/sulfur.md)` });
+    checks.push({ name: 'operations', status: missing.length ? 'warn' : 'ok', detail: `${missing.length} operations of the API v2 contract not served by native-sulfur yet (schema of ${SERVER.version ?? '?'}): their commands answer NOT_AVAILABLE (docs/sulfur.md)` });
     return { ok: !checks.some((c) => c.status === 'fail'), version: VERSION, backend: 'sulfur', ...(SERVER.version ? { serverSchema: SERVER.version } : {}), profile: ctx.profileName, env, checks, missingFields: [], missingDeprecatedFields: [], missingOperations: missing };
   },
-  text: (r) => [...r.checks.map((c) => `${c.status === 'ok' ? paint.ok('ok  ') : c.status === 'fail' ? paint.error('fail') : paint.dim(c.status.padEnd(4))} ${c.name}: ${c.detail}`), r.ok ? paint.ok('Nothing keeps the CLI from working on the new backend') : paint.error('Something keeps the CLI from working on the new backend')].join('\n'),
+  text: (r) => [...r.checks.map((c) => `${c.status === 'ok' ? paint.ok('ok  ') : c.status === 'fail' ? paint.error('fail') : paint.dim(c.status.padEnd(4))} ${c.name}: ${c.detail}`), r.ok ? paint.ok('Nothing keeps the CLI from working on native-sulfur') : paint.error('Something keeps the CLI from working on native-sulfur')].join('\n'),
   quiet: (r) => (r.ok ? 'ok' : 'fail'),
 };
 
-/** The commands of the new backend, by the registry name they stand in for. */
-export const SULFUR_COMMANDS: ReadonlyMap<string, AnyCommand> = new Map<string, AnyCommand>([sulfurLogin, sulfurLogout, sulfurWhoami, sulfurDoctor, agentLogin('operator login'), agentLogin('agents login')].map((c) => [c.name, c as AnyCommand]));
-
+export const operatorLogin = agentLogin('operator login');
+export const agentsLogin = agentLogin('agent login');

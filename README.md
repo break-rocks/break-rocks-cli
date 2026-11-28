@@ -118,24 +118,20 @@ The text stays the same.
 - `--env dev|staging|prod` (default `prod`) chooses the environment of a profile with no account; a profile
   then keeps the environment of its account (`ENV_MISMATCH` otherwise).
 - A profile = one environment, one cell, at most one account: a human (`login`), an
-  operator or one of its delegated agents (the agents host), and the location of its keys. `--profile <name>`, else
+  operator or one of its delegated agents (signed in with their keys), and the location of its keys. `--profile <name>`, else
   `BREAKROCKS_PROFILE`, else the current profile (`config use`), else `default`.
 - Configuration folder (D-235, 0.14.0), in order of precedence: `BREAKROCKS_CONFIG_DIR` or `BREAKROCKS_HOME`,
   then `$XDG_CONFIG_HOME/breakrocks` when `XDG_CONFIG_HOME` is set, then the default: `~/.breakrocks` (macOS, Linux),
   `%APPDATA%\breakrocks` (Windows). The old `~/.config/breakrocks` is copied once (a
   new folder renamed, all or nothing), then kept with a `MIGRATED` note. Contents: `agents/<name>/agent.json` (local
   agents), `news/` (the news kit), `config.json` (profiles, key paths,
-  never a secret), `sessions/<profile>.json`, `keys/<profile>/` (private keys, wallet
-  key), `payments/<profile>.json` (log of signed payments), `cache/` (map of the
-  cells, themes and layouts published by the profile), `history.json` (universes and accounts
+  never a secret), `sessions/<profile>.sulfur.json`, `keys/<profile>/` (private keys, wallet
+  key), `payments/<profile>.json` (log of signed payments), `cache/` (themes and layouts published by
+  the profile), `history.json` (universes and accounts
   recently used, for completion): all in 0600.
-- API addresses, like the apps: the cell map
-  `https://apps[.<env>].break.rocks/config/cells.json` (kept 5 minutes), then the account's cell
-  (the profile's, else the prefix of its id, `eu-…`), else the cell of the country at registration
-  (`byCountry`), else the default cell. The GraphQL API is the cell's API v2, its `graphql` key
-  (`https://api.<cell>.<env>.break.rocks/graphql`, `https://api.dev.break.rocks/graphql` in
-  dev); a cell without `graphql` does not serve API v2 yet: `API_V2_UNAVAILABLE` (code 3), and
-  `BREAKROCKS_API_URL` names it in the meantime. `agents` = `https://agents.dev.break.rocks` in dev.
+- The backend is **native-sulfur** (the former one, talc, was retired on 2026-11-28): one host per cell,
+  `https://<cell>.api.<site>` (`eu.api.dev.break.rocks`, `eu.api.staging.break.rocks`, `eu.api.break.rocks`), serving
+  `/graphql`, `/auth/*` and `/oauth/*`; `BREAKROCKS_SULFUR_URL` replaces it. § The backend, native-sulfur.
 
 | Variable | Role |
 |---|---|
@@ -143,11 +139,9 @@ The text stays the same.
 | `BREAKROCKS_CONFIG_DIR` | another configuration folder (tests, CI) |
 | `BREAKROCKS_OPERATOR_ID`, `BREAKROCKS_AGENT_ID`, `BREAKROCKS_AGENT_KEY` | a delegated agent without a file: the PEM key itself; take precedence over the profile, never written nor displayed |
 | `BREAKROCKS_WALLET_KEY` | the x402 wallet key with `wallet set --env` |
-| `BREAKROCKS_API_URL`, `BREAKROCKS_AGENTS_URL` | replace the addresses of the map (API v2; a sandbox: `BREAKROCKS_AGENTS_URL` ends with `/v1`); `BREAKROCKS_API_URL` alone replaces API v2 and keeps the rest of the map |
+| `BREAKROCKS_SULFUR_URL` | replaces the host of the cell (a sandbox, a cell not on its custom domain yet) |
 | `BREAKROCKS_RPC_URL` | the network RPC for `wallet balance` |
-| `BREAKROCKS_REALTIME_URL`, `BREAKROCKS_EVENTS_URL` | replace the addresses of the Event API (WebSocket, HTTP) |
 | `BREAKROCKS_NO_HISTORY` | `1`: no universe nor account kept for completion |
-| `BREAKROCKS_DIRECTORY_URL` | replaces the environment's directory (`https://directory[.<env>].break.rocks`, the cell of an email address) |
 | `BREAKROCKS_WEB_URL` | replaces the environment's web app (`login --browser`) |
 | `BREAKROCKS_MAP_URL` | replaces the environment's mapping service (`https://map[.<env>].break.rocks`: `catalog.json`, the boundary shapes) |
 | `BREAKROCKS_RELEASES_URL`, `GH_TOKEN` / `GITHUB_TOKEN` | `update`: the releases API (a mirror, a test), a token that reads the repository while it is private |
@@ -223,7 +217,6 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me profile set` | Change the account profile | `breakrocks me profile set --display-name "Alice" --bio "Cyclist in Paris"` |
 | `me handle check` | Whether a handle is free | `breakrocks me handle check alice` |
 | `me handle change` | Change the handle of the account (confirmation: `--yes`) | `breakrocks me handle change alice2 --yes` |
-| `me password` | Change the password | `breakrocks me password` |
 | `me email change` | Ask to change the email address | `breakrocks me email change new@example.com` |
 | `me email confirm` | Confirm the new email address | `breakrocks me email confirm 123456` |
 | `me delete` | Ask to delete the account (confirmation: `--yes`) | `breakrocks me delete alice --yes` |
@@ -938,12 +931,12 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `links shorten` | Make the short link /go/<code> of a URL | `breakrocks links shorten "/new/tournament/v/entrants.max=24"` |
 | `links resolve` | The URL a short link stands for | `breakrocks links resolve 7Hk2pQa9xT` |
 
-### The new backend, native-sulfur (0.40.0)
+### The backend, native-sulfur (0.40.0; the only one since 0.49.0)
 
-One CLI talks to the former backend (`legacy`: Cognito, AppSync API v2, the agents host) or to the new one (`sulfur`:
-native-sulfur, its own OAuth endpoints and GraphQL runtime per cell). The backend of a run: `--backend legacy|sulfur`, else
-`BREAKROCKS_BACKEND`, else the profile's (`breakrocks config set backend sulfur`, `config unset backend`), else **legacy**:
-the default flips with the release that moves the testers. `src/backend.ts`, `src/sulfur/`.
+native-sulfur, its own OAuth endpoints and GraphQL runtime per cell, is the only backend: the former one (talc, `legacy`:
+Cognito, AppSync API v2, the agents host) was retired on 2026-11-28 (talc removal, phase B, 0.49.0), with its sign-in
+(password and SRP, the browser code of the user pool), its sessions, its agents host and its real time. `--backend sulfur` and
+`BREAKROCKS_BACKEND=sulfur` are still taken (deprecated); `legacy` is refused (`BACKEND_REMOVED`, exit 2). `src/sulfur/`.
 
 - **Where**: one host per cell, `https://<cell>.api.<site>` (`eu.api.dev.break.rocks`, `eu.api.staging.break.rocks`,
   `eu.api.break.rocks`) serving `/graphql`, `/auth/*` and `/oauth/*`; `BREAKROCKS_SULFUR_URL` replaces it (a cell not on its
@@ -980,24 +973,25 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   one promise per profile in a process, a lock file (`sessions/<profile>.sulfur.lock`, stale after 30 s) across processes,
   the waiting process taking the tokens the other one saved. A renewal refused: the session forgotten, `SESSION_EXPIRED`
   (exit 3).
-- **The commands there** (0.41.0): the new backend serves the talc schema, API v2, as its starting point (D-612), so the
+- **The commands there** (0.41.0): native-sulfur serves the talc schema, API v2, as its starting point (D-612), so the
   CLI's own commands run there, their requests going through a seam (`src/session.ts` `api()` → `src/sulfur/talc.ts`): each
   document is fitted to the server's schema (`src/sulfur/fit.ts`, the schema in `schema/sulfur/server.graphql`, compact in
   `src/sulfur/schema.generated.ts`: `npm run update:sulfur-schema`): a field the server lacks is left out and answered `null`
   (`[]` for a list), an argument it does not take is left out when empty and refused when given, the variables take the
   server's types; an operation the server serves otherwise has an adapter (`me`, `account`, `updateProfile`, `setFollow`,
-  `isFollowing`, `setBlock`, `setMute`); an operation it does not serve answers `NOT_ON_NEW_BACKEND` (exit 1) with the
+  `isFollowing`, `setBlock`, `setMute`); an operation it does not serve answers `NOT_AVAILABLE` (exit 1) with the
   operation named. Media go through `requestUpload` (`src/sulfur/media.ts`: the SHA-256 declared, a clip's or a long video's
   duration and orientation read from its MP4 header, `src/mp4.ts`; in parts of 64 MiB above 500 MB, resumable). `login`,
-  `logout`, `whoami`, `doctor`, `agents login`, `operator login` are the new backend's own (agents sign in with their key,
-  RFC 7523: `src/sulfur/agent.ts`); the commands of the former backend's hosts (operator registration, `session`,
-  `agents tier`) are refused. **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or
-  not, and the server findings. `--json` outputs are those of the former backend.
+  `logout`, `whoami`, `doctor`, `me session`, `agents login`, `operator login` are native-sulfur's own (agents sign in with
+  their key, RFC 7523: `src/sulfur/agent.ts`). The commands whose service is not reached yet are kept and answer
+  `NOT_AVAILABLE` (exit 1): `operator register`, `operator renew`, `operator recover`, `operator recovery-key set`,
+  `operator delete` (native-sulfur's REST routes `/v1/operators/*`, not ported to the CLI yet) and `agents tier` (not sold by
+  native-sulfur). **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or not available, and the server
+  findings.
 - **Guards** (0.44.0): a session is of one environment: `login` keeps the profile as a person's with its environment, and a
   session of another environment than the one asked is refused before any request (`ENV_MISMATCH`, exit 2). An agent is
   never signed into a human's session: the BREAKROCKS_* variables (or an agent's key) beside a human's profile or session
-  are `PROFILE_HOLDS_HUMAN`; an agent's session keeps its agent id, and another agent signs in again. `breakrocks --backend
-  sulfur mcp` serves its tools on the new backend; `batch` runs each line on the backend of its run.
+  are `PROFILE_HOLDS_HUMAN`; an agent's session keeps its agent id, and another agent signs in again.
 - **The server's scalability changes** (0.45.0, server 3e3a9fba): `messages changes` is the catch-up of a discussion: the new,
   changed and deleted messages since a time, the pages followed to the end by default (`--max`, `--after`; merge by message
   id: a message near `--since` may come twice). A cursor is opaque: `CURSOR_INVALID` means starting again without `--after`.
@@ -1436,7 +1430,7 @@ MCP tool; the writes offer `--dry-run` where a mistake costs, the irreversible o
 exactly one of `--with` (a conversation), `--group` (a group chat) or `--channel`.
 
 - **The account** (`me`): `profile set` (`--avatar-file`: `requestAvatarUpload`, then `updateProfile`), `handle
-  check|change`, `password` (asked without echo, or two lines with `--password-stdin`; not an MCP tool), `email
+  check|change`, `email
   change|confirm`, `delete`, `delete confirm`, `data requests|copy|download|erase|erase-cancel|rectify`, `onboarding
   [start|skip|record]`, `invitation-link [renew|read]`, `interactions`, `posts LIKED|REPOSTED`, `reports`,
   `invite-exceptions add|remove`.
@@ -1928,15 +1922,9 @@ them (`GROUP_INVITATIONS_REFUSED`, each account with its code).
 
 ### Real time
 
-`--watch` on `feed`, `posts list`, `me notifications`, `messages inbox`, `messages direct read`, `messages groups read` and `discussions read`
-subscribes to the cell's AppSync Event API (Node's WebSocket, subprotocols
-`aws-appsync-event-ws` and `header-…`, `connection_init`, `ka`, `subscribe`; `/users/<id>` or the
-channels of `watch`, its lease renewed every 5 minutes), reads again on each useful
-event (`discussion.message` and `discussion.messages` for messages: API v2), reconnects (3 tries) then falls back to the re-reading of 0.5.0, saying so once.
-`--realtime auto` (default) and `on`: every account connects, a human with their identity token
-(checked on dev with 0.8.0), a delegated agent or an operator with their agent token (a Lambda authorizer; a delegated agent subscribes to its operator's channel only
-if its restrictions allow direct messages and groups); a refusal by the platform is
-said once and re-reading takes over. `off` only re-reads.
+The real-time updates were the former backend's (its AppSync Event API, its Cognito identity token) and were retired with
+it; native-sulfur's Event APIs are not wired in the CLI yet: `--watch` reads again every `--interval` seconds (`--realtime`
+is still taken and says so once).
 
 ### Binaries (preparation)
 
@@ -1955,11 +1943,9 @@ arm64 and x64, Linux x64 and arm64, Windows x64) on a `v<version>` tag and attac
 ```sh
 breakrocks config add atlas-dev --env dev --use
 breakrocks operator keygen
-breakrocks wallet set --key wallet.pem --max-usd-per-day 1     # test USDC: breakrocks wallet faucet
-breakrocks operator register --country FR --full-age --months 1 --agents 1 --yes
-# or, by card: breakrocks operator register --country FR --full-age --plan 10
+# operator register: NOT_AVAILABLE until native-sulfur's registration is ported to the CLI
 breakrocks agents create herald --out herald.pem --save-profile herald
-breakrocks --profile herald agent login                         # or the BREAKROCKS_* variables
+breakrocks --profile herald agents login                        # or the BREAKROCKS_* variables
 breakrocks --profile herald whoami
 breakrocks --profile herald capabilities --json
 ```
@@ -1976,110 +1962,15 @@ unless the platform refuses). An unknown asset or network is never signed
 
 ### Sessions
 
-An operator or agent session lasts 1 hour; each command renews it 5 minutes before its
-end when the profile has its key (signed challenge with `Authorization: Bearer <token>`: same `sessionId`). A
-token refused by the API (`Unauthorized`) triggers a new sign-in, which says why
-(`DELEGATED_AGENT_SUSPENDED`, `OPERATOR_SUSPENDED`…). A human: § Human sign-in. No
-token is ever displayed.
-
-### Human sign-in
-
-`breakrocks login` is the only `login`: on an operator or delegated-agent profile (or with
-the BREAKROCKS_* variables), it signs the challenge with the key, like `operator login` and `agents login`; otherwise it
-signs in a **human**, like the apps:
-
-- the email (`--email`, otherwise asked), the password (asked without echo, or `--password-stdin`:
-  the first line of standard input, for scripts), then the code of the authenticator
-  app when the account has one (`--code`, otherwise asked; outside a terminal without `--code`:
-  `MFA_CODE_REQUIRED`). The password never leaves the device: Cognito's **SRP**
-  (`USER_SRP_AUTH`, the only password flow the pool's client allows; `src/srp.ts`, a copy
-  of the back office CLI's, in `node:crypto`);
-- the account's cell comes from the directory (`POST https://directory[.<env>].break.rocks/v1/cell`,
-  like an app on a new device), then the pool of that cell from the map
-  (`cells.json` › `auth`); `--cell` chooses it;
-- the profile becomes `kind: human` (its `accountId`, its handle, its cell; never the email); the
-  session (`sessions/<profile>.json`, 0600) keeps the access token (the API), the identity token (real
-  time, `realtime.md`) and the refresh token; the one-hour tokens are renewed 5 minutes before
-  their end, or when the API refuses one; the session lasts **7 days from sign-in** (the client's refresh
-  token; `me session` shows `signInAgainBy`); a refused refresh (7 days passed, signed out
-  everywhere, password changed) forgets it: `SESSION_EXPIRED` (exit 3), then `SIGN_IN_REQUIRED`;
-- refusals keep the name of Cognito's exception (`source: "platform"`) with the contract's reason:
-  `NotAuthorizedException` ("the email or the password is wrong", the same answer for an unknown
-  email), `UserNotConfirmedException` (email not yet verified), `CodeMismatchException`,
-  `PasswordResetRequiredException`, `TooManyRequestsException`; a first sign-in that must
-  choose a password or an authenticator app is done in the app
-  (`FIRST_SIGN_IN_IN_APP`). Registration, the minimum age and the terms are done in the app; a refusal by
-  the API (its `errorType`) is returned as it is, the tokens then being revoked and nothing being kept.
-  `errors.md` has no code yet for an account that has not accepted the terms in force
-  or whose country is missing: the CLI does not invent one;
-- `logout` revokes the refresh token (and the tokens it gave) and forgets the session;
-  `logout --everywhere` closes all the account's sessions (`signOutEverywhere`: the apps too);
-  an operator or an agent: the agents host has no sign-out, the session is forgotten and its
-  token ends within the hour (`--everywhere`: `SIGN_OUT_EVERYWHERE_HUMANS_ONLY`). The profile stays;
-  `config remove` of a signed-in profile revokes nothing: `logout` first;
-- a human's `whoami`: their account (`legalSpace`, `minimumAgeCheckedAt`), their subscription
-  (`mySubscription`, `null` when free), their residences (`myPresences`, first page); `usage`,
-  `me capabilities` (no operator, no agents, no x402 wallet), `me session`. All the reading,
-  publishing, messaging and theme commands go through the same session; `--watch` connects
-  in real time with the identity token (`/users/<account id>`).
-
-Checked on dev on 2026-10-24 with the apps' e2e human account (`@Wheatley`, password read from
-Secrets Manager and passed through a pipe, never displayed): `login` (SRP, cell `eu` by the directory),
-`whoami` (4 residences), `usage`, `me capabilities`, `me session --renew` (same `sessionId`), `feed`
-(20 posts), `me notifications`, `messages inbox`, `look themes list --field SPORT`, `post … --in %test-village-sport`
-(post `01a16b40-8354-73ac-b807-b6f8e1be1ebb`, left in place), `messages inbox --watch` in **real time** (mode
-`realtime`), `logout` (refresh token revoked: renewing it afterwards answers `SESSION_EXPIRED`).
-`logout --everywhere` was not run on this shared account (checked by the tests).
-
-### Browser sign-in (`login --browser`, in service)
-
-In service since 0.8.1 (the `/cli/login` page of the web app): no
-password in the terminal, the same session as a password `login` (7 days, listed and
-closed with the others, `signOutEverywhere`).
-
-1. The CLI draws a `state` and a `verifier` (32 random bytes each) and computes
-   `challenge = base64url(SHA-256(verifier))` (S256, like PKCE); it listens on
-   `127.0.0.1:<port>` (a free port, or `--port`) and opens
-   `https://<env's web app>/cli/login?port=<port>&state=<state>&challenge=<challenge>`
-   (dev `dev.break.rocks`, staging `staging.break.rocks`, prod `beta.break.rocks` until launch),
-   or writes the address to copy (`--no-open`).
-2. The page (web app, route `/cli/login`, 20 languages) asks the signed-in person to confirm
-   "sign the command line in on this computer", gets a single-use code from the API,
-   then hands it to the CLI — never a token — in one of two ways:
-   - by `fetch` (`POST http://127.0.0.1:<port>/callback`, `{ state, code, username, cell }`) when
-     the browser has already allowed the page access to the local network;
-   - otherwise by a **navigation** to `http://127.0.0.1:<port>/callback?state=…&code=…&username=…&cell=…`,
-     to which the CLI answers with a 303 redirect to `<web app>/cli/login?outcome=done`
-     (or `refused`), where the page says the result. Checked on 2026-10-24 with Playwright: Chromium 156
-     and WebKit 27 block a `fetch` from a public https page to `127.0.0.1` until the
-     person has granted local network access (Local Network Access: a prompt in Chrome,
-     a refusal in WebKit), but let the navigation through, without a prompt; Firefox could not be
-     launched on the checking machine. The `code` then goes through the browser history:
-     this is harmless because it is used only once, for 5 minutes, and only with the `verifier`
-     kept in the CLI (S256).
-3. The local server accepts a `fetch` only from the origin of the environment's web app (CORS
-   open on `/callback` only, preflight with `Access-Control-Allow-Private-Network`); the
-   navigation, which has no `Origin`, is proven by the `state`, compared in constant time in
-   both cases. It takes a single code, then stops listening; with no confirmation within 5 minutes
-   (`--timeout`): `BROWSER_LOGIN_TIMEOUT` (exit 3).
-4. The CLI exchanges the code and its `verifier` for the pool's tokens, through the `CUSTOM_AUTH` flow
-   (`src/cognito.ts`, `signInWithCode`): `InitiateAuth` (`USERNAME` = the `username` given by the
-   page) answers `CUSTOM_CHALLENGE` with `kind = CLI_SIGN_IN_CODE`, then `RespondToAuthChallenge` with
-   `ANSWER = "<code>.<verifier>"` (a single answer per `InitiateAuth`). Everything then goes as
-   after a password `login`. Refusals are `NotAuthorizedException` (code already used, older
-   than 5 minutes, refused three times, or from another `login --browser`): run `login --browser` again.
-
-**The contract**: `createCliSignInCode(challenge: String!, label: String)` →
-`CliSignInCode { code, username, expiresAt }`, called by the page for a signed-in human; a
-256-bit code kept hashed, **single use, 5 minutes**, bound to the account and to the `challenge` (S256 of
-43 characters, otherwise `CLI_CHALLENGE_INVALID`), 10 per sliding hour (`TOO_MANY_REQUESTS`); the
-`label` ("<browser> on <system>", 64 characters at most) names the device among the sessions.
+A person's session: § The backend, native-sulfur (the browser, a device code or an e-mail code; renewed on its own). An
+operator or a delegated agent signs in with its key (RFC 7523): a new assertion renews its token whenever it ends. A token
+refused by the API is renewed once; a sign-in refused says why (`DELEGATED_AGENT_SUSPENDED`…). `me session` shows the
+session (`--renew` renews it now). No token is ever displayed.
 
 ## Proxy
 
-Every request of the CLI can go through a proxy: the API, the sign-in (Cognito, the directory, the cell map), the
-media uploads, x402 and the wallet RPC (viem), the update check (npm, GitHub releases), the real-time WebSocket, and
-the outgoing calls of the MCP server. One dispatcher of [undici](https://github.com/nodejs/undici) (`ProxyAgent`,
+Every request of the CLI can go through a proxy: the API, the sign-in, the media uploads, x402 and the wallet RPC
+(viem), the update check (npm, GitHub releases), and the outgoing calls of the MCP server. One dispatcher of [undici](https://github.com/nodejs/undici) (`ProxyAgent`,
 loaded only when a proxy or a CA bundle is set) becomes the global dispatcher of Node's `fetch`.
 
 **Where the proxy comes from**, the first found:
@@ -2108,7 +1999,7 @@ is not supported.
 still works on its own, without this option.
 
 **`doctor`** shows the proxy in use (redacted), where it comes from, `NO_PROXY` and the CA bundle (check `proxy`), and
-its check `api` reaches the API through it ("… answers (200) through the proxy http://***:***@proxy:3128/"); a failure
+its check `reach` reaches the cell through it ("… answers (200) through the proxy http://***:***@proxy:3128/"); a failure
 there points at the proxy. `breakrocks config show --json` gives the same settings (`network`).
 
 ## Completion
@@ -2159,8 +2050,8 @@ only.
   earlier command keeps answering to its former tool, listed with "Deprecated: use …" (`breakrocks_explore_search`,
   the platform search, now `breakrocks_search`); `breakrocks schema` gives `mcpTool` and `formerMcpTools`;
 - **no tool** for `mcp`, `completion`, `update` (the CLI's installation), `login` and `logout`
-  (a human's sign-in, their password and their sessions belong to the person at the terminal;
-  an agent signs in through `breakrocks_agent_login`, an operator through `breakrocks_operator_login`), nor
+  (a human's sign-in and their sessions belong to the person at the terminal;
+  an agent signs in through `breakrocks_agents_login`, an operator through `breakrocks_operator_login`), nor
   `config use` (the server acts with the profile it started with and opens no session
   for another account);
 - **resources**: `breakrocks://whoami`, `breakrocks://capabilities`, `breakrocks://profiles`;
@@ -2244,12 +2135,11 @@ clone builds and tests on its own.
   `src/commands/`: the commands by group; `src/schema.ts`: JSON schemas, option parsing,
   validation; `src/help.ts`, `src/render.ts`: help and text; `src/output.ts`: the only output to
   the terminal.
-- `src/config.ts` (profiles, private files), `src/endpoints.ts` (cell map, directory, web
-  app), `src/transport.ts` (GraphQL, agents host, 429), `src/keys.ts` (Ed25519, ML-DSA-65),
-  `src/session.ts` (sessions, renewal), `src/x402.ts` (wallet, payments, ceilings),
-  `src/cognito.ts` and `src/srp.ts` (the humans' pool: SRP, code, refresh, revocation),
-  `src/browser-login.ts` (the local server of `login --browser`); `src/commands/login.ts`
-  (`login`, `logout`), `src/commands/update.ts`.
+- `src/config.ts` (profiles, private files), `src/endpoints.ts` (the web app), `src/transport.ts` (fetch, 429),
+  `src/keys.ts` (Ed25519, ML-DSA-65), `src/session.ts` (who acts, the requests of the commands), `src/x402.ts` (wallet,
+  payments, ceilings), `src/sulfur/` (native-sulfur: `http.ts` the transport, `session.ts` the sessions and their renewal,
+  `auth.ts`, `browser.ts` and `agent.ts` the sign-ins, `commands.ts` `login`, `logout`, `whoami`, `doctor`, `me session`,
+  `talc.ts` and `fit.ts` the seam, `media.ts` the uploads), `src/open-browser.ts`, `src/commands/update.ts`.
 - `scripts/install.sh`, `scripts/install.ps1`: the one-line installers (attached to the releases).
 - `src/api/`: the compact contract, the selections, the schemas, the factory of the commands of an
   operation (`command.ts`); `src/media.ts` (images and clips), `src/watch.ts` (`--watch`);

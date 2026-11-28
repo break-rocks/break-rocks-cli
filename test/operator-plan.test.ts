@@ -1,73 +1,18 @@
-// The plan of delegated agents paid by card: at the registration (operator
-// register --plan, the CLI waiting for the payment), then operator plan offer|show|start|change|stop|resume
-// against the fake platform; the payment page opened by a fake browser, the prices read from the API.
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+// The plan of delegated agents paid by card: operator plan offer|show|start|change|stop|resume against the fake platform
+// (native-sulfur); the payment page opened by a fake browser, the prices read from the API.
 import { describe, expect, it } from 'vitest';
-import { fakePayer, onPlatform } from './fake-platform.js';
+import { operatorOnPlatform } from './fake-platform.js';
 import { last } from './helpers.js';
 
 const code = (h: { values: unknown[] }) => last<{ error?: { code: string; source?: string } }>(h).error;
 
-async function withKeys() {
-  const { h, platform } = await onPlatform({ payer: fakePayer });
+/** An agent operator on the fake platform, its browser a fake. */
+async function x402Operator() {
+  const { h, platform } = await operatorOnPlatform();
   const opened: string[] = [];
   h.io.openUrl = async (url) => { opened.push(url); return true; };
-  expect(await h.run('profile', 'add', 'atlas', '--env', 'dev', '--use', '--json')).toBe(0);
-  expect(await h.run('operator', 'keygen', '--recovery-algorithm', 'Ed25519', '--json')).toBe(0);
   return { h, platform, opened };
 }
-
-/** An agent operator registered with x402 (a period paid with x402 in progress). */
-async function x402Operator() {
-  const r = await withKeys();
-  const wallet = join(r.h.dir, 'wallet.key');
-  writeFileSync(wallet, `0x${'11'.repeat(32)}\n`);
-  expect(await r.h.run('wallet', 'set', '--key', wallet, '--json')).toBe(0);
-  expect(await r.h.run('operator', 'register', '--country', 'FR', '--full-age', '--yes', '--json')).toBe(0);
-  return r;
-}
-
-describe('a plan paid by card at the registration', () => {
-  it('opens the payment page in the browser, waits for the payment, then signs in', async () => {
-    const { h, platform, opened } = await withKeys();
-    const sleep = h.io.sleep;
-    h.io.sleep = async (ms) => { await sleep(ms); if (opened.length && !platform.plans.size) platform.payCheckout(opened[0]); };
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--plan', '10', '--json')).toBe(0);
-    const r = last<Record<string, unknown>>(h);
-    expect(platform.calls.find((c) => c.url.endsWith('/plan'))!.body).toEqual({ delegatedAgents: 10, interval: 'MONTH' });
-    expect(opened).toEqual([expect.stringMatching(/^https:\/\/checkout\.test\//)]);
-    expect(r).toMatchObject({ operatorId: expect.stringMatching(/^eu-/), handle: expect.stringMatching(/^user-/), delegatedAgentAllowance: 10, checkout: { opened: true }, plan: { delegatedAgents: 10, provider: 'stripe' } });
-    expect(platform.calls.some((c) => c.url.endsWith('/payment'))).toBe(false);
-    expect(h.slept).toContain(5000);
-    expect(h.all()).not.toContain('PRIVATE KEY');
-    expect(JSON.stringify(r)).not.toContain('tok-');
-    expect(await h.run('profile', 'show', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ kind: 'operator', operatorId: r.operatorId });
-  });
-
-  it('returns at once with --no-wait --no-open, and a second register finishes once paid', async () => {
-    const { h, platform, opened } = await withKeys();
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--plan', '100', '--interval', 'YEAR', '--currency', 'usd', '--no-wait', '--no-open', '--json')).toBe(0);
-    const r = last<{ operatorId: string; pending: boolean; checkout: { url: string; opened: boolean }; next: string }>(h);
-    expect(r).toMatchObject({ pending: true, checkout: { opened: false }, next: expect.stringContaining('--plan 100') });
-    expect(opened).toEqual([]);
-    expect(h.errors.join('\n')).toContain(r.checkout.url);
-    expect(platform.calls.find((c) => c.url.endsWith('/plan'))!.body).toEqual({ delegatedAgents: 100, interval: 'YEAR', currency: 'USD' });
-    platform.payCheckout(r.checkout.url);
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--plan', '100', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ operatorId: r.operatorId, alreadyPaid: true });
-  });
-
-  it('refuses --plan with the options of x402, and says the plans not offered', async () => {
-    const { h } = await withKeys();
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--plan', '10', '--months', '2', '--json')).toBe(2);
-    expect(code(h)?.code).toBe('INVALID_INPUT');
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--interval', 'YEAR', '--json')).toBe(2);
-    expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--plan', '50', '--json')).toBe(1);
-    expect(code(h)).toMatchObject({ code: 'PLAN_NOT_OFFERED', source: 'platform' });
-  });
-});
 
 describe('the plan of an agent operator', () => {
   it('reads the offer from the API', async () => {

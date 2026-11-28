@@ -122,19 +122,19 @@ describe('the proposals the new backend does not file', () => {
   it('refuses the kinds not served, before anything is sent, naming those served', async () => {
     const { h, sent } = cell(() => null);
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'THEME', '--title', 'A theme', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE' } });
     expect(JSON.stringify(last(h))).toContain('DISPLAY_CASE');
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'TERRITORY', '--title', 'The city', '--no-territory', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE' } });
     expect(sent.length).toBe(0);
   });
 
   it('refuses a change it does not take and a showcase clearing anything but the logo; files a kind served', async () => {
     const { h, sent } = cell((q) => (q.includes('fileProposal') ? { fileProposal: { id: 'eu_p1', kind: 'FIELD', title: 'Places', status: 'WAITING_SUPPORT' } } : null));
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'A look', '--appearance', '{"accent":"#123456"}', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE' } });
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'No banner', '--clear', 'BANNER', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE' } });
     expect(sent.length).toBe(0);
     expect(await h.run('proposals', 'file', '%paris', '--kind', 'FIELD', '--title', 'Places', '--field', 'PLACES', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ id: 'eu_p1' });

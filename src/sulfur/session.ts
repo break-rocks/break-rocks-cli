@@ -1,4 +1,4 @@
-// The session of a person on the new backend (Q-6 of the client port plan): no device key in Node, so the session is
+// The session of a person on native-sulfur (Q-6 of the client port plan): no device key in Node, so the session is
 // untrusted (24 hours idle, 7 days at most: sign in again then) or, signed in by a device code, fixed 7 days and content
 // only. Its two tokens are secrets: kept in the system keychain when there is one (account `sulfur:<profile>`), else in a
 // file of the configuration folder for the user alone (0600); what is not secret (the account, the cell, the dates) in
@@ -49,19 +49,19 @@ export type SulfurMeta = {
 export type SulfurSecrets = { access: string; refresh?: string };
 export type SulfurSession = Omit<SulfurMeta, 'secrets'> & SulfurSecrets;
 
-const metaFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur.json`);
+const metaFile = (ctx: Context, profile = ctx.profileName) => join(ctx.store.dir, 'sessions', `${profile}.sulfur.json`);
 const lockFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur.lock`);
 /**
  * The keychain entry of the profile's tokens: `sulfur:<profile>` for the default configuration folder, followed by a hash
  * of the folder for any other (BREAKROCKS_CONFIG_DIR, BREAKROCKS_CLI_DIR: personas side by side never share an entry).
  */
-const keychainAccount = (ctx: Context) => {
+const keychainAccount = (ctx: Context, profile = ctx.profileName) => {
   const dir = resolve(ctx.store.dir);
-  return dir === resolve(configDir({ HOME: ctx.env.HOME, APPDATA: ctx.env.APPDATA, XDG_CONFIG_HOME: ctx.env.XDG_CONFIG_HOME })) ? `sulfur:${ctx.profileName}` : `sulfur:${ctx.profileName}@${createHash('sha256').update(dir).digest('hex').slice(0, 12)}`;
+  return dir === resolve(configDir({ HOME: ctx.env.HOME, APPDATA: ctx.env.APPDATA, XDG_CONFIG_HOME: ctx.env.XDG_CONFIG_HOME })) ? `sulfur:${profile}` : `sulfur:${profile}@${createHash('sha256').update(dir).digest('hex').slice(0, 12)}`;
 };
 const keychainOf = (ctx: Context) => ctx.io.keychain ?? systemKeychain(ctx.env);
 
-/** The session of the profile on the new backend, or none. */
+/** The session of the profile on native-sulfur, or none. */
 export function readSulfurSession(ctx: Context): SulfurSession | undefined {
   const meta = readJson<SulfurMeta>(metaFile(ctx));
   if (!meta || meta.backend !== 'sulfur' || !meta.accountId) return undefined;
@@ -86,11 +86,11 @@ export function saveSulfurSession(ctx: Context, session: SulfurSession): SulfurS
   return { ...meta, storage: saved.storage, ...secrets };
 }
 
-/** Forgets the session on this device (its file and its keychain entry). */
-export function forgetSulfurSession(ctx: Context): void {
-  const meta = readJson<SulfurMeta>(metaFile(ctx));
-  if (meta?.storage === 'keychain') keychainOf(ctx).delete(keychainAccount(ctx));
-  rmSync(metaFile(ctx), { force: true });
+/** Forgets the session of [profile] (the one in use by default) on this device: its file and its keychain entry. */
+export function forgetSulfurSession(ctx: Context, profile = ctx.profileName): void {
+  const meta = readJson<SulfurMeta>(metaFile(ctx, profile));
+  if (meta?.storage === 'keychain') keychainOf(ctx).delete(keychainAccount(ctx, profile));
+  rmSync(metaFile(ctx, profile), { force: true });
 }
 
 /** A session from a token endpoint answer ([previous]: a renewal, its account and dates kept). */
@@ -107,7 +107,7 @@ export function sessionFromTokens(ctx: Context, tokens: Record<string, unknown>,
 
 const sessionEnded = (ctx: Context, why: string) => {
   forgetSulfurSession(ctx);
-  return new CliError('SESSION_EXPIRED', `The session on the new backend ended (${why}): sign in again (breakrocks --backend sulfur login)`, EXIT.NETWORK, {}, 'platform');
+  return new CliError('SESSION_EXPIRED', `The session on native-sulfur ended (${why}): sign in again (breakrocks login)`, EXIT.NETWORK, {}, 'platform');
 };
 
 /** The renewals in flight in this process, by profile (single-flight). */
@@ -168,7 +168,7 @@ export async function ensureSulfurSession(ctx: Context, options: { renew?: boole
   const profile = ctx.profile();
   const current = readSulfurSession(ctx);
   if (current && current.env !== profile.env) {
-    throw usageError('ENV_MISMATCH', `The session of the profile "${ctx.profileName}" on the new backend is of ${current.env}, not ${profile.env}: use another profile for ${profile.env} (breakrocks config add <name> --env ${profile.env}), or sign out first`, { profile: ctx.profileName, env: current.env, requested: profile.env });
+    throw usageError('ENV_MISMATCH', `The session of the profile "${ctx.profileName}" on native-sulfur is of ${current.env}, not ${profile.env}: use another profile for ${profile.env} (breakrocks config add <name> --env ${profile.env}), or sign out first`, { profile: ctx.profileName, env: current.env, requested: profile.env });
   }
   const { agentCredentials, agentSignIn, mayActAsAgent, refuseAgentIntoHuman } = await import('./agent.js');
   if (mayActAsAgent(ctx, profile)) {
@@ -182,7 +182,7 @@ export async function ensureSulfurSession(ctx: Context, options: { renew?: boole
       return current;
     }
   }
-  if (!current) throw networkError('SIGN_IN_REQUIRED', `The profile "${ctx.profileName}" is not signed in on the new backend: breakrocks --backend sulfur login`, { profile: ctx.profileName });
+  if (!current) throw networkError('SIGN_IN_REQUIRED', `The profile "${ctx.profileName}" is not signed in on native-sulfur: breakrocks login`, { profile: ctx.profileName });
   if (!options.renew && Date.parse(current.accessExpiresAt) - ctx.now() > RENEW_BEFORE_MS) return current;
   // An agent's session without its key here: used until its token ends, never renewed (no refresh token).
   if (current.method === 'agent') throw networkError('SIGN_IN_REQUIRED', `The agent session of the profile "${ctx.profileName}" ended and its key is not here: --agent <name>, or the BREAKROCKS_* variables`, { profile: ctx.profileName });

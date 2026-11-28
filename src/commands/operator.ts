@@ -1,20 +1,17 @@
-// operator keygen|register|login|renew|recover|recovery-key set|delete, and session.
+// operator keygen, and register|renew|recover|recovery-key set|delete: kept, NOT_AVAILABLE until ported to native-sulfur's
+// REST routes (operator login: src/sulfur/commands.ts).
 // The private keys stay in the
 // configuration folder (0600); only public keys, signatures and payments leave the device.
-import { existsSync, readFileSync, renameSync } from 'node:fs';
+import { existsSync, renameSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { Algorithm, Profile } from '../config.js';
+import type { Algorithm } from '../config.js';
 import { writePrivate } from '../config.js';
-import type { Context } from '../context.js';
-import { endpoints } from '../endpoints.js';
-import { CliError, cliRefusal, usageError } from '../errors.js';
-import { ALGORITHMS, fingerprint, generateKeys, privateKeyFrom, publicKeyOf, readPrivateKey, signChallenge, supports } from '../keys.js';
+import { cliRefusal, commandNotAvailable, usageError } from '../errors.js';
+import { ALGORITHMS, fingerprint, generateKeys, supports } from '../keys.js';
 import type { Command } from '../registry.js';
 import { bool, int, num, object, openObject, str } from '../schema.js';
-import { RENEW_BEFORE_MS, api, credentialsOf, ensureSession, forgetSession, readSession, requireOperator, saveSession, signIn, type Session } from '../session.js';
-import { agentsPost, expectOk } from '../transport.js';
-import { paidPost, type Payment } from '../x402.js';
-import { openCheckout, planText, type OperatorPlan } from './operator-plan.js';
+import type { Payment } from '../x402.js';
+import { planText, type OperatorPlan } from './operator-plan.js';
 
 const algorithmSchema = (description: string) => str(description, { enum: ALGORITHMS });
 const paymentSchema = openObject({ usd: str('Amount paid, in USDC'), network: str('CAIP-2 network'), networkName: str('Network'), payTo: str('Recipient'), transaction: str('Transaction hash'), explorer: str('Link to the transaction') });
@@ -23,17 +20,11 @@ const sessionSchema = openObject({ sessionId: str('The session'), expiresAt: str
 /** The default algorithm of a recovery key: ML-DSA-65 where Node has it (it lives long), else Ed25519. */
 export const defaultRecoveryAlgorithm = (): Algorithm => (supports('ML-DSA-65') ? 'ML-DSA-65' : 'Ed25519');
 
-function operatorKeys(ctx: Context, profile: Profile) {
-  const operator = profile.keys?.operator, recovery = profile.keys?.recovery;
-  if (!operator || !existsSync(operator)) throw usageError('KEY_MISSING', `The profile "${ctx.profileName}" has no operator key: breakrocks operator keygen`, { profile: ctx.profileName });
-  return { operator, recovery };
-}
-
 function backup(path: string, now: number) {
   if (existsSync(path)) renameSync(path, `${path}.${new Date(now).toISOString().replace(/[:.]/g, '-')}.old`);
 }
 
-const publicSession = (s: Session) => ({ sessionId: s.sessionId, expiresAt: s.expiresAt, ...(s.recoveryKeyRequired ? { recoveryKeyRequired: true } : {}) });
+type PublicSession = { sessionId: string; expiresAt: string; recoveryKeyRequired?: boolean };
 
 type KeygenResult = { profile: string; algorithm: Algorithm; fingerprint: string; publicKey: string; recoveryAlgorithm: Algorithm; recoveryFingerprint: string; files: { operator: string; recovery: string } };
 
@@ -67,7 +58,7 @@ export const operatorKeygen: Command<{ algorithm?: Algorithm; recoveryAlgorithm?
   quiet: (r) => r.fingerprint,
 };
 
-type RegisterResult = { operatorId: string; handle?: string; paidUntil?: string; delegatedAgentAllowance?: number; env: string; cell: string; session?: ReturnType<typeof publicSession>; payment?: Payment; alreadyPaid?: boolean; minimum?: unknown; checkout?: { url: string; expiresAt: string; opened: boolean }; plan?: OperatorPlan | null; pending?: boolean; next?: string };
+type RegisterResult = { operatorId: string; handle?: string; paidUntil?: string; delegatedAgentAllowance?: number; env: string; cell: string; session?: PublicSession; payment?: Payment; alreadyPaid?: boolean; minimum?: unknown; checkout?: { url: string; expiresAt: string; opened: boolean }; plan?: OperatorPlan | null; pending?: boolean; next?: string };
 type RegisterInput = { country: string; fullAge?: boolean; months?: number; agents?: number; maxUsd?: number; plan?: number; interval?: 'MONTH' | 'YEAR'; currency?: string; returnPath?: string; open?: boolean; wait?: boolean };
 
 /** How often the CLI tries to sign in while the payment of a plan at the registration is not confirmed. */
@@ -95,79 +86,7 @@ export const operatorRegister: Command<RegisterInput, RegisterResult> = {
     checkout: openObject({ url: str('The payment page of the plan'), expiresAt: str('When it ends'), opened: bool('Opened in the browser') }), plan: { type: ['object', 'null'], description: 'The plan paid by card (myOperatorPlan)' }, pending: bool('--no-wait: the payment is not confirmed yet'), next: str('What to do next'),
   }),
   interactive: true,
-  run: async (ctx, input) => {
-    const { country, fullAge, months = 1, agents = 1, maxUsd, plan } = input;
-    if (plan !== undefined && (input.months !== undefined || input.agents !== undefined || input.maxUsd !== undefined)) throw usageError('INVALID_INPUT', '--plan pays by card: --months, --agents and --max-usd are for x402');
-    if (plan === undefined && (input.interval !== undefined || input.currency !== undefined || input.returnPath !== undefined || input.open !== undefined || input.wait !== undefined)) throw usageError('INVALID_INPUT', '--interval, --currency, --return-path, --open and --wait go with --plan');
-    let profile = ctx.profile();
-    if (profile.kind) throw cliRefusal('ALREADY_REGISTERED', `The profile "${ctx.profileName}" holds the account ${profile.operatorId ?? profile.agentId ?? profile.accountId}`, { operatorId: profile.operatorId });
-    const { operator, recovery } = operatorKeys(ctx, profile);
-    if (!recovery || !existsSync(recovery)) throw usageError('KEY_MISSING', 'The recovery key is missing: breakrocks operator keygen --force');
-    const main = readPrivateKey(operator, 'The operator key'), rec = readPrivateKey(recovery, 'The recovery key');
-    const at = await endpoints(ctx, profile, country);
-    let registration = profile.registration && Date.parse(profile.registration.expiresAt) > ctx.now() ? profile.registration : undefined;
-    let minimum: unknown;
-    if (!registration) {
-      const challenge = expectOk(await agentsPost(ctx, at.agents, '/operators/registrations', {
-        publicKey: publicKeyOf(main.key), algorithm: main.algorithm, recoveryKey: publicKeyOf(rec.key), recoveryAlgorithm: rec.algorithm, country: country.toUpperCase(), fullAge: fullAge === true,
-      })) as { challengeId: string; challenge: string };
-      const signed = expectOk(await agentsPost(ctx, at.agents, '/operators/registrations/signature', { challengeId: challenge.challengeId, signature: signChallenge(challenge.challenge, main.key) })) as { registration: { id: string; expiresAt: string }; minimum?: unknown };
-      registration = { id: signed.registration.id, expiresAt: signed.registration.expiresAt, country: country.toUpperCase() };
-      minimum = signed.minimum;
-      profile = { ...profile, cell: at.cell, registration };
-      ctx.saveProfile(profile);
-    }
-    const done = (operatorId: string, extra: Partial<Profile>) => {
-      const { registration: _, ...rest } = ctx.profile();
-      void _;
-      ctx.saveProfile({ ...rest, ...extra, kind: 'operator', operatorId, cell: at.cell });
-    };
-    const pending = registration;
-    /** A refusal of the payment step: a registration paid before signs in, an abandoned one is forgotten. */
-    const refused = async (error: unknown): Promise<RegisterResult> => {
-      if (error instanceof CliError && error.code === 'REGISTRATION_ALREADY_PAID') {
-        done(pending.id, {});
-        const session = await signIn(ctx, at, credentialsOf(ctx, ctx.profile())!);
-        return { operatorId: pending.id, env: at.env, cell: at.cell, session: publicSession(session), alreadyPaid: true };
-      }
-      if (error instanceof CliError && error.code === 'REGISTRATION_ABANDONED') { const { registration: _, ...rest } = ctx.profile(); void _; ctx.saveProfile(rest); }
-      throw error;
-    };
-    if (plan !== undefined) {
-      let checkout: { url: string; expiresAt: string };
-      try {
-        checkout = expectOk(await agentsPost(ctx, at.agents, `/operators/registrations/${pending.id}/plan`, {
-          delegatedAgents: plan, interval: input.interval ?? 'MONTH', ...(input.currency ? { currency: input.currency.toUpperCase() } : {}), ...(input.returnPath ? { returnPath: input.returnPath } : {}),
-        }), [201]) as { url: string; expiresAt: string };
-      } catch (error) { return refused(error); }
-      ctx.notice(`Pay the plan of ${plan} delegated agents in the browser: ${checkout.url}`);
-      const opened = await openCheckout(ctx, checkout.url, input.open !== false);
-      const page = { ...checkout, opened };
-      if (input.wait === false) return { operatorId: pending.id, env: at.env, cell: at.cell, checkout: page, pending: true, next: `once paid, within the hour: breakrocks operator register --country ${country.toUpperCase()} --full-age --plan ${plan}` };
-      ctx.progress(`Waiting for the payment, until ${checkout.expiresAt} (Ctrl-C to stop; operator register --plan again finishes it once paid)`);
-      const credentials = { kind: 'operator' as const, operatorId: pending.id, key: main.key };
-      let session: Session;
-      for (;;) {
-        try { session = await signIn(ctx, at, credentials); break; } catch (error) { if (!(error instanceof CliError && error.code === 'REGISTRATION_NOT_PAID')) throw error; }
-        if (ctx.now() >= Date.parse(checkout.expiresAt)) throw cliRefusal('PLAN_NOT_PAID', `The payment page ended before the payment was confirmed: the registration ${pending.id} is not paid`, { registrationId: pending.id });
-        await ctx.io.sleep(PLAN_PAYMENT_POLL_MS);
-      }
-      done(pending.id, {});
-      const answer = await api<{ me: { handle: string; own: { paidUntil: string | null } | null }; myOperatorPlan: OperatorPlan | null }>(ctx, '{ me { handle own { paidUntil } } myOperatorPlan { automaticRenewal delegatedAgents interval nextDelegatedAgents nextFrom paidUntil payerId provider status } }');
-      const read = { me: { handle: answer.me.handle, paidUntil: answer.me.own?.paidUntil ?? null }, myOperatorPlan: answer.myOperatorPlan };
-      ctx.saveProfile({ ...ctx.profile(), handle: read.me.handle });
-      return { operatorId: pending.id, handle: read.me.handle, ...(read.me.paidUntil ? { paidUntil: read.me.paidUntil } : {}), ...(read.myOperatorPlan ? { delegatedAgentAllowance: read.myOperatorPlan.delegatedAgents } : {}), env: at.env, cell: at.cell, session: publicSession(session), checkout: page, plan: read.myOperatorPlan };
-    }
-    let paid;
-    try {
-      paid = await paidPost(ctx, { base: at.agents, path: `/operators/registrations/${registration.id}/payment`, body: { months, delegatedAgents: agents }, maxUsd, what: `the registration of an agent operator (${agents} delegated agent${agents > 1 ? 's' : ''}, ${months} month${months > 1 ? 's' : ''})` });
-    } catch (error) { return refused(error); }
-    const body = expectOk(paid.answer, [200, 201]) as { operatorId: string; handle: string; paidUntil: string; delegatedAgentAllowance: number; token: string; sessionId: string; expiresAt: string };
-    done(body.operatorId, { handle: body.handle });
-    const session: Session = { kind: 'operator', token: body.token, sessionId: body.sessionId, expiresAt: body.expiresAt, operatorId: body.operatorId };
-    saveSession(ctx, session);
-    return { operatorId: body.operatorId, handle: body.handle, paidUntil: body.paidUntil, delegatedAgentAllowance: body.delegatedAgentAllowance, env: at.env, cell: at.cell, session: publicSession(session), ...(paid.payment ? { payment: paid.payment } : {}), ...(minimum ? { minimum } : {}) };
-  },
+  run: () => { throw commandNotAvailable('operator register', 'native-sulfur registers an operator by POST /v1/operators/registrations (a JWT proof, D-651) and pays it with x402 or a plan: not ported to the CLI yet'); },
   text: registerText,
   quiet: (r) => r.operatorId,
 };
@@ -183,21 +102,6 @@ function registerText(r: RegisterResult): string {
   return lines.join('\n');
 }
 
-export const operatorLogin: Command<Record<string, never>, { operatorId: string; session: ReturnType<typeof publicSession> }> = {
-  name: 'operator login', summary: 'Sign in the agent operator: a challenge signed with its private key',
-  description: 'Opens a session of 1 hour (renewed on its own 5 minutes before its end by every command). A suspended operator (paid period ended) signs in, reads, and renews.',
-  examples: ['breakrocks operator login', 'breakrocks --profile atlas-dev operator login --json'],
-  input: object({}), output: openObject({ operatorId: str('The account id'), session: sessionSchema }),
-  run: async (ctx) => {
-    requireOperator(ctx);
-    const profile = ctx.profile();
-    if (profile.kind !== 'operator' || !profile.operatorId) throw usageError('NOT_AN_OPERATOR_PROFILE', `The profile "${ctx.profileName}" holds no agent operator: operator register first`);
-    const at = await endpoints(ctx, profile);
-    const session = await signIn(ctx, at, credentialsOf(ctx, profile)!);
-    return { operatorId: session.operatorId!, session: publicSession(session) };
-  },
-  quiet: (r) => r.session.sessionId,
-};
 
 export const operatorRenew: Command<{ months?: number; maxUsd?: number }, { operatorId: string; paidUntil: string; payment?: Payment }> = {
   name: 'operator renew', summary: 'Renew the paid period of the agent operator, paid with x402',
@@ -206,45 +110,18 @@ export const operatorRenew: Command<{ months?: number; maxUsd?: number }, { oper
   input: object({ months: int('Whole months', { minimum: 1, maximum: 12, default: 1 }), maxUsd: num('The most this command may pay, in US dollars', { minimum: 0, default: 1 }) }),
   output: openObject({ operatorId: str('The account id'), paidUntil: str('End of the paid period'), payment: paymentSchema }),
   interactive: true,
-  run: async (ctx, { months = 1, maxUsd }) => {
-    requireOperator(ctx);
-    const { session, at } = await ensureSession(ctx);
-    const paid = await paidPost(ctx, { base: at.agents, path: '/operators/renewal', body: { months }, headers: { authorization: `Bearer ${session.token}` }, maxUsd, what: `the renewal of the agent operator (${months} month${months > 1 ? 's' : ''})` });
-    const body = expectOk(paid.answer) as { operatorId: string; paidUntil: string };
-    return { operatorId: body.operatorId, paidUntil: body.paidUntil, ...(paid.payment ? { payment: paid.payment } : {}) };
-  },
+  run: () => { throw commandNotAvailable('operator renew', 'native-sulfur renews by POST /v1/operators/renewal (x402): not ported to the CLI yet'); },
   quiet: (r) => r.paidUntil,
 };
 
-export const operatorRecover: Command<{ newKey?: string; algorithm?: Algorithm }, { operatorId: string; fingerprint: string; file: string; session: ReturnType<typeof publicSession>; next: string }> = {
+export const operatorRecover: Command<{ newKey?: string; algorithm?: Algorithm }, { operatorId: string; fingerprint: string; file: string; session: PublicSession; next: string }> = {
   name: 'operator recover', summary: 'Recover the account with the recovery key: a new private key',
   description: 'Signs, with the recovery key, a challenge naming the new public key (made here, or --new-key <private key file>). Every other session of the operator is closed (not its delegated agents\'); nothing is open again until a new recovery key is declared (operator recovery-key set). The former private key file is kept as .old.',
   examples: ['breakrocks operator recover --yes', 'breakrocks operator recover --new-key new-operator.pem --yes'],
   input: object({ newKey: str('A private key file (PEM) to take as the new key (default: a new one)'), algorithm: algorithmSchema('The algorithm of a new key (default Ed25519)') }),
   output: openObject({ operatorId: str('The account id'), fingerprint: str('Fingerprint of the new public key'), file: str('The new private key file'), session: sessionSchema, next: str('What to do next') }),
   interactive: true,
-  run: async (ctx, { newKey, algorithm = 'Ed25519' }) => {
-    requireOperator(ctx);
-    const profile = ctx.profile();
-    if (profile.kind !== 'operator' || !profile.operatorId) throw usageError('NOT_AN_OPERATOR_PROFILE', `The profile "${ctx.profileName}" holds no agent operator`);
-    const recoveryFile = profile.keys?.recovery;
-    if (!recoveryFile || !existsSync(recoveryFile)) throw usageError('KEY_MISSING', 'The recovery key file of the profile is missing', { profile: ctx.profileName });
-    const recovery = readPrivateKey(recoveryFile, 'The recovery key');
-    const pair = newKey ? (() => { const k = privateKeyFrom(readFileSync(resolve(ctx.io.cwd, newKey), 'utf8'), newKey); return { privateKey: readFileSync(resolve(ctx.io.cwd, newKey), 'utf8'), publicKey: publicKeyOf(k.key), algorithm: k.algorithm }; })() : generateKeys(algorithm);
-    await ctx.confirm(`Recover the account ${profile.operatorId} with a new private key (${fingerprint(pair.publicKey)})? Its other sessions close.`);
-    const target = profile.keys?.operator ?? join(ctx.store.keysDir(ctx.profileName), 'operator.pem');
-    const pending = `${target}.new`;
-    writePrivate(pending, pair.privateKey);
-    const at = await endpoints(ctx, profile);
-    const challenge = expectOk(await agentsPost(ctx, at.agents, '/operators/recovery/challenges', { operatorId: profile.operatorId, publicKey: pair.publicKey, algorithm: pair.algorithm })) as { challengeId: string; challenge: string };
-    const body = expectOk(await agentsPost(ctx, at.agents, '/operators/recovery', { challengeId: challenge.challengeId, signature: signChallenge(challenge.challenge, recovery.key) })) as { token: string; sessionId: string; expiresAt: string; recoveryKeyRequired?: boolean };
-    backup(target, ctx.now());
-    renameSync(pending, target);
-    ctx.saveProfile({ ...ctx.profile(), keys: { ...profile.keys, operator: target }, algorithm: pair.algorithm });
-    const session: Session = { kind: 'operator', token: body.token, sessionId: body.sessionId, expiresAt: body.expiresAt, operatorId: profile.operatorId, recoveryKeyRequired: true };
-    saveSession(ctx, session);
-    return { operatorId: profile.operatorId, fingerprint: fingerprint(pair.publicKey), file: target, session: publicSession(session), next: 'breakrocks operator recovery-key set' };
-  },
+  run: () => { throw commandNotAvailable('operator recover', 'native-sulfur recovers by POST /v1/operators/recovery (a JWT proof signed with the recovery key): not ported to the CLI yet'); },
   quiet: (r) => r.fingerprint,
 };
 
@@ -254,26 +131,7 @@ export const operatorRecoveryKeySet: Command<{ key?: string; algorithm?: Algorit
   examples: ['breakrocks operator recovery-key set', 'breakrocks operator recovery-key set --algorithm Ed25519 --out ~/safe/atlas-recovery.pem'],
   input: object({ key: str('A private key file (PEM) to declare as the recovery key (default: a new one)'), algorithm: algorithmSchema('The algorithm of a new recovery key'), out: str('Where to write the new recovery key') }),
   output: openObject({ operatorId: str('The account id'), recoveryFingerprint: str('Fingerprint of the recovery key'), recoveryAlgorithm: str('Its algorithm'), file: str('Its file'), recoveryKeyReplaced: bool('Declared') }),
-  run: async (ctx, { key, algorithm, out }) => {
-    requireOperator(ctx);
-    const profile = ctx.profile();
-    if (profile.kind !== 'operator' || !profile.operatorId) throw usageError('NOT_AN_OPERATOR_PROFILE', `The profile "${ctx.profileName}" holds no agent operator`);
-    const { operator } = operatorKeys(ctx, profile);
-    const main = readPrivateKey(operator, 'The operator key');
-    const pair = key ? (() => { const text = readFileSync(resolve(ctx.io.cwd, key), 'utf8'); const k = privateKeyFrom(text, key); return { privateKey: text, publicKey: publicKeyOf(k.key), algorithm: k.algorithm }; })() : generateKeys(algorithm ?? defaultRecoveryAlgorithm());
-    const target = out ? resolve(ctx.io.cwd, out) : profile.keys?.recovery ?? join(ctx.store.keysDir(ctx.profileName), 'recovery.pem');
-    const pending = `${target}.new`;
-    writePrivate(pending, pair.privateKey);
-    const at = await endpoints(ctx, profile);
-    const challenge = expectOk(await agentsPost(ctx, at.agents, '/operators/recovery-key/challenges', { operatorId: profile.operatorId, recoveryKey: pair.publicKey, algorithm: pair.algorithm })) as { challengeId: string; challenge: string };
-    const body = expectOk(await agentsPost(ctx, at.agents, '/operators/recovery-key', { challengeId: challenge.challengeId, signature: signChallenge(challenge.challenge, main.key) })) as { recoveryKeyReplaced: boolean };
-    backup(target, ctx.now());
-    renameSync(pending, target);
-    ctx.saveProfile({ ...ctx.profile(), keys: { ...profile.keys, recovery: target }, recoveryAlgorithm: pair.algorithm });
-    const session = readSession(ctx);
-    if (session?.recoveryKeyRequired) { delete session.recoveryKeyRequired; saveSession(ctx, session); }
-    return { operatorId: profile.operatorId, recoveryFingerprint: fingerprint(pair.publicKey), recoveryAlgorithm: pair.algorithm, file: target, recoveryKeyReplaced: body.recoveryKeyReplaced === true };
-  },
+  run: () => { throw commandNotAvailable('operator recovery-key set', 'native-sulfur takes a new recovery key by POST /v1/operators/recovery-key: not ported to the CLI yet'); },
   quiet: (r) => r.recoveryFingerprint,
 };
 
@@ -283,48 +141,8 @@ export const operatorDelete: Command<Record<string, never>, { operatorId: string
   examples: ['breakrocks operator delete', 'breakrocks --profile atlas-dev operator delete --yes'],
   input: object({}), output: openObject({ operatorId: str('The account id'), deleted: bool('Deleted'), deletedAt: str('When'), disappearsAt: str('When its data are gone') }),
   interactive: true,
-  run: async (ctx) => {
-    requireOperator(ctx);
-    const profile = ctx.profile();
-    if (profile.kind !== 'operator' || !profile.operatorId) throw usageError('NOT_AN_OPERATOR_PROFILE', `The profile "${ctx.profileName}" holds no agent operator`);
-    const { operator } = operatorKeys(ctx, profile);
-    const main = readPrivateKey(operator, 'The operator key');
-    await ctx.confirm(`Delete the agent operator ${profile.operatorId}${profile.handle ? ` (@${profile.handle})` : ''}, its delegated agents and their interactions? This cannot be undone.`, { operatorId: profile.operatorId });
-    const at = await endpoints(ctx, profile);
-    const challenge = expectOk(await agentsPost(ctx, at.agents, '/operators/deletion/challenges', { operatorId: profile.operatorId })) as { challengeId: string; challenge: string };
-    const body = expectOk(await agentsPost(ctx, at.agents, '/operators/deletion', { challengeId: challenge.challengeId, signature: signChallenge(challenge.challenge, main.key) })) as { deleted: boolean; deletedAt?: string; disappearsAt?: string };
-    const { kind: _k, operatorId: _o, handle: _h, ...rest } = ctx.profile();
-    void _k; void _o; void _h;
-    ctx.saveProfile(rest);
-    forgetSession(ctx);
-    return { operatorId: profile.operatorId, ...body };
-  },
+  run: () => { throw commandNotAvailable('operator delete', 'native-sulfur deletes an operator by POST /v1/operators/deletion: not ported to the CLI yet'); },
   quiet: (r) => r.operatorId,
 };
 
-type SessionResult = { profile: string; signedIn: boolean; kind?: string; accountId?: string; operatorId?: string; agentId?: string; sessionId?: string; expiresAt?: string; expiresInSeconds?: number; renewsAt?: string; signInAgainBy?: string; recoveryKeyRequired?: boolean; keySource?: string; canRenew: boolean };
 
-export const sessionCommand: Command<{ renew?: boolean }, SessionResult> = {
-  name: 'session', summary: 'Show the session of the profile and when it ends (--renew: renew it now)',
-  description: 'The token of a session lasts 1 hour; every command renews it 5 minutes before its end, with the key of an operator or an agent, with the refresh token of a human, whose session lasts 7 days from the sign-in (signInAgainBy). Never shows a token.',
-  examples: ['breakrocks me session', 'breakrocks me session --renew --json'],
-  input: object({ renew: bool('Renew the session now') }),
-  output: openObject({ profile: str('The profile'), signedIn: bool('A session is open'), kind: str('human, operator or agent'), accountId: str('The account of a human'), operatorId: str('Operator'), agentId: str('Delegated agent'), sessionId: str('The session'), expiresAt: str('When its token ends'), expiresInSeconds: int('Seconds left'), renewsAt: str('When it is renewed'), signInAgainBy: str('A human: when the session ends, 7 days after the sign-in'), canRenew: bool('The key, or the refresh token of a human, is here to renew it') }),
-  run: async (ctx, { renew }) => {
-    const profile = ctx.profile();
-    let canRenew = false;
-    try { canRenew = !!credentialsOf(ctx, profile); } catch { canRenew = false; }
-    const session = renew ? (await ensureSession(ctx, { renew: true })).session : readSession(ctx);
-    const human = session?.kind === 'human';
-    if (human) canRenew = !!session.refreshToken && Date.parse(session.signInAgainBy ?? '') > ctx.now();
-    if (!session || (human ? !canRenew : Date.parse(session.expiresAt) <= ctx.now())) return { profile: ctx.profileName, signedIn: false, canRenew, ...(session ? { expiresAt: session.expiresAt } : {}) };
-    const left = Math.max(0, Date.parse(session.expiresAt) - ctx.now());
-    return {
-      profile: ctx.profileName, signedIn: true, kind: session.kind, ...(session.accountId ? { accountId: session.accountId } : {}), ...(session.operatorId ? { operatorId: session.operatorId } : {}), ...(session.agentId ? { agentId: session.agentId } : {}),
-      sessionId: session.sessionId, expiresAt: session.expiresAt, expiresInSeconds: Math.floor(left / 1000), renewsAt: new Date(Date.parse(session.expiresAt) - RENEW_BEFORE_MS).toISOString(),
-      ...(session.signInAgainBy ? { signInAgainBy: session.signInAgainBy } : {}),
-      ...(session.recoveryKeyRequired ? { recoveryKeyRequired: true } : {}), ...(session.keySource ? { keySource: session.keySource } : {}), canRenew,
-    };
-  },
-  quiet: (r) => r.sessionId,
-};

@@ -1,6 +1,6 @@
-// Prints the table of docs/sulfur.md (§ Commands): each command of the registry on the new backend (native-sulfur), from
-// what the code says, never from a request: its stand-in (src/sulfur/commands.ts), offline, refused (src/sulfur/dispatch.ts
-// LEGACY_ONLY), or the talc operations it sends (an API command's own; for the others, the GraphQL documents of its source
+// Prints the table of docs/sulfur.md (§ Commands): each command of the registry on native-sulfur, from
+// what the code says, never from a request: its own auth (src/sulfur/commands.ts), offline, not available (NOT_PORTED: kept,
+// answering NOT_AVAILABLE), or the API v2 operations it sends (an API command's own; for the others, the GraphQL documents of its source
 // read by a pattern) checked against the server's schema (src/sulfur/schema.generated.ts) and the adapters
 // (src/sulfur/talc.ts ADAPTERS). VERIFIED lists the commands run against dev (scripts/e2e-sulfur-dev.mjs and by hand).
 // npx tsx scripts/sulfur-table.ts [--write: into docs/sulfur.md] [--check: docs/sulfur.md is current]
@@ -10,8 +10,18 @@ import { fileURLToPath } from 'node:url';
 import '../src/commands/index.js';
 import { commands, groupOf, type AnyCommand } from '../src/registry.js';
 import { DOMAINS } from '../src/tree.js';
-import { LEGACY_ONLY } from '../src/sulfur/dispatch.js';
-import { SULFUR_COMMANDS } from '../src/sulfur/commands.js';
+
+/** The commands of native-sulfur's own auth (src/sulfur/commands.ts). */
+const OWN_AUTH = new Set(['login', 'logout', 'whoami', 'doctor', 'me session', 'operator login', 'agents login']);
+/** The commands kept that answer NOT_AVAILABLE (their service is not ported to the CLI, or not served), and why. */
+const NOT_PORTED: ReadonlyMap<string, string> = new Map([
+  ['operator register', 'native-sulfur\'s REST route (a JWT proof, x402 or a plan) not ported to the CLI yet'],
+  ['operator renew', 'native-sulfur\'s REST route (x402) not ported to the CLI yet'],
+  ['operator recover', 'native-sulfur\'s REST route not ported to the CLI yet'],
+  ['operator recovery-key set', 'native-sulfur\'s REST route not ported to the CLI yet'],
+  ['operator delete', 'native-sulfur\'s REST route not ported to the CLI yet'],
+  ['agents tier', 'the paid tier of a delegated agent is not sold by native-sulfur yet'],
+]);
 import { ADAPTERS } from '../src/sulfur/talc.js';
 import { serverRequiresBeyondTalc } from '../src/sulfur/fit.js';
 import { SERVER } from '../src/sulfur/schema.generated.js';
@@ -46,7 +56,6 @@ function scanned(): Map<string, string[]> {
       const ops = new Set(rootsIn(region));
       for (const [k, v] of constants) if (new RegExp(`\\b${k}\\b`).test(region)) v.forEach((o) => ops.add(o));
       if (/\buploadImage|uploadVideo|sendMedia|uploadAvatar|uploadDocument|uploadLongVideo\b/.test(region)) ops.add('(media upload)');
-      if (/\bagentsPost|ensureSession\(|paidPost\(|endpoints\(ctx|signIn\(ctx|watchAddress|\bwatch\(ctx/.test(region) && !/backend\(\) [!=]== 'sulfur'/.test(region)) ops.add('(former hosts)');
       out.set(n.name, [...new Set([...(out.get(n.name) ?? []), ...ops])]);
     });
   }
@@ -57,17 +66,16 @@ type Row = { command: string; state: 'works' | 'adapted' | 'partly' | 'not avail
 
 function classify(c: AnyCommand, scan: Map<string, string[]>): Row {
   const verified = VERIFIED.has(c.name);
-  if (SULFUR_COMMANDS.has(c.name)) return { command: c.name, state: 'works', ops: '(own: auth, me)', note: 'stand-in of the new backend', verified };
-  if (LEGACY_ONLY.has(c.name)) return { command: c.name, state: 'not available', ops: '', note: LEGACY_ONLY.get(c.name)!, verified };
+  if (OWN_AUTH.has(c.name)) return { command: c.name, state: 'works', ops: '(own: auth, me)', note: 'native-sulfur\'s own auth', verified };
+  if (NOT_PORTED.has(c.name)) return { command: c.name, state: 'not available', ops: '', note: NOT_PORTED.get(c.name)!, verified };
   if (c.offline || ['help', 'version', 'schema', 'completion', 'update', 'mcp'].includes(c.name) || c.name.startsWith('config ') || c.name.startsWith('profile ')) return { command: c.name, state: 'offline', ops: '', note: 'no platform request', verified };
   const sources = [c.name, ...(c.aliases ?? [])];
   const ops = new Set<string>(c.api ? c.api.split(/,\s*/) : []);
   for (const s of sources) for (const o of scan.get(s) ?? []) ops.add(o);
-  if (!ops.size) return { command: c.name, state: 'works', ops: '', note: 'no talc operation found by the scan: not checked', verified };
+  if (!ops.size) return { command: c.name, state: 'works', ops: '', note: 'no API operation found by the scan: not checked', verified };
   const missing: string[] = [], adapted: string[] = [], args: string[] = [];
   for (const op of ops) {
     if (op === '(media upload)') { adapted.push('media upload (requestUpload)'); continue; }
-    if (op === '(former hosts)') { missing.push('the former backend\'s session or agents host'); continue; }
     if (ADAPTERS[op]) { adapted.push(op); continue; }
     const kind = CONTRACT.mutation[op] ? 'mutation' : 'query';
     const served = SERVER[kind][op];
@@ -76,7 +84,7 @@ function classify(c: AnyCommand, scan: Map<string, string[]>): Row {
     const lacking = talcArgs.filter((a) => !(a in serverArgs) && a !== 'requestId');
     if (lacking.length) args.push(`${op}(${lacking.join(', ')})`);
     // An argument the server requires and talc does not have: the document cannot be fitted (src/sulfur/fit.ts refuses
-    // it, NOT_ON_NEW_BACKEND) without an adapter.
+    // it, NOT_AVAILABLE) without an adapter.
     const required = serverRequiresBeyondTalc(op, kind);
     if (required.length) missing.push(`${op} (the server requires ${required.join(', ')})`);
   }

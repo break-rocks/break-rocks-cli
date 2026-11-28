@@ -3,16 +3,14 @@
 // kept by the seam, `universes residences` in text and --json, and the refusals told from their errorInfo.
 import { describe, expect, it } from 'vitest';
 import { Context, NO_FLAGS } from '../src/context.js';
-import { saveSession } from '../src/session.js';
 import { selection } from '../src/api/graphql.js';
 import { SCHEMA } from '../src/api/schema.generated.js';
 import { fitDocument } from '../src/sulfur/fit.js';
 import { SERVER } from '../src/sulfur/schema.generated.js';
 import { durationText, progressInMinutes, voteProgress, voteRefusalSentence } from '../src/vote-requirement.js';
 import { CliError } from '../src/errors.js';
-import { graphql } from '../src/transport.js';
 import { sulfurGraphql } from '../src/sulfur/http.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession } from './helpers.js';
 
 describe('the vote requirement as a person reads it', () => {
   it('shows the requirement in the largest unit that keeps it whole', () => {
@@ -60,16 +58,7 @@ describe('the refusals of the vote requirement', () => {
     }
     throw new Error('not refused');
   };
-  it('on talc: errorType and errorInfo (also as an AWSJSON string), the code and the facts kept in --json', async () => {
-    const info = { days: 1, minutes: 1440, at };
-    for (const errorInfo of [info, JSON.stringify(info)]) {
-      const h = harness({ fetch: async () => Response.json({ data: null, errors: [{ errorType: 'VOTE_ACCOUNT_TOO_RECENT', message: 'An account votes from 1 days old in "%friends"', errorInfo }] }) });
-      const e = await refusal(() => graphql(new Context(h.io, NO_FLAGS), 'https://api.test/graphql', 't', 'mutation { lendVotes(universe: "%friends", accountId: "eu_b") { holds } }'));
-      expect(e.message).toBe(`You can vote here from ${at}: an account of 1 day is required`);
-      expect(e.toJSON()).toMatchObject({ error: { code: 'VOTE_ACCOUNT_TOO_RECENT', source: 'platform', errorInfo } });
-    }
-  });
-  it('on the new backend: extensions.reason and extensions.errorInfo', async () => {
+  it('extensions.reason and extensions.errorInfo', async () => {
     const h = harness({ fetch: async () => Response.json({ errors: [{ message: 'a resident votes here 1440 minutes after joining', extensions: { code: 'REFUSED', reason: 'VOTE_JOINED_TOO_RECENTLY', errorInfo: { days: 1, minutes: 1440, at } } }] }) });
     const e = await refusal(() => sulfurGraphql(new Context(h.io, NO_FLAGS), 'https://eu.api.test', 't', 'mutation { lendVotes(universe: "%friends", accountId: "eu_b") { holds } }'));
     expect(e.message).toBe(`You can vote here from ${at}: 1 day since joining is required`);
@@ -92,10 +81,10 @@ describe('universes residences', () => {
   });
   const run = async (item: Record<string, unknown>, ...argv: string[]) => {
     const h = harness({
-      env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+      env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
       fetch: async () => Response.json({ data: { myPresences: { items: [item], next: null } } }),
     });
-    saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+    sulfurSession(h.io, 'agent');
     expect(await h.run('universes', 'residences', ...argv)).toBe(0);
     return h;
   };
