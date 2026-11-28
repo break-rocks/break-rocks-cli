@@ -160,6 +160,9 @@ export function parseCommandLine(schema: ObjectSchema, spec: ArgSpec, tokens: re
     const type = mainType(sub);
     if (type === 'boolean') {
       if (negated && inline !== undefined) throw usageError('INVALID_INPUT', `--no-${flag} takes no value`);
+      // "--flag false" as "--flag=false" and "--no-flag": a following true or false is the flag's value.
+      const next = inline === undefined && !negated ? tokens[i + 1] : undefined;
+      if (next === 'true' || next === 'false') { input[name] = next === 'true'; i++; continue; }
       input[name] = inline === undefined ? !negated : coerce(sub, inline, `--${flag}`);
       continue;
     }

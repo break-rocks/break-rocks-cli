@@ -44,6 +44,12 @@ describe('the invite exceptions and the invite policy', () => {
     expect(Object.values(sent.filter((s) => s.query.includes('setInviteException')).at(-1)!.variables)).toEqual(expect.arrayContaining(['eu_b', false]));
   });
 
+  it('messages settings set --read-receipts false and --no-silent-decline send the booleans', async () => {
+    const { h, sent } = cell((q) => (q.includes('setSettings') ? { setSettings: { messaging: { readReceipts: false, silentDecline: false } } } : null));
+    expect(await h.run('messages', 'settings', 'set', '--read-receipts', 'false', '--no-silent-decline', '--json')).toBe(0);
+    expect(JSON.stringify(sent.find((s) => s.query.includes('setSettings'))!.variables)).toMatch(/"readReceipts":false.*"silentDecline":false|"silentDecline":false.*"readReceipts":false/);
+  });
+
   it('messages settings set --invite-policy except sends setSettings.messaging.invitePolicy', async () => {
     const { h, sent } = cell((q) => (q.includes('setSettings') ? { setSettings: { messaging: { invitePolicy: 'except' } } } : null));
     expect(await h.run('messages', 'settings', 'set', '--invite-policy', 'except', '--json')).toBe(0);

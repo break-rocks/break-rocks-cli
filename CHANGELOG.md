@@ -15,6 +15,11 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 - A rejoin refused during the delay after leaving (`REJOIN_WAIT`, `REJOIN_TOO_SOON`) is told with the instant one may join
   again.
 
+### Fixed
+
+- A boolean option takes a following `true` or `false` as its value (`messages settings set --read-receipts false`, as
+  `--read-receipts=false` and `--no-read-receipts`): it was refused `UNEXPECTED_ARGUMENT`. Any other word stays a positional.
+
 ### Changed
 
 - `look layouts list` reads the catalog without the layouts' documents (`look layouts show` reads one).

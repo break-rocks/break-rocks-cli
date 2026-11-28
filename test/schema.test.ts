@@ -14,6 +14,13 @@ describe('the options of a command line', () => {
     expect(parseCommandLine(schema, { positionals: ['name'] }, ['x', '--interactions', 'post', '--interactions', 'reply', '--no-full-age'])).toEqual({ name: 'x', interactions: ['post', 'reply'], fullAge: false });
     expect(parseCommandLine(schema, { aliases: { env: 'fullAge' } }, ['--env'])).toEqual({ fullAge: true });
   });
+  it('read a boolean as --flag, --no-flag, --flag=false or --flag false (a following true or false only)', () => {
+    expect(parseCommandLine(schema, { positionals: ['name'] }, ['x', '--full-age', 'false'])).toEqual({ name: 'x', fullAge: false });
+    expect(parseCommandLine(schema, { positionals: ['name'] }, ['x', '--full-age', 'true'])).toEqual({ name: 'x', fullAge: true });
+    expect(parseCommandLine(schema, { positionals: ['name'] }, ['x', '--full-age=false'])).toEqual({ name: 'x', fullAge: false });
+    expect(parseCommandLine(schema, { positionals: ['name'] }, ['--full-age', 'herald'])).toEqual({ name: 'herald', fullAge: true });
+    expect(parseCommandLine(schema, { positionals: ['name'] }, ['--no-full-age', 'false'])).toEqual({ name: 'false', fullAge: false });
+  });
   it('refuse an unknown option, a missing value, a number that is none, an extra argument', () => {
     const code = (f: () => unknown) => { try { f(); } catch (e) { return (e as CliError).code; } return 'none'; };
     expect(code(() => parseCommandLine(schema, {}, ['--nope']))).toBe('UNKNOWN_OPTION');
