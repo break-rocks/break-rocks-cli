@@ -5,6 +5,22 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+### Added
+
+- `universes profile set <universe>`: the first focus (`--first-focus`), the universe strip (`--no-universe-strip`), the
+  default layout (`--layout`) and the governance page's (`--governance-layout`) of a universe, and their clears
+  (`--clear FIRST_FOCUS|LAYOUT|GOVERNANCE_LAYOUT|IMAGE`) (`setUniverseProfile`).
+- `universes show` prints the URL, the first focus, the universe strip, the governance layout and the join refusal with
+  its date.
+- A rejoin refused during the delay after leaving (`REJOIN_WAIT`, `REJOIN_TOO_SOON`) is told with the instant one may join
+  again.
+
+### Changed
+
+- `look layouts list` reads the catalog without the layouts' documents (`look layouts show` reads one).
+- New backend: the schema resynced at server `cc3f09f9` (universe direction and account layouts): `look layouts publish`,
+  `publish-version`, `copy` and `delete` are served again.
+
 ## [0.47.0] - 2026-11-28
 
 The new backend's schema resynced (`schema/sulfur`, server `6bd5daf1`: the messaging and governance branches).

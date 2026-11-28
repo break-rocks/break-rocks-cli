@@ -351,6 +351,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `universes private reputation set` | Turn the reputation on or off | `breakrocks universes private reputation set %club. --turned-on --folding-coefficient 1.5` |
 | `universes search-words` | Set the search words of a universe | `breakrocks universes search-words %paris velo bike cycling` |
 | `universes identity` | Set the banner, logo and watermark | `breakrocks universes identity %club. --banner-file ./banner.jpg` |
+| `universes profile set` | Set the first focus, strip and layouts of a universe | `breakrocks universes profile set %paris --first-focus MAP` |
 | `universes private tiers offer` | Offer a subscription tier | `breakrocks universes private tiers offer %club. --name Supporter --currency EUR --monthly-amount 300 --perks TIER_BADGE,RESERVED_POSTS` |
 | `universes private tiers change` | Change a subscription tier | `breakrocks universes private tiers change %club. <tier id> --name Supporter --currency EUR --monthly-amount 400 --perks TIER_BADGE` |
 | `universes private tiers withdraw` | Withdraw a subscription tier (confirmation: `--yes`) | `breakrocks universes private tiers withdraw %club. <tier id> --yes` |
@@ -810,7 +811,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `look themes export` | Export a theme | `breakrocks look themes export %test-village-multisport/sport-gabriel-04 --out sport/` |
 | `look themes shots` | Download the screenshots of a theme | `breakrocks look themes shots %paris/stade-nuit --out shots/` |
 | `look themes delete` | Delete a theme you published (confirmation: `--yes`) | `breakrocks look themes delete %paris/stade-nuit --yes` |
-| `look layouts list` | The layout catalog | `breakrocks look layouts list --field SPORT` |
+| `look layouts list` | The layout catalog (without the documents) | `breakrocks look layouts list --field SPORT` |
 | `look layouts show` | Show a layout | `breakrocks look layouts show %root/feed-first` |
 | `look layouts check` | Check a layout document | `breakrocks look layouts check @layout.json` |
 | `look layouts publish` | Publish a layout in a universe | `breakrocks look layouts publish @layout.json --in %paris` |

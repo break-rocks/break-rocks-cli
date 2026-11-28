@@ -173,17 +173,19 @@ export const universesShow: Command<{ universe: string; members?: boolean }, Uni
     return out;
   },
   text: (r) => {
-    const u = r.universe as Record<string, unknown> & { themeRef?: { universe: string; name: string; version?: number }; layoutRef?: { name: string } };
+    const u = r.universe as Record<string, unknown> & { themeRef?: { universe: string; name: string; version?: number }; layoutRef?: { name: string }; governanceLayoutRef?: { universe: string; name: string } | null };
     const t = r.theme as { name?: string; version?: number; creator?: { handle: string }; imageSlots?: Record<string, { url?: string | null } | null> } | undefined;
     const slots = t?.imageSlots ? Object.entries(t.imageSlots).filter(([, v]) => v?.url).map(([k, v]) => `  ${k}: ${v!.url}`) : [];
-    return [`${u.name}${u.private ? ' (private)' : ''}`, `field: ${u.field ?? '-'}   residents: ${u.residentCount ?? '-'}   members: ${u.memberCount ?? '-'}`,
+    return [`${u.name}${u.private ? ' (private)' : ''}${u.url ? `  ${String(u.url)}` : ''}`, `field: ${u.field ?? '-'}${u.fieldSuggested ? ' (suggested)' : ''}   residents: ${u.residentCount ?? '-'}   members: ${u.memberCount ?? '-'}`,
+      `first focus: ${u.firstFocus ?? '-'}   universe strip: ${u.universeStrip === undefined || u.universeStrip === null ? '-' : u.universeStrip ? 'on' : 'off'}`,
+      ...(u.joinRefusal ? [`join: ${String(u.joinRefusal)}${u.canJoinAt ? ` until ${String(u.canJoinAt)}` : ''}`] : []),
       `theme: ${u.themeRef ? `${u.themeRef.universe}/${u.themeRef.name} v${u.themeRef.version ?? '?'}` : '-'}${u.themeOf ? ` (from ${u.themeOf})` : ''}${t?.creator ? ` by @${t.creator.handle}` : ''}`,
       ...slots,
       ...(u.themeTrial ? [`theme trial: the draft ${(u.themeTrial as { draftId: string }).draftId} v${(u.themeTrial as { version: number }).version} until ${(u.themeTrial as { endsAt: string }).endsAt}${(u.themeTrial as { startedBy?: { handle: string } }).startedBy ? `, started by @${(u.themeTrial as { startedBy: { handle: string } }).startedBy.handle}` : ''}`] : []),
       ...(u.themeHeldVersion ? [`theme frozen at version ${String(u.themeHeldVersion)} (universes theme-follow)`] : []),
       ...(u.myGalleryTrial ? [`my gallery trial: until ${(u.myGalleryTrial as { endsAt?: string }).endsAt ?? '?'} (themes untry)`] : []),
       ...(u.myDraftPreview ? [`my draft preview: the draft ${(u.myDraftPreview as { draftId: string }).draftId} v${(u.myDraftPreview as { version: number }).version} until ${(u.myDraftPreview as { endsAt: string }).endsAt}`] : []),
-      `layout: ${u.layoutRef?.name ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}`, `my role: ${u.myRole ?? '-'}`,
+      `layout: ${u.layoutRef?.name ?? '-'}${u.layoutOf ? ` (from ${u.layoutOf})` : ''}   governance layout: ${u.governanceLayoutRef ? `${u.governanceLayoutRef.universe}/${u.governanceLayoutRef.name}` : '-'}`, `my role: ${u.myRole ?? '-'}`,
       `territory: ${describeTerritory((u.territory ?? null) as Parameters<typeof describeTerritory>[0])}`,
       `proposals waiting for support: ${u.proposalsWaitingSupport ?? '-'}`,
       `long videos mode: ${u.hasLongVideos === undefined ? '-' : u.hasLongVideos ? 'offered (hasLongVideos)' : 'not yet (no public long video)'}`,

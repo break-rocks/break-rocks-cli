@@ -64,8 +64,19 @@ export function refusalTold(code: string, errorInfo: unknown): string | undefine
   return REFUSAL_TELLERS[code]?.(info && typeof info === 'object' ? info as Record<string, unknown> : {});
 }
 
-/** The sentence of a platform refusal: from its errorInfo when it tells more (the vote requirement, D-659; the cells and the limits), else as refusalSentence. */
-export const refusalText = (code: string, message: string | undefined, errorInfo: unknown) => voteRefusalSentence(code, parsedInfo(errorInfo)) ?? refusalTold(code, errorInfo) ?? refusalSentence(code, message);
+/**
+ * A rejoin refused while the delay after leaving runs (the new backend's joinUniverse answers REJOIN_WAIT with the instant
+ * one may join again as its message; Universe.joinRefusal says REJOIN_TOO_SOON, as talc): told with that instant.
+ */
+function rejoinSentence(code: string, message: string | undefined, errorInfo: unknown): string | undefined {
+  if (code !== 'REJOIN_WAIT' && code !== 'REJOIN_TOO_SOON') return undefined;
+  const info = parsedInfo(errorInfo) as Record<string, unknown> | undefined;
+  const at = [message, info?.at, info?.canJoinAt].find((v): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v));
+  return `You left this universe recently: you can join it again from ${at ?? 'the end of the rejoin delay'}`;
+}
+
+/** The sentence of a platform refusal: from its errorInfo when it tells more (the vote requirement, D-659; the cells and the limits; the rejoin delay), else as refusalSentence. */
+export const refusalText = (code: string, message: string | undefined, errorInfo: unknown) => voteRefusalSentence(code, parsedInfo(errorInfo)) ?? refusalTold(code, errorInfo) ?? rejoinSentence(code, message, errorInfo) ?? refusalSentence(code, message);
 
 /** An errorInfo as an object: talc's AWSJSON may come as a JSON string. */
 function parsedInfo(info: unknown): unknown {

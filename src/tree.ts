@@ -233,6 +233,7 @@ universes reputation | universes private reputation | The reputation of a privat
 universes reputation set | universes private reputation set | Turn the reputation on or off
 universes search-words | = | Set the search words of a universe
 universes identity | = | Set the banner, logo and watermark
+universes profile set | = | Set the first focus, strip and layouts of a universe
 universes tiers offer | universes private tiers offer | Offer a subscription tier
 universes tiers change | universes private tiers change | Change a subscription tier
 universes tiers withdraw | universes private tiers withdraw | Withdraw a subscription tier

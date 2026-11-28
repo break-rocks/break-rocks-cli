@@ -100,6 +100,16 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   `playlistCard`, `routeCard`; `event` stays `null`, TO-CONFIRM D-712 on the server) in `--json` and in plain text; the
   one-line form (`messages changes`, `pinned`, `edit`, `quick-poll`) adds the place, the arrival, the stance, my vote, the
   quick poll (its choices, `*` mine, the totals once shown), the agent (`via`) and the language.
+- **Universe direction and layouts** (server `cc3f09f9`): `universes profile set %u` (`setUniverseProfile`)
+  sets the first focus (`--first-focus POSTS|CLIPS|MAP|DEBATES`), the universe strip (`--no-universe-strip`), the default
+  layout (`--layout %u/name`) and the governance page's (`--governance-layout`), and clears them (`--clear FIRST_FOCUS`,
+  `LAYOUT`, `GOVERNANCE_LAYOUT`); the theme stays `look themes apply`. `look layouts publish`, `publish-version`, `copy` and
+  `delete` are served; `look layouts list` reads the catalog without the layouts' documents (the server reads an account
+  layout's document only when asked: `look layouts show` reads one), `--query` is a name prefix. `universes show` prints the
+  new `Universe` fields: `url`, `field` (and `fieldSuggested`, always false there), `residentCount`, `firstFocus`,
+  `universeStrip`, `governanceLayoutRef`, `joinRefusal` with `canJoinAt`. `universes join` during the rejoin delay is
+  refused `REJOIN_WAIT` (the server's message is the instant one may join again; `Universe.joinRefusal` says
+  `REJOIN_TOO_SOON`): told "You left this universe recently: you can join it again from <instant>".
 - **Invitations to group chats**: `messages settings set --invite-policy connections|nobody|except` (`setSettings.messaging`)
   and `me invite-exceptions add|remove @handle` (`setInviteException`, 1,000 at most) are served. An invitation the policy
   refuses is declined silently: the inviter gets its invitation, the invitee never sees it (checked on dev on 2026-11-28).
@@ -159,7 +169,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-648 commands: 568 work as they are, 37 through an adapter, 3 partly, 14 not available, 26 offline; 154 run against dev.
+649 commands: 573 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 154 run against dev.
 
 #### account
 
@@ -339,6 +349,7 @@ deviations), which the command then reports with the server's code.
 | `universes history clear` | works |  | clearRecentUniverses |  |
 | `universes history visit` | works |  | recordUniverseVisit |  |
 | `universes history pause` | works |  | setSettings |  |
+| `universes profile set` | works |  | setUniverseProfile |  |
 
 #### content
 
@@ -749,14 +760,14 @@ deviations), which the command then reports with the server's code.
 | `look themes export` | partly |  | themeCatalog, (former hosts) | not served: the former backend's session or agents host |
 | `look themes shots` | works |  | themeCatalog |  |
 | `look themes delete` | adapted |  | deleteTheme | adapted: deleteTheme |
-| `look layouts list` | works |  | layoutCatalog |  |
+| `look layouts list` | works |  | layoutCatalog, themeCatalog |  |
 | `look layouts show` | works |  | layout |  |
 | `look layouts check` | works |  | checkLayout, themeCatalog |  |
-| `look layouts publish` | partly |  | publishLayout, themeCatalog | not served: publishLayout |
-| `look layouts publish-version` | partly |  | publishLayout, themeCatalog | not served: publishLayout |
+| `look layouts publish` | works |  | publishLayout, themeCatalog |  |
+| `look layouts publish-version` | works |  | publishLayout, themeCatalog |  |
 | `look layouts apply` | works |  | setUniverseProfile |  |
-| `look layouts copy` | not available |  | copyLayout | not served: copyLayout |
-| `look layouts delete` | not available |  | deleteLayout | not served: deleteLayout |
+| `look layouts copy` | works |  | copyLayout |  |
+| `look layouts delete` | works |  | deleteLayout |  |
 | `look studio drafts` | works |  | studioDrafts |  |
 | `look studio show` | works |  | studioDraft |  |
 | `look studio save` | works |  | saveStudioDraft, themeCatalog |  |

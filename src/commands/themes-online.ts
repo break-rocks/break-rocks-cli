@@ -192,6 +192,14 @@ export const themeApply = apiCommand({ name: 'theme apply', summary: 'Make a the
   descriptions: { to: 'The universe (%name)', theme: 'The theme: %universe/name' }, depth: 1,
   description: 'Without leadership, a public universe changes its theme by a proposal of the kind THEME: breakrocks proposals file %u --kind THEME --title … --theme %x/name.',
   examples: ['breakrocks look themes apply %paris/stade-nuit --to %paris'] });
+export const universeProfileSet = apiCommand({
+  name: 'universes profile set', summary: 'Set the direction of a universe: its description, its first focus, the universe strip on its posts, its default layout and the layout of its governance page (setUniverseProfile; the leadership, the owner, the admins)',
+  kind: 'mutation', op: 'setUniverseProfile', positionals: ['universe'], flatten: ['input'], require: ['universe'],
+  hide: ['input.image', 'input.theme', 'input.switcherLayouts', 'input.readerRetouches'], rename: { 'input.layoutRef': 'layout', 'input.governanceLayoutRef': 'governanceLayout' },
+  description: 'Only what is given changes. --first-focus: POSTS, CLIPS, MAP or DEBATES (its sub-universes inherit it). --no-universe-strip: its posts no longer carry the universe strip. --layout and --governance-layout: %universe/name. --clear FIRST_FOCUS, LAYOUT, GOVERNANCE_LAYOUT or IMAGE: back to the default. The theme is look themes apply; the image is universes identity.',
+  descriptions: { universe: 'The universe (%name)', description: 'Its description', universeStrip: 'Whether its posts carry the universe strip (true by default)', firstFocus: 'Its first focus: POSTS, CLIPS, MAP or DEBATES', layout: 'The default layout: %universe/name', governanceLayout: 'The layout of its governance page: %universe/name', clear: 'The parts back to their default (FIRST_FOCUS, LAYOUT, GOVERNANCE_LAYOUT, IMAGE)' }, depth: 1,
+  examples: ['breakrocks universes profile set %paris --first-focus MAP', 'breakrocks universes profile set %paris --no-universe-strip --governance-layout %root/governance', 'breakrocks universes profile set %paris --clear FIRST_FOCUS --clear LAYOUT'],
+});
 export const themePersonalSet = apiCommand({ name: 'theme personal set', summary: 'Set the personal theme: the accent, the display mode, the text size, the density, the motion, the sounds, a readable typeface (setPersonalTheme)', kind: 'mutation', op: 'setPersonalTheme',
   description: 'Since specs v96.0.0 (D-289) the personal theme is Socle with an accent: "#RRGGBB" (the apps offer Slate #3F4752, Forest #1F6B45, Lagoon #11707A, Aubergine #5A2E5E, Brick #A8432C) or "universe", the accent of the universe visited.',
   hide: ['input.theme', 'input.myThemeEverywhere', 'input.postTransparency'],
@@ -326,7 +334,9 @@ export const layoutsCheck: Command<{ document: string; in?: string; online?: boo
 const layoutRefInput = { layout: { type: 'string', pattern: REF, description: 'The layout: %universe/name' } } as const;
 const fromLayout = (i: Record<string, unknown>) => { const r = ref(String(i.layout), 'layout'); return { ...i, universe: r.universe, name: r.name }; };
 export const layoutCommands = [
-  apiCommand({ name: 'layouts list', summary: 'The layout catalog (layoutCatalog)', kind: 'query', op: 'layoutCatalog', rename: { collection: 'field' }, examples: ['breakrocks look layouts list --field SPORT'] }),
+  // Without each layout's document (look layouts show reads one): the new backend reads an account layout's document only when asked.
+  apiCommand({ name: 'layouts list', summary: 'The layout catalog, without their documents (layoutCatalog; --query: a name prefix)', kind: 'query', op: 'layoutCatalog', rename: { collection: 'field' }, select: selection('LayoutCatalogPage', 2).replace(/ document\b/, ''),
+    descriptions: { query: 'The start of a layout name', universe: 'The universe whose catalog it is (%name)' }, examples: ['breakrocks look layouts list --field SPORT', 'breakrocks look layouts list --universe %paris --query agora'] }),
   apiCommand({ name: 'layouts show', summary: 'A layout', kind: 'query', op: 'layout', positionals: ['layout'], extra: { ...layoutRefInput }, hide: ['universe', 'name'], require: ['layout'], prepare: fromLayout, examples: ['breakrocks look layouts show %root/feed-first'] }),
   layoutsCheck,
   apiCommand({ name: 'layouts publish', summary: 'Publish a layout in a universe: a layout of the same name gets its next version (publishLayout)', kind: 'mutation', op: 'publishLayout', positionals: ['document'], rename: { universe: 'in' }, descriptions: { document: 'The layout document: @file.json, or its JSON', in: 'The universe (%name)' }, examples: ['breakrocks look layouts publish @layout.json --in %paris'] }),
