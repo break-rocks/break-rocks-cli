@@ -5,6 +5,26 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-28
+
+### Added
+
+- `operator register`, `operator renew`, `operator recover`, `operator recovery-key set` and `operator delete` on
+  native-sulfur's REST routes `/v1/operators/*` (`src/sulfur/operators.ts`, D-651): a JWT proof signed with the operator's key
+  (the recovery key for `recover` and `recovery-key set`), the registration and the renewal paid with x402; once paid, the
+  operator signs in with its key. They no longer answer `NOT_AVAILABLE`.
+
+### Changed
+
+- `operator keygen` makes an Ed25519 recovery key by default (native-sulfur takes Ed25519 keys only, D-542); an ML-DSA-65 key
+  is refused `KEY_INVALID` before anything is sent.
+- `operator recovery-key set` is proved by the former recovery key (no longer by the private key).
+
+### Removed
+
+- `operator register --plan|--interval|--currency|--return-path|--open|--wait` (a plan paid by card at the registration: not
+  on native-sulfur; `operator plan start` after the registration).
+
 ## [0.49.0] - 2026-11-28
 
 The former backend (talc, `legacy`) is retired (talc removal, phase B): native-sulfur is the only backend. Its schema resynced

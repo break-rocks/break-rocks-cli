@@ -98,8 +98,8 @@ describe('the backend', () => {
     expect(last(legacyEnv)).toMatchObject({ error: { code: 'BACKEND_REMOVED' } });
     expect(await h.run('config', 'set', 'backend', 'sulfur', '--json')).toBe(2);
     // A command whose service is not ported yet says so; offline ones work as ever.
-    expect(await h.run('operator', 'register', '--country', 'FR', '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE', command: 'operator register' } });
+    expect(await h.run('agents', 'tier', 'herald', '--tier', 'X10', '--yes', '--json')).toBe(1);
+    expect(last(h)).toMatchObject({ error: { code: 'NOT_AVAILABLE', command: 'agents tier' } });
     expect(await h.run('whoami', '--json')).toBe(3);
     expect(last(h)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED' } });
   });

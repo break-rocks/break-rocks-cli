@@ -77,7 +77,7 @@ in 0600 on POSIX; on Windows, the user's `%APPDATA%` folder is protected by its 
 default (the POSIX mode makes no sense there). ML-DSA-65 depends on the system's `node:crypto` (Node 24.7 and
 later): without it, the CLI says so (`ALGORITHM_NOT_SUPPORTED`) and Ed25519 remains available.
 **The only exception** to "no system binary": `login --browser` and paying for a plan
-(`operator plan start`, `operator register --plan`) open the browser with `open` (macOS),
+(`operator plan start`) open the browser with `open` (macOS),
 `xdg-open` (Linux) or `rundll32 url.dll,FileProtocolHandler` (Windows), without a shell; this is optional
 (`--no-open`), a failure stops nothing and the address is always written (stderr, and in the answer
 of a plan).
@@ -983,10 +983,14 @@ Cognito, AppSync API v2, the agents host) was retired on 2026-11-28 (talc remova
   operation named. Media go through `requestUpload` (`src/sulfur/media.ts`: the SHA-256 declared, a clip's or a long video's
   duration and orientation read from its MP4 header, `src/mp4.ts`; in parts of 64 MiB above 500 MB, resumable). `login`,
   `logout`, `whoami`, `doctor`, `me session`, `agents login`, `operator login` are native-sulfur's own (agents sign in with
-  their key, RFC 7523: `src/sulfur/agent.ts`). The commands whose service is not reached yet are kept and answer
-  `NOT_AVAILABLE` (exit 1): `operator register`, `operator renew`, `operator recover`, `operator recovery-key set`,
-  `operator delete` (native-sulfur's REST routes `/v1/operators/*`, not ported to the CLI yet) and `agents tier` (not sold by
-  native-sulfur). **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or not available, and the server
+  their key, RFC 7523: `src/sulfur/agent.ts`). The operator's own acts are native-sulfur's REST routes (0.50.0,
+  `src/sulfur/operators.ts`, D-651): `operator register` (`POST /v1/operators/registrations` with both public keys and a
+  proof, then its payment with x402), `operator renew` (x402), `operator recover` (a proof signed with the recovery key),
+  `operator recovery-key set` (a proof signed with the former recovery key) and `operator delete`; each request carries a JWT
+  proof (`EdDSA`, `kid` the SHA-256 of the raw public key, `iss` = `sub` the operator's id or `registration`, `aud` the
+  route's URL on the cell's domain, 2 minutes, a `jti`); Ed25519 keys only (D-542: `KEY_INVALID` before anything is sent);
+  a refusal keeps its code and status (`RECOVERY_KEY_REQUIRED`, `REGISTRATION_ABANDONED`, `PROVIDER_NOT_AVAILABLE`…).
+  `agents tier` is kept and answers `NOT_AVAILABLE` (exit 1): native-sulfur does not sell it. **[docs/sulfur.md](docs/sulfur.md)**: every command, served, adapted or not available, and the server
   findings.
 - **Guards** (0.44.0): a session is of one environment: `login` keeps the profile as a person's with its environment, and a
   session of another environment than the one asked is refused before any request (`ENV_MISMATCH`, exit 2). An agent is
@@ -1703,14 +1707,8 @@ multiple of 1,000: the CLI accepts the number and the platform answers
   oldest). The CLI says so and asks for confirmation (`--yes`).
 - `operator plan stop` / `operator plan resume` (`setOperatorPlanRenewal`): without renewal, the
   plan runs to the end of its period, without a refund.
-- **At registration**: `operator register --country FR --full-age --plan 10 [--interval YEAR]`
-  pays by card instead of x402 (`POST /v1/operators/registrations/{id}/plan`, `agent-sign-in.md` §
-  Plan at registration): the payment page opens, then the CLI waits for the payment by trying to
-  sign in every 5 seconds (`REGISTRATION_NOT_PAID` until then) until the end of the page
-  (`PLAN_NOT_PAID` after that); the account is created once the payment is confirmed, then the CLI opens the session and
-  reads the plan. `--no-wait` returns right away; running the same command again within the hour
-  finishes the registration once paid (`REGISTRATION_ALREADY_PAID` → sign-in). `--plan` excludes
-  `--months`, `--agents` and `--max-usd`.
+- **At registration** (the former backend only, removed in 0.50.0): native-sulfur takes no plan paid by card at the
+  registration; register with x402, then `operator plan start`.
 
 Checked on dev on 2026-10-28 (0.11.0, platform backend) with a test operator created by
 the CLI (`eu-01a18359-e6b9-75a2-82c0-bb29ef07a880`, left in place): `operator register --plan 10` (Stripe
