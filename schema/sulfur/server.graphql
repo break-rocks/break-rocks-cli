@@ -1225,7 +1225,11 @@ type Mutation {
   """
   createPost(requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID, longVideo: ID, place: PostPlaceInput, document: PostDocumentInput, announcement: Boolean): Post
   replyTo(postId: ID!, requestId: ID!, text: String!, images: [ImageAttachmentInput!], link: String, sources: [PostSourceInput!], clip: ID): Post
-  quote(postId: ID!, requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID): Post
+
+  """
+  document (talc D-269, server branch 4): a document uploaded for the quote (requestUpload kind document, destination quote), alone beside the text.
+  """
+  quote(postId: ID!, requestId: ID!, text: String!, universe: String, images: [ImageAttachmentInput!], link: String, replyPolicy: ReplyPolicy, sources: [PostSourceInput!], clip: ID, document: PostDocumentInput): Post
   repost(postId: ID!, requestId: ID!, universe: String): Post
   changePost(postId: ID!, requestId: ID, text: String!, images: [ImageAttachmentInput!], sources: [PostSourceInput!]): Post
 
@@ -1457,10 +1461,14 @@ type Mutation {
   withdrawContributionVote(messageId: ID!, discussionId: ID!, requestId: ID): Message!
 
   """
-  Talc answers the UniverseEvent; here the proposal's support (the event, once created, is read by event(id)).
+  talc's answer (server branch 4, events-talc withTalcSupportAnswers): the proposal as a UniverseEvent, WAITING_SUPPORT with its supports, SCHEDULED once adopted.
   """
-  supportUniverseEvent(eventId: ID!, requestId: ID!): EventProposal!
-  supportEventRelay(relayId: ID!, requestId: ID!): EventProposal!
+  supportUniverseEvent(eventId: ID!, requestId: ID!): UniverseEvent
+
+  """
+  talc's answer (server branch 4): the relay proposal as an EventRelay, PROPOSED with its supports, ACTIVE once adopted.
+  """
+  supportEventRelay(relayId: ID!, requestId: ID!): EventRelay
   createEvent(universeId: ID!, input: EventInput!): EventSheet!
   updateEvent(id: ID!, ver: Int!, input: EventChange!, state: String): EventSheet!
   cancelEvent(id: ID!): EventSheet!
@@ -2869,6 +2877,14 @@ type PostOriginal {
 
   """Its reposts and quotes, as Post.repostCount."""
   repostCount: Int!
+
+  """
+  Its post document, READY (talc D-269): the document card of the original shown in a repost or a quote; null without one.
+  """
+  document: PostDocument
+
+  """Its clip (talc); null when none or unavailable."""
+  clip: Clip
 }
 
 """
@@ -2949,6 +2965,21 @@ type Post {
   """
   document: PostDocument
 
+  """
+  talc (universe-page.feature): the role its author had in its universe's first level when posting (written with the post, never recomputed); served by posts(address) of a public universe and by the thread of a post of a public universe, null elsewhere.
+  """
+  authorRole: PostAuthorRole
+
+  """
+  talc (profile-tabs.feature): its clip's views (approximate, AGG's windowed counter of the clip plays), served by posts(address, filter: CLIPS) for a post of a public universe with a clip; null elsewhere.
+  """
+  viewCount: Int
+
+  """
+  talc (daily-digest.feature): the day (UTC, YYYY-MM-DD) a daily digest of the system account sums up; null otherwise (no digest is written on this platform yet).
+  """
+  digestOf: String
+
   """talc's ReportKind values (OFF_CHARTER, PLATFORM) of my reports on it."""
   reportedByMe: [String!]!
   versions: [PostVersion!]!
@@ -2969,6 +3000,19 @@ type Post {
 
   """My resume point on this long video (seconds), or null."""
   myResume: ResumePoint
+
+  """
+  A system post that is a moment of its universe (talc universe-moments.feature); null otherwise.
+  """
+  moment: MomentKind
+
+  """The parts of a moment; null when moment is null."""
+  momentData: MomentData
+
+  """
+  A project post of the system account (talc projects.feature): the action proposal it tells; null otherwise (none is written on this platform yet).
+  """
+  projectOf: Proposal
 
   """
   The post's clip (any orientation; a vertical or square one also shows in the clip feeds).
@@ -5440,6 +5484,11 @@ input UniverseEventInput {
   title: String!
   universe: String!
   zone: ZoneInput
+
+  """
+  talc (server branch 4): a route drawn for the event, saved as its creator's own route (UNLISTED), its id the event's routeId; never with routeId, a point or a zone (INVALID_REQUEST).
+  """
+  route: RouteInput
 }
 
 input UniverseEventChangeInput {
@@ -5462,6 +5511,11 @@ input UniverseEventChangeInput {
   tags: [String!]
   title: String
   zone: ZoneInput
+
+  """
+  talc (server branch 4): a route drawn anew for the event, replacing its place (as route on the creation).
+  """
+  route: RouteInput
 }
 
 type UniverseDiscussionPlace {
@@ -5981,6 +6035,16 @@ type Settings {
   messaging: MessagingSettings!
   notifications: NotificationSettings!
 
+  """
+  The gesture tips already shown to the account (talc; reading memory's tour state).
+  """
+  tips: TipSettings!
+
+  """
+  The app tour (talc D-514; reading memory's tour state, as readingSettings.tour).
+  """
+  tour: TourSettings!
+
   """My map display settings (talc Settings.map)."""
   map: MapSettings!
   translation: TranslationSettings!
@@ -6015,6 +6079,12 @@ input SettingsInput {
 
   """talc: the parts cleared, inside the input (also accepted beside it)."""
   clear: [SettingsPart!]
+
+  """The gesture tips shown: only true is written; a tip shown stays shown."""
+  tips: TipSettingsInput
+
+  """The app tour: a field not given stays."""
+  tour: TourSettingsInput
 
   """
   My map display settings (talc setSettings(input: {map})): a field not given stays.
@@ -7011,6 +7081,119 @@ input TourPatch {
   resumeCardClosed: Boolean
   navCard: String
   tips: Int
+}
+
+enum AppTourState {
+  NOT_STARTED
+  NEW_NAVIGATION
+  IN_PROGRESS
+  FINISHED
+  SKIPPED
+}
+
+enum TourGesture {
+  DOUBLE_TAP_PLACE
+  LONG_PRESS_UNIVERSES
+  SWIPE_VIEWS
+  CLEAR_SCROLL_UP
+  LONG_PRESS_POST_BUTTON
+  UNIVERSE_NAME_MENU
+}
+
+enum TourOutcome {
+  TRIED
+  DONE_FOR_ME
+  SEEN
+  SKIPPED
+}
+
+enum TourMode {
+  READ
+  LISTEN
+  BOTH
+}
+
+type TipSettings {
+  homeGestures: Boolean!
+  universeGestures: Boolean!
+  authorSwipe: Boolean!
+}
+
+type TourGestureOutcome {
+  gesture: TourGesture!
+  outcome: TourOutcome!
+}
+
+type TourSettings {
+  state: AppTourState!
+
+  """1 to 8 while IN_PROGRESS; else null."""
+  step: Int
+  gestures: [TourGestureOutcome!]!
+  mode: TourMode
+  voiceLanguage: String
+  autoAdvance: Boolean!
+  resumeCardClosed: Boolean!
+  newNavigationCardDismissed: Boolean!
+}
+
+input TipSettingsInput {
+  homeGestures: Boolean
+  universeGestures: Boolean
+  authorSwipe: Boolean
+}
+
+input TourGestureOutcomeInput {
+  gesture: TourGesture!
+  outcome: TourOutcome!
+}
+
+input TourSettingsInput {
+  state: AppTourState
+  step: Int
+  gestures: [TourGestureOutcomeInput!]
+  mode: TourMode
+  voiceLanguage: String
+  autoAdvance: Boolean
+  resumeCardClosed: Boolean
+  newNavigationCardDismissed: Boolean
+}
+
+enum MomentKind {
+  CHARTER_ADOPTED
+  FIRST_QUORUM
+  LEVEL_REACHED
+  MODERATOR_DESIGNATED
+  PROJECT_DONE
+  PROPOSAL_ANNULLED
+  RESIDENTS_MILESTONE
+  VOTE_CLOSED
+  VOTE_OPENED
+}
+
+"""
+The parts of a moment (talc), rendered by the apps in the reader's language; each kind fills its own.
+"""
+type MomentData {
+  """A vote closed: whether it was adopted."""
+  adopted: Boolean
+
+  """An annulment's reason; null otherwise."""
+  explanation: String
+  level: GovernanceLevel
+
+  """The moderator designated (MODERATOR_DESIGNATED)."""
+  moderator: AccountRef
+  no: Int
+  note: String
+  proposalId: ID
+  proposalTitle: String
+  residents: Int
+
+  """A second round's vote; null otherwise."""
+  secondRound: Boolean
+  winner: AccountRef
+  yes: Int
 }
 
 input DraftMediaInput {
