@@ -1346,9 +1346,14 @@ type Mutation {
   setChannelRetention(discussionId: ID!, days: Int!): Boolean!
 
   """
-  Changes some of my choices of direct messages; the others stay. requests: everyone, follows, followers, nobody; agents: answer, auto, silent; groups: connected.
+  Changes some of my choices of direct messages; the others stay. requests: everyone, follows, followers, nobody; agents: answer, auto, silent; groups: connected, nobody, except.
   """
   setDmSettings(requests: String, auto: Boolean, silent: Boolean, agents: String, groups: String): DmSettings!
+
+  """
+  talc: an account listed (excepted) or not among those who may not invite me to group chats under the invite policy except (myAccounts(list: INVITE_EXCEPTIONS)); ≤ 1,000 (INVITE_EXCEPTIONS_LIMIT). Answers the account.
+  """
+  setInviteException(accountId: ID!, excepted: Boolean!, requestId: ID!): AccountRef
 
   """
   The whole list of pinned channels (≤ 5, in order, by id; [] unpins every one): a private universe's owner and admins, a public universe's leadership. Answers the universe.
@@ -1391,6 +1396,16 @@ type Mutation {
   """
   setLeadershipQuestionLike(questionId: ID!, liked: Boolean!, requestId: ID!): LeadershipQuestion!
   fileProposal(input: FileProposalInput!, requestId: ID!): Proposal!
+
+  """
+  talc: a public universe's field, set by its leadership (without leadership, a proposal of kind FIELD).
+  """
+  setUniverseField(universe: String!, field: UniverseField!, requestId: ID): Universe
+
+  """
+  talc: a public universe's display case (the same name, another case), set by its leadership.
+  """
+  setUniverseDisplay(universe: String!, display: String!, requestId: ID): Boolean
   withdrawProposal(proposalId: ID!, requestId: ID): Proposal!
   changeProposal(proposalId: ID!, text: String, requestId: ID): Proposal!
   askProposalRefusalReview(proposalId: ID!, requestId: ID): ProposalRefusal!
@@ -2508,6 +2523,16 @@ type LiveLine {
   The most recent pinned announcement (a public universe's leadership's, slots 01–03).
   """
   announcement: Post
+
+  """
+  talc: the open vote of its first level that ends soonest, as anyone sees it (no ballot of the reader, no text nor change: proposal(id)); null when none.
+  """
+  vote: Proposal
+
+  """
+  talc: an open poll of its first level, the one that ends soonest (talc: the most voted); null when none.
+  """
+  poll: Poll
 }
 
 type LiveLineActivity {
@@ -2532,6 +2557,11 @@ type UniverseNews {
   openVotes: Int!
   questionsWaiting: Int!
   toHandle: Int
+
+  """
+  talc: the proposals of its first level decided since the reader's last visit (≤ 5, the latest first; no text nor change); [] without a visit known.
+  """
+  decisions: [Proposal!]!
 }
 
 input PrivateUniverseInput {
@@ -3295,6 +3325,71 @@ input SendMessageInput {
   The link card (talc): the text's first link (LINK_NOT_IN_TEXT otherwise), its preview as linkPreview built it; ignored beside images, a clip, a voice message or a meet-up.
   """
   link: String
+
+  """
+  talc: a place, sent alone (PLACE_INVALID: a name of 1 to 100 characters and a point); in a universe discussion its text is the place's name.
+  """
+  place: PlaceInput
+
+  """
+  talc: an arrival notice, sent alone by a human in a conversation or a group chat (ARRIVAL_ZONE_INVALID).
+  """
+  arrival: ArrivalInput
+
+  """
+  talc (D-276): the stance of a contribution of a temporary universe discussion only (STANCE_NOT_ALLOWED elsewhere); it stays as sent.
+  """
+  stance: DebateStance
+}
+
+"""
+An arrival (a message of kind ARRIVAL, talc): the name of the arrival zone, nothing else of it.
+"""
+type Arrival {
+  zoneName: String!
+}
+
+input ArrivalInput {
+  zoneName: String!
+}
+
+"""
+The stance of a contribution of a temporary universe discussion (talc, D-276).
+"""
+enum DebateStance {
+  AGAINST
+  FOR
+  QUESTION
+}
+
+"""
+A quick poll of a discussion (talc, D-224): its question and choices, open 24 hours; totals null until the caller picked a choice or it closed.
+"""
+type QuickPoll {
+  question: String!
+  choices: [String!]!
+  totals: [Int!]
+  myChoice: Int
+  closesAt: AWSDateTime!
+}
+
+"""
+An event of a group chat's timeline (talc); none is written yet (TO-CONFIRM(D-712)).
+"""
+type GroupEvent {
+  actorId: ID!
+  name: String
+  target: AccountRef
+  targetId: ID
+  type: GroupEventType!
+}
+
+enum GroupEventType {
+  created
+  joined
+  left
+  removed
+  renamed
 }
 
 enum MeetUpAnswerKind {
@@ -3578,6 +3673,72 @@ type Message {
   The link card (talc): the preview of the text's first link, kept while the text keeps that link.
   """
   link: LinkPreview
+
+  """
+  talc: the zones of display (links, addresses, formatting) over display; target and targetId null (the accounts mentioned are mentions).
+  """
+  spans: [TextSpan!]!
+
+  """
+  talc: its language (ISO 639-1) as the platform detects it from its text at read; null when unsure, and once deleted.
+  """
+  language: String
+
+  """
+  talc: the delegated agent that wrote it for its operator (its name at the time); null otherwise.
+  """
+  via: PostVia
+
+  """
+  talc: a place sent (no text in a conversation or a group chat; a universe discussion's text is its name); null once deleted.
+  """
+  place: Place
+
+  """talc: an arrival notice; null once deleted."""
+  arrival: Arrival
+
+  """
+  talc: the stance of a contribution of a temporary universe discussion; null otherwise and once deleted.
+  """
+  stance: DebateStance
+
+  """talc: the quick poll it carries (sendQuickPoll); null otherwise."""
+  quickPoll: QuickPoll
+
+  """
+  talc: the universe discussion of the first discussion address or URL of its text, as any reader sees it (TO-CONFIRM(D-711)); null when none, unreadable, gone, with images or a clip.
+  """
+  discussionCard: UniverseDiscussion
+
+  """
+  talc: the event of a group chat's timeline, for kind event; null otherwise (none is written yet, TO-CONFIRM(D-712)).
+  """
+  event: GroupEvent
+
+  """
+  talc: the caller's contribution vote (a temporary universe discussion); null otherwise.
+  """
+  myVote: ContributionVote
+
+  """
+  talc: the vote card the system account posts in &general; null otherwise.
+  """
+  voteCard: VoteCard
+
+  """
+  talc: the universe event the system account tells in the universe discussion it was proposed from; null otherwise.
+  """
+  eventCard: UniverseEvent
+
+  """
+  talc: the playlist card of the first playlist address or URL of its text, built for the caller; null when none, with images or a clip.
+  """
+  playlistCard: PlaylistCard
+
+  """
+  talc: the route of the first route URL of its text as the caller may read it; null when none, unreadable, with images or a clip.
+  """
+  routeCard: MapRoute
 }
 
 """
@@ -3826,7 +3987,9 @@ type DmSettings {
   """
   agents: String!
 
-  """Who can invite me to group chats: connected."""
+  """
+  Who can invite me to group chats: connected, nobody, or except (the connected accounts but my exceptions).
+  """
   groups: String!
 }
 
@@ -4190,12 +4353,28 @@ input FileProposalInput {
 }
 
 """
-Talc's ProposalChangeInput, the parts governance applies itself (the others are their features').
+Talc's ProposalChangeInput, the parts governance and the CORE apply (port talc governance): the showcase (description, search
+words, tag conventions, the universe image — clear LOGO), the display case, the field, the daily digest, the conversation
+starters, the voting method, a charter's most moderators, a sub-universe's governance withdrawn, the pinned channels. The
+theme, layout, appearance, custom page, playlist, territory, channel action and watermark are their features' (not served).
 """
 input ProposalChangeInput {
   accountId: ID
   proposalSummaries: Boolean
   targetDate: String
+  votingMethod: VotingMethod
+  maxModerators: Int
+  field: UniverseField
+  dailyDigest: Boolean
+  conversationStarters: Boolean
+  subUniverse: String
+  display: String
+  description: String
+  logo: ImageAttachmentInput
+  searchWords: [String!]
+  tagConventions: [String!]
+  pinnedChannels: [String!]
+  clear: [UniverseIdentityPart!]
 }
 
 input ReportTargetInput {
@@ -4397,13 +4576,41 @@ type Proposal {
   candidateVotes: [Int!]
   winner: Account
   fromDiscussion: String
+
+  """
+  Why an adopted proposal's change (or a part of it) was not applied: talc's code; null otherwise.
+  """
   notApplied: String
+
+  """
+  Its proposal discussion (opened with its support or its vote); null before, or for a proposal that has none.
+  """
+  discussion: UniverseDiscussion
 }
 
 type ProposalChange {
   account: Account
   proposalSummaries: Boolean
   targetDate: String
+  votingMethod: VotingMethod
+  maxModerators: Int
+  field: UniverseField
+  dailyDigest: Boolean
+  conversationStarters: Boolean
+
+  """The sub-universe whose governance is withdrawn (its address)."""
+  subUniverse: String
+
+  """The display case it sets (%Paris for %paris)."""
+  display: String
+  description: String
+  logo: Image
+  searchWords: [String!]
+  tagConventions: [String!]
+
+  """The pinned channels it sets, in their order (addresses)."""
+  pinnedChannels: [String!]
+  clear: [UniverseIdentityPart!]!
 }
 
 type ProposalSupport {
@@ -5805,7 +6012,9 @@ input MessagingSettingsInput {
   agentRequests: AgentRequests
   silentDecline: Boolean
 
-  """Only connections (D-545)."""
+  """
+  connections, nobody, or except (the connected accounts but those of setInviteException).
+  """
   invitePolicy: InvitePolicy
   readReceipts: Boolean
   universeDiscussions: UniverseDiscussionsInMessages
@@ -9891,4 +10100,30 @@ type ResolvedAddress {
 
 type ExperienceReuse {
   values: [ExperienceParameterValue!]!
+}
+
+"""
+When a vote card is posted (talc): its support opens, its vote opens, 24 hours before its vote ends.
+"""
+enum VoteCardMoment {
+  SUPPORT_OPENED
+  VOTE_ENDS_SOON
+  VOTE_OPENED
+}
+
+"""
+A vote card (talc, D-300): the proposal as the caller reads it, and the moment it was posted.
+"""
+type VoteCard {
+  proposal: Proposal!
+  moment: VoteCardMoment!
+}
+
+"""
+The playlist card of a message (talc): the first playlist address or URL of its text; playlist null, not available.
+"""
+type PlaylistCard {
+  address: String!
+  parameters: [AddressParameter!]!
+  playlist: Playlist
 }
