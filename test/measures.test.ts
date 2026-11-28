@@ -1,8 +1,6 @@
 // Specs v84.4.0 to v87.3.0: platform measures and their appeal, the terms accepted, advertising. Against a scripted API.
 import { describe, expect, it } from 'vitest';
-import { Context, NO_FLAGS } from '../src/context.js';
-import { saveSession } from '../src/session.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 import { scripted } from './scripted.js';
 
 describe('platform measures and terms', () => {
@@ -105,8 +103,8 @@ describe('advertising', () => {
 describe('refusals of an appeal (D-398)', () => {
   it('gives the sentence of PLATFORM_APPEAL_LEADERSHIP_ONLY and PLATFORM_APPEAL_EXISTS answered without one', async () => {
     for (const [code, sentence] of [['PLATFORM_APPEAL_LEADERSHIP_ONLY', 'A measure against a universe is appealed by its leadership only'], ['PLATFORM_APPEAL_EXISTS', 'This measure is already appealed: one appeal per measure, whoever filed it']]) {
-      const h = harness({ env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' }, fetch: async () => Response.json({ data: null, errors: [{ errorType: code, message: code }] }) });
-      saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+      const h = harness({ env: { BREAKROCKS_SULFUR_URL: 'https://api.test' }, fetch: async () => Response.json({ data: null, errors: [sulfurError({ errorType: code, message: code })] }) });
+      sulfurSession(h.io, 'agent');
       expect(await h.run('--yes', 'me', 'measures', 'appeal', 'pm2', '--json')).toBe(1);
       expect(last(h)).toMatchObject({ error: { code, message: sentence, source: 'platform' } });
     }

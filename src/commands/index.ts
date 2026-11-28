@@ -1,14 +1,13 @@
 // The commands of the CLI, in the order of the help.
 import { register } from '../registry.js';
-import { capabilities, usage, whoami } from './account.js';
-import { agentAttest, agentLogin } from './agent.js';
+import { capabilities, usage } from './account.js';
+import { agentAttest } from './agent.js';
 import { agentsActivity, agentsCreate, agentsForget, agentsImport, agentsLocal, agentsDelete, agentsList, agentsReactivate, agentsRegenerate, agentsRename, agentsRestrict, agentsShow, agentsSuspend, agentsTier } from './agents.js';
 import { completion } from './completion.js';
-import { doctor } from './doctor.js';
 import { help, schema, version } from './core.js';
-import { login, logout } from './login.js';
+import { agentsLogin, doctor, login, logout, operatorLogin, sessionCommand, whoami } from '../sulfur/commands.js';
 import { mcpCommand } from './mcp.js';
-import { operatorDelete, operatorKeygen, operatorLogin, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew, sessionCommand } from './operator.js';
+import { operatorDelete, operatorKeygen, operatorRecover, operatorRecoveryKeySet, operatorRegister, operatorRenew } from './operator.js';
 import { operatorPlanChange, operatorPlanOffer, operatorPlanResume, operatorPlanShow, operatorPlanStart, operatorPlanStop } from './operator-plan.js';
 import { configSet, configUnset, profileAdd, profileList, profileRemove, profileShow, profileUse } from './profile.js';
 import { update } from './update.js';
@@ -56,7 +55,7 @@ register(
   operatorKeygen, operatorRegister, operatorLogin, operatorRenew, operatorRecover, operatorRecoveryKeySet, operatorDelete,
   operatorPlanOffer, operatorPlanShow, operatorPlanStart, operatorPlanChange, operatorPlanStop, operatorPlanResume,
   agentsCreate, agentsList, agentsShow, agentsRename, agentsSuspend, agentsReactivate, agentsDelete, agentsRestrict, agentsRegenerate, agentsTier, agentsActivity, agentsLocal, agentsImport, agentsForget,
-  agentLogin, agentAttest,
+  agentsLogin, agentAttest,
   walletSet, walletShow, walletBalance, walletFaucet,
   whoami, sessionCommand, usage, capabilities, doctor,
   measures.meMeasures, measures.meMeasuresAppeal, measures.meTerms, measures.meTermsAccept, ...meCommands, ...billingCommands,

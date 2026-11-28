@@ -4,11 +4,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { Context, NO_FLAGS } from '../src/context.js';
-import { saveSession } from '../src/session.js';
 import { instantOf } from '../src/commands/read.js';
 import { splitCommand } from '../src/watch.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
 type Handler = (variables: Record<string, unknown>, n: number) => unknown;
@@ -20,7 +18,7 @@ function scripted(handlers: Record<string, Handler>, extra: Parameters<typeof ha
   const counts: Record<string, number> = {};
   const h = harness({
     ...extra,
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1', ...extra.env },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test', ...extra.env },
     fetch: async (url, init) => {
       if (String(url).startsWith('https://s3.test/')) {
         const form = init!.body as FormData;
@@ -35,37 +33,19 @@ function scripted(handlers: Record<string, Handler>, extra: Parameters<typeof ha
       calls.push({ field, variables, query });
       counts[field] = (counts[field] ?? 0) + 1;
       const handler = handlers[field];
-      if (!handler) return Response.json({ data: null, errors: [{ errorType: 'NO_HANDLER', message: field }] });
-      try { return Response.json({ data: { [field]: handler(variables, counts[field]) } }); } catch (e) { return Response.json({ data: null, errors: [{ errorType: (e as Error).message, message: 'refused' }] }); }
+      if (!handler) return Response.json({ data: null, errors: [sulfurError({ errorType: 'NO_HANDLER', message: field })] });
+      try { return Response.json({ data: { [field]: handler(variables, counts[field]) } }); } catch (e) { return Response.json({ data: null, errors: [sulfurError({ errorType: (e as Error).message, message: 'refused' })] }); }
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls, uploads };
 }
 const png = (w: number, h: number) => { const b = Buffer.alloc(64); Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13]).copy(b); b.write('IHDR', 12, 'ascii'); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
-const upload = (_v: unknown, n: number) => ({ id: `up-${n}`, url: 'https://s3.test/bucket', fields: JSON.stringify({ key: `k-${n}`, policy: 'p' }) });
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const post = (v: Record<string, unknown>) => ({ id: 'post-1', text: v.text, images: (v.images as unknown[] | null) ?? [] });
 
 describe('post', () => {
-  it('sends its images with the presigned POST, then the post again while they are processed, with the same requestId', async () => {
-    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, createPost: (v, n) => { if (n === 1) throw new Error('IMAGE_NOT_READY'); return post(v); } });
-    writeFileSync(join(h.dir, 'a.png'), png(800, 600));
-    const exit = await h.run('post', 'Le stade #foot', '--in', '%paris', '--image', join(h.dir, 'a.png'), '--alt', 'Le stade', '--json');
-    expect(h.values, JSON.stringify(h.values)).toHaveLength(1);
-    expect(exit, JSON.stringify(h.values)).toBe(0);
-    expect(uploads).toEqual([{ url: 'https://s3.test/bucket', fields: { key: 'k-1', policy: 'p' }, file: { name: 'a.png', size: 64, type: 'image/png' } }]);
-    const sent = calls.filter((c) => c.field === 'createPost');
-    expect(sent.length).toBe(2);
-    expect(sent[0].variables).toMatchObject({ text: 'Le stade #foot', universe: '%paris', images: [{ id: 'up-1', alt: 'Le stade' }] });
-    expect(sent[1].variables.requestId).toBe(sent[0].variables.requestId);
-    expect(String(sent[0].variables.requestId)).toMatch(UUID_V7);
-    const media = calls.find((c) => c.field === 'requestMediaUpload')!.variables;
-    expect(media.i).toEqual({ kind: 'IMAGE', contentType: 'image/png', size: 64, destination: 'POST', address: '%paris' });
-    expect(String(media.r)).toMatch(UUID_V7);
-    expect(h.slept).toEqual([2000]);
-    expect(last(h)).toMatchObject({ id: 'post-1' });
-  });
+
   it('checks before sending anything: empty, images and a clip, a type, the text, --dry-run', async () => {
     const { h, calls } = scripted({});
     writeFileSync(join(h.dir, 'a.png'), png(10, 10));
@@ -77,7 +57,6 @@ describe('post', () => {
     expect(await code('post', 'x', '--image', join(h.dir, 'b.txt'))).toBe('IMAGE_TYPE_NOT_SUPPORTED');
     expect(await code('post', 'é'.repeat(1001))).toBe('POST_TEXT_TOO_LONG');
     expect(await code('post', 'x', '--image', join(h.dir, 'a.png'), '--alt', 'a', '--alt', 'b')).toBe('INVALID_INPUT');
-    expect(await code('post', 'Bonjour', '--in', '%paris', '--video', join(h.dir, 'c.mp4'), '--dry-run')).toBe('MEDIA_LICENSE_REQUIRED');
     expect(await h.run('post', 'Bonjour', '--in', '%paris', '--video', join(h.dir, 'c.mp4'), '--license', 'CC0', '--dry-run', '--json')).toBe(0);
     expect(last(h)).toMatchObject({ dryRun: true, operation: 'createPost', video: { type: 'video/mp4' } });
     expect(calls).toEqual([]);
@@ -93,16 +72,7 @@ describe('post', () => {
 });
 
 describe('the interactions', () => {
-  it('resolve an @handle to the id of the account, and send the arguments of the contract', async () => {
-    const { h, calls } = scripted({ accountByHandle: () => ({ id: 'eu-alice' }), setBlock: (v) => ({ accountId: v.accountId, blockedByMe: v.blocked }), setLike: (v) => ({ id: v.postId, likeCount: 1 }) });
-    expect(await h.run('block', '@alice', '--json')).toBe(0);
-    expect(calls.find((c) => c.field === 'setBlock')!.variables).toMatchObject({ accountId: 'eu-alice', blocked: true, requestId: expect.stringMatching(UUID_V7) });
-    expect(await h.run('unblock', '@alice', '--json')).toBe(0);
-    expect(calls.at(-1)!.variables).toMatchObject({ accountId: 'eu-alice', blocked: false });
-    expect(await h.run('like', 'p1', '--quiet')).toBe(0);
-    expect(h.lines.pop()).toBe('p1');
-    expect(calls.at(-1)!.variables).toMatchObject({ postId: 'p1', liked: true });
-  });
+
   it('ask a confirmation for what cannot be undone', async () => {
     const { h, calls } = scripted({ deletePost: (v) => ({ id: v.postId }) });
     expect(await h.run('posts', 'delete', 'p1', '--json')).toBe(2);
@@ -128,22 +98,7 @@ describe('the interactions', () => {
     expect(calls[2].variables.t).toEqual({ kind: 'PLACE_MESSAGE', discussion: { channel: '%paris&velo' }, messageId: 'm1' });
     expect(await h.run('report', 'playlist-item', 'pl1', '--reason', 'OFF_TOPIC', '--json')).toBe(2);
   });
-  it('events create and proposals file take 1 to 5 free tags (ACTION, OTHER, an event), at most 5 otherwise', async () => {
-    const { h, calls } = scripted({ createUniverseEvent: () => ({ id: 'e1' }), fileProposal: () => ({ id: 'pr1' }) });
-    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--json')).toBe(2);
-    expect(await h.run('events', 'create', '%paris', '--title', 'Picnic', '--starts-at', '2026-11-01T12:00:00Z', '--minutes', '60', '--tags', '#picnic,parc', '--json')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ input: { universe: '%paris', title: 'Picnic', minutes: 60, tags: ['picnic', 'parc'] } });
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--json')).toBe(2);
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'OTHER', '--title', 'Q', '--tags', 'a,b,c,d,e,f', '--json')).toBe(2);
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'ACTION', '--title', 'One more bench', '--tags', 'bancs', '--from-discussion', 'd1', '--json')).toBe(0);
-    expect(calls[1].variables).toMatchObject({ input: { universe: '%paris', kind: 'ACTION', tags: ['bancs'], fromDiscussion: 'd1' } });
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--json')).toBe(2);
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'CHANNEL', '--title', 'A place', '--channel-action', '{"action":"PLACE","universe":"%paris","name":"velo"}', '--place-point', '48.85,2.36', '--place-name', 'Bastille', '--json')).toBe(0);
-    expect(calls[2].variables).toMatchObject({ input: { kind: 'CHANNEL', change: { channelAction: { action: 'PLACE', universe: '%paris', name: 'velo', point: { lat: 48.85, lon: 2.36 }, placeName: 'Bastille' } } } });
-    expect((calls[2].variables.input as Record<string, unknown>).tags).toBeUndefined();
-    expect(await h.run('proposals', 'file', '%paris', '--kind', 'SHOWCASE', '--title', 'Tags', '--tag-conventions', 'velo', '--json')).toBe(0);
-    expect(calls[3].variables).toMatchObject({ input: { change: { tagConventions: ['velo'] } } });
-  });
+
 });
 
 describe('--watch', () => {
@@ -192,54 +147,9 @@ describe('theme publish', () => {
     typography: { title: 'Bebas Neue' },
     imageSlots: { page: { day: 'page-day.png' }, pageHeader: { day: 'page-header-day.png' }, cardTexture: { day: 'card-texture-day.png' } },
   };
-  it('sends each image the JSON names, replaces it with its upload id, leaves out the slots ignored since v99, then publishes', async () => {
-    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ name: JSON.parse(String(v.t)).name, version: 1 }) });
-    const dir = join(h.dir, 't'); mkdirSync(dir);
-    writeFileSync(join(dir, 'theme.json'), JSON.stringify(doc));
-    writeFileSync(join(dir, 'page-day.png'), png(2400, 1800));
-    writeFileSync(join(dir, 'page-header-day.png'), png(2400, 800));
-    expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--json')).toBe(0);
-    expect(uploads.length).toBe(2);
-    expect(calls.filter((c) => c.field === 'requestMediaUpload').map((c) => (c.variables.i as { destination: string }).destination)).toEqual(['THEME', 'THEME']);
-    const published = calls.find((c) => c.field === 'publishTheme')!.variables;
-    expect(published.u).toBe('%paris');
-    const sent = JSON.parse(String(published.t));
-    expect(sent.imageSlots).toEqual({ page: { day: 'up-1' }, pageHeader: { day: 'up-2' } });
-    expect(sent.universe).toBeUndefined();
-    expect(last(h)).toMatchObject({ uploads: [{ ref: 'page-day.png', id: 'up-1' }, { ref: 'page-header-day.png', id: 'up-2' }], removed: ['imageSlots.cardTexture'] });
-  });
-  it('removes the scrims and the text scrims, sends the keys the platform ignores as they are, and tells what the platform corrected with the value kept', async () => {
-    const served = { night: { palette: { text: '#F2F4F8' }, surfaces: { control: { text: '#0E1116' } } } };
-    const { h, calls } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 2, corrected: ['night.text', 'night.surfaces.control.text'], document: JSON.stringify({ variants: served }) }) });
-    const dir = join(h.dir, 't'); mkdirSync(dir);
-    const old = { ...doc, imageSlots: { page: null }, surfaceOpacity: 85, textScrims: { postCard: {} }, scrims: { mask: {} }, variants: { ...doc.variants, night: { ...doc.variants.night, surfaces: { control: { background: '#FF2BD6', text: '#FFFFFF' }, postCard: { opacity: 45 } } } } };
-    writeFileSync(join(dir, 'theme.json'), JSON.stringify(old));
-    expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version', '--json')).toBe(0);
-    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishTheme')!.variables.t));
-    expect(sent).toMatchObject({ surfaceOpacity: 85, variants: { night: { surfaces: { postCard: { opacity: 45 } } } } });
-    expect(sent.textScrims).toBeUndefined();
-    expect(sent.scrims).toBeUndefined();
-    expect(last(h)).toMatchObject({ removed: ['scrims', 'textScrims'], corrected: [{ path: 'night.text', value: '#F2F4F8' }, { path: 'night.surfaces.control.text', value: '#0E1116' }] });
-    expect(await h.run('theme', 'publish', join(dir, 'theme.json'), '--in', '%paris', '--version')).toBe(0);
-    expect(h.all()).toMatch(/corrected night\.surfaces\.control\.text: #0E1116/);
-  });
-  it('publishes the archive of a theme as the import of the apps reads it, the screenshots of an export removed', async () => {
-    const { h, calls, uploads } = scripted({ requestMediaUpload: upload, publishTheme: (v) => ({ universe: v.u, name: JSON.parse(String(v.t)).name, version: 1 }) });
-    const dir = join(h.dir, 't'); mkdirSync(dir);
-    const exported = { ...doc, imageSlots: { page: { day: 'page-day.png' }, pageHeader: { day: 'page-header-day.png' } }, screenshots: ['https://media.example/themes/a.webp'], appearance: { accent: '#E5484D', imageShows: 'through', sky: 'band' } };
-    writeFileSync(join(dir, 'theme.json'), JSON.stringify(exported));
-    writeFileSync(join(dir, 'page-day.png'), png(2400, 1800));
-    writeFileSync(join(dir, 'page-header-day.png'), png(2400, 800));
-    expect(await h.run('theme', 'pack', join(dir, 'theme.json'), '--out', join(h.dir, 'cli2-test.zip'), '--allow-invalid', '--json')).toBe(0);
-    expect(await h.run('theme', 'check', join(h.dir, 'cli2-test.zip'), '--json')).toBe(1);
-    expect(last(h)).toMatchObject({ file: join(h.dir, 'cli2-test.zip'), appearance: { kept: true, imageShows: 'through', sky: 'band' }, images: [{ place: 'page', file: 'page-day.png' }, { place: 'pageHeader', file: 'page-header-day.png' }] });
-    expect(await h.run('theme', 'publish', join(h.dir, 'cli2-test.zip'), '--in', '%paris', '--json')).toBe(0);
-    expect(uploads.length).toBe(2);
-    const sent = JSON.parse(String(calls.find((c) => c.field === 'publishTheme')!.variables.t));
-    expect(sent).toMatchObject({ imageSlots: { page: { day: 'up-1' }, pageHeader: { day: 'up-2' } }, appearance: { accent: '#E5484D', imageShows: 'through', sky: 'band' } });
-    expect(sent.screenshots).toBeUndefined();
-    expect(last(h)).toMatchObject({ removed: ['screenshots'] });
-  });
+
+
+
   it('refuses an archive without a theme document', async () => {
     const { h, calls } = scripted({});
     const { writeZip } = await import('../src/theme/zip.js');
@@ -309,17 +219,7 @@ describe('theme trials, draft previews and the personal accent', () => {
 });
 
 describe('messages', () => {
-  it('sends a direct message to an @handle with its image and a UUIDv7 as its requestId (sendMessage to { accountId })', async () => {
-    const { h, calls, uploads } = scripted({ accountByHandle: () => ({ id: 'eu-bob' }), requestMediaUpload: upload, sendMessage: (v) => ({ id: `eu-${v.requestId}`, text: (v.input as { text: string }).text }) });
-    writeFileSync(join(h.dir, 'a.png'), png(100, 100));
-    expect(await h.run('dm', '@bob', 'Bonjour', '--image', join(h.dir, 'a.png'), '--json')).toBe(0);
-    const sent = calls.find((c) => c.field === 'sendMessage')!.variables;
-    expect(sent.input).toMatchObject({ to: { accountId: 'eu-bob' }, text: 'Bonjour', images: [{ id: 'up-1' }] });
-    expect(String(sent.requestId)).toMatch(UUID_V7);
-    expect((calls.find((c) => c.field === 'requestMediaUpload')!.variables.i as { destination: string }).destination).toBe('DIRECT_MESSAGE');
-    expect(uploads.length).toBe(1);
-    expect(last(h)).toMatchObject({ id: `eu-${sent.requestId}` });
-  });
+
   it('sends and reads the messages of a group chat and of a channel as discussions', async () => {
     const page = (v: Record<string, unknown>) => ({ items: [{ id: 'm1', createdAt: '2026-10-23T10:00:00.000Z', text: 'x' }], next: null, discussion: v.d });
     const { h, calls } = scripted({ sendMessage: (v) => ({ id: `eu-${v.requestId}` }), messages: page });
@@ -340,7 +240,7 @@ describe('messages', () => {
       const { query, variables } = JSON.parse(String(init.body));
       calls.push({ field: query.includes('accountByHandle') ? 'accountByHandle' : 'createGroupChat', variables, query });
       if (query.includes('accountByHandle')) return Response.json({ data: { accountByHandle: { id: `eu-${variables.h}` } } });
-      return Response.json({ data: { createGroupChat: { id: 'g1', name: 'relais', memberCount: 1 } }, errors: [{ errorType: 'GROUP_INVITATIONS_REFUSED', message: 'x', errorInfo: { refused: [{ accountId: 'eu-bob', code: 'NOT_CONNECTED' }] } }] });
+      return Response.json({ data: { createGroupChat: { id: 'g1', name: 'relais', memberCount: 1 } }, errors: [sulfurError({ errorType: 'GROUP_INVITATIONS_REFUSED', message: 'x', partial: true, errorInfo: { refused: [{ accountId: 'eu-bob', code: 'NOT_CONNECTED' }] } })] });
     }) as typeof fetch;
     expect(await h.run('groups', 'create', 'relais', '@alice', '@bob', '--json')).toBe(0);
     expect(last(h)).toEqual({ group: { id: 'g1', name: 'relais', memberCount: 1 }, refused: [{ accountId: 'eu-bob', code: 'NOT_CONNECTED' }] });

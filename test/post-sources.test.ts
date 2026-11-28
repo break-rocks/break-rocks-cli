@@ -2,16 +2,14 @@
 // agents forbidden for posts (D-232): universes agent-posts. Both exposed as MCP tools.
 import { describe, expect, it } from 'vitest';
 import { parseSource, sourcesOf } from '../src/commands/publish.js';
-import { Context, NO_FLAGS } from '../src/context.js';
 import { tools } from '../src/mcp/server.js';
-import { saveSession } from '../src/session.js';
-import { harness } from './helpers.js';
+import { harness, sulfurSession } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown> };
 function scripted() {
   const calls: Call[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
     fetch: async (_url, init) => {
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
@@ -19,7 +17,7 @@ function scripted() {
       return Response.json({ data: { [field]: { id: 'p1', name: '%paris' } } });
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls };
 }
 

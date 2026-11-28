@@ -15,7 +15,6 @@ import { parseCommandLine } from './schema.js';
 import { VERSION } from './version.js';
 import { applyNetwork, redactText } from './network.js';
 import { checkBackend } from './backend.js';
-import { forBackend } from './sulfur/dispatch.js';
 import { colourEnabled, highlight, paintErr, setColour, truecolorEnabled } from './colour.js';
 
 /** The global options out of [argv] (anywhere before "--"), and the tokens left in order. */
@@ -180,8 +179,7 @@ export async function run(argv: readonly string[], io: Io): Promise<number> {
     if (alias) io.out.error(deprecationNotice(alias, command));
     const rest = takeAgentFlag(command, flags, tokens.slice((alias ?? command.name).split(' ').length));
     const ctx = new Context(io, flags);
-    // The backend of the run (--backend, BREAKROCKS_BACKEND, the profile): the new one serves some commands only.
-    const effective = forBackend(ctx, command, { soft: flags.help });
+    const effective = command;
     if (flags.help) return writeAnswer(ctx, findCommand(['help'])!.command, { text: commandHelp(effective), commands: [{ name: effective.name, summary: effective.summary }] });
     const input = parseCommandLine(effective.input, effective.args ?? {}, rest);
     if (!effective.offline) await io.configureNetwork?.(ctx.network());

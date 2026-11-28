@@ -1,10 +1,10 @@
-// A delegated agent (or an agent operator) signing in on the new backend (native-sulfur, server src/core/auth/grants.ts):
+// A delegated agent (or an agent operator) signing in on native-sulfur (native-sulfur, server src/core/auth/grants.ts):
 // RFC 7523, a JWT assertion signed with its Ed25519 private key (header `alg: EdDSA`, `kid`: the SHA-256, hex, of its raw
 // public key; claims `iss` = `sub` = its account id, `aud` = the cell's token endpoint, `iat`, `exp` within 5 minutes, a
 // `jti` used once) exchanged at `/oauth/token` (`grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer`) for an access token
 // acting for its owner, without a refresh token: a new assertion renews it. Its credentials are the CLI's own (a local agent,
 // `--agent`, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY): the private key never leaves the
-// device, the token is kept as a session of the new backend (src/sulfur/session.ts), never printed.
+// device, the token is kept as a session of native-sulfur (src/sulfur/session.ts), never printed.
 import { createHash, randomUUID, sign, type KeyObject, createPublicKey } from 'node:crypto';
 import type { Context } from '../context.js';
 import type { Environment, Profile } from '../config.js';
@@ -46,12 +46,12 @@ export function mayActAsAgent(ctx: Context, profile: Profile = ctx.profile()): b
 
 /**
  * Agent credentials beside a human (as the former backend's src/session.ts ensureSession): a profile holding a human
- * account, or a human's session on the new backend, is never signed into by an agent (PROFILE_HOLDS_HUMAN).
+ * account, or a human's session on native-sulfur, is never signed into by an agent (PROFILE_HOLDS_HUMAN).
  */
 export function refuseAgentIntoHuman(ctx: Context, profile: Profile = ctx.profile(), current: SulfurSession | undefined = readSulfurSession(ctx)): void {
   if (profile.kind !== 'human' && (!current || current.method === 'agent')) return;
   const what = agentFromEnv(ctx.env) ? 'BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY are set' : 'This run acts as an agent';
-  throw usageError('PROFILE_HOLDS_HUMAN', `${what}, but the profile "${ctx.profileName}" holds a human account${profile.kind === 'human' ? '' : ' (its session on the new backend)'}: use another profile (--profile <name>)`, { profile: ctx.profileName });
+  throw usageError('PROFILE_HOLDS_HUMAN', `${what}, but the profile "${ctx.profileName}" holds a human account${profile.kind === 'human' ? '' : ' (its session on native-sulfur)'}: use another profile (--profile <name>)`, { profile: ctx.profileName });
 }
 
 /** Whether this run acts as an agent with credentials of its own (a local agent, a profile of an agent, the BREAKROCKS_* variables). */

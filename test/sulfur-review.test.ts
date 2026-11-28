@@ -7,11 +7,7 @@ import { createHash, generateKeyPairSync } from 'node:crypto';
 import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SCHEMA } from '../src/api/schema.generated.js';
-import { fitFormerBackend, NOT_ON_FORMER_BACKEND } from '../src/api/degrade.js';
-import { schemaDrift } from '../src/commands/doctor.js';
 import { Context, NO_FLAGS } from '../src/context.js';
-import { graphql } from '../src/transport.js';
 import { callCommand } from '../src/mcp/server.js';
 import { serverFlagsOf } from '../src/commands/mcp.js';
 import { findCommand } from '../src/registry.js';
@@ -56,35 +52,6 @@ function cell(answer: (query: string, variables: Record<string, unknown>) => unk
 
 const agentKey = () => generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
 const agentEnv = (agentId = 'eu_agent1') => ({ BREAKROCKS_OPERATOR_ID: 'eu_owner', BREAKROCKS_AGENT_ID: agentId, BREAKROCKS_AGENT_KEY: agentKey() });
-
-describe('the former backend and the fields only the new one serves (D-659)', () => {
-  it('doctor sees no drift for them', () => {
-    const lacking = new Set(NOT_ON_FORMER_BACKEND.map((u) => `${u.type}.${u.field}`));
-    expect([...lacking]).toEqual(['VoteRequirement.accountMinutes', 'VoteRequirement.presenceMinutes', 'VoteStatus.accountMinutesDone', 'VoteStatus.presenceMinutesDone']);
-    for (const f of lacking) expect(SCHEMA.types[f.split('.')[0]].f).toHaveProperty(f.split('.')[1]);
-    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !lacking.has(`${name}.${f}`)).map((n) => ({ name: n })), inputFields: null }));
-    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
-    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: [], deprecatedFields: [], operations: [] });
-  });
-
-  it('a request asks them never: one request, null in the answer, no warning', async () => {
-    const bodies: string[] = [];
-    const fetch = (async (_u: string | URL | Request, init?: RequestInit) => {
-      bodies.push(String(init?.body));
-      return Response.json({ data: { myPresences: { items: [{ universe: '%paris', voteRequirement: { accountDays: 1, presenceDays: 1 }, voteStatus: { accountDaysDone: 0 } }] } } });
-    }) as typeof globalThis.fetch;
-    const h = harness({ fetch });
-    const ctx = new Context(h.io, NO_FLAGS);
-    const q = '{ myPresences { items { universe voteRequirement { accountDays accountMinutes presenceDays presenceMinutes } voteStatus { accountDaysDone accountMinutesDone } } } }';
-    const data = await graphql<{ myPresences: { items: Record<string, Record<string, unknown>>[] } }>(ctx, 'https://api.test/graphql', 't', q);
-    expect(bodies).toHaveLength(1);
-    expect(JSON.parse(bodies[0]).query).not.toMatch(/Minutes/);
-    expect(data.myPresences.items[0].voteRequirement).toEqual({ accountDays: 1, presenceDays: 1, accountMinutes: null, presenceMinutes: null });
-    expect(data.myPresences.items[0].voteStatus).toEqual({ accountDaysDone: 0, accountMinutesDone: null });
-    expect(h.errors.join('\n')).not.toMatch(/behind/);
-    expect(fitFormerBackend('{ me { id } }')).toBeUndefined();
-  });
-});
 
 describe('the environment of a session on the new backend', () => {
   it('a session of dev is never used for prod: ENV_MISMATCH, nothing sent', async () => {
@@ -156,14 +123,13 @@ describe('an agent and a human on the new backend', () => {
     expect(r.ok).toBe(true);
     expect(r.checks.find((c) => c.name === 'agent')).toMatchObject({ status: 'ok' });
     expect(r.checks.find((c) => c.name === 'session')).toMatchObject({ status: 'ok' });
-    expect(sent[0].path).toBe('/oauth/token');
+    // The reach of the cell first (no token), then the sign-in with the key.
+    expect(sent.map((s) => s.path).slice(0, 2)).toEqual(['/graphql', '/oauth/token']);
   });
 
-  it('a delegated agent posts a video without --license on the new backend (none taken at upload there)', () => {
-    const h = harness({ env: { ...agentEnv(), BREAKROCKS_BACKEND: 'sulfur' } });
+  it('a delegated agent posts a video without --license (none taken at upload there)', () => {
+    const h = harness({ env: agentEnv() });
     expect(checkLicense(new Context(h.io, NO_FLAGS), {}, true)).toBeUndefined();
-    const legacy = harness({ env: agentEnv() });
-    expect(() => checkLicense(new Context(legacy.io, NO_FLAGS), {}, true)).toThrow(expect.objectContaining({ code: 'MEDIA_LICENSE_REQUIRED' }));
   });
 });
 
@@ -187,7 +153,7 @@ describe('the MCP server on the backend of its run', () => {
     const h = harness({ env: {} });
     expect(serverFlagsOf(new Context(h.io, { ...NO_FLAGS, backend: 'sulfur', env: 'dev' }))).toEqual({ profile: undefined, env: 'dev', agent: undefined, backend: 'sulfur' });
     const answer = await callCommand(h.io, { backend: 'sulfur' }, findCommand(['whoami'])!.command, {});
-    expect(JSON.parse(answer.content[0].text)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED', message: expect.stringContaining('new backend') } });
+    expect(JSON.parse(answer.content[0].text)).toMatchObject({ error: { code: 'SIGN_IN_REQUIRED', message: expect.stringContaining('native-sulfur') } });
   });
 });
 
@@ -195,11 +161,11 @@ describe('batch on the new backend', () => {
   it('runs each line with the command of the backend (its stand-in, its refusal)', async () => {
     const { h } = cell((q) => (q.includes('me {') || q.includes('tier') ? { me: { id: 'eu_a', tier: 'free', card: { handle: 'ada', name: null } } } : null));
     const file = join(h.dir, 'lines.jsonl');
-    writeFileSync(file, `${JSON.stringify({ command: 'whoami' })}\n${JSON.stringify({ command: 'operator register' })}\n`);
+    writeFileSync(file, `${JSON.stringify({ command: 'whoami' })}\n${JSON.stringify({ command: 'operator register', input: { country: 'FR' } })}\n`);
     expect(await h.run('batch', '--file', file, '--continue', '--json')).toBe(1);
     const r = last<{ results: { ok: boolean; result?: Record<string, unknown>; error?: { code: string } }[] }>(h);
     expect(r.results[0]).toMatchObject({ ok: true, result: { backend: 'sulfur', account: { id: 'eu_a' } } });
-    expect(r.results[1]).toMatchObject({ ok: false, error: { code: 'NOT_ON_NEW_BACKEND' } });
+    expect(r.results[1]).toMatchObject({ ok: false, error: { code: 'NOT_AVAILABLE' } });
   });
 });
 
@@ -277,10 +243,10 @@ describe('the fit of a document (review)', () => {
   it('false and "" are values: refused where the server takes no such argument; null is none', () => {
     // createPost's `authorship` (talc's, not the server's: every Boolean argument talc had is served since server b822c90a).
     const doc = 'mutation($t: String!, $a: AgentAuthorship, $r: ID!) { createPost(text: $t, authorship: $a, requestId: $r) { id } }';
-    expect(() => fitDocument(doc, { t: 'x', a: false, r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
-    expect(() => fitDocument(doc, { t: 'x', a: '', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
+    expect(() => fitDocument(doc, { t: 'x', a: false, r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_AVAILABLE' }));
+    expect(() => fitDocument(doc, { t: 'x', a: '', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_AVAILABLE' }));
     expect(fitDocument(doc, { t: 'x', a: null, r: 'r1' }).variables).toEqual({ t: 'x', r: 'r1' });
-    expect(() => fitDocument('mutation($t: String!, $r: ID!) { createPost(text: $t, authorship: false, requestId: $r) { id } }', { t: 'x', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
+    expect(() => fitDocument('mutation($t: String!, $r: ID!) { createPost(text: $t, authorship: false, requestId: $r) { id } }', { t: 'x', r: 'r1' })).toThrow(expect.objectContaining({ code: 'NOT_AVAILABLE' }));
   });
 
   it('a universe\'s image: its shown Image; my universe\'s: the Image of its media id', () => {

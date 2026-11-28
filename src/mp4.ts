@@ -1,5 +1,5 @@
 // The duration and the display size of an MP4 or QuickTime file read from its header (ISO BMFF: `moov/mvhd`, each
-// `trak/tkhd` with its matrix), as the new backend asks them at upload (requestUpload: durationSec, orientation) and checks
+// `trak/tkhd` with its matrix), as native-sulfur asks them at upload (requestUpload: durationSec, orientation) and checks
 // them afterwards. The top-level boxes are walked by their headers (a large `mdat` is skipped, never read); a `moov` of at
 // most 16 MB is read. Pure reading of the file: no system binary.
 import { closeSync, openSync, readSync, statSync } from 'node:fs';

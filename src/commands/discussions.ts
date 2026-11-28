@@ -89,14 +89,14 @@ export const messagesReact = apiCommand({
   name: 'messages react', summary: 'React to a message of a universe discussion with one emoji (reactToMessage; adding it again changes nothing)',
   kind: 'mutation', op: 'reactToMessage', positionals: ['messageId', 'reaction'], rename: { reaction: 'emoji' }, descriptions: message, select: MESSAGE, dry: true, text: reactionsText,
   examples: ['breakrocks messages react <message id> 👍', 'breakrocks messages react <message id> 🎉 --dry-run'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)'), threadRoot: str('New backend: the root message of its thread') },
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it'), threadRoot: str('The root message of its thread') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); sulfurHint(ctx, 'threadRoot', i.threadRoot); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion' && k !== 'threadRoot')); }
 });
 export const messagesUnreact = apiCommand({
   name: 'messages unreact', summary: 'Remove your reaction from a message of a universe discussion (unreactToMessage; one you did not add: nothing changes)',
   kind: 'mutation', op: 'unreactToMessage', positionals: ['messageId', 'reaction'], rename: { reaction: 'emoji' }, descriptions: message, select: MESSAGE, dry: true, text: reactionsText,
   examples: ['breakrocks messages unreact <message id> 👍'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)'), threadRoot: str('New backend: the root message of its thread') },
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it'), threadRoot: str('The root message of its thread') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); sulfurHint(ctx, 'threadRoot', i.threadRoot); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion' && k !== 'threadRoot')); }
 });
 export const messagesThread = apiCommand({
@@ -105,7 +105,7 @@ export const messagesThread = apiCommand({
   kind: 'query', op: 'threadMessages', positionals: ['messageId'], descriptions: message, select: `{ items ${MESSAGE} next }`,
   text: (r) => { const p = r as { items?: { id: string; createdAt: string; text?: string | null; deleted?: boolean; author?: { handle?: string | null } | null }[]; next?: string | null } | null; return p?.items?.length ? [...p.items.map((m) => `${m.createdAt}  ${m.author?.handle ? `@${m.author.handle}` : '-'}  ${m.deleted ? '(deleted)' : (m.text ?? '')}  [${m.id}]`), ...(p.next ? [`next: ${p.next}`] : [])].join('\n') : '(no reply)'; },
   examples: ['breakrocks messages thread <message id>', 'breakrocks messages thread <message id> --all --json'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)'), threadRoot: str('New backend: the root message of its thread') },
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it'), threadRoot: str('The root message of its thread') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); sulfurHint(ctx, 'threadRoot', i.threadRoot); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion' && k !== 'threadRoot')); }
 });
 export const messagesReplyThread = apiCommand({
@@ -114,7 +114,7 @@ export const messagesReplyThread = apiCommand({
   kind: 'mutation', op: 'replyInThread', positionals: ['messageId'], descriptions: message, select: MESSAGE, dry: true,
   text: (r) => { const m = r as { id?: string; threadRoot?: string | null } | null; return m ? `${m.id} replied in the thread of ${m.threadRoot ?? '?'}` : '(none)'; },
   examples: ['breakrocks messages reply-thread <message id> --text "Good idea"'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)'), threadRoot: str('New backend: the root message of its thread') },
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it'), threadRoot: str('The root message of its thread') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); sulfurHint(ctx, 'threadRoot', i.threadRoot); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion' && k !== 'threadRoot')); }
 });
 
@@ -210,14 +210,14 @@ export const messagesVote = apiCommand({
   name: 'messages vote', summary: 'Give your contribution vote, UP or DOWN, to a message of an open temporary universe discussion (voteOnContribution; a human acting itself only)',
   description: 'One per account and per message, the other one replaces it. CONTRIBUTION_VOTE_HUMANS_ONLY for a delegated agent, CONTRIBUTION_VOTE_OWN_MESSAGE, CONTRIBUTION_VOTE_NOT_ALLOWED outside a temporary universe discussion, CONTRIBUTION_VOTE_RATE_LIMITED.',
   kind: 'mutation', op: 'voteOnContribution', positionals: ['messageId', 'vote'], select: SCORED, dry: true, descriptions: { messageId: 'The message', vote: 'UP or DOWN' }, text: scoreText,
-  examples: ['breakrocks messages vote <message id> UP', 'breakrocks --backend sulfur messages vote <message id> UP --discussion <discussion id>'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)') },
+  examples: ['breakrocks messages vote <message id> UP', 'breakrocks messages vote <message id> UP --discussion <discussion id>'],
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion')); },
 });
 export const messagesUnvote = apiCommand({
   name: 'messages unvote', summary: 'Withdraw your contribution vote from a message (withdrawContributionVote)', kind: 'mutation', op: 'withdrawContributionVote', positionals: ['messageId'], select: SCORED, dry: true, descriptions: { messageId: 'The message' }, text: scoreText,
-  examples: ['breakrocks messages unvote <message id>', 'breakrocks --backend sulfur messages unvote <message id> --discussion <discussion id>'],
-  extra: { discussion: str('New backend: the id of the discussion that holds the message (discussions show)') },
+  examples: ['breakrocks messages unvote <message id>', 'breakrocks messages unvote <message id> --discussion <discussion id>'],
+  extra: { discussion: str('The id of the discussion that holds the message (discussions show): native-sulfur names a message with it') },
   prepare: (i, ctx) => { sulfurHint(ctx, 'discussionId', i.discussion); return Object.fromEntries(Object.entries(i).filter(([k]) => k !== 'discussion')); },
 });
 export const channelsLevels = apiCommand({

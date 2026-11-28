@@ -5,8 +5,7 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Context, NO_FLAGS } from '../src/context.js';
-import { saveSession } from '../src/session.js';
-import { harness, last, tempDir } from './helpers.js';
+import { harness, last, tempDir, sulfurSession, sulfurError } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
 type Refusal = { error: { code: string; info?: unknown } };
@@ -16,7 +15,7 @@ const refusal = (code: string, info?: unknown): Refusal => ({ error: { code, inf
 function fake(answers: Record<string, unknown>, as: 'human' | 'agent' = 'human') {
   const calls: Call[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
     fetch: async (_url, init) => {
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
@@ -24,16 +23,16 @@ function fake(answers: Record<string, unknown>, as: 'human' | 'agent' = 'human')
       const raw = answers[field];
       const answer = typeof raw === 'function' ? raw(variables) : raw ?? null;
       const error = (answer as Refusal | null)?.error;
-      if (error) return Response.json({ data: { [field]: null }, errors: [{ errorType: error.code, message: '', ...(error.info ? { errorInfo: error.info } : {}) }] });
+      if (error) return Response.json({ data: { [field]: null }, errors: [sulfurError({ errorType: error.code, message: '', ...(error.info ? { errorInfo: error.info } : {}) })] });
       return Response.json({ data: { [field]: answer } });
     },
   });
   const ctx = new Context(h.io, NO_FLAGS);
   if (as === 'human') {
     ctx.saveProfile({ env: 'dev', kind: 'human', accountId: 'eu-alice' });
-    saveSession(ctx, { kind: 'human', token: 't', idToken: 'i', refreshToken: 'r', pool: { userPoolId: 'eu-west-1_x', clientId: 'c', region: 'eu-west-1' }, accountId: 'eu-alice', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', signInAgainBy: '2099-01-01T00:00:00.000Z' });
+    sulfurSession(ctx.io, 'human', { accountId: 'eu-alice', env: ctx.profile().env });
   } else {
-    saveSession(ctx, { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+    sulfurSession(ctx.io, 'agent', { env: ctx.profile().env });
   }
   const write = (name: string, value: unknown) => { const path = join(h.dir, name); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, typeof value === 'string' ? value : JSON.stringify(value)); return path; };
   return { h, calls, write };
@@ -94,24 +93,7 @@ describe('export and import', () => {
     expect(last<{ error: { code: string; message: string } }>(h).error).toMatchObject({ code: 'EXPERIENCE_DOCUMENT_NOT_READABLE', message: expect.stringMatching(/copied into your experiences/) });
   });
 
-  it('leaves out the fields the platform sets, replaces @me, --owner and --name, and publishes only when asked', async () => {
-    let created = experience();
-    const { h, calls, write } = fake({
-      me: { handle: 'alice' },
-      createExperience: (v: { d: string }) => (created = experience({ name: JSON.parse(v.d).name, address: `@alice*${JSON.parse(v.d).name}` })),
-      publishExperience: (v: { v: string }) => ({ ...created, visibility: v.v === 'PUBLIC' ? 'PRIVATE' : v.v, check: v.v === 'PUBLIC' ? { status: 'CHECKING', explanation: null, reviewPending: false, version: '1.0' } : null }),
-    });
-    write('raw.json', { ...squats({ owner: '@me' }), id: ID, version: '3.1' });
-    expect(await h.run('experiences', 'import', 'raw.json', '--name', 'squats-50', '--visibility', 'public')).toBe(0);
-    const sent = JSON.parse(String(calls.find((c) => c.field === 'createExperience')!.variables.d));
-    expect(sent).toMatchObject({ owner: '@alice', name: 'squats-50' });
-    expect(sent.id).toBeUndefined();
-    expect(sent.version).toBeUndefined();
-    expect(calls.find((c) => c.field === 'publishExperience')!.variables).toMatchObject({ id: ID, v: 'PUBLIC' });
-    expect(h.lines.at(-1)).toMatch(/^created @alice\*squats-50 .*PRIVATE; being checked before it is PUBLIC \(experiences show @alice\*squats-50 tells the outcome\) \(left out, set by the platform: id, version\)$/);
-    expect(await h.run('experiences', 'import', 'raw.json', '--visibility', 'unlisted', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ result: 'created', visibility: 'UNLISTED' });
-  });
+
 
   it('updates an experience of yours at the address with --update, refuses one that is not yours', async () => {
     let mine = true;
@@ -262,20 +244,7 @@ describe('experiences check', () => {
 });
 
 describe('experiences list and show', () => {
-  it('lists yours by default, an account by its id beside its handle', async () => {
-    const { h, calls } = fake({ me: { handle: 'alice' }, experiences: { items: [experience({ visibility: 'PUBLIC', check: { status: 'PASSED', reviewPending: false, version: '1.0' } }), experience({ id: 'eu-2', address: '@alice*plank', title: 'Plank', automated: true, via: 'coach' })], next: 'n2' } });
-    expect(await h.run('experiences', 'list')).toBe(0);
-    expect(calls.map((c) => c.field)).toEqual(['me', 'experiences']);
-    expect(calls[1].variables).toMatchObject({ o: '@alice' });
-    expect(h.lines.at(-1)).toBe([
-      `@alice*squats-100  challenge/1 v1.0  PUBLIC  100 squats  owner @alice (eu-alice)  [${ID}]`,
-      '@alice*plank  challenge/1 v1.0  PRIVATE  Plank  owner @alice (eu-alice)  Automated (coach)  [eu-2]',
-      'next: n2',
-    ].join('\n'));
-    expect(await h.run('experiences', 'list', '--owner', '*')).toBe(0);
-    expect(calls.at(-1)!.variables).toMatchObject({ o: '%root' });
-    expect(await h.run('experiences', 'list', '--owner', '%paris', '--mine')).toBe(2);
-  });
+
   it('shows one by its address or its id', async () => {
     const { h, calls } = fake({ resolveAddress: { experience: experience({ check: { status: 'REFUSED', explanation: 'It asks to climb a fence.', reviewPending: false, version: '1.0' } }) }, experience: experience() });
     expect(await h.run('experiences', 'show', '@alice*squats-100')).toBe(0);

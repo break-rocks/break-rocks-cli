@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import '../src/commands/index.js';
 import { run } from '../src/cli.js';
-import type { Io } from '../src/context.js';
+import { Context, NO_FLAGS, type Io } from '../src/context.js';
+import { saveSulfurSession } from '../src/sulfur/session.js';
 import type { Output } from '../src/output.js';
 import type { Keychain } from '../src/keychain.js';
 
@@ -43,3 +44,20 @@ export function harness(options: { fetch?: typeof fetch; env?: Record<string, st
 
 /** The last JSON value written. */
 export const last = <T = Record<string, unknown>>(h: { values: unknown[] }) => h.values[h.values.length - 1] as T;
+
+const testJwt = (claims: Record<string, unknown>) => `${Buffer.from('{"alg":"EdDSA"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
+/**
+ * A session of native-sulfur saved for the profile of [io] (prod unless [env]): a delegated agent's (its token acts for the
+ * operator eu-op), an operator's, or a person's ([accountId]); its token lives until 2099.
+ */
+export function sulfurSession(io: Io, kind: 'agent' | 'operator' | 'human' = 'agent', options: { accountId?: string; env?: string } = {}): void {
+  const accountId = options.accountId ?? (kind === 'human' ? 'eu-human' : 'eu-op');
+  const ctx = new Context(io, NO_FLAGS);
+  saveSulfurSession(ctx, {
+    backend: 'sulfur', env: options.env ?? ctx.profile().env, cell: 'eu', accountId, kind: kind === 'human' ? 'untrusted' : 'agent', method: kind === 'human' ? 'email' : 'agent', ...(kind === 'agent' ? { agentId: 'ag' } : kind === 'operator' ? { agentId: accountId } : {}),
+    signedInAt: '2026-10-23T09:00:00.000Z', accessExpiresAt: '2099-01-01T00:00:00.000Z', storage: 'file', access: testJwt({ sub: accountId, ...(kind === 'agent' ? { act: { sub: 'ag' } } : {}) }), ...(kind === 'human' ? { refresh: 'r' } : {}),
+  });
+}
+
+/** A refusal written as the former API wrote it (errorType, errorInfo), as native-sulfur writes it (extensions.reason). */
+export const sulfurError = (e: { errorType?: string; message?: string; errorInfo?: unknown; partial?: boolean }) => ({ message: e.message ?? e.errorType ?? '', extensions: { code: 'REFUSED', ...(e.errorType ? { reason: e.errorType } : {}), ...(e.errorInfo !== undefined ? { errorInfo: e.errorInfo } : {}), ...(e.partial ? { partial: true } : {}) } });

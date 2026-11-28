@@ -12,7 +12,7 @@ import type { Environment, Profile } from './config.js';
 import { readJson, writePrivate } from './config.js';
 import { cliRefusal, platformRefusal, usageError } from './errors.js';
 import type { Hex, Payer, PaymentRequired } from './payment-types.js';
-import { agentsPost, agentsRefusal, type HttpAnswer } from './transport.js';
+import type { HttpAnswer } from './transport.js';
 
 export type { Accept, Hex, Payer, PaymentRequired } from './payment-types.js';
 
@@ -131,24 +131,6 @@ export function requirementsOf(answer: HttpAnswer): PaymentRequired {
 
 export type Payment = { usd: string; network: string; networkName: string; payTo: string; transaction?: string; explorer?: string; payer?: string; success: boolean };
 
-/**
- * A POST to the agents host that may ask to pay (402): paid with the wallet of the profile within
- * [maxUsd] and the cap of the day, after a confirmation naming [what] and the amount; the same
- * request sent again with PAYMENT-SIGNATURE. The answer, and the payment made (from PAYMENT-RESPONSE).
- */
-export async function paidPost(ctx: Context, options: { base: string; path: string; body: unknown; headers?: Record<string, string>; maxUsd?: number; what: string }): Promise<{ answer: HttpAnswer; payment?: Payment }> {
-  const first = await agentsPost(ctx, options.base, options.path, options.body, options.headers);
-  if (first.status !== 402) return { answer: first };
-  if ((first.json.error as { code?: string } | undefined)?.code) throw agentsRefusal(first);
-  const signed = await signPayment(ctx, requirementsOf(first), { maxUsd: options.maxUsd, what: options.what });
-  ctx.progress(`Paying ${signed.usd} USDC on ${signed.network.name}…`);
-  const answer = await agentsPost(ctx, options.base, options.path, options.body, { ...options.headers, ...signed.headers });
-  const ok = answer.status >= 200 && answer.status < 300;
-  const payment = settled(ctx, signed, ok, headerJson(answer.headers, 'payment-response'));
-  if (!ok) throw agentsRefusal(answer);
-  return { answer, payment };
-}
-
 type Signed = { headers: Record<string, string>; record: PaymentRecord; usd: string; network: Network; accept: { payTo: string } };
 
 /**
@@ -179,41 +161,4 @@ export async function signPayment(ctx: Context, required: PaymentRequired, optio
   const record: PaymentRecord = { at: new Date(ctx.now()).toISOString(), usd, atomic: atomic.toString(), network: network.id, payTo: accept.payTo, what: options.what, status: 'signed' };
   writeLedger(ctx, [...readLedger(ctx), record]);
   return { headers, record, usd, network, accept };
-}
-
-/** The ledger told how a signed payment ended, and the payment made (from PAYMENT-RESPONSE). */
-function settled(ctx: Context, signed: Signed, ok: boolean, settlement: Record<string, unknown> | undefined): Payment {
-  const s = settlement as { success?: boolean; transaction?: string; payer?: string } | undefined;
-  const ledger = readLedger(ctx);
-  const mine = ledger.findLast((r) => r.at === signed.record.at && r.what === signed.record.what);
-  if (mine) { mine.status = ok ? 'settled' : 'refused'; if (s?.transaction) mine.transaction = s.transaction; writeLedger(ctx, ledger); }
-  return {
-    usd: signed.usd, network: signed.network.id, networkName: signed.network.name, payTo: signed.accept.payTo, success: s?.success ?? ok,
-    ...(s?.transaction ? { transaction: s.transaction, explorer: `${signed.network.explorer}${s.transaction}` } : {}),
-    ...(s?.payer ? { payer: s.payer } : {}),
-  };
-}
-
-/**
- * The extra usage of a delegated agent beyond its quota (contracts/payments.md § Usage limits, delegated-agents.feature
- * "A delegated agent pays its extra usage with x402"): GraphQL refused it with PAYMENT_REQUIRED and the x402 conditions
- * in its errorInfo; signed (within BREAKROCKS_MAX_USD, 1 US dollar by default, and the cap of the day; without a
- * confirmation when the profile allows it, wallet set --extra-usage, else --yes or a question), the same request is
- * sent again with PAYMENT-SIGNATURE by [replay]. Its answer, the payment told on stderr.
- */
-export async function payExtraUsage<T>(ctx: Context, errorInfo: Record<string, unknown>, replay: (headers: Record<string, string>) => Promise<{ data: T; headers?: Headers }>): Promise<T> {
-  const required = { x402Version: Number(errorInfo.x402Version ?? 2), accepts: errorInfo.accepts as PaymentRequired['accepts'], resource: errorInfo.resource } as PaymentRequired;
-  if (!Array.isArray(required.accepts) || !required.accepts.length) throw platformRefusal('PAYMENT_REQUIRED', 'Beyond the quota of the delegated agent: the platform gave no conditions of payment', { errorInfo });
-  const max = Number(ctx.env.BREAKROCKS_MAX_USD);
-  const units = errorInfo.units ?? errorInfo.weight;
-  const signed = await signPayment(ctx, required, { maxUsd: Number.isFinite(max) && max > 0 ? max : undefined, what: `the extra usage of the delegated agent beyond its quota (${String(units ?? '?')} usage units)`, confirmed: ctx.profile().wallet?.extraUsage === true });
-  ctx.progress(`Beyond the quota: paying ${signed.usd} USDC of extra usage on ${signed.network.name}…`);
-  try {
-    const answer = await replay(signed.headers);
-    settled(ctx, signed, true, answer.headers ? headerJson(answer.headers, 'payment-response') : undefined);
-    return answer.data;
-  } catch (error) {
-    settled(ctx, signed, false, undefined);
-    throw error;
-  }
 }

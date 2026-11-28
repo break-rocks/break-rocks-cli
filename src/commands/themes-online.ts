@@ -8,7 +8,6 @@ import { basename, join, resolve } from 'node:path';
 import { accountIdOf, apiCommand, pages, refOf } from '../api/command.js';
 import { outputSchema, selection } from '../api/graphql.js';
 import type { Context } from '../context.js';
-import { endpoints } from '../endpoints.js';
 import { cliRefusal, usageError } from '../errors.js';
 import { checkImage, uploadImage, whileProcessing } from '../media.js';
 import type { Command } from '../registry.js';
@@ -230,7 +229,6 @@ async function download(ctx: Context, url: string, tries = 1): Promise<Uint8Arra
 }
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-export const EXPORT_WIDTHS = [2160, 1080, 480, 160];
 
 type ExportResult = { out: string; files: { path: string; bytes: number }[]; missing: string[] };
 export const themeExport: Command<{ theme: string; out: string; zip?: boolean; force?: boolean }, ExportResult> = {
@@ -244,13 +242,12 @@ export const themeExport: Command<{ theme: string; out: string; zip?: boolean; f
     const t = await themeOf(ctx, theme);
     const doc = (typeof t.document === 'string' ? JSON.parse(t.document) : t.document) as Record<string, unknown>;
     const slots = (t.imageSlots ?? {}) as Record<string, { url?: string | null; urlNight?: string | null } | null>;
-    const at = await endpoints(ctx, ctx.profile()).catch(() => undefined);
     const files: { path: string; bytes: Uint8Array }[] = [];
     const names = new Map<string, string>();
     const missing: string[] = [];
     for (const r of imageRefs(doc)) {
       const name = `${kebab(r.place)}${r.variant ? `-${r.variant}` : ''}.webp`;
-      const candidates = [...(at?.media ? EXPORT_WIDTHS.map((w) => `${at.media}/posts/${encodeURIComponent(r.ref)}/${w}.webp`) : []), ...((r.variant === 'night' ? slots[r.place]?.urlNight : slots[r.place]?.url) ? [(r.variant === 'night' ? slots[r.place]!.urlNight : slots[r.place]!.url)!] : [])];
+      const candidates = [...((r.variant === 'night' ? slots[r.place]?.urlNight : slots[r.place]?.url) ? [(r.variant === 'night' ? slots[r.place]!.urlNight : slots[r.place]!.url)!] : [])];
       let bytes: Uint8Array | undefined;
       for (const url of candidates) { bytes = await download(ctx, url); if (bytes) break; }
       if (!bytes) { missing.push(r.variant ? `${r.place}.${r.variant}` : r.place); continue; }
@@ -334,7 +331,7 @@ export const layoutsCheck: Command<{ document: string; in?: string; online?: boo
 const layoutRefInput = { layout: { type: 'string', pattern: REF, description: 'The layout: %universe/name' } } as const;
 const fromLayout = (i: Record<string, unknown>) => { const r = ref(String(i.layout), 'layout'); return { ...i, universe: r.universe, name: r.name }; };
 export const layoutCommands = [
-  // Without each layout's document (look layouts show reads one): the new backend reads an account layout's document only when asked.
+  // Without each layout's document (look layouts show reads one): native-sulfur reads an account layout's document only when asked.
   apiCommand({ name: 'layouts list', summary: 'The layout catalog, without their documents (layoutCatalog; --query: a name prefix)', kind: 'query', op: 'layoutCatalog', rename: { collection: 'field' }, select: selection('LayoutCatalogPage', 2).replace(/ document\b/, ''),
     descriptions: { query: 'The start of a layout name', universe: 'The universe whose catalog it is (%name)' }, examples: ['breakrocks look layouts list --field SPORT', 'breakrocks look layouts list --universe %paris --query agora'] }),
   apiCommand({ name: 'layouts show', summary: 'A layout', kind: 'query', op: 'layout', positionals: ['layout'], extra: { ...layoutRefInput }, hide: ['universe', 'name'], require: ['layout'], prepare: fromLayout, examples: ['breakrocks look layouts show %root/feed-first'] }),

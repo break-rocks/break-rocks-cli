@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The journey of the CLI on the new backend (native-sulfur) in dev, by hand or in a host-side check (README § The new
+// The journey of the CLI on native-sulfur in dev, by hand or in a host-side check (README § The new
 // backend): a headless sign-up by e-mail code (the code on stdin, the handle taken), whoami, the profile with its avatar,
 // posts (two images in the first post of a new universe and its sub-level, a clip when BREAKROCKS_E2E_CLIP names a vertical MP4), a
 // reply, a quote and a repost into %root, a like, the thread, the universe feed, join and leave (read back), follow and
@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const serverDir = resolve(process.env.BREAKROCKS_SERVER_DIR ?? join(root, '..', 'server'));
 const config = mkdtempSync(join(tmpdir(), 'breakrocks-e2e-sulfur-'));
-const env = { ...process.env, BREAKROCKS_CONFIG_DIR: config, BREAKROCKS_KEYCHAIN: 'off', BREAKROCKS_BACKEND: 'sulfur', NO_COLOR: '1' };
+const env = { ...process.env, BREAKROCKS_CONFIG_DIR: config, BREAKROCKS_KEYCHAIN: 'off', NO_COLOR: '1' };
 delete env.BREAKROCKS_PROFILE;
 
 function cli(...args) {
@@ -125,7 +125,7 @@ const inFeed = (o) => o?.items?.some((p) => p.id === post.id);
 let feed = cli('posts', 'feed', '--limit', '20');
 for (let i = 0; i < 15 && feed.code === 0 && !inFeed(feed.out); i++) { pause(); feed = cli('posts', 'feed', '--limit', '20'); }
 expectOk('timeline', feed, inFeed);
-expectOk('not served there', { ...cli('look', 'personal', 'saved'), code: 0 }, (o) => o?.error?.code === 'NOT_ON_NEW_BACKEND' && o.error.operation === 'personalThemes');
+expectOk('not served there', { ...cli('look', 'personal', 'saved'), code: 0 }, (o) => o?.error?.code === 'NOT_AVAILABLE' && o.error.operation === 'personalThemes');
 expectOk('logout', cli('logout'), (o) => o.signedOut && o.revoked);
 expectOk('signed out', { ...cli('whoami'), code: 0 }, (o) => o?.error?.code === 'SIGN_IN_REQUIRED');
 signIn('sign-in again', address, false);

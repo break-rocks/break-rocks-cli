@@ -49,11 +49,11 @@ describe('a talc document fitted to the server', () => {
     const f = fitDocument(doc, { text: 'hi', announcement: null, policy: 'everyone', requestId: 'r' }, SERVER, TALC);
     expect(f.document.replace(/\s+/g, ' ')).toBe('mutation($text: String!, $policy: String, $requestId: ID) { createPost(text: $text, policy: $policy, requestId: $requestId) { id } }');
     expect(f.variables).toEqual({ text: 'hi', policy: 'everyone', requestId: 'r' });
-    expect(() => fitDocument(doc, { text: 'hi', announcement: true, policy: null, requestId: 'r' }, SERVER, TALC)).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND' }));
+    expect(() => fitDocument(doc, { text: 'hi', announcement: true, policy: null, requestId: 'r' }, SERVER, TALC)).toThrow(expect.objectContaining({ code: 'NOT_AVAILABLE' }));
   });
 
   it('refuses a root field not served and a required argument missing; fits an input variable', () => {
-    expect(() => fitDocument('{ me { id } }', {}, SERVER, TALC)).toThrow(expect.objectContaining({ code: 'NOT_ON_NEW_BACKEND', details: expect.objectContaining({ operation: 'me' }) }));
+    expect(() => fitDocument('{ me { id } }', {}, SERVER, TALC)).toThrow(expect.objectContaining({ code: 'NOT_AVAILABLE', details: expect.objectContaining({ operation: 'me' }) }));
     expect(() => fitDocument('{ threadMessages { next } }', {}, SERVER, TALC)).toThrow(/requires an argument/);
     const f = fitDocument('mutation($i: PostInput, $t: String!) { createPost(text: $t, input: $i) { id } }', { t: 'x', i: { a: '1', b: null } }, SERVER, TALC);
     expect(f.variables).toEqual({ t: 'x', i: { a: '1' } });

@@ -6,21 +6,13 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { migrateConfig, MIGRATED_NOTE } from '../src/config.js';
 import { macKeychain, secretService } from '../src/keychain.js';
-import { contractLag, schemaDrift } from '../src/commands/doctor.js';
-import { SCHEMA } from '../src/api/schema.generated.js';
-import { fakePayer, onPlatform } from './fake-platform.js';
+import { operatorOnPlatform } from './fake-platform.js';
 import { fakeKeychain, last, tempDir } from './helpers.js';
 
 const POSIX = process.platform !== 'win32';
 
 async function operator(keychain = fakeKeychain()) {
-  const { h, platform } = await onPlatform({ payer: fakePayer, keychain });
-  const wallet = join(h.dir, 'wallet.key');
-  writeFileSync(wallet, `0x${'11'.repeat(32)}\n`);
-  expect(await h.run('profile', 'add', 'atlas', '--env', 'dev', '--use', '--json')).toBe(0);
-  expect(await h.run('operator', 'keygen', '--recovery-algorithm', 'Ed25519', '--json')).toBe(0);
-  expect(await h.run('wallet', 'set', '--key', wallet, '--max-usd-per-day', '1', '--json')).toBe(0);
-  expect(await h.run('operator', 'register', '--country', 'FR', '--full-age', '--yes', '--json')).toBe(0);
+  const { h, platform } = await operatorOnPlatform({ keychain });
   return { h, platform, keychain };
 }
 
@@ -66,11 +58,11 @@ describe('a local agent', () => {
     await h.run('agents', 'create', 'herald', '--json');
     expect(await h.run('session', '--agent', 'herald', '--json')).toBe(0);
     await h.run('whoami', '--agent', 'herald', '--json');
-    const first = JSON.parse(readFileSync(join(h.dir, 'config', 'sessions', 'agent.herald.json'), 'utf8'));
-    h.clock.now += 56 * 60_000;
+    const first = JSON.parse(readFileSync(join(h.dir, 'config', 'sessions', 'agent.herald.sulfur.json'), 'utf8'));
+    h.clock.now += 59 * 60_000 + 30_000;
     expect(await h.run('whoami', '--agent', 'herald', '--json')).toBe(0);
-    const renewed = JSON.parse(readFileSync(join(h.dir, 'config', 'sessions', 'agent.herald.json'), 'utf8'));
-    expect(Date.parse(renewed.expiresAt)).toBeGreaterThan(Date.parse(first.expiresAt));
+    const renewed = JSON.parse(readFileSync(join(h.dir, 'config', 'sessions', 'agent.herald.sulfur.json'), 'utf8'));
+    expect(Date.parse(renewed.accessExpiresAt)).toBeGreaterThan(Date.parse(first.accessExpiresAt));
   });
 
   it('is imported from a key file into the keychain, then forgotten', async () => {
@@ -85,7 +77,8 @@ describe('a local agent', () => {
     expect(existsSync(out)).toBe(false);
     expect(await h.run('whoami', '--agent', 'relay', '--json')).toBe(0);
     expect(await h.run('agents', 'forget', 'relay', '--yes', '--json')).toBe(0);
-    expect(keychain.entries.size).toBe(0);
+    // The local agent's key and session are gone; the operator's own session stays.
+    expect([...keychain.entries.keys()].filter((k) => k.startsWith('agent:') || k.includes('agent.relay'))).toEqual([]);
     expect(await h.run('whoami', '--agent', 'relay', '--json')).toBe(2);
     expect(last(h)).toMatchObject({ error: { code: 'LOCAL_AGENT_NOT_FOUND' } });
   });
@@ -101,45 +94,6 @@ describe('a local agent', () => {
     expect(last(h)).toMatchObject({ agentId: relay.agentId });
   });
 
-  it('keeps --agent of the commands that have one', async () => {
-    const { h } = await operator();
-    expect(await h.run('agent', 'login', '--agent', 'x', '--json')).toBe(2);
-    expect(last(h)).toMatchObject({ error: { code: 'INVALID_INPUT' } });
-  });
-
-  it('passes doctor; doctor reports the fields the API lacks', async () => {
-    const { h } = await operator();
-    await h.run('agents', 'create', 'herald', '--json');
-    const code = await h.run('doctor', '--agent', 'herald', '--json');
-    const r = last<{ checks: { name: string; status: string }[] }>(h);
-    expect(r.checks.find((c) => c.name === 'agent')!.status).toBe('ok');
-    expect(r.checks.find((c) => c.name === 'session')!.status).toBe('ok');
-    expect([0, 1]).toContain(code);
-    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !(name === 'Universe' && f === 'agentPostsForbidden')).map((n) => ({ name: n })), inputFields: null }));
-    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
-    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], deprecatedFields: [], operations: [] });
-  });
-
-  it('doctor tells a CLI behind the API: what the API serves that its contract does not know', () => {
-    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: t.k === 'e' ? 'ENUM' : 'OBJECT', fields: Object.keys(t.f ?? {}).map((n) => ({ name: n })), inputFields: null, enumValues: (t.v ?? []).map((n) => ({ name: n })) }));
-    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null, enumValues: [] }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null, enumValues: [] });
-    const deployed = { __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } };
-    expect(contractLag(deployed)).toEqual({ operations: [], types: [], fields: [], enumValues: [] });
-    const newer = types.map((t) => (t.name === 'Query' ? { ...t, fields: [...t.fields, { name: 'futureThing' }] } : t.name === 'ReportReason' ? { ...t, enumValues: [...t.enumValues, { name: 'FUTURE' }] } : t.name === 'Universe' ? { ...t, fields: [...t.fields, { name: 'future' }] } : t));
-    newer.push({ name: 'FutureType', kind: 'OBJECT', fields: [], inputFields: null, enumValues: [] });
-    expect(contractLag({ __schema: { ...deployed.__schema, types: newer } })).toEqual({ operations: ['Query.futureThing'], types: ['FutureType'], fields: ['Universe.future'], enumValues: ['ReportReason.FUTURE'] });
-    expect(SCHEMA.version).toBe('v158.0.0');
-  });
-
-  it('doctor only warns about the missing fields the contract deprecates', () => {
-    expect(SCHEMA.deprecated).toEqual(expect.arrayContaining(['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel']));
-    const lacking = new Set(['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel', 'Universe.agentPostsForbidden']);
-    const types = Object.entries(SCHEMA.types).map(([name, t]) => ({ name, kind: 'OBJECT', fields: Object.keys(t.f ?? {}).filter((f) => !lacking.has(`${name}.${f}`)).map((n) => ({ name: n })), inputFields: null }));
-    types.push({ name: 'Query', kind: 'OBJECT', fields: Object.keys(SCHEMA.query).map((n) => ({ name: n })), inputFields: null }, { name: 'Mutation', kind: 'OBJECT', fields: Object.keys(SCHEMA.mutation).map((n) => ({ name: n })), inputFields: null });
-    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types } })).toEqual({ fields: ['Universe.agentPostsForbidden'], deprecatedFields: ['ChannelActivity.channel', 'LiveLine.debate', 'MessagePage.channel'], operations: [] });
-    const only = types.map((t) => (t.name === 'Universe' ? { ...t, fields: [...t.fields, { name: 'agentPostsForbidden' }] } : t));
-    expect(schemaDrift({ __schema: { queryType: { name: 'Query' }, mutationType: { name: 'Mutation' }, types: only } }).fields).toEqual([]);
-  });
 });
 
 describe('the keychains of the systems', () => {

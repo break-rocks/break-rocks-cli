@@ -1,4 +1,4 @@
-// Media sent to the new backend (native-sulfur, server src/api/media.ts): `requestUpload` declares the kind (image, clip,
+// Media sent to native-sulfur (native-sulfur, server src/api/media.ts): `requestUpload` declares the kind (image, clip,
 // video, document), the content type, the size, the media destination (post, reply, quote, avatar, theme…; a post's media name its
 // posting address, no lookup: the first post of a new universe carries its media) and the SHA-256 of the file; a clip or a long video also its duration and its orientation, read
 // from the file's header (src/mp4.ts). Up to 500 MB: the signed form (S3 checks the SHA-256 the policy fixes). Above, or when
@@ -47,7 +47,7 @@ export function sha256Of(path: string, start = 0, length?: number): string {
 /** The duration and orientation of a clip or a long video, read from its header (VIDEO_HEADER_UNREADABLE otherwise). */
 export function videoFacts(file: SulfurFile): { durationSec: number; orientation: 'h' | 'v' | 's' } {
   const probe = file.type === 'video/webm' ? undefined : probeVideo(file.path);
-  if (!probe) throw usageError('VIDEO_HEADER_UNREADABLE', `${file.name}: the new backend takes an MP4 or a MOV whose header gives its duration and its size (a WebM, or a fragmented file, is not taken)`, { path: file.path });
+  if (!probe) throw usageError('VIDEO_HEADER_UNREADABLE', `${file.name}: native-sulfur takes an MP4 or a MOV whose header gives its duration and its size (a WebM, or a fragmented file, is not taken)`, { path: file.path });
   return { durationSec: Math.round(probe.durationSec * 1000) / 1000, orientation: probe.orientation };
 }
 
@@ -144,7 +144,7 @@ export async function sulfurUpload(ctx: Context, file: SulfurFile, kind: SulfurK
   if (file.bytes > multipartAbove(ctx)) return multipart(ctx, file, input);
   ctx.progress(`Sending ${file.name} (${file.bytes >= 1048576 ? `${Math.ceil(file.bytes / 1048576)} MB` : `${Math.ceil(file.bytes / 1024)} KB`})…`);
   const grant = (await sulfurApi<{ requestUpload: Grant }>(ctx, `mutation($i: UploadInput!) { requestUpload(input: $i) { ${GRANT} } }`, { i: { ...input, sha256: sha256Of(file.path) } })).requestUpload;
-  if (!grant.form) throw networkError('UPLOAD_FAILED', `${file.name}: the new backend gave no upload form`);
+  if (!grant.form) throw networkError('UPLOAD_FAILED', `${file.name}: native-sulfur gave no upload form`);
   await postForm(ctx, grant, file);
   return grant.mediaId;
 }

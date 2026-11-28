@@ -173,7 +173,7 @@ describe('the requests', () => {
     proxySeen.length = 0;
     let dispatcher: Awaited<ReturnType<typeof forNodeFetch>> | undefined;
     const h = harness({
-      env: { BREAKROCKS_API_URL: `${targetUrl}/graphql`, BREAKROCKS_AGENTS_URL: `${targetUrl}/agents`, BREAKROCKS_NPM_URL: `${targetUrl}/npm`, BREAKROCKS_RELEASES_URL: `${targetUrl}/releases`, HTTP_PROXY: 'http://127.0.0.1:9/' },
+      env: { BREAKROCKS_SULFUR_URL: targetUrl, HTTP_PROXY: 'http://127.0.0.1:9/' },
       fetch: (url, init) => fetch(url, { ...init, ...(dispatcher ? { dispatcher } : {}) } as RequestInit),
     });
     h.io.configureNetwork = async (s) => { dispatcher = await forNodeFetch(s); };
@@ -182,17 +182,17 @@ describe('the requests', () => {
     await h.run('--proxy', `http://alice:s3cret@127.0.0.1:${proxyPort}`, 'doctor', '--json');
     const result = last<{ checks: { name: string; status: string; detail: string }[] }>(h);
     expect(result.checks.find((c) => c.name === 'proxy')).toMatchObject({ status: 'ok', detail: expect.stringContaining(`http://***:***@127.0.0.1:${proxyPort}/ (option)`) });
-    expect(result.checks.find((c) => c.name === 'api')).toMatchObject({ status: 'ok', detail: expect.stringContaining('through the proxy http://***:***@') });
+    expect(result.checks.find((c) => c.name === 'reach')).toMatchObject({ status: 'ok', detail: expect.stringContaining('through the proxy http://***:***@') });
     // Through the proxy of --proxy only (neither the profile's nor HTTP_PROXY, both on a closed port).
     expect(proxySeen.length).toBeGreaterThan(0);
     expect(new Set(proxySeen.map((s) => s.url))).toEqual(new Set([new URL(targetUrl).host]));
-    expect(targetSeen).toEqual(expect.arrayContaining(['/npm', '/graphql']));
+    expect(targetSeen).toEqual(expect.arrayContaining(['/graphql']));
     expect(h.all()).not.toContain('s3cret');
     await dispatcher?.close();
   });
   it('fail with the proxy unreachable, without its credentials in the error', async () => {
     let dispatcher: Awaited<ReturnType<typeof forNodeFetch>> | undefined;
-    const h = harness({ env: { BREAKROCKS_API_URL: `${targetUrl}/graphql`, BREAKROCKS_AGENTS_URL: `${targetUrl}/agents` }, fetch: (url, init) => fetch(url, { ...init, ...(dispatcher ? { dispatcher } : {}) } as RequestInit) });
+    const h = harness({ env: { BREAKROCKS_SULFUR_URL: targetUrl }, fetch: (url, init) => fetch(url, { ...init, ...(dispatcher ? { dispatcher } : {}) } as RequestInit) });
     h.io.configureNetwork = async (s) => { dispatcher = await forNodeFetch(s); };
     expect(await h.run('--proxy', 'http://alice:s3cret@127.0.0.1:9', 'universes', 'show', '%paris', '--json')).not.toBe(0);
     expect(h.all()).not.toContain('s3cret');

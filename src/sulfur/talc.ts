@@ -1,9 +1,9 @@
-// The CLI's GraphQL requests (API v2, the talc schema) on the new backend (native-sulfur), the seam of src/session.ts api():
+// The CLI's GraphQL requests (API v2, the talc schema) on native-sulfur, the seam of src/session.ts api():
 // - a root field the server serves under its talc name (D-612): the document fitted to the server's schema (fit.ts) and
 //   sent with the profile's session (session.ts sulfurApi), its answer completed (a field left out: null, a list: []);
 // - a root field the server serves otherwise by design (server docs/talc-deviations.md): its adapter (ADAPTERS) asks the
 //   server's operation and answers the talc shape;
-// - neither: NOT_ON_NEW_BACKEND, the operation named.
+// - neither: NOT_AVAILABLE, the operation named.
 // Image paths the server answers relative to the cell's media domain are left as they are (the CLI prints them).
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
@@ -48,7 +48,7 @@ const SERVER_ARGS = (field: string): Record<string, string> => (SERVER.mutation[
 /** A message's operation sent with its discussion's id (and its thread root, when given), which the server requires (1c, D-628). */
 const onMessage = (field: string): Adapter => async (ctx, call) => {
   const discussionId = hinted(ctx, 'discussionId');
-  if (!discussionId) throw usageError('DISCUSSION_REQUIRED', `On the new backend a message is named with its discussion: --discussion <discussion id> (${field})`);
+  if (!discussionId) throw usageError('DISCUSSION_REQUIRED', `On native-sulfur a message is named with its discussion: --discussion <discussion id> (${field})`);
   const threadRoot = hinted(ctx, 'threadRoot');
   const vars: Json = { ...call.args, discussionId, ...(threadRoot ? { threadRoot } : {}) };
   const decl = Object.entries(SERVER_ARGS(field)).filter(([k]) => vars[k] !== undefined && vars[k] !== null);
@@ -56,10 +56,10 @@ const onMessage = (field: string): Adapter => async (ctx, call) => {
   return (await runServed(ctx, doc, Object.fromEntries(decl.map(([k]) => [k, vars[k]]))))[field];
 };
 
-/** The id of the account signed in on the new backend. */
+/** The id of the account signed in on native-sulfur. */
 export function myId(ctx: Context): string {
   const s = readSulfurSession(ctx);
-  if (!s) throw platformRefusal('SIGN_IN_REQUIRED', 'Not signed in on the new backend');
+  if (!s) throw platformRefusal('SIGN_IN_REQUIRED', 'Not signed in on native-sulfur');
   return s.accountId;
 }
 
@@ -148,7 +148,7 @@ type PendingChange = { email: string; accountId: string; startedAt: number; conf
 const EMAIL_CHANGE_MS = 10 * 60_000;
 const changeFile = (ctx: Context) => join(ctx.store.dir, 'sessions', `${ctx.profileName}.sulfur-email-change.json`);
 
-/** A page's format on the new backend (server src/features/themes/document.ts PAGE_FORMAT). */
+/** A page's format on native-sulfur (server src/features/themes/document.ts PAGE_FORMAT). */
 const PAGE_FORMAT = 'break-rocks-page/1';
 
 /**
@@ -182,8 +182,8 @@ export const ADAPTERS: Record<string, Adapter> = {
   // its recovery window until `effectiveAt`. Nothing is sent: the deletion asked is read back (`me.deletion`).
   confirmAccountDeletion: async (ctx) => {
     const deletion = (await sulfurApi<{ me: { deletion: { requestedAt: string; effectiveAt: string } | null } }>(ctx, 'query { me { deletion { requestedAt effectiveAt } } }')).me.deletion;
-    if (!deletion) throw platformRefusal('ACCOUNT_DELETION_NOT_REQUESTED', 'No deletion asked: on the new backend breakrocks me delete <handle> (on a fresh sign-in) is the deletion itself, with no e-mailed token');
-    ctx.progress(`On the new backend the deletion asked at ${deletion.requestedAt} needs no token: it takes effect at ${deletion.effectiveAt}`);
+    if (!deletion) throw platformRefusal('ACCOUNT_DELETION_NOT_REQUESTED', 'No deletion asked: on native-sulfur breakrocks me delete <handle> (on a fresh sign-in) is the deletion itself, with no e-mailed token');
+    ctx.progress(`On native-sulfur the deletion asked at ${deletion.requestedAt} needs no token: it takes effect at ${deletion.effectiveAt}`);
     return { deletedAt: deletion.effectiveAt, disappearsAt: null };
   },
   // 1c: a moderator removes a message of a universe discussion with `deleteMessage` (no moderation log entry yet, 4a): the
@@ -198,7 +198,7 @@ export const ADAPTERS: Record<string, Adapter> = {
   },
   // 3e: a page is published from a studio draft (`saveStudioDraft` of kind PAGE, then `useStudioDraft`: its next version
   // when the universe has a page of its name, else a new page); a talc page (its canvases) is sent as a page document of
-  // the new backend with its canvases beside no block. The version the file holds is checked first (PAGE_VERSION_CONFLICT).
+  // native-sulfur with its canvases beside no block. The version the file holds is checked first (PAGE_VERSION_CONFLICT).
   publishUniversePage: async (ctx, call) => {
     let page: Json;
     try { page = typeof call.args.page === 'string' ? JSON.parse(call.args.page) as Json : (call.args.page ?? {}) as Json; } catch { throw usageError('INVALID_INPUT', 'The page is not JSON'); }
@@ -329,7 +329,7 @@ export const ADAPTERS: Record<string, Adapter> = {
 };
 
 /**
- * The proposal kinds the new backend does not file (server talc-deviations § Proposal changes: their features' proposal
+ * The proposal kinds native-sulfur does not file (server talc-deviations § Proposal changes: their features' proposal
  * paths, or parked), refused before anything is sent, with why.
  */
 const PROPOSAL_KINDS_NOT_SERVED: Record<string, string> = {
@@ -339,7 +339,7 @@ const PROPOSAL_KINDS_NOT_SERVED: Record<string, string> = {
   TERRITORY: 'a universe territory is the map feature\'s, not ported to proposals', ADVERTISING: 'advertising is not ported to proposals',
   FOLDING_COEFFICIENT: 'the folding coefficient is parked (D-613)', SECOND_ROUND: 'a second round is not filed there',
 };
-/** The fields of a proposal change the new backend does not take (their kinds are refused, or the feature is not ported). */
+/** The fields of a proposal change native-sulfur does not take (their kinds are refused, or the feature is not ported). */
 const PROPOSAL_CHANGES_NOT_SERVED = ['watermark', 'territory', 'theme', 'layoutRef', 'restoreLayoutVersion', 'appearance', 'studioDraftId', 'playlistAction', 'channelAction', 'local', 'foldingCoefficient'];
 /** The proposal kinds served there (server KIND_IN). */
 export const PROPOSAL_KINDS_SERVED = ['ACTION', 'OTHER', 'CHARTER', 'MANIFESTO', 'MODERATION_RULES', 'MODERATOR_ELECTION', 'MODERATOR_REVOCATION', 'RECALL', 'PROPOSAL_SUMMARIES', 'SHOWCASE', 'DISPLAY_CASE', 'FIELD', 'DAILY_DIGEST', 'CONVERSATION_STARTERS', 'VOTING_METHOD', 'SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL', 'PINNED_CHANNELS'];
@@ -353,7 +353,7 @@ const GUARDS: Record<string, (call: RootCall) => void> = {
     if (why) throw notServed(`A proposal of kind ${kind}`, `${why}; the kinds filed there: ${PROPOSAL_KINDS_SERVED.join(', ')}`);
     const change = (input.change ?? {}) as Json;
     const given = PROPOSAL_CHANGES_NOT_SERVED.filter((k) => change[k] !== undefined && change[k] !== null && !(Array.isArray(change[k]) && !(change[k] as unknown[]).length));
-    if (given.length) throw notServed(`The proposal change ${given.join(', ')}`, 'the new backend takes the showcase, the display case, the field, the daily digest, the conversation starters, the voting method, a charter\'s most moderators, a sub-universe\'s governance withdrawn, the pinned channels, the proposal summaries, an account and a target date');
+    if (given.length) throw notServed(`The proposal change ${given.join(', ')}`, 'native-sulfur takes the showcase, the display case, the field, the daily digest, the conversation starters, the voting method, a charter\'s most moderators, a sub-universe\'s governance withdrawn, the pinned channels, the proposal summaries, an account and a target date');
     const clear = Array.isArray(change.clear) ? (change.clear as string[]).filter((c) => c !== 'LOGO') : [];
     if (clear.length) throw notServed(`A proposal clearing ${clear.join(', ')}`, 'a showcase clears the universe image (LOGO) only there');
   },
@@ -380,7 +380,7 @@ async function runServed(ctx: Context, query: string, variables: Json, options: 
 const MESSAGE_SENDS = new Set(['sendMessage', 'requestConnection', 'replyInThread', 'sendQuickPoll']);
 
 /**
- * A talc request (a document of the CLI and its variables) on the new backend: its talc data. A message refused
+ * A talc request (a document of the CLI and its variables) on native-sulfur: its talc data. A message refused
  * `MESSAGE_ID_INVALID` (its id, made before a long media upload or a slow turn, is dated more than a minute off) is sent
  * again once with an id of now: the server answers a message stored already whatever the age of its id, so a refused one
  * was never stored and nothing is made twice.

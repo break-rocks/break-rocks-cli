@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates src/sulfur/schema.generated.ts from the schema the new backend (native-sulfur) serves
+// Generates src/sulfur/schema.generated.ts from the schema native-sulfur serves
 // (schema/sulfur/server.graphql, written by npm run update:sulfur-schema from the server's API_SDL): the compact form of
 // src/api/sdl.ts, read at run time by the seam (src/sulfur/fit.ts) that fits the CLI's documents (API v2, talc) to what
 // the server serves. Usage: node scripts/gen-sulfur-schema.mjs [--check]

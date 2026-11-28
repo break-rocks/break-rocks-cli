@@ -2,7 +2,7 @@
 // operator paid by card. Bought, changed and stopped from the CLI only, the
 // payment opening in the browser (Stripe Checkout); the prices are read from the API, never written
 // here. The plan at the registration is operator register --plan.
-import { openInBrowser } from '../browser-login.js';
+import { openInBrowser } from '../open-browser.js';
 import type { Context } from '../context.js';
 import { cliRefusal, usageError } from '../errors.js';
 import { bool } from '../schema.js';

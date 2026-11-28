@@ -4,9 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { appearanceText, defaultColors, resolveAppearance, type AppearanceReads, type ServedTheme } from '../src/theme/appearance.js';
 import { plain } from '../src/colour.js';
-import { harness, last } from './helpers.js';
-import { Context, NO_FLAGS } from '../src/context.js';
-import { saveSession } from '../src/session.js';
+import { last } from './helpers.js';
 import { scripted } from './scripted.js';
 
 const palette = (primary: string, background = '#FFFFFF') => ({ palette: { background, surface: '#F4F5F7', text: '#14171C', primary, accent: '#0067B8', link: '#0057A0' } });
@@ -174,23 +172,6 @@ describe('the appearance applied as served since v126.1.0', () => {
     expect(plain(appearanceText(a))).toContain('  page: https://m.test/tp');
   });
 
-  it('a backend before v126.1.0: the fields not served are dropped and inferred, said on stderr', async () => {
-    const universe = { name: '%lyon', exists: true, private: false, field: null, themeRef: null, themeOf: null, themeHeldVersion: null, layoutRef: null, layoutOf: null, image: null, imageOf: null, themeTrial: null, myDraftPreview: null };
-    const h = harness({
-      env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
-      fetch: async (url, init) => {
-        if (String(url) !== 'https://api.test/graphql') return new Response(null, { status: 204 });
-        const { query } = JSON.parse(String(init!.body)) as { query: string };
-        if (query.includes('appearanceApplied')) return Response.json({ errors: [{ message: "Validation error of type FieldUndefined: Field 'appearanceApplied' in type 'Universe' is undefined @ 'universe/appearanceApplied'" }] });
-        const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
-        return Response.json({ data: { [field]: field === 'universe' ? universe : null } });
-      },
-    });
-    saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
-    expect(await h.run('look', 'appearance', 'show', '%lyon', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ source: { kind: 'socle', appliedFrom: 'inferred' } });
-    expect(h.errors.join('\n')).toContain('Universe.appearanceApplied');
-  });
 });
 
 describe('look appearance show', () => {

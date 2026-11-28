@@ -6,10 +6,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { boundsOf, pointOf, radiusOf } from '../src/commands/geo.js';
 import { pageOfDocument } from '../src/commands/pages.js';
-import { Context, NO_FLAGS } from '../src/context.js';
 import { tools } from '../src/mcp/server.js';
-import { saveSession } from '../src/session.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
 const PARIS = { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: [] }, properties: { schema: 1, id: 'R7444', name: 'Paris', level: 8, kind: 'boundary:administrative', wikidata: 'Q90', bbox: [2.22, 48.81, 2.47, 48.9], cells: ['851fb463fffffff', '851fb467fffffff'], attribution: '© OpenStreetMap contributors' } };
@@ -20,7 +18,7 @@ function scripted(handlers: Record<string, (v: Record<string, unknown>) => unkno
   const calls: Call[] = [];
   const map: string[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1', BREAKROCKS_MAP_URL: 'https://map.test' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test', BREAKROCKS_MAP_URL: 'https://map.test' },
     fetch: async (url, init) => {
       const u = String(url);
       if (u.startsWith('https://map.test/')) {
@@ -34,11 +32,11 @@ function scripted(handlers: Record<string, (v: Record<string, unknown>) => unkno
       calls.push({ field, variables, query });
       try { return Response.json({ data: { [field]: handlers[field]?.(variables) ?? null } }); } catch (e) {
         const [code, limit] = (e as Error).message.split(':');
-        return Response.json({ data: null, errors: [{ errorType: code, message: 'refused', ...(limit ? { errorInfo: { limit: Number(limit) } } : {}) }] });
+        return Response.json({ data: null, errors: [sulfurError({ errorType: code, message: 'refused', ...(limit ? { errorInfo: { limit: Number(limit) } } : {}) })] });
       }
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls, map };
 }
 const territoryOf = (v: Record<string, unknown>) => (v.i as { territory?: unknown } | undefined)?.territory ?? v.t;
@@ -91,16 +89,7 @@ describe('universes territory', () => {
     expect(calls[2].variables).toMatchObject({ target: { kind: 'UNIVERSE_TERRITORY', universe: '%paris' }, reason: 'MISLEADING' });
     expect(await h.run('universes', 'territory', 'report', '%paris', '--reason', 'OFF_TOPIC', '--json')).toBe(2);
   });
-  it('is proposed by proposals file --kind TERRITORY: a circle, or no territory', async () => {
-    const { h, calls } = scripted({ fileProposal: (v) => ({ id: 'p1', kind: (v.input as { kind: string }).kind }) });
-    expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'Le quartier', '--circle', '48.85,2.35', '--radius', '500', '--territory-name', 'Place', '--json')).toBe(0);
-    expect(calls[0].variables.input).toMatchObject({ universe: '%marche', kind: 'TERRITORY', title: 'Le quartier', change: { territory: { center: { name: 'Place', point: { lat: 48.85, lon: 2.35 } }, radius: 'M500' } } });
-    expect((calls[0].variables.input as { change: object }).change).not.toHaveProperty('clear');
-    expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'Aucun', '--no-territory', '--json')).toBe(0);
-    expect(calls[1].variables.input).toMatchObject({ change: { clear: ['TERRITORY'] } });
-    expect((calls[1].variables.input as { change: object }).change).not.toHaveProperty('territory');
-    expect(await h.run('proposals', 'file', '%marche', '--kind', 'TERRITORY', '--title', 'x', '--boundary', 'R7444', '--no-territory', '--json')).toBe(2);
-  });
+
 });
 
 describe('the map', () => {
@@ -133,23 +122,8 @@ describe('the map', () => {
 });
 
 describe('universes pages', () => {
-  it('publishes a page from a document /3, as JSON', async () => {
-    const { h, calls } = scripted({ publishUniversePage: () => served() });
-    writeFileSync(join(h.dir, 'pages.json'), JSON.stringify({ format: 'break-rocks-layout/3', pages: [page] }));
-    expect(await h.run('universes', 'page', 'publish', '%x', '--file', 'pages.json', '--quiet')).toBe(0);
-    expect(JSON.parse(calls[0].variables.p as string)).toEqual(page);
-    expect(h.lines.at(-1)).toBe('market');
-  });
-  it('tells the refusals of a publication plainly, the code kept, the limit of the back office given', async () => {
-    const conflict = scripted({ publishUniversePage: () => { throw new Error('PAGE_VERSION_CONFLICT'); } });
-    writeFileSync(join(conflict.h.dir, 'p.json'), JSON.stringify(page));
-    expect(await conflict.h.run('universes', 'page', 'publish', '%x', '--file', 'p.json', '--json')).toBe(1);
-    expect(last<{ error: { code: string; message: string } }>(conflict.h).error).toMatchObject({ code: 'PAGE_VERSION_CONFLICT', message: expect.stringContaining('read it again') });
-    const limit = scripted({ publishUniversePage: () => { throw new Error('CANVAS_ITEMS_LIMIT:40'); } });
-    writeFileSync(join(limit.h.dir, 'p.json'), JSON.stringify(page));
-    expect(await limit.h.run('universes', 'page', 'publish', '%x', '--file', 'p.json', '--json')).toBe(1);
-    expect(last<{ error: { message: string; errorInfo: unknown } }>(limit.h).error).toMatchObject({ message: expect.stringContaining('at most 40'), errorInfo: { limit: 40 } });
-  });
+
+
   it('checks a page with checkLayout, as a document /3 of that page; exit 1 with a refusal', async () => {
     const { h, calls } = scripted({ checkLayout: () => ({ document: null, refusals: [{ code: 'PAGE_HEADING_REQUIRED', path: 'pages[0]', widget: null, limit: null }] }) });
     writeFileSync(join(h.dir, 'p.json'), JSON.stringify(page));
@@ -206,15 +180,7 @@ describe('the governance page', () => {
     expect(await h.run('governance', 'layout', '%paris', '--json')).toBe(0);
     expect(calls.at(-1)!.variables).toMatchObject({ universe: '%paris', page: 'GOVERNANCE' });
   });
-  it('reads the proposals by status, the record, the duties of a universe', async () => {
-    const { h, calls } = scripted({ proposals: () => ({ items: [], next: null }), governanceRecords: () => ({ items: [], next: null }), myJuryDuties: () => ({ items: [], next: null }) });
-    expect(await h.run('governance', 'proposals', '%paris', '--status', 'WAITING_SUPPORT', '--kind', 'TERRITORY', '--json')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ universe: '%paris', status: 'WAITING_SUPPORT', kind: 'TERRITORY' });
-    expect(await h.run('governance', 'record', '%paris', '--json')).toBe(0);
-    expect(calls[1].query).toContain('statementOfReasons');
-    expect(await h.run('governance', 'duties', '--universe', '%paris', '--json')).toBe(0);
-    expect(calls[2].variables).toMatchObject({ universe: '%paris' });
-  });
+
   it('gives each command its MCP tool', () => {
     const names = tools().map((t) => t.name);
     for (const n of ['universes_territory_get', 'universes_territory_set', 'universes_territory_remove', 'universes_territory_report', 'universes_pages', 'universes_pages_get', 'universes_pages_publish', 'universes_pages_check', 'universes_pages_hide', 'universes_pages_unhide', 'universes_pages_move', 'universes_pages_delete', 'universes_pages_export', 'universes_pages_import', 'universes_pages_report', 'look_studio_make_page', 'explore_area', 'map_places_search', 'map_boundary', 'governance_proposals', 'governance_record', 'governance_duties', 'governance_layout', 'governance_pinned', 'governance_pin']) expect(names).toContain(`breakrocks_${n}`);

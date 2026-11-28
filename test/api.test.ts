@@ -1,6 +1,7 @@
 // The GraphQL documents of the CLI against the contract: the generated schema is the one of
 // schema/api-v2/*.graphql (API v2), every operation's document with its selection is valid,
-// and every command sends only valid documents (a fake API validates them with graphql-js).
+// and every command sends only documents native-sulfur's schema takes (schema/sulfur/server.graphql: a fake API validates
+// them with graphql-js), or answers NOT_AVAILABLE before anything is sent.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildSchema, execute as run, getNamedType, isEnumType, isListType, isNonNullType, isObjectType, isScalarType, parse, validate, type GraphQLFieldResolver, type GraphQLOutputType, type GraphQLSchema } from 'graphql';
@@ -10,8 +11,7 @@ import { SCHEMA as GENERATED } from '../src/api/schema.generated.js';
 import { Context, NO_FLAGS } from '../src/context.js';
 import { commands, execute } from '../src/registry.js';
 import type { JsonSchema } from '../src/schema.js';
-import { saveSession } from '../src/session.js';
-import { harness } from './helpers.js';
+import { harness, sulfurSession } from './helpers.js';
 
 /** The SDL of the compact schema (the AWS scalars declared). */
 function sdlOf(): string {
@@ -27,6 +27,9 @@ function sdlOf(): string {
 }
 const schema: GraphQLSchema = buildSchema(sdlOf());
 const problems = (doc: string) => validate(schema, parse(doc)).map((e) => e.message);
+/** native-sulfur's schema, as the CLI fits its documents to it (src/sulfur/fit.ts). */
+const server: GraphQLSchema = buildSchema(readFileSync(join(import.meta.dirname, '..', 'schema', 'sulfur', 'server.graphql'), 'utf8'));
+const serverProblems = (doc: string) => validate(server, parse(doc)).map((e) => e.message);
 
 /** A fake answer of the shape of the document: one item per list, the first value of an enum, no next page. */
 function mock(type: GraphQLOutputType, field: string): unknown {
@@ -43,7 +46,7 @@ function mock(type: GraphQLOutputType, field: string): unknown {
   return {};
 }
 const fieldResolver: GraphQLFieldResolver<unknown, unknown> = (_source, _args, _ctx, info) => mock(info.returnType, info.fieldName);
-const typeResolver = (_v: unknown, _c: unknown, info: { returnType: GraphQLOutputType }) => { const t = getNamedType(info.returnType); return isObjectType(t) ? t.name : (schema.getPossibleTypes(t as never)[0]?.name); };
+const typeResolver = (_v: unknown, _c: unknown, info: { returnType: GraphQLOutputType; schema: GraphQLSchema }) => { const t = getNamedType(info.returnType); return isObjectType(t) ? t.name : (info.schema.getPossibleTypes(t as never)[0]?.name); };
 
 describe('the contract of the API', () => {
   it('is generated from schema/api-v2/*.graphql (API v2), descriptions and all', async () => {
@@ -110,23 +113,24 @@ const SAMPLES: Record<string, Record<string, unknown>> = {
 };
 
 describe('every command', () => {
-  it('sends only documents valid against the contract', async () => {
+  it('sends only documents native-sulfur takes, or answers NOT_AVAILABLE', async () => {
     const sent: { command: string; doc: string; errors: string[] }[] = [];
+    const notAvailable = new Set<string>();
     let current = '';
     const h = harness({
-      env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+      env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
       fetch: async (url, init) => {
         if (String(url) !== 'https://api.test/graphql') return new Response('{}', { status: 404 });
         const { query, variables } = JSON.parse(String(init!.body));
-        const errors = problems(query);
+        const errors = serverProblems(query);
         sent.push({ command: current, doc: query, errors });
-        if (errors.length) return new Response(JSON.stringify({ data: null, errors: [{ errorType: 'INVALID', message: errors[0] }] }), { status: 200 });
-        const answer = await run({ schema, document: parse(query), variableValues: variables, fieldResolver, typeResolver: typeResolver as never });
+        if (errors.length) return new Response(JSON.stringify({ data: null, errors: [{ message: errors[0], extensions: { code: 'BAD_REQUEST', reason: 'INVALID' } }] }), { status: 200 });
+        const answer = await run({ schema: server, document: parse(query), variableValues: variables, fieldResolver, typeResolver: typeResolver as never });
         return new Response(JSON.stringify(answer), { status: 200 });
       },
     });
     const ctx = new Context(h.io, { ...NO_FLAGS, yes: true, env: 'dev' });
-    saveSession(ctx, { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+    sulfurSession(ctx.io, 'agent', { env: ctx.profile().env });
     const skipped = new Set(['mcp', 'batch', 'operator register', 'operator renew', 'operator recover', 'operator recovery-key set', 'operator delete', 'operator login', 'agents login', 'me session', 'login', 'logout', 'update']);
     let ran = 0;
     const operatorOnly = (name: string) => name.startsWith('operator plan ');
@@ -136,26 +140,26 @@ describe('every command', () => {
       const input = SAMPLES[c.name] ?? Object.fromEntries(Object.entries(c.input.properties).filter(([k]) => (c.input.required ?? []).includes(k)).map(([k, v]) => [k, sample(v, k)]));
       // A discussion named by one of --channel, --group or --with (DiscussionRefInput).
       if (!SAMPLES[c.name] && ['channel', 'group', 'with'].every((k) => k in c.input.properties) && !['channel', 'group', 'with'].some((k) => k in input)) input.channel = '%x&general';
-      try { await execute(ctx, c, input); } catch { /* local checks (files, inputs) may stop a command */ }
+      try { await execute(ctx, c, input); } catch (e) { if ((e as { code?: string }).code === 'NOT_AVAILABLE') notAvailable.add(c.name); /* local checks (files, inputs) may stop a command */ }
       ran++;
     }
     // An agent operator: its plan paid by card (the profile of an operator only).
     ctx.saveProfile({ env: 'dev', kind: 'operator', operatorId: 'eu-op' });
-    saveSession(ctx, { kind: 'operator', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op' });
+    sulfurSession(ctx.io, 'operator', { env: ctx.profile().env });
     for (const c of commands().filter((x) => operatorOnly(x.name))) {
       current = c.name;
       const input = Object.fromEntries(Object.entries(c.input.properties).filter(([k]) => (c.input.required ?? []).includes(k)).map(([k, v]) => [k, sample(v, k)]));
       try { await execute(ctx, c, { ...input, ...(c.name === 'operator plan start' ? { open: false } : {}) }); } catch { /* local checks may stop a command */ }
       ran++;
     }
-    // A human: its own whoami, capabilities and logout --everywhere (signOutEverywhere).
+    // A human: its own whoami, capabilities and logout --everywhere (endAllSessions).
     ctx.saveProfile({ env: 'dev', kind: 'human', accountId: 'eu-human' });
-    saveSession(ctx, { kind: 'human', token: 't', idToken: 'i', refreshToken: 'r', pool: { userPoolId: 'eu-west-1_x', clientId: 'c', region: 'eu-west-1' }, accountId: 'eu-human', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', signInAgainBy: '2099-01-01T00:00:00.000Z' });
+    sulfurSession(ctx.io, 'human', { accountId: 'eu-human', env: ctx.profile().env });
     for (const [name, input] of [['whoami', {}], ['me capabilities', { universe: '%paris' }], ['usage', {}], ['logout', { everywhere: true }]] as const) {
       current = `${name} (human)`;
       await execute(ctx, commands().find((c) => c.name === name)!, input);
     }
-    expect(sent.filter((s) => s.command.endsWith('(human)')).map((s) => s.doc)).toEqual(expect.arrayContaining([expect.stringContaining('mySubscription'), expect.stringContaining('signOutEverywhere')]));
+    expect(sent.filter((s) => s.command.endsWith('(human)')).map((s) => s.doc)).toEqual(expect.arrayContaining([expect.stringContaining('endAllSessions')]));
     const invalid = sent.filter((s) => s.errors.length).map((s) => `${s.command}: ${s.errors[0]}`);
     expect(invalid).toEqual([]);
     // No operation, nor field selected, that the contract marks @deprecated (migration.md: the clients move first).
@@ -163,9 +167,10 @@ describe('every command', () => {
     const calling = sent.map((s) => ({ command: s.command, op: /^\w+[^{]*\{\s*(\w+)/.exec(s.doc)?.[1] ?? '' })).filter((s) => deprecated.includes(s.op)).map((s) => `${s.command}: ${s.op}`);
     expect([...new Set(calling)]).toEqual([]);
     expect(ran).toBeGreaterThan(150);
-    // Those that read a local file first (a document, a GPX file, an image), or the passwords on the standard input.
-    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import', 'experiences prefill build', 'experiences prefill open']);
-    const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
+    // Those that read a local file first (a document, a GPX file, an image); on native-sulfur, the e-mail change (its auth
+    // routes) and the messages named with their discussion (--discussion).
+    const quiet = new Set(['agents attest', 'wallet balance', 'look themes typefaces', 'look themes publish', 'map boundary', 'playlists add-doc', 'routes gpx import', 'me password', 'experiences check', 'experiences import', 'experiences prefill build', 'experiences prefill open', 'me email change', 'me email confirm', 'messages vote', 'messages unvote', 'messages react', 'messages unreact', 'messages thread', 'messages reply-thread']);
+    const silent = commands().filter((c) => !skipped.has(c.name) && !quiet.has(c.name) && !notAvailable.has(c.name) && !c.offline && !sent.some((s) => s.command === c.name)).map((c) => c.name);
     expect(silent).toEqual([]);
     expect(sent.length).toBeGreaterThan(150);
   });

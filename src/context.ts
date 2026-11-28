@@ -5,10 +5,9 @@ import type { Keychain } from './keychain.js';
 import { profileOfAgent, requireLocalAgent, sessionNameOf } from './local-agents.js';
 import { CliError, EXIT, usageError } from './errors.js';
 import type { Output } from './output.js';
-import type { CodeExchange } from './browser-login.js';
 import type { Payer } from './payment-types.js';
 import { networkSettings, profileProxy, type NetworkSettings } from './network.js';
-import { backendOf, type Backend } from './backend.js';
+import { checkBackend } from './backend.js';
 
 export type Io = {
   out: Output;
@@ -22,8 +21,6 @@ export type Io = {
   secret?: (question: string) => Promise<string>;
   /** Opens a web address in the browser of the person (login --browser); false when it could not. */
   openUrl?: (url: string) => Promise<boolean>;
-  /** How login --browser exchanges the code of the web app for a session (tests give a fake; by default the CUSTOM_AUTH flow of the user pool). */
-  codeExchange?: CodeExchange;
   /** The executable that runs (update: tests give a file; by default the single executable, or the npm package). */
   executable?: { path: string; kind: 'binary' | 'npm' | 'source' };
   now: () => number;
@@ -54,8 +51,8 @@ export type GlobalFlags = {
   caFile?: string;
   /** No colour (--no-color). */
   noColor?: boolean;
-  /** The backend of this run (--backend): before BREAKROCKS_BACKEND and the profile's (src/backend.ts). */
-  backend?: Backend;
+  /** --backend sulfur (deprecated: the only backend, src/backend.ts). */
+  backend?: 'sulfur';
 };
 export const NO_FLAGS: GlobalFlags = { json: false, quiet: false, yes: false, help: false, version: false };
 
@@ -69,6 +66,8 @@ export class Context {
   constructor(io: Io, flags: GlobalFlags) {
     this.io = io;
     this.flags = flags;
+    // BREAKROCKS_BACKEND=sulfur is still taken (deprecated); legacy is refused (src/backend.ts).
+    if (io.env.BREAKROCKS_BACKEND?.trim()) checkBackend(io.env.BREAKROCKS_BACKEND, 'BREAKROCKS_BACKEND');
     const dir = configDir(io.env);
     migrateConfig(io.env, dir);
     this.store = new ConfigStore(dir);
@@ -96,10 +95,6 @@ export class Context {
       return { ...saved, env: wanted };
     }
     return saved;
-  }
-  /** The backend this run talks to: --backend, else BREAKROCKS_BACKEND, else the profile's, else the former one (src/backend.ts). */
-  backend(): Backend {
-    return backendOf(this.flags.backend, this.io.env, this.agentName ? undefined : this.store.profile(this.profileName));
   }
   /** The network settings of this run: --proxy and --ca-file, else the profile, else the environment (README § Proxy). */
   network(): NetworkSettings {

@@ -1,12 +1,12 @@
-# The CLI on the new backend (native-sulfur)
+# The CLI on native-sulfur
 
-`--backend sulfur` (or `BREAKROCKS_BACKEND=sulfur`, or `config set backend sulfur`) runs the CLI against native-sulfur
-(dev: `https://eu.api.dev.break.rocks`). The former backend (`legacy`) is unchanged and stays the default. README § The new
-backend says how the sign-in, the tokens and the transport work; this page says what each command does there.
+The CLI runs against native-sulfur (dev: `https://eu.api.dev.break.rocks`), its only backend since 0.49.0: the former one
+(talc, `legacy`) was retired on 2026-11-28 (talc removal, phase B). README § The backend says how the sign-in, the tokens and
+the transport work; this page says what each command does there.
 
 ## How the commands run there
 
-The new backend serves the talc GraphQL schema (API v2, the CLI's own contract) as its starting point (D-612), with the
+native-sulfur serves the talc GraphQL schema (API v2, the CLI's own contract) as its starting point (D-612), with the
 deviations of the server's `docs/talc-deviations.md`. So the CLI keeps its commands and their `--json` outputs, and every
 GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/talc.ts`):
 
@@ -14,7 +14,7 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   `schema/sulfur/server.graphql` and compacted in `src/sulfur/schema.generated.ts` by `npm run update:sulfur-schema`, from
   the server checkout `../server`): a field the server's type lacks is left out and answered `null` (`[]` where talc answers
   a list); an argument the server does not take is left out when the command gave it no value (`null`, or an empty
-  list), and refused with `NOT_ON_NEW_BACKEND` when it did, `false` and `""` included (never sent without it); a variable is declared with the server's type of its argument
+  list), and refused with `NOT_AVAILABLE` when it did, `false` and `""` included (never sent without it); a variable is declared with the server's type of its argument
   (an enum the server takes as a `String`, an optional `requestId`); the fields of an input the server lacks are left out
   when empty, refused when given. Talc's `Universe.image` (an `Image`) is asked as the server's `shownImage`; an `image` the
   server answers as a media id where talc answers an `Image` (`MyUniverse.image`, `GroupChat.image`) comes back as the
@@ -65,11 +65,14 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   parts of 64 MiB, each `PUT` with its own `x-amz-checksum-sha256`, tried again alone, then `completeUpload`; the parts done
   are kept in `uploads/` so the same command run again resumes (`resumeUpload`). A post is created while its media are
   processed (`publication: PROCESSING`, then `PUBLISHED`); the avatar waits until its image is processed.
-- **Not served**: an operation the server does not serve answers `NOT_ON_NEW_BACKEND` (exit 1) with `operation` named; the
-  commands of the former backend's own hosts (operator registration and sign-in, `session`, `agents tier`) are refused the
-  same way, and so is anything that would open a session of the former backend.
-- **Own commands**: `login` (e-mail code, browser, device code), `logout`, `whoami`, `doctor` (the session, the API's
-  health, the talc operations the server does not serve), `agents login` and `operator login` (below).
+- **Not available**: an operation the server does not serve answers `NOT_AVAILABLE` (exit 1) with `operation` named; the
+  commands kept whose service is not reached yet answer it with `command` named: `operator register`, `operator renew`,
+  `operator recover`, `operator recovery-key set`, `operator delete` (the server's REST routes `/v1/operators/*`, not
+  ported to the CLI yet) and `agents tier` (not sold there). `me password` was removed with the former backend (no password
+  on native-sulfur).
+- **Own commands**: `login` (e-mail code, browser, device code), `logout`, `whoami`, `me session`, `doctor` (the network and
+  its proxy, the reach of the cell, the session, the API's health, the API v2 operations the server does not serve),
+  `agents login` and `operator login` (below).
 - **Agents** (RFC 7523, `src/sulfur/agent.ts`): a delegated agent (`agents create` keeps its key as a local agent; `--agent
   <name>`, or BREAKROCKS_OPERATOR_ID, BREAKROCKS_AGENT_ID and BREAKROCKS_AGENT_KEY) or an agent operator signs an EdDSA
   assertion (`kid`: the SHA-256 of its raw public key; `iss` = `sub` = its id; `aud`: the cell's token endpoint; 2 minutes;
@@ -81,13 +84,11 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   profile) beside a profile holding a human, or beside a human's session, are refused with `PROFILE_HOLDS_HUMAN`; a person
   signs in (`login`) neither into an agent's profile (`PROFILE_HOLDS_AGENT_ACCOUNT`) nor with those variables set.
   `doctor` signs an agent in with its key when it has no session yet. A delegated agent posts a video there without
-  `--license`: the server takes no media license at upload yet (a license given is refused, `NOT_ON_NEW_BACKEND`), so the
-  former backend's `MEDIA_LICENSE_REQUIRED` is not asked there.
+  `--license`: the server takes no media license at upload yet (a license given is refused, `NOT_AVAILABLE`), so
+  `MEDIA_LICENSE_REQUIRED` is not asked.
 - **Environment**: a session is of one environment. `login` keeps the profile as a person's (`kind: human`) with its
   environment, so another `--env` with it is refused (`ENV_MISMATCH`, exit 2); a session of another environment than the one
   asked is refused the same way, before any request: a command for dev never reaches prod with a session of prod.
-- **MCP and batch**: `breakrocks --backend sulfur mcp` serves every tool on the new backend (as `--profile`, `--env` and
-  `--agent`); `batch` runs each line on the backend of its run (its stand-in, or its refusal there).
 - **Messages**: the server names a message by its discussion (D-628): `messages react`, `unreact`, `thread`,
   `reply-thread`, `vote` and `unvote` take `--discussion <id>` there (and `--thread-root`); the answers of the message
   reads carry `discussion.id`. `messages quick-poll` names its discussion as everywhere (`--with`, `--group`, `--channel`).
@@ -132,7 +133,7 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   `MANIFESTO`, `MODERATION_RULES`, `MODERATOR_ELECTION`, `MODERATOR_REVOCATION`, `RECALL`, `PROPOSAL_SUMMARIES`, `SHOWCASE`,
   `DISPLAY_CASE`, `FIELD`, `DAILY_DIGEST`, `CONVERSATION_STARTERS`, `VOTING_METHOD` (`DELEGATED` only),
   `SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL` and `PINNED_CHANNELS`; the CLI refuses the others before anything is sent
-  (`NOT_ON_NEW_BACKEND`, with why and the kinds filed there: `THEME`, `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`,
+  (`NOT_AVAILABLE`, with why and the kinds filed there: `THEME`, `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`,
   `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`, `SECOND_ROUND`), and so the changes the server does not take
   (`watermark`, `territory`, `theme`, `layoutRef`, `restoreLayoutVersion`, `appearance`, `studioDraftId`,
   `playlistAction`, `channelAction`, `local`, `foldingCoefficient`) and a showcase clearing anything but its image (`LOGO`)
@@ -144,7 +145,7 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
 ## For automation (several personas)
 
 ```sh
-export BREAKROCKS_BACKEND=sulfur BREAKROCKS_KEYCHAIN=off
+export BREAKROCKS_KEYCHAIN=off
 export BREAKROCKS_CLI_DIR=~/personas/alice        # one folder per persona: its profile, its session, its uploads
 breakrocks --env dev login --email alice@inbox.dev.break.rocks --sign-up --json   # {"codeSent":true,...}
 echo "1234 5678" | breakrocks --env dev login --email alice@inbox.dev.break.rocks --code - --handle alice_bot --json
@@ -170,7 +171,7 @@ of the media, the place feats and billing revised on 2026-11-26 for the server a
 | `createPost` (and every post) with an agent's token (RFC 7523, `act.sub` = the agent) | The post is created, but its `author` is a tombstone (`handle: ""`, `deleted: true`) and it carries no agent mark (`via: null`, `ai: false`, `automated: false`) | — | Server bug: an agent's post must show its owner's card with the agent mark. |
 | `reactToMessage(discussionId: <group chat>)` | A message of a group chat answers `MESSAGE_NOT_FOUND` | `MESSAGE_NOT_FOUND` | Reactions and threads are for universe discussions (talc; `replyInThread` says so with `THREAD_NOT_ALLOWED`); a clearer refusal than "not found" would help. Universe discussions are opened by the governance (`LEADERSHIP_ONLY`), so not verifiable with new accounts on dev. |
 | `buyGiftCode`, `billingPortal`, `startSubscription` and the other sales | Billing is gated: while the cell's Stripe webhook secret (`native-stripe-webhook`) is absent, as in dev ("Stripe sales closed in this cell"), they are refused before any Stripe call (server talc-deviations 5a, `syncedCatalog`) | `PROVIDER_NOT_AVAILABLE` | The CLI tells "Not available yet: payments are closed on this platform until its payment provider is set up" and keeps the code. Never run by the journey (no payment, no gift code). |
-| Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_ON_NEW_BACKEND`; an operator with a key signs in by RFC 7523 (`operator login`). |
+| Operator registration (REST `features/billing/operators.ts`, x402) | Not ported to the CLI | — | `operator register` answers `NOT_AVAILABLE`; an operator with a key signs in by RFC 7523 (`operator login`). |
 | `sendMessage(place \| arrival)` (server `6bd5daf1`, 2026-11-28) | A place or an arrival sent alone is stored and read back (`place.name`, `arrival.zoneName`), but its `kind` is `message` and its `text` `""` | — | talc's description names "a message of kind ARRIVAL"; the CLI shows the place or the arrival whatever the kind. |
 | `connectionStates` → `canInvite` (2026-11-28) | `true` for an account whose invite policy is `nobody`, or `except` with the caller excepted, though the invitation is then declined silently | — | talc: "whether the caller can invite it (its invitePolicy and its exceptions)". |
 | `setUniverseProfile(governanceLayoutRef)` on a private universe (server `cc3f09f9`, 2026-11-28) | Answers the universe with `governanceLayoutRef: null`, no refusal: nothing is set | — | A private universe has no governance page; a refusal would say so. The private universe's `firstFocus` is refused `UNIVERSE_FOCUS_NOT_OFFERED`, a layout other than `feed-first`, `village-square` or `hud` `UNIVERSE_LAYOUT_NOT_OFFERED`. |
@@ -185,16 +186,16 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-650 commands: 574 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 166 run against dev.
+649 commands: 576 work as they are, 37 through an adapter, 0 partly, 10 not available, 26 offline; 166 run against dev.
 
 #### account
 
 | Command | On sulfur | Dev | Operations | Note |
 |---|---|---|---|---|
-| `login` | works | yes | (own: auth, me) | stand-in of the new backend |
-| `logout` | works | yes | (own: auth, me) | stand-in of the new backend |
-| `whoami` | works | yes | (own: auth, me) | stand-in of the new backend |
-| `me session` | not available |  | (former hosts) | not served: the former backend's session or agents host |
+| `login` | works | yes | (own: auth, me) | native-sulfur's own auth |
+| `logout` | works | yes | (own: auth, me) | native-sulfur's own auth |
+| `whoami` | works | yes | (own: auth, me) | native-sulfur's own auth |
+| `me session` | works |  | (own: auth, me) | native-sulfur's own auth |
 | `me capabilities` | adapted | yes | me, delegatedAgentAllowance, myUsage | adapted: me |
 | `me measures` | works | yes | myPlatformMeasures |  |
 | `me measures appeal` | works |  | appealPlatformMeasure |  |
@@ -204,7 +205,6 @@ deviations), which the command then reports with the server's code.
 | `me profile set` | adapted | yes | updateProfile, (media upload) | adapted: updateProfile, media upload (requestUpload) |
 | `me handle check` | works |  | handleAvailability |  |
 | `me handle change` | works |  | changeHandle |  |
-| `me password` | not available |  | changePassword | not served: changePassword |
 | `me email change` | adapted | yes | requestEmailChange | adapted: requestEmailChange |
 | `me email confirm` | adapted | yes | confirmEmailChange | adapted: confirmEmailChange |
 | `me delete` | works | yes | requestAccountDeletion |  |
@@ -246,12 +246,12 @@ deviations), which the command then reports with the server's code.
 | Command | On sulfur | Dev | Operations | Note |
 |---|---|---|---|---|
 | `operator keygen` | offline |  |  | no platform request |
-| `operator register` | not available |  |  | the registration of an agent operator (REST and x402 on the new backend) is not ported to the CLI yet |
-| `operator login` | works |  | (own: auth, me) | stand-in of the new backend |
-| `operator renew` | not available |  |  | the agents host of the former backend |
-| `operator recover` | not available |  |  | the agents host of the former backend |
-| `operator recovery-key set` | not available |  |  | the agents host of the former backend |
-| `operator delete` | not available |  |  | the agents host of the former backend |
+| `operator register` | not available |  |  | native-sulfur's REST route (a JWT proof, x402 or a plan) not ported to the CLI yet |
+| `operator login` | works |  | (own: auth, me) | native-sulfur's own auth |
+| `operator renew` | not available |  |  | native-sulfur's REST route (x402) not ported to the CLI yet |
+| `operator recover` | not available |  |  | native-sulfur's REST route not ported to the CLI yet |
+| `operator recovery-key set` | not available |  |  | native-sulfur's REST route not ported to the CLI yet |
+| `operator delete` | not available |  |  | native-sulfur's REST route not ported to the CLI yet |
 | `operator plan offer` | works |  | operatorPlanOffer |  |
 | `operator plan show` | works |  | myOperatorPlan |  |
 | `operator plan start` | adapted |  | startOperatorPlan, me, operatorPlanOffer | adapted: me |
@@ -259,24 +259,24 @@ deviations), which the command then reports with the server's code.
 | `operator plan stop` | works |  | setOperatorPlanRenewal |  |
 | `operator plan resume` | works |  | setOperatorPlanRenewal |  |
 | `agents create` | works | yes | createDelegatedAgent |  |
-| `agents list` | works |  |  | no talc operation found by the scan: not checked |
+| `agents list` | works |  |  | no API operation found by the scan: not checked |
 | `agents show` | works |  | changeDelegatedAgent |  |
-| `agents rename` | works |  |  | no talc operation found by the scan: not checked |
-| `agents suspend` | works |  |  | no talc operation found by the scan: not checked |
-| `agents reactivate` | works |  |  | no talc operation found by the scan: not checked |
+| `agents rename` | works |  |  | no API operation found by the scan: not checked |
+| `agents suspend` | works |  |  | no API operation found by the scan: not checked |
+| `agents reactivate` | works |  |  | no API operation found by the scan: not checked |
 | `agents delete` | works |  | deleteDelegatedAgent |  |
-| `agents restrict` | works |  |  | no talc operation found by the scan: not checked |
+| `agents restrict` | works |  |  | no API operation found by the scan: not checked |
 | `agents regenerate` | works |  | regenerateDelegatedAgentCredentials |  |
-| `agents tier` | not available |  |  | x402 on the agents host of the former backend |
+| `agents tier` | not available |  |  | the paid tier of a delegated agent is not sold by native-sulfur yet |
 | `agents activity` | works |  | delegatedAgentActivity |  |
 | `agents local` | offline |  |  | no platform request |
 | `agents import` | offline |  |  | no platform request |
 | `agents forget` | offline |  |  | no platform request |
-| `agents login` | works | yes | (own: auth, me) | stand-in of the new backend |
-| `agents attest` | works |  |  | no talc operation found by the scan: not checked |
+| `agents login` | works | yes | (own: auth, me) | native-sulfur's own auth |
+| `agents attest` | works |  |  | no API operation found by the scan: not checked |
 | `wallet set` | offline |  |  | no platform request |
 | `wallet show` | offline |  |  | no platform request |
-| `wallet balance` | works |  |  | no talc operation found by the scan: not checked |
+| `wallet balance` | works |  |  | no API operation found by the scan: not checked |
 | `wallet faucet` | offline |  |  | no platform request |
 
 #### universes
@@ -469,19 +469,19 @@ deviations), which the command then reports with the server's code.
 | `discussions channels create` | works | yes | openUniverseDiscussion |  |
 | `discussions channels join` | works |  | joinUniverseDiscussion |  |
 | `discussions channels leave` | works |  | leaveUniverseDiscussion |  |
-| `discussions send` | works | yes |  | no talc operation found by the scan: not checked |
-| `discussions read` | works |  |  | no talc operation found by the scan: not checked |
+| `discussions send` | works | yes |  | no API operation found by the scan: not checked |
+| `discussions read` | works |  |  | no API operation found by the scan: not checked |
 | `discussions channels levels` | works | yes | channelProposalLevels |  |
 | `messages inbox` | adapted | yes | inbox, sendMessage, (media upload) | adapted: media upload (requestUpload) |
 | `messages direct send` | works | yes | messages |  |
 | `messages direct read` | works | yes | deleteMessage |  |
-| `messages direct delete` | works |  |  | no talc operation found by the scan: not checked |
+| `messages direct delete` | works |  |  | no API operation found by the scan: not checked |
 | `messages direct ephemeral` | works |  | setConversationEphemeral |  |
 | `messages groups create` | works | yes | createGroupChat |  |
 | `messages groups` | works |  | inbox |  |
 | `messages groups show` | works |  | groupChat |  |
-| `messages groups send` | works | yes |  | no talc operation found by the scan: not checked |
-| `messages groups read` | works | yes |  | no talc operation found by the scan: not checked |
+| `messages groups send` | works | yes |  | no API operation found by the scan: not checked |
+| `messages groups read` | works | yes |  | no API operation found by the scan: not checked |
 | `messages groups invite` | works | yes | inviteToGroupChat |  |
 | `messages groups leave` | works | yes | leaveGroupChat |  |
 | `messages groups members` | works |  | groupChatMembers |  |
@@ -565,7 +565,7 @@ deviations), which the command then reports with the server's code.
 | Command | On sulfur | Dev | Operations | Note |
 |---|---|---|---|---|
 | `map places search` | works | yes | places |  |
-| `map boundary` | works |  |  | no talc operation found by the scan: not checked |
+| `map boundary` | works |  |  | no API operation found by the scan: not checked |
 | `map routes` | works |  | mapRouteMarkers |  |
 | `map posts` | works | yes | mapPosts |  |
 | `map places` | works |  | mapRecentPlaces |  |
@@ -655,8 +655,8 @@ deviations), which the command then reports with the server's code.
 | `experiences feats end` | works |  | endPlaceFeatRun |  |
 | `experiences feats publish` | works | yes | publishFeat |  |
 | `experiences prefill keys` | offline |  |  | no platform request |
-| `experiences prefill build` | works |  |  | no talc operation found by the scan: not checked |
-| `experiences prefill open` | works |  |  | no talc operation found by the scan: not checked |
+| `experiences prefill build` | works |  |  | no API operation found by the scan: not checked |
+| `experiences prefill open` | works |  |  | no API operation found by the scan: not checked |
 | `events list` | works | yes | universeEvents |  |
 | `events create` | works | yes | createUniverseEvent |  |
 | `events attend` | works |  | attendUniverseEvent |  |
@@ -774,7 +774,7 @@ deviations), which the command then reports with the server's code.
 | `look personal set` | works |  | setPersonalTheme |  |
 | `look personal clear` | works |  | setPersonalTheme |  |
 | `look personal saved` | not available | yes | personalThemes | not served: personalThemes |
-| `look themes export` | partly |  | themeCatalog, (former hosts) | not served: the former backend's session or agents host |
+| `look themes export` | works |  | themeCatalog |  |
 | `look themes shots` | works |  | themeCatalog |  |
 | `look themes delete` | adapted |  | deleteTheme | adapted: deleteTheme |
 | `look layouts list` | works | yes | layoutCatalog, themeCatalog |  |
@@ -891,10 +891,10 @@ deviations), which the command then reports with the server's code.
 | `config set` | offline |  |  | no platform request |
 | `config unset` | offline |  |  | no platform request |
 | `usage` | works | yes | universe, myStandingIn, delegatedAgentAllowance, myUsage |  |
-| `doctor` | works | yes | (own: auth, me) | stand-in of the new backend |
+| `doctor` | works | yes | (own: auth, me) | native-sulfur's own auth |
 | `links shorten` | works | yes | createShortLink |  |
 | `links resolve` | works |  | shortLink |  |
-| `batch` | works |  |  | no talc operation found by the scan: not checked |
+| `batch` | works |  |  | no API operation found by the scan: not checked |
 | `mcp` | offline | yes |  | no platform request |
 
 <!-- /table -->

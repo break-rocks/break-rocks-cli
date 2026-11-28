@@ -4,7 +4,6 @@
 // It uses the current profile (or the --profile / --env / --agent / --backend given to `breakrocks mcp`); a tool that asks a
 // confirmation is refused unless its input carries "yes": true; nothing is ever asked on stdin
 // (stdin and stdout are the protocol), progress goes to stderr.
-import { forBackend } from '../sulfur/dispatch.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { toolName, toolOf } from '../commands/core.js';
@@ -48,7 +47,7 @@ export async function callCommand(io: Io, base: ServerFlags, command: AnyCommand
   if (yes !== undefined && !command.interactive) return failure(usageError('INVALID_INPUT', `input.yes: is not an option of ${command.name}`));
   const ctx = new Context({ ...io, interactive: false, readStdin: undefined, collectWatch: true }, { ...NO_FLAGS, ...base, json: true, yes: yes === true });
   try {
-    const result = await execute(ctx, forBackend(ctx, command), input);
+    const result = await execute(ctx, command, input);
     const exit = command.exitCode?.(result) ?? 0;
     return { content: [{ type: 'text' as const, text: JSON.stringify(result ?? null, null, 2) }], ...(isObject(result) ? { structuredContent: result } : {}), ...(exit ? { isError: true } : {}) };
   } catch (error) {

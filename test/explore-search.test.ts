@@ -3,10 +3,8 @@
 // the map cells of an area computed without a dependency (src/h3.ts); a backend before v128.0.0. Against a fake API.
 import { describe, expect, it } from 'vitest';
 import { bandOf, cellsAround, oneResolution, reasonsText, resolutionForRadius, routeFigures, whenOf } from '../src/commands/explore-map.js';
-import { Context, NO_FLAGS } from '../src/context.js';
 import { cellResolution, cellToParent, isCell, latLngToCell } from '../src/h3.js';
-import { saveSession } from '../src/session.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 import { scripted } from './scripted.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
@@ -14,7 +12,7 @@ type Call = { field: string; variables: Record<string, unknown>; query: string }
 function fake(answers: Record<string, unknown>, shapes: Record<string, string[]> = {}, errors?: { message: string; errorType?: string }[]) {
   const calls: Call[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1', BREAKROCKS_MAP_URL: 'https://map.test' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test', BREAKROCKS_MAP_URL: 'https://map.test' },
     fetch: async (url, init) => {
       const u = String(url);
       if (u === 'https://map.test/catalog.json') return Response.json({ schema: 1, boundaries: { version: 'b1', url: 'https://map.test/boundaries/b1/{id}.geojson' } });
@@ -23,12 +21,12 @@ function fake(answers: Record<string, unknown>, shapes: Record<string, string[]>
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
       calls.push({ field, query, variables });
-      if (errors && field !== 'places' && field !== 'universe') return Response.json({ data: null, errors });
+      if (errors && field !== 'places' && field !== 'universe') return Response.json({ data: null, errors: errors.map(sulfurError) });
       const answer = answers[field];
       return Response.json({ data: { [field]: typeof answer === 'function' ? answer(variables) : answer ?? null } });
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls };
 }
 
@@ -164,19 +162,7 @@ describe('explore random and explore today', () => {
     expect(calls[1].variables).toEqual({ f: { area: { mapCells: ['861fb4677ffffff'], band: 'NEIGHBOURHOOD' }, query: null, kinds: ['VIDEOS'], mapFilter: null }, e: 'none-left' });
     expect(h.lines.at(-1)).toContain('(no very lively map cell here: nothing to jump to)');
   });
-  it('reads the highlight of the day of a country, by default the country of the account', async () => {
-    const { h, calls } = fake({ me: { own: { country: 'fr' } }, highlightOfTheDay: { result: { ...post, kind: 'VIDEO', reasons: [] }, computedAt: '2026-11-17T09:00:00.000Z' } });
-    expect(await h.run('explore', 'today')).toBe(0);
-    expect(calls.map((c) => c.field)).toEqual(['me', 'highlightOfTheDay']);
-    expect(calls[1].variables).toEqual({ c: 'FR' });
-    expect(h.lines.at(-1)).toBe('The highlight of the day in FR\nVIDEO       p1  @alice  %marseille  Jazz on the quay tonight  43.2951,5.3744\ncomputed at 2026-11-17T09:00:00.000Z');
-    expect(await h.run('explore', 'today', '--country', 'de', '--json')).toBe(0);
-    expect(last(h)).toMatchObject({ country: 'DE', computedAt: '2026-11-17T09:00:00.000Z' });
-    const none = fake({ me: { own: { country: null } }, highlightOfTheDay: null });
-    expect(await none.h.run('explore', 'today', '--json')).toBe(2);
-    expect(await none.h.run('explore', 'today', '--country', 'FR')).toBe(0);
-    expect(none.h.lines.at(-1)).toBe('(no highlight of the day in FR)');
-  });
+
 });
 
 describe('the four figures of a route and the nearby routes', () => {

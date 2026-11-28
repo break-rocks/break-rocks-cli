@@ -1,8 +1,8 @@
 // The account itself (D-92, D-303: the operations of before specs v83.1.0 still without a command): its profile
-// and its links, its avatar, its handle, its password and its email address, the deletion of the account, its data
+// and its links, its avatar, its handle and its email address, the deletion of the account, its data
 // requests (a copy, a bulk erasure, a rectification: GDPR art. 15 to 17), the onboarding, the personal invitation
 // link, what it did (its interactions, its liked and reposted posts, its reports) and the exceptions of who may
-// invite it. The secrets (a password) are never options: asked without echo, or read on the standard input.
+// invite it.
 import { apiCommand } from '../api/command.js';
 import type { Context } from '../context.js';
 import { usageError } from '../errors.js';
@@ -60,41 +60,18 @@ export const meHandleChange = apiCommand({
   examples: ['breakrocks me handle change alice2 --yes'],
 });
 
-/** The current and the new password: two lines of the standard input (--password-stdin), else asked without echo. */
-async function passwords(ctx: Context, fromStdin: boolean): Promise<{ currentPassword: string; newPassword: string }> {
-  if (fromStdin) {
-    if (!ctx.io.readStdin) throw usageError('PASSWORD_REQUIRED', '--password-stdin needs a standard input');
-    const [currentPassword, newPassword] = (await ctx.io.readStdin()).split(/\r?\n/);
-    if (!currentPassword || !newPassword) throw usageError('PASSWORD_REQUIRED', 'On the standard input: the current password, a new line, the new password, a new line');
-    return { currentPassword, newPassword };
-  }
-  if (!ctx.io.interactive || !ctx.io.secret) throw usageError('PASSWORD_REQUIRED', 'The passwords are missing: --password-stdin (two lines), or run in a terminal');
-  const currentPassword = await ctx.io.secret('Current password: ');
-  const newPassword = await ctx.io.secret('New password: ');
-  if (newPassword !== await ctx.io.secret('New password again: ')) throw usageError('PASSWORD_MISMATCH', 'The two new passwords differ');
-  return { currentPassword, newPassword };
-}
-export const mePassword = apiCommand({
-  name: 'me password', summary: 'Change the password (changePassword): asked without echo, or two lines on the standard input',
-  description: '--password-stdin: the current password, then the new one, one per line. Never an option of its own, never printed. Not an MCP tool.',
-  kind: 'mutation', op: 'changePassword', hide: ['currentPassword', 'newPassword'], mcp: false,
-  extra: { passwordStdin: { type: 'boolean', description: 'Read the current and the new password from the standard input, one per line' } },
-  prepare: async (i, ctx: Context) => { const { passwordStdin, ...rest } = i; return { ...rest, ...(await passwords(ctx, !!passwordStdin)) }; },
-  text: (r) => (r === true ? 'password changed' : 'nothing changed'),
-  examples: ['breakrocks me password', 'printf "%s\\n%s\\n" "$OLD" "$NEW" | breakrocks me password --password-stdin'],
-});
 
 export const meEmailChange = apiCommand({
   name: 'me email change', summary: 'Ask to change the email address: a code is sent to the new one (requestEmailChange)', kind: 'mutation', op: 'requestEmailChange', positionals: ['email'],
-  description: 'On the new backend (native-sulfur): a fresh sign-in (within 10 minutes) is needed; an account signed in by e-mail gets a second code at its former address (me email confirm --former-code).',
+  description: 'On native-sulfur: a fresh sign-in (within 10 minutes) is needed; an account signed in by e-mail gets a second code at its former address (me email confirm --former-code).',
   descriptions: { email: 'The new email address', challenge: 'The answer to a challenge, when the platform asks for one', locale: 'The language of the email (BCP 47)' },
   text: (r) => (r === true ? 'code sent: breakrocks me email confirm <code>' : 'nothing changed'),
   examples: ['breakrocks me email change new@example.com'],
 });
 export const meEmailConfirm = apiCommand({
   name: 'me email confirm', summary: 'Confirm the change of the email address with the code received (confirmEmailChange)', kind: 'mutation', op: 'confirmEmailChange', positionals: ['code'], descriptions: { code: 'The code received at the new address' },
-  description: 'On the new backend (native-sulfur): the change started by me email change from this profile within 10 minutes, on a fresh sign-in; an account signed in by e-mail gets a second code at its former address: --former-code.',
-  extra: { formerCode: { type: 'string', description: 'The new backend: the code sent to the former address, when the change asks for it' } },
+  description: 'On native-sulfur: the change started by me email change from this profile within 10 minutes, on a fresh sign-in; an account signed in by e-mail gets a second code at its former address: --former-code.',
+  extra: { formerCode: { type: 'string', description: 'native-sulfur: the code sent to the former address, when the change asks for it' } },
   prepare: (i, ctx: Context) => { const { formerCode, ...rest } = i; sulfurHint(ctx, 'codeOld', typeof formerCode === 'string' ? formerCode.trim() : undefined); return rest; },
   text: (r) => (r === true ? 'email address changed' : 'nothing changed'), examples: ['breakrocks me email confirm 123456', 'breakrocks me email confirm 12345678 --former-code 87654321'],
 });
@@ -111,7 +88,7 @@ export const meDelete = apiCommand({
 });
 export const meDeleteConfirm = apiCommand({
   name: 'me delete confirm', summary: 'Delete the account with the token of the confirmation email (confirmAccountDeletion)', kind: 'mutation', op: 'confirmAccountDeletion', positionals: ['token'], descriptions: { token: 'The token of the confirmation email' },
-  description: 'On the new backend (native-sulfur) there is no e-mailed token: me delete on a fresh sign-in is the deletion itself; this reads it back (when it takes effect), the token ignored.',
+  description: 'On native-sulfur there is no e-mailed token: me delete on a fresh sign-in is the deletion itself; this reads it back (when it takes effect), the token ignored.',
   confirm: () => 'Delete the account? It disappears after the grace period.',
   text: (r) => { const d = r as { deletedAt?: string; disappearsAt?: string } | null; return d ? `deleted ${d.deletedAt}, disappears ${d.disappearsAt}` : '(none)'; },
   examples: ['breakrocks me delete confirm <token> --yes'],
@@ -210,7 +187,7 @@ export const meInviteExceptionsAdd = inviteException(true);
 export const meInviteExceptionsRemove = inviteException(false);
 
 export const meCommands = [
-  meProfileShow, meProfileSet, meHandleCheck, meHandleChange, mePassword, meEmailChange, meEmailConfirm, meDelete, meDeleteConfirm,
+  meProfileShow, meProfileSet, meHandleCheck, meHandleChange, meEmailChange, meEmailConfirm, meDelete, meDeleteConfirm,
   meDataRequests, meDataCopy, meDataDownload, meDataErase, meDataEraseCancel, meDataConfirm, meDataRectify,
   meOnboarding, meOnboardingStart, meOnboardingSkip, meOnboardingRecord, meInvitationLink, meInvitationLinkRenew, meInvitationLinkRead,
   meInteractions, mePosts, meReports, meInviteExceptionsAdd, meInviteExceptionsRemove,

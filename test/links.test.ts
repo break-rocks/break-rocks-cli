@@ -2,26 +2,24 @@
 // links /go/<code> and their daily limit, the settings "The center button opens" and "Share my activity with my close
 // ones". Against a scripted API.
 import { describe, expect, it } from 'vitest';
-import { Context, NO_FLAGS } from '../src/context.js';
 import { buildLink, keyOfPointer, openLink, templateOf } from '../src/experiences/prefill.js';
-import { saveSession } from '../src/session.js';
-import { harness, last } from './helpers.js';
+import { harness, last, sulfurSession, sulfurError } from './helpers.js';
 
 type Call = { field: string; variables: Record<string, unknown>; query: string };
 function fake(answers: Record<string, unknown>, errors: Record<string, { errorType?: string; message: string; errorInfo?: unknown }> = {}) {
   const calls: Call[] = [];
   const h = harness({
-    env: { BREAKROCKS_API_URL: 'https://api.test/graphql', BREAKROCKS_AGENTS_URL: 'https://agents.test/v1' },
+    env: { BREAKROCKS_SULFUR_URL: 'https://api.test' },
     fetch: async (_url, init) => {
       const { query, variables } = JSON.parse(String(init!.body));
       const field = /\{\s*(\w+)/.exec(query.replace(/^[^{]*/, ''))![1];
       calls.push({ field, query, variables });
-      if (errors[field]) return Response.json({ data: { [field]: null }, errors: [errors[field]] });
+      if (errors[field]) return Response.json({ data: { [field]: null }, errors: [sulfurError(errors[field])] });
       const answer = answers[field];
       return Response.json({ data: { [field]: typeof answer === 'function' ? answer(variables) : answer ?? null } });
     },
   });
-  saveSession(new Context(h.io, NO_FLAGS), { kind: 'agent', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op', agentId: 'ag' });
+  sulfurSession(h.io, 'agent');
   return { h, calls };
 }
 
@@ -179,7 +177,7 @@ describe('the app tour of v157 (D-514, D-515)', () => {
 
   it('says an agent operator has no app tour, without calling the API', async () => {
     const { h, calls } = fake({});
-    saveSession(new Context(h.io, NO_FLAGS), { kind: 'operator', token: 't', sessionId: 's', expiresAt: '2099-01-01T00:00:00.000Z', operatorId: 'eu-op' });
+    sulfurSession(h.io, 'operator');
     expect(await h.run('me', 'tour', '--json')).toBe(1);
     expect(last(h)).toMatchObject({ error: { code: 'NO_APP_TOUR_FOR_AGENT_OPERATOR' } });
     expect(await h.run('me', 'tour', 'skip', '--json')).toBe(1);

@@ -1,5 +1,5 @@
 // The network settings of the CLI (README § Proxy): the proxy and the certificate authorities every
-// request goes through: the API, the sign-in (Cognito), the uploads, x402 and the wallet RPC, the update
+// request goes through: the API, the sign-in, the uploads, x402 and the wallet RPC, the update
 // check, the MCP server. The proxy comes from --proxy, else the profile (config set proxy), else the
 // environment (https_proxy / HTTPS_PROXY for https, http_proxy / HTTP_PROXY for http; the lowercase form
 // first); NO_PROXY (no_proxy) or the profile's no-proxy lists the hosts reached directly. http, https and

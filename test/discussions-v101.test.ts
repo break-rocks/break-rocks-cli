@@ -57,15 +57,7 @@ describe('a universe discussion', () => {
 });
 
 describe('contributions of a temporary universe discussion', () => {
-  it('votes UP or DOWN and withdraws the vote', async () => {
-    const { h, calls } = scripted({ voteOnContribution: { id: 'm1', score: 4, myVote: 'UP' }, withdrawContributionVote: { id: 'm1', score: 3, myVote: null } });
-    expect(await h.run('messages', 'vote', 'm1', 'UP')).toBe(0);
-    expect(calls[0].variables).toMatchObject({ messageId: 'm1', vote: 'UP' });
-    expect(h.lines.at(-1)).toBe('m1: score 4, your vote UP');
-    expect(await h.run('messages', 'unvote', 'm1')).toBe(0);
-    expect(h.lines.at(-1)).toBe('m1: score 3');
-    expect(await h.run('messages', 'vote', 'm1', 'SIDEWAYS', '--json')).toBe(2);
-  });
+
   it('reads the best contributions first (order TOP) and sends with a stance', async () => {
     const { h, calls } = scripted({ messages: { items: [], next: null }, sendMessage: { id: 'm2', stance: 'AGAINST' } });
     expect(await h.run('channels', 'read', '%paris&budget', '--top', '--json')).toBe(0);

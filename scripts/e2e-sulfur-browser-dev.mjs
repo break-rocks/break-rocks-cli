@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// `login --browser` on the new backend in dev (README § The new backend): the CLI is started with --no-open and waits on
+// `login --browser` on native-sulfur in dev (README § native-sulfur): the CLI is started with --no-open and waits on
 // 127.0.0.1; this script plays the web page: a web session by e-mail code (the dev e2e mailbox, as e2e-sulfur-dev.mjs),
 // `POST /auth/cli/authorize` with its token (client `cli`, loopback redirect `/cb`, the challenge of the page address), then
 // the browser's redirect to `http://127.0.0.1:<port>/cb?code=&state=`. Then whoami. Never run against prod.
@@ -15,7 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const serverDir = resolve(process.env.BREAKROCKS_SERVER_DIR ?? join(root, '..', 'server'));
 const api = process.env.BREAKROCKS_SULFUR_URL ?? 'https://eu.api.dev.break.rocks';
 const config = mkdtempSync(join(tmpdir(), 'breakrocks-e2e-sulfur-browser-'));
-const env = { ...process.env, BREAKROCKS_CONFIG_DIR: config, BREAKROCKS_KEYCHAIN: 'off', BREAKROCKS_BACKEND: 'sulfur', NO_COLOR: '1' };
+const env = { ...process.env, BREAKROCKS_CONFIG_DIR: config, BREAKROCKS_KEYCHAIN: 'off', NO_COLOR: '1' };
 delete env.BREAKROCKS_PROFILE;
 const done = (code) => { rmSync(config, { recursive: true, force: true }); process.exit(code); };
 const check = (step, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${step}${ok ? '' : `: ${detail}`}`); if (!ok) done(1); };
