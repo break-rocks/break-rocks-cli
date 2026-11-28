@@ -5,6 +5,32 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-28
+
+The new backend's schema resynced (`schema/sulfur`, server `6bd5daf1`: the messaging and governance branches).
+
+### Added
+
+- `messages direct send` and `messages groups send` send a place (`--place-point <lat>,<lon> --place-name <name>`) or an
+  arrival notice (`--arrival <zone name>`) alone; `discussions send` a place alone. A place or an arrival beside a text, a
+  file, media or a link is refused before anything is sent (`INVALID_INPUT`, `PLACE_INVALID`, `ARRIVAL_ZONE_INVALID`).
+- The one-line form of a message (`messages changes`, `pinned`, `edit`, `quick-poll`) shows its place, arrival, stance, my
+  vote, quick poll (its choices, `*` mine, the totals once shown), agent (`via`) and language.
+- New backend: `governance display` goes through an adapter (`setUniverseDisplay` answers `true` there: the universe is
+  read after it).
+- New backend: `proposals file` refuses before sending the kinds the new backend does not file (`THEME`, `LAYOUT`,
+  `APPEARANCE`, `PAGE`, `PLAYLIST`, `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`, `SECOND_ROUND`), the
+  changes it does not take (`watermark`, `territory`, `theme`, `layoutRef`, `restoreLayoutVersion`, `appearance`,
+  `studioDraftId`, `playlistAction`, `channelAction`, `local`, `foldingCoefficient`) and a showcase clearing anything but
+  `LOGO`, saying why and naming the kinds filed there (`NOT_ON_NEW_BACKEND`).
+
+### Changed
+
+- New backend: the schema resynced at server `6bd5daf1`: `me invite-exceptions add|remove`, `governance field` and
+  `governance display` are served again; `messages settings set --invite-policy` takes `nobody` and `except`; the message
+  reads answer `place`, `arrival`, `stance`, `spans`, `display`, `language`, `via`, `myVote`, `quickPoll` and the cards;
+  `Proposal.discussion`, `notApplied`, `UniverseNews.decisions`, `LiveLine.vote` and `poll` are answered.
+
 ## [0.46.0] - 2026-11-27
 
 The new backend's schema resynced (`schema/sulfur`, server `b822c90a`) and the operations it serves otherwise adapted in the

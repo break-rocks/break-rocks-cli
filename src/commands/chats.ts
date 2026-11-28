@@ -9,8 +9,22 @@ import { usageError } from '../errors.js';
 import { discussionTarget, doneText, listText, oneDiscussion, pageText, pointOf } from './shared.js';
 
 const MESSAGE = selection('Message', 1);
-type Message = { id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; deleted?: boolean };
-const messageLine = (m: Message) => `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${m.deleted ? '(deleted)' : m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ')}`;
+type Message = {
+  id: string; createdAt?: string; author?: { handle?: string } | null; text?: string | null; deletedForMe?: boolean; deleted?: boolean;
+  place?: { name?: string | null } | null; arrival?: { zoneName?: string | null } | null; stance?: string | null; language?: string | null; via?: { agentName?: string | null } | null;
+  quickPoll?: { question?: string; choices?: string[]; totals?: number[] | null; myChoice?: number | null } | null; myVote?: string | null;
+};
+/** What a message carries beside its text: its place, arrival, stance, quick poll, agent and language. */
+const messageExtras = (m: Message) => [
+  m.place?.name ? `place: ${m.place.name}` : '', m.arrival?.zoneName ? `arrived: ${m.arrival.zoneName}` : '', m.stance ? `stance: ${m.stance}` : '', m.myVote ? `my vote: ${m.myVote}` : '',
+  m.quickPoll ? `poll: ${m.quickPoll.question ?? ''} [${(m.quickPoll.choices ?? []).map((c, n) => `${n === m.quickPoll?.myChoice ? '*' : ''}${c}${m.quickPoll?.totals ? ` ${m.quickPoll.totals[n] ?? 0}` : ''}`).join(' | ')}]` : '',
+  m.via?.agentName ? `via ${m.via.agentName}` : '', m.language ? `(${m.language})` : '',
+].filter(Boolean).join('  ');
+const messageLine = (m: Message) => {
+  const body = m.deleted ? '(deleted)' : m.deletedForMe ? '(deleted for me)' : (m.text ?? '').replace(/\s+/g, ' ');
+  const extras = m.deleted || m.deletedForMe ? '' : messageExtras(m);
+  return `${m.id}  ${m.createdAt ?? ''}  @${m.author?.handle ?? '?'}  ${body}${extras ? `${body ? '  ' : ''}${extras}` : ''}`;
+};
 const messageText = (r: unknown) => (r ? messageLine(r as Message) : '(none)');
 const targetHelp = 'Name the discussion with exactly one of --with (a conversation: @handle or its id), --group (a group chat id) or --channel (a universe discussion: %paris&general).';
 const inDiscussion = { ...discussionTarget, prepare: oneDiscussion };

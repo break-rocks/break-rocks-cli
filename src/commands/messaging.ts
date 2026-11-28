@@ -14,7 +14,8 @@ import type { Command } from '../registry.js';
 import { bool, int, list, object, openObject, str } from '../schema.js';
 import { api } from '../session.js';
 import { WATCH_PROPERTIES, watchItems, type WatchInput } from '../watch.js';
-import { composeProps, dryRunOf, plan, sendMedia, wait, type ComposeInput } from './publish.js';
+import { pointOf } from './geo.js';
+import { composeProps, dryRunOf, plan, sendMedia, wait, type ComposeInput, type Plan } from './publish.js';
 import { accountChannel, instantOf, liveOf } from './read.js';
 
 const MESSAGE = selection('Message', 1);
@@ -52,24 +53,42 @@ export const inbox: Command<{ unread?: boolean; after?: string; all?: boolean; m
   },
 };
 
+/** --place-point with --place-name (a place sent alone), and --arrival (an arrival notice, sent alone). */
+type PlaceSend = { placePoint?: string; placeName?: string; arrival?: string };
+const placeProps = {
+  placePoint: str('Send a place, alone: its point, <lat>,<lon> (with --place-name; in a universe discussion its text is the place\'s name)'),
+  placeName: str('The name of the place sent (1 to 100 characters), with --place-point', { maxLength: 100 }),
+};
+const arrivalProp = { arrival: str('Send an arrival notice, alone: the name of the arrival zone (a human, in a conversation or a group chat; ARRIVAL_ZONE_INVALID)') };
+/** The place or the arrival of a message, checked: each is sent alone (no text, no media, no link). */
+function placeOf(i: ComposeInput & PlaceSend): Record<string, unknown> | undefined {
+  if (i.placePoint === undefined && i.placeName === undefined && i.arrival === undefined) return undefined;
+  if ((i.placePoint !== undefined || i.placeName !== undefined) && i.arrival !== undefined) throw usageError('INVALID_INPUT', 'A place or an arrival, not both');
+  if ((i.text !== undefined && i.text !== '') || i.file !== undefined || i.image?.length || i.video !== undefined || i.link !== undefined) throw usageError('INVALID_INPUT', `${i.arrival !== undefined ? 'An arrival' : 'A place'} is sent alone: no text, file, image, video nor link`);
+  if (i.arrival !== undefined) { if (!i.arrival.trim()) throw usageError('ARRIVAL_ZONE_INVALID', '--arrival: the name of the arrival zone'); return { arrival: { zoneName: i.arrival.trim() } }; }
+  if (i.placePoint === undefined || !i.placeName?.trim()) throw usageError('PLACE_INVALID', 'A place is --place-point <lat>,<lon> with --place-name <name> (1 to 100 characters)');
+  return { place: { name: i.placeName.trim(), point: pointOf(i.placePoint, '--place-point') } };
+}
+
 /** Sends a message with its media in [to] (sendMessage); its requestId (a UUIDv7) makes it once, and its id is <cell>-<requestId>. */
-async function sendTo(ctx: Context, to: Discussion, i: ComposeInput & { respondsTo?: string; unblock?: boolean; stance?: string }, operation: string, shown: Record<string, unknown>) {
-  const p = await plan(ctx, i);
-  if (i.dryRun) return dryRunOf(p, { operation, ...shown, ...(i.stance ? { stance: i.stance } : {}) });
+async function sendTo(ctx: Context, to: Discussion, i: ComposeInput & PlaceSend & { respondsTo?: string; unblock?: boolean; stance?: string }, operation: string, shown: Record<string, unknown>) {
+  const alone = placeOf(i);
+  const p: Plan = alone ? { text: '', images: [], requestId: i.requestId ?? uuidv7(ctx.now()) } : await plan(ctx, i);
+  if (i.dryRun) return { ...dryRunOf(p, { operation, ...shown, ...(i.stance ? { stance: i.stance } : {}) }), ...alone };
   const destination = 'accountId' in to ? 'DIRECT_MESSAGE' : 'groupChatId' in to ? 'GROUP_MESSAGE' : 'CHANNEL_MESSAGE';
   const media = await sendMedia(ctx, p, { destination });
-  const input = { to, text: p.text, link: p.link ?? null, respondsTo: i.respondsTo ?? null, ...(i.unblock !== undefined ? { unblock: i.unblock } : {}), ...(i.stance ? { stance: i.stance } : {}), images: media.images ?? null, clip: media.clip ?? null };
+  const input = { to, text: alone ? null : p.text, link: p.link ?? null, respondsTo: i.respondsTo ?? null, ...(i.unblock !== undefined ? { unblock: i.unblock } : {}), ...(i.stance ? { stance: i.stance } : {}), ...alone, images: media.images ?? null, clip: media.clip ?? null };
   return whileProcessing(ctx, async () => (await api<{ sendMessage: unknown }>(ctx, `mutation($input: SendMessageInput!, $requestId: ID!) { sendMessage(input: $input, requestId: $requestId) ${MESSAGE} }`, { input, requestId: p.requestId })).sendMessage, wait(p));
 }
 
 const messageRequestId = { requestId: str('An idempotency key (a UUIDv7 of the last 24 hours; one is made when absent): sent again, the message is made once; its id is <cell>-<requestId>', { pattern: '^[0-9a-fA-F-]{36}$' }) };
 
-type DmInput = ComposeInput & { account: string; respondsTo?: string; unblock?: boolean };
+type DmInput = ComposeInput & PlaceSend & { account: string; respondsTo?: string; unblock?: boolean };
 export const dm: Command<DmInput, unknown> = {
-  name: 'dm', summary: 'Send a direct message: text, images or a clip, a link (sendMessage)',
-  description: 'The account by @handle or id. The media as in post. A first message to an account not connected is refused unless it accepts it at once: connections request first. --request-id (a UUIDv7, made when absent) makes the message once even when sent again.',
-  examples: ['breakrocks messages direct send @alice "Hello!"', 'breakrocks messages direct send @alice "The photo" --image photo.jpg', 'echo "Hello" | breakrocks messages direct send @alice -'],
-  input: object({ account: str('The account: @handle or its id'), ...composeProps, ...messageRequestId, respondsTo: str('The message answered'), unblock: bool('Unblock the account to write to it') }, ['account']),
+  name: 'dm', summary: 'Send a direct message: text, images or a clip, a link, or a place or an arrival alone (sendMessage)',
+  description: 'The account by @handle or id. The media as in post. --place-point <lat>,<lon> with --place-name sends a place, --arrival <zone name> an arrival notice, each alone. A first message to an account not connected is refused unless it accepts it at once: connections request first. --request-id (a UUIDv7, made when absent) makes the message once even when sent again.',
+  examples: ['breakrocks messages direct send @alice "Hello!"', 'breakrocks messages direct send @alice "The photo" --image photo.jpg', 'echo "Hello" | breakrocks messages direct send @alice -', 'breakrocks messages direct send @alice --place-point 48.8530,2.3690 --place-name Bastille'],
+  input: object({ account: str('The account: @handle or its id'), ...composeProps, ...placeProps, ...arrivalProp, ...messageRequestId, respondsTo: str('The message answered'), unblock: bool('Unblock the account to write to it') }, ['account']),
   output: outputSchema('Message', 1), args: { positionals: ['account', 'text'] },
   run: async (ctx, i) => (i.dryRun ? sendTo(ctx, { accountId: i.account }, i, 'sendMessage', { account: i.account }) : sendTo(ctx, { accountId: await accountIdOf(ctx, i.account) }, i, 'sendMessage', { account: i.account })),
   quiet: (r) => (r as { id?: string }).id,
@@ -174,9 +193,9 @@ export const groupsList: Command<{ max?: number }, unknown> = {
 const grp = { id: 'The group chat' };
 const onGroup = { rename: { groupChatId: 'id' }, descriptions: { ...grp, account: 'The account: @handle or its id' } };
 export const groupsShow = apiCommand({ name: 'groups show', summary: 'A group chat', kind: 'query', op: 'groupChat', positionals: ['id'], descriptions: grp, examples: ['breakrocks messages groups show <group id>'] });
-export const groupsSend: Command<ComposeInput & { id: string; respondsTo?: string }, unknown> = {
-  name: 'groups send', summary: 'Send a message in a group chat, with its media (sendMessage)', examples: ['breakrocks messages groups send <group id> "See you at 6 pm"', 'breakrocks messages groups send <group id> --file note.md --image plan.png'],
-  input: object({ id: str('The group chat'), ...composeProps, ...messageRequestId, respondsTo: str('The message answered') }, ['id']), output: outputSchema('Message', 1), args: { positionals: ['id', 'text'] },
+export const groupsSend: Command<ComposeInput & PlaceSend & { id: string; respondsTo?: string }, unknown> = {
+  name: 'groups send', summary: 'Send a message in a group chat, with its media, or a place or an arrival alone (sendMessage)', examples: ['breakrocks messages groups send <group id> "See you at 6 pm"', 'breakrocks messages groups send <group id> --file note.md --image plan.png', 'breakrocks messages groups send <group id> --arrival "Gare de Lyon"'],
+  input: object({ id: str('The group chat'), ...composeProps, ...placeProps, ...arrivalProp, ...messageRequestId, respondsTo: str('The message answered') }, ['id']), output: outputSchema('Message', 1), args: { positionals: ['id', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { groupChatId: i.id }, i, 'sendMessage', { id: i.id }),
   quiet: (r) => (r as { id?: string }).id,
 };
@@ -208,9 +227,9 @@ export const groupsDecline = apiCommand({ name: 'groups decline', summary: 'Decl
 
 // The channels of a universe: their messages are those of a discussion { channel }.
 const ch = { channel: 'The channel (%universe&name)' };
-export const channelsSend: Command<ComposeInput & { channel: string; respondsTo?: string; stance?: string }, unknown> = {
-  name: 'channels send', summary: 'Send a message in a channel or a universe discussion, with its media (sendMessage; --stance in a temporary one)', examples: ['breakrocks discussions send %paris&velo "See you at 6 pm"', 'breakrocks discussions send %paris&budget "Too expensive" --stance AGAINST'],
-  input: object({ channel: str(ch.channel), ...composeProps, ...messageRequestId, respondsTo: str('The message answered'), stance: str('The stance of a contribution in a temporary universe discussion: FOR, AGAINST or QUESTION (STANCE_NOT_ALLOWED elsewhere)', { enum: ['FOR', 'AGAINST', 'QUESTION'] }) }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
+export const channelsSend: Command<ComposeInput & PlaceSend & { channel: string; respondsTo?: string; stance?: string }, unknown> = {
+  name: 'channels send', summary: 'Send a message in a channel or a universe discussion, with its media, or a place alone (sendMessage; --stance in a temporary one)', examples: ['breakrocks discussions send %paris&velo "See you at 6 pm"', 'breakrocks discussions send %paris&budget "Too expensive" --stance AGAINST', 'breakrocks discussions send %paris&velo --place-point 48.8530,2.3690 --place-name Bastille'],
+  input: object({ channel: str(ch.channel), ...composeProps, ...placeProps, ...messageRequestId, respondsTo: str('The message answered'), stance: str('The stance of a contribution in a temporary universe discussion: FOR, AGAINST or QUESTION (STANCE_NOT_ALLOWED elsewhere)', { enum: ['FOR', 'AGAINST', 'QUESTION'] }) }, ['channel']), output: outputSchema('Message', 1), args: { positionals: ['channel', 'text'] },
   run: async (ctx, i) => sendTo(ctx, { channel: i.channel }, i, 'sendMessage', { channel: i.channel }),
   quiet: (r) => (r as { id?: string }).id,
 };

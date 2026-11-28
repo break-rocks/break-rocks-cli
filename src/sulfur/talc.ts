@@ -307,6 +307,13 @@ export const ADAPTERS: Record<string, Adapter> = {
     await sulfurApi(ctx, 'mutation($id: ID!) { deleteTheme(id: $id) }', { id: theme.id });
     return 'deleted' in theme ? { ...theme, deleted: true } : theme;
   },
+  // Proposal changes: a public universe's display case by its leadership answers `true` there (talc: the universe); the
+  // universe read after it (`universe(name)`).
+  setUniverseDisplay: async (ctx, call) => {
+    const universe = String(call.args.universe ?? '');
+    await sulfurApi(ctx, 'mutation($u: String!, $d: String!, $r: ID) { setUniverseDisplay(universe: $u, display: $d, requestId: $r) }', { u: universe, d: call.args.display, r: call.args.requestId ?? null });
+    return (await runServed(ctx, `query($n: String!) { universe(name: $n) ${call.selection || '{ name }'} }`, { n: universe })).universe ?? null;
+  },
   // 6c-1: a place is saved with its name and point (talc: its id alone), read from its card (placeCard).
   saveToMyPlaces: async (ctx, call) => {
     const input = { ...((call.args.input ?? {}) as Json) };
@@ -318,6 +325,37 @@ export const ADAPTERS: Record<string, Adapter> = {
     }
     const doc = `mutation($input: SaveToMyPlacesInput!, $requestId: ID!) { saveToMyPlaces(input: $input, requestId: $requestId) ${call.selection || '{ id }'} }`;
     return (await runServed(ctx, doc, { input, requestId: call.args.requestId })).saveToMyPlaces;
+  },
+};
+
+/**
+ * The proposal kinds the new backend does not file (server talc-deviations § Proposal changes: their features' proposal
+ * paths, or parked), refused before anything is sent, with why.
+ */
+const PROPOSAL_KINDS_NOT_SERVED: Record<string, string> = {
+  THEME: 'a theme is proposed through the themes feature there', LAYOUT: 'a layout is proposed through the themes feature there',
+  APPEARANCE: 'an appearance is proposed through the appearance editor there', PAGE: 'a custom page is proposed through the studio there',
+  PLAYLIST: 'a universe playlist is changed through publishing there', CHANNEL: 'a channel action is the universe discussions\' own path there',
+  TERRITORY: 'a universe territory is the map feature\'s, not ported to proposals', ADVERTISING: 'advertising is not ported to proposals',
+  FOLDING_COEFFICIENT: 'the folding coefficient is parked (D-613)', SECOND_ROUND: 'a second round is not filed there',
+};
+/** The fields of a proposal change the new backend does not take (their kinds are refused, or the feature is not ported). */
+const PROPOSAL_CHANGES_NOT_SERVED = ['watermark', 'territory', 'theme', 'layoutRef', 'restoreLayoutVersion', 'appearance', 'studioDraftId', 'playlistAction', 'channelAction', 'local', 'foldingCoefficient'];
+/** The proposal kinds served there (server KIND_IN). */
+export const PROPOSAL_KINDS_SERVED = ['ACTION', 'OTHER', 'CHARTER', 'MANIFESTO', 'MODERATION_RULES', 'MODERATOR_ELECTION', 'MODERATOR_REVOCATION', 'RECALL', 'PROPOSAL_SUMMARIES', 'SHOWCASE', 'DISPLAY_CASE', 'FIELD', 'DAILY_DIGEST', 'CONVERSATION_STARTERS', 'VOTING_METHOD', 'SUB_UNIVERSE_GOVERNANCE_WITHDRAWAL', 'PINNED_CHANNELS'];
+
+/** What a root field served as is may not carry there, refused before it is sent (with a clearer word than the fit's). */
+const GUARDS: Record<string, (call: RootCall) => void> = {
+  fileProposal: (call) => {
+    const input = (call.args.input ?? {}) as Json;
+    const kind = String(input.kind ?? '');
+    const why = PROPOSAL_KINDS_NOT_SERVED[kind];
+    if (why) throw notServed(`A proposal of kind ${kind}`, `${why}; the kinds filed there: ${PROPOSAL_KINDS_SERVED.join(', ')}`);
+    const change = (input.change ?? {}) as Json;
+    const given = PROPOSAL_CHANGES_NOT_SERVED.filter((k) => change[k] !== undefined && change[k] !== null && !(Array.isArray(change[k]) && !(change[k] as unknown[]).length));
+    if (given.length) throw notServed(`The proposal change ${given.join(', ')}`, 'the new backend takes the showcase, the display case, the field, the daily digest, the conversation starters, the voting method, a charter\'s most moderators, a sub-universe\'s governance withdrawn, the pinned channels, the proposal summaries, an account and a target date');
+    const clear = Array.isArray(change.clear) ? (change.clear as string[]).filter((c) => c !== 'LOGO') : [];
+    if (clear.length) throw notServed(`A proposal clearing ${clear.join(', ')}`, 'a showcase clears the universe image (LOGO) only there');
   },
 };
 
@@ -366,10 +404,18 @@ function redatable(query: string): string | undefined {
   } catch { return undefined; }
 }
 
+/** The arguments of a root field: the variables they name, read; a literal as written. */
+function argsOf(query: string, item: { args: { name: string; start: number; end: number; variable?: string }[] }, variables: Json): Record<string, unknown> {
+  const args: Record<string, unknown> = {};
+  for (const a of item.args) args[a.name] = a.variable !== undefined ? variables[a.variable] : literal(query.slice(query.indexOf(':', a.start) + 1, a.end).trim());
+  return args;
+}
+
 async function sulfurTalcOnce<T>(ctx: Context, query: string, variables: Json = {}, options: { partial?: boolean } = {}): Promise<T> {
   const ops = parseOperations(query);
   if (ops.length !== 1) throw notServed('a document of several operations');
   const op = ops[0];
+  for (const item of op.selection.items) if (item.kind === 'field' && GUARDS[item.name]) GUARDS[item.name]({ name: item.name, key: item.key, kind: op.kind, args: argsOf(query, item, variables), selection: '' });
   const adapted = op.selection.items.filter((i) => i.kind === 'field' && ADAPTERS[i.name]);
   if (!adapted.length) return runServed(ctx, query, variables, options) as Promise<T>;
   const data: Json = {};
@@ -384,9 +430,7 @@ async function sulfurTalcOnce<T>(ctx: Context, query: string, variables: Json = 
   }
   for (const item of adapted) {
     if (item.kind !== 'field') continue;
-    const args: Record<string, unknown> = {};
-    for (const a of item.args) args[a.name] = a.variable !== undefined ? variables[a.variable] : literal(query.slice(query.indexOf(':', a.start) + 1, a.end).trim());
-    data[item.key] = await ADAPTERS[item.name](ctx, { name: item.name, key: item.key, kind: op.kind, args, selection: item.selection ? query.slice(item.selection.start, item.selection.end) : '' });
+    data[item.key] = await ADAPTERS[item.name](ctx, { name: item.name, key: item.key, kind: op.kind, args: argsOf(query, item, variables), selection: item.selection ? query.slice(item.selection.start, item.selection.end) : '' });
   }
   return data as T;
 }
