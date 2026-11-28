@@ -5,7 +5,17 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-28
+
+The new backend's schema resynced at server `cc3f09f9` (universe direction, account layouts) then `0c747737` (posts, events,
+settings).
+
 ### Added
+
+- `events create` and `events change --route-points "<lat>,<lon>;…" [--route-mode FOOT|HIKE|BICYCLE…]` draw the event's
+  route (a `RouteInput`; the new backend keeps it as the creator's unlisted route).
+- `posts list` prints the author's role (leadership, moderator), the views of a clip and the moment of a system post.
+- `me tips`: the gesture tips of the apps already shown to the account (read only).
 
 - `universes profile set <universe>`: the first focus (`--first-focus`), the universe strip (`--no-universe-strip`), the
   default layout (`--layout`) and the governance page's (`--governance-layout`) of a universe, and their clears
@@ -25,6 +35,9 @@ the contract is API v2 of the platform (`schema/api-v2/*.graphql`). The scope wa
 - `look layouts list` reads the catalog without the layouts' documents (`look layouts show` reads one).
 - New backend: the schema resynced at server `cc3f09f9` (universe direction and account layouts): `look layouts publish`,
   `publish-version`, `copy` and `delete` are served again.
+- New backend: the schema resynced at server `0c747737`: the post reads answer `authorRole`, `viewCount`, `moment`,
+  `momentData`, `projectOf`, `digestOf`; `me tour` and its settings are served (`Settings.tour`, `Settings.tips`);
+  `events support` answers the universe event and `events relay support` the relay (they answered a proposal there).
 
 ## [0.47.0] - 2026-11-28
 

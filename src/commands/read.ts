@@ -27,7 +27,7 @@ export const liveOf = (ctx: Context, target: { address?: string | null; channel?
 export const accountChannel = (types: string[], match: (e: Record<string, unknown>) => boolean = () => true): LiveSource => ({ channels: async (id) => [`/users/${id}`], matches: (e) => types.includes(e.type) && match(e) });
 
 type MediaOfPost = { url?: string; license?: string | null; attribution?: string | null } | null;
-type Post = { id: string; createdAt: string; kind: string; language?: string | null; clip?: MediaOfPost; longVideo?: MediaOfPost; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
+type Post = { id: string; createdAt: string; kind: string; authorRole?: string | null; viewCount?: number | null; moment?: string | null; projectOf?: { id: string; title?: string } | null; digestOf?: string | null; language?: string | null; clip?: MediaOfPost; longVideo?: MediaOfPost; display: string; author: { handle: string; id: string }; universe: string; url: string; images: { url: string; alt?: string | null }[]; link?: { url: string; title?: string | null } | null; replyCount: number; likeCount: number; repostCount: number; tags: string[] };
 type Page<T> = { items: T[]; next: string | null; [k: string]: unknown };
 
 const POST = selection('Post', 1);
@@ -94,12 +94,17 @@ export const postsList: Command<ListInput, unknown> = {
   text: (r) => renderPosts(r),
 };
 
-/** Posts as plain text: author, place, date, text. */
+/** The role of the author of a post (LEADERSHIP, MODERATOR) beside its handle. */
+const postMarks = (p: Post) => (p.authorRole ? ` (${p.authorRole.toLowerCase()})` : '');
+/** What a post tells beside its text: its views, its moment, the project or the digest it is. */
+const postFacts = (p: Post) => [p.viewCount != null ? `${p.viewCount} views` : '', p.moment ? `moment: ${p.moment}` : '', p.projectOf ? `project of ${p.projectOf.title ?? p.projectOf.id}` : '', p.digestOf ? `digest of ${p.digestOf}` : ''].filter(Boolean).map((x) => `  ${x}`).join('');
+
+/** Posts as plain text: author (and role), place, date, views, moment, text. */
 export function renderPosts(r: unknown): string {
   const page = r as Page<Post> & { watched?: boolean };
   if (page.watched) return `Watched: ${JSON.stringify(r)}`;
   if (!page.items?.length) return '(no post)';
-  return [...page.items.map((p) => `@${p.author?.handle} in ${p.universe}, ${p.createdAt}  [${p.id}]\n${p.display}${p.images?.length ? `\n${p.images.map((i) => `[image] ${i.url}`).join('\n')}` : ''}${mediaLicenseOf(p) ? `\n[media license] ${mediaLicenseOf(p)}` : ''}`), ...(page.next ? [`next: ${page.next}`] : [])].join('\n\n');
+  return [...page.items.map((p) => `@${p.author?.handle}${postMarks(p)} in ${p.universe}, ${p.createdAt}  [${p.id}]${postFacts(p)}\n${p.display}${p.images?.length ? `\n${p.images.map((i) => `[image] ${i.url}`).join('\n')}` : ''}${mediaLicenseOf(p) ? `\n[media license] ${mediaLicenseOf(p)}` : ''}`), ...(page.next ? [`next: ${page.next}`] : [])].join('\n\n');
 }
 
 /** The line of the media license of the video of a post (its clip or its long video; specs v101.8.0, D-309): "CC BY · Jane Doe"; none: undefined. */

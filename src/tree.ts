@@ -98,6 +98,7 @@ me navigation set | = | Choose what the center button opens
 me tour | = | The app tour of the account and its preferences
 me tour skip | = | Skip the app tour of the account
 me tour set | = | Choose the tour mode, voice language or auto move on
+me tips | = | The gesture tips already shown
 me privacy share-activity | = | Whether your close ones see your activity
 me privacy share-activity set | = | Share your activity with your close ones, or stop
 subscription show | = | The paid tier subscription of the account

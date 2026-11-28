@@ -113,6 +113,18 @@ GraphQL request goes through one seam (`src/session.ts` `api()` → `src/sulfur/
   2026-11-28 (a fresh account, deleted after): a copy kept as a studio draft then deleted, a copy published in `%paris`, its
   document read, its next version published, the catalog by prefix, the layout deleted; the strip and a layout of a private
   universe set, read back and cleared (`%paris` refused `UNIVERSE_GOVERNED`); join, leave and `REJOIN_WAIT`.
+- **Posts, events and settings** (server `0c747737`): the post reads answer `authorRole` (`LEADERSHIP`, `MODERATOR`: posts of
+  a public universe and their threads), `viewCount` (the clips of a public universe, `posts feed --clips --address`),
+  `moment` / `momentData`, `projectOf` and `digestOf` (none written yet); `posts list` prints the role beside the handle,
+  the views and the moment. `events create` and `events change` draw a route (`--route-points "<lat>,<lon>;…"` with
+  `--route-mode`, FOOT by default; or `--route`, the RouteInput JSON): the server keeps it as the creator's unlisted route,
+  the event's `routeId`. `events support` answers the universe event (`WAITING_SUPPORT` with its supports, `SCHEDULED` once
+  made; an adopted proposal may still answer `WAITING_SUPPORT` 5/5 for a few seconds) and `events relay support` the relay.
+  `me tour`, `me tour skip` and `me tour set` are served (`Settings.tour`); `me tips` reads the gesture tips shown
+  (`Settings.tips`; the apps mark them). `quote(document)` is served, but the CLI attaches no document to a post yet. Run
+  against dev on 2026-11-28 (a fresh account, deleted after): `me tips`, `me tour`, `me tour set`, the new post fields asked
+  (none of the posts of `%paris`, `%root`, `%france`, `%gaming` carried a role, a moment or views), `events create` with a
+  drawn route reaching the server (`RESIDENTS_ONLY`, then `VOTE_ACCOUNT_TOO_RECENT` for an account of less than a day).
 - **Invitations to group chats**: `messages settings set --invite-policy connections|nobody|except` (`setSettings.messaging`)
   and `me invite-exceptions add|remove @handle` (`setInviteException`, 1,000 at most) are served. An invitation the policy
   refuses is declined silently: the inviter gets its invitation, the invitee never sees it (checked on dev on 2026-11-28).
@@ -173,7 +185,7 @@ means the server serves every operation the command sends under its talc name: t
 deviations), which the command then reports with the server's code.
 
 <!-- table -->
-649 commands: 573 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 164 run against dev.
+650 commands: 574 work as they are, 37 through an adapter, 1 partly, 12 not available, 26 offline; 166 run against dev.
 
 #### account
 
@@ -226,7 +238,8 @@ deviations), which the command then reports with the server's code.
 | `me privacy share-activity set` | works |  | setSettings |  |
 | `me tour` | works | yes | mySettings |  |
 | `me tour skip` | works |  | setSettings |  |
-| `me tour set` | works |  | setSettings |  |
+| `me tour set` | works | yes | setSettings |  |
+| `me tips` | works | yes | mySettings |  |
 
 #### agents
 
@@ -418,7 +431,7 @@ deviations), which the command then reports with the server's code.
 | `posts subtitles correct` | works |  | correctSubtitles |  |
 | `posts create` | adapted | yes | createPost, setPostPlace, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): createPost(authorship) |
 | `posts reply` | adapted | yes | replyTo, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): replyTo(authorship) |
-| `posts quote` | adapted | yes | quote, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): quote(authorship, document) |
+| `posts quote` | adapted | yes | quote, (media upload) | adapted: media upload (requestUpload); arguments not taken (refused when given): quote(authorship) |
 | `posts repost` | works | yes | repost | arguments not taken (refused when given): repost(authorship) |
 | `posts like` | works | yes | setLike |  |
 | `posts unlike` | works |  | setLike |  |

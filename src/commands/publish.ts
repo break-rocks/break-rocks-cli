@@ -18,7 +18,7 @@ import { bool, int, list, object, str } from '../schema.js';
 import { api } from '../session.js';
 import { discussionAddress, discussionIdOf } from './discussions.js';
 import { BOUNDARY_ID, territoryChoice } from './geo.js';
-import { exploreMapFlag, exploreMapPrepare } from './shared.js';
+import { eventFlags, eventPrepare } from './shared.js';
 
 const POST = selection('Post', 1);
 const REPLY_POLICIES = ['everyone', 'following', 'mentioned', 'nobody'];
@@ -372,12 +372,12 @@ export const pollsShow = apiCommand({ name: 'polls show', summary: 'A poll', kin
 
 export const eventsCreate = apiCommand({
   name: 'events create', summary: 'Propose an event in a universe (createUniverseEvent): 1 to 5 free tags', kind: 'mutation', op: 'createUniverseEvent', positionals: ['input.universe'],
-  description: 'Since specs v101.0.0 (D-300) a universe event carries 1 to 5 free tags (--tags, required: FREE_TAGS_REQUIRED); --explore-map shown|kept|by-type (specs v122.0.0, D-383) tells whether it is drawn on the Map view of Experiences (Explore) beyond its universe (EVENT_EXPLORE_MAP_NOT_ALLOWED, EVENT_EXPLORE_MAP_LIMIT: 3 upcoming at most per universe); a resident proposes it, the leadership of the universe creates it. --route-id: a route of the universe or one\'s own; --no-discussion turns its event discussion off; --from-discussion: the universe discussion it is proposed from (/event).',
+  description: 'Since specs v101.0.0 (D-300) a universe event carries 1 to 5 free tags (--tags, required: FREE_TAGS_REQUIRED); --explore-map shown|kept|by-type (specs v122.0.0, D-383) tells whether it is drawn on the Map view of Experiences (Explore) beyond its universe (EVENT_EXPLORE_MAP_NOT_ALLOWED, EVENT_EXPLORE_MAP_LIMIT: 3 upcoming at most per universe); a resident proposes it, the leadership of the universe creates it. --route-id: a route of the universe or one\'s own; --no-discussion turns its event discussion off; --from-discussion: the universe discussion it is proposed from (/event). --route-points "<lat>,<lon>;…" (with --route-mode) draws its route, saved as your own unlisted route (or --route, the RouteInput JSON).',
   descriptions: { ...u, place: 'Where, as text', point: 'Where: { "lat", "lon" }', tags: 'Its free tags (repeat --tags, or commas): 1 to 5, required', routeId: 'The id of a route of the universe or of one\'s own', discussion: 'Its event discussion (on unless --no-discussion)', fromDiscussion: 'The id of the universe discussion it is proposed from' },
   require: ['tags'],
-  ...exploreMapFlag,
-  prepare: (i) => exploreMapPrepare({ ...i, tags: freeTags(i.tags, 1, 'A universe event') }),
-  examples: ['breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc', 'breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags parc --explore-map shown'],
+  ...eventFlags,
+  prepare: (i) => eventPrepare({ ...i, tags: freeTags(i.tags, 1, 'A universe event') }),
+  examples: ['breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags pique-nique --tags parc', 'breakrocks events create %paris --title "Pique-nique" --starts-at 2026-11-01T12:00:00Z --minutes 120 --place "Buttes-Chaumont" --tags parc --explore-map shown', 'breakrocks events create %paris --title "Canal walk" --starts-at 2026-11-01T10:00:00Z --minutes 90 --tags balade --route-points "48.8721,2.3654;48.8790,2.3700;48.8840,2.3710" --route-mode FOOT'],
 });
 export const eventsAttend: Command<{ id: string; no?: boolean }, unknown> = {
   name: 'events attend', summary: 'Attend an event (--no: no longer)', examples: ['breakrocks events attend <id>', 'breakrocks events attend <id> --no'],

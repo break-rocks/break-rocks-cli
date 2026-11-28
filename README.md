@@ -252,6 +252,7 @@ The tables come from the registry (`npx tsx scripts/commands-table.ts`); a test 
 | `me tour` | The app tour of the account and its preferences | `breakrocks me tour` |
 | `me tour skip` | Skip the app tour of the account | `breakrocks me tour skip` |
 | `me tour set` | Choose the tour mode, voice language or auto move on | `breakrocks me tour set --mode LISTEN` |
+| `me tips` | The gesture tips already shown | `breakrocks me tips` |
 | `me privacy share-activity` | Whether your close ones see your activity | `breakrocks me privacy share-activity` |
 | `me privacy share-activity set` | Share your activity with your close ones, or stop | `breakrocks me privacy share-activity set on` |
 | `me notifications` | Your notifications | `breakrocks me notifications --unread` |
@@ -1022,6 +1023,11 @@ the default flips with the release that moves the testers. `src/backend.ts`, `sr
   prints them; `proposals file` refuses before sending the kinds and changes the new backend does not file (`THEME`,
   `LAYOUT`, `APPEARANCE`, `PAGE`, `PLAYLIST`, `CHANNEL`, `TERRITORY`, `ADVERTISING`, `FOLDING_COEFFICIENT`,
   `SECOND_ROUND`; `watermark`, `appearance`, `channelAction`…). [docs/sulfur.md](docs/sulfur.md) § Messages, § Proposals.
+- **The schema resynced at server cc3f09f9 and 0c747737** (0.48.0): `universes profile set` (first focus, universe strip,
+  default and governance layouts), `look layouts publish|copy|delete` back, the catalog read without documents, the new
+  `Universe` fields in `universes show`, `REJOIN_WAIT` told with its date; the author role, views and moment of a post in
+  `posts list`; `events create|change --route-points` (a drawn route); `events support` answering the event; `me tips`.
+  [docs/sulfur.md](docs/sulfur.md) § Universe direction and layouts, § Posts, events and settings.
 - **Journey on dev**: `npm run e2e:sulfur` (`scripts/e2e-sulfur-dev.mjs`): a headless sign-up (the code on stdin, the handle
   taken), `whoami`, the profile with its avatar, posts (two images in the first post of a new universe's sub-level, a vertical clip when
   `BREAKROCKS_E2E_CLIP` names an MP4), a reply with an image, a quote and a repost into `%root`, a like, the thread, the
